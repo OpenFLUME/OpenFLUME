@@ -1,0 +1,26 @@
+# ---
+# dataset: liebenberg1965_la3426_tableII_parametric_study
+# source: Liebenberg, D.H., (sole author per OSTI record) "Cooldown of Cryogenic Transfer Lines",
+#   Los Alamos Scientific Laboratory Report LA-3426(-MS) (1965/1966).
+#   OSTI: https://www.osti.gov/servlets/purl/4579353
+# table: TABLE II "LH2 COOLDOWN TEST CELL 'C' - A PARAMETER STUDY USING METHOD 1"
+#   (calculated, IBM-7040; average vent gas temperature 140 K assumed; cooldown to second
+#   control valve through return loop; total mass 10000 lb with flanges, 6500 lb without)
+# columns: flange_weight,vent_valve,dewar_pressure_psi,cooldown_time_tau_s
+#   flange_weight: none or full (intermediate rows are ditto marks in the report)
+#   dewar_pressure_psi: report lists 50/60/70/80 (likely psig; report text uses 50 psig for tests)
+# extracted: 2026-08-04
+# ---
+flange_weight,vent_valve,dewar_pressure_psi,cooldown_time_tau_s
+none,full_area,50,260
+none,full_area,60,216
+none,full_area,70,185
+none,full_area,80,162
+none,75pct_full_area,50,368
+none,75pct_full_area,60,390
+none,75pct_full_area,70,333
+none,75pct_full_area,80,290
+full,full_area,50,342
+full,full_area,60,284
+full,full_area,70,243
+full,full_area,80,212

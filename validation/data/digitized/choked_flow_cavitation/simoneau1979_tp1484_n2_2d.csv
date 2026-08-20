@@ -1,0 +1,121 @@
+# SOURCE: simoneau1979_tp1484_choked_nozzles.pdf (NASA TP-1484)
+# CITATION: Simoneau, R. J., and Hendricks, R. C., 'Two-Phase Choked Flow of Cryogenic Fluids in Converging-Diverging Nozzles,' NASA Technical Paper 1484, July 1979.
+# URL: https://ntrs.nasa.gov/api/citations/19790021297/downloads/19790021297.pdf
+# TABLE: Table VIII - data for n2, 2d nozzle (sub-isotherms as printed). Run-summary columns only;
+#   the 15 axial station-pressure columns P1..P15 are NOT extracted
+#   (deferred; see EXTRACTION_NOTES.md backlog).
+# FLUID: n2.
+# COLUMNS:
+#   subtable        - sub-isotherm letter of the source table
+#   reading         - run/reading number as printed (e.g. 101-562
+#                     = run 101, reading 562)
+#   T0_K            - stagnation temperature, K
+#   P0_N_cm2        - stagnation pressure, N/cm^2 (10 kPa)
+#   Pb_N_cm2        - back pressure, N/cm^2
+#   Tb_K            - temperature at back condition, K
+#   Pt_P0           - throat-to-stagnation pressure ratio, -
+#   Gmax_g_cm2_s    - maximum (choked) mass flux, g/(cm^2 s)
+#   S0_J_g_K        - stagnation entropy, J/(g K) [computed, GASP]
+#   Psat_S0_N_cm2   - saturation pressure at S0, N/cm^2 [GASP]
+#   Psat_T0_N_cm2   - saturation pressure at T0, N/cm^2 [GASP]
+#   flags           - per-cell extraction flags: ocr = OCR-uncertain
+#                     (non-minimal-edit candidate); fused = cell
+#                     OCR'd as multiple tokens; img = transcribed
+#                     from page image (OCR-layer gap); missing =
+#                     cell absent from OCR layer / not tabulated
+# EXTRACTION: geometric reconstruction of the embedded OCR layer
+#   (PyMuPDF word coordinates; per-page de-skew + affine column
+#   calibration); numeric cleanup via ocr_clean.py bounds picking.
+#   Script: extract_tp1484.py (table VIII).
+subtable,reading,T0_K,P0_N_cm2,Pb_N_cm2,Tb_K,Pt_P0,Gmax_g_cm2_s,S0_J_g_K,Psat_S0_N_cm2,Psat_T0_N_cm2,flags
+a,1-386,94.8,71,42,91.8,.626,1730,.833,53,53,Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,299,95.2,108,71,95.4,0.468,2710,0.839,54,55,S0:ocr
+a,114,95.4,150,67,96,0.366,3530,0.838,54,56,S0:ocr
+a,115,95.3,185,58,95.7,0.309,4100,0.832,53,55,S0:ocr
+a,117,95.6,217,61,96.1,0.276,4530,0.835,53,57,
+a,291,95.6,248,102,96.1,0.251,4920,0.833,53,57,reading:ocr;S0:ocr
+a,119,95.1,287,90,95.7,0.225,5430,0.818,50,55,
+a,111,95.3,341,89,97.4,0.205,6010,0.815,50,55,
+a,290,95.2,373,86,95.9,0.196,6340,0.812,49,55,
+a,121,95.8,417,82,96.6,0.188,6730,0.819,50,57,S0:ocr
+a,136,95.5,462,130,96.5,0.174,7150,0.809,48,56,reading:ocr;P0:fused
+a,137,95.1,524,127,96.1,0.161,7690,0.794,46,54,reading:ocr
+a,141,95.4,526,121,96.4,0.161,7700,0.8,47,56,reading:ocr;S0:ocr
+a,125,95.6,555,90,96.7,0.161,7570,0.803,47,57,
+a,144,95.4,590,109,96.5,0.156,8200,0.796,46,56,reading:ocr
+a,288,95.4,611,105,96.6,0.155,8350,0.793,46,56,
+a,375,95.1,627,203,96.2,0.153,8510,0.787,45,55,Tb:img
+a,127,95.1,656,94,96.5,0.08,8080,0.783,44,54,
+a,372,95.4,674,108,96.7,0.149,8810,0.788,45,56,
+b,1-280,109.1,155,57,95.9,0.568,2320,1.148,139,140,Pb:img
+b,278,109.2,169,55,96.9,0.551,2520,1.147,139,140,Pb:img
+b,52,110.3,173,49,93.2,0.557,2490,1.172,148,149,reading:ocr;Pb:img
+b,42,109.8,188,46,93.5,0.533,2490,1.157,142,145,reading:ocr;Pb:img
+b,51,109.2,203,83,101.1,0.521,3020,1.14,136,140,reading:ocr
+b,276,108.9,254,75,98.1,0.467,3790,1.122,129,137,Pb:img
+b,48,109.9,267,72,99.6,.474,3710,1.145,137,146,Pb:img;PtP0:img
+b,40,110.4,273,64,98.6,0.471,3550,1.153,141,150,Pb:img
+b,274,109.1,313,86,101.7,0.402,4550,1.118,128,139,reading:ocr;Pb:img;G:img
+b,38,109.9,345,80,100.6,0.385,4720,1.13,132,146,reading:ocr;Pb:img
+b,36,110.1,407,87,102.3,0.337,5310,1.123,130,147,reading:ocr;Pb:img
+b,272,109.8,447,109,104.9,0.306,5900,1.112,126,145,
+b,34,109.8,517,104,104.2,0.273,6330,1.1,122,145,reading:ocr
+b,269,110,567,206,109.9,0.254,6920,1.097,121,147,P0:fused
+b,267,110,619,190,109.8,0.24,7410,1.099,118,146,
+b,44,110.9,663,114,105.5,0.239,7160,1.103,123,155,reading:ocr
+b,54,111.3,665,119,106.6,0.243,7320,1.111,126,158,reading:img;T0:img;P0:img;Pb:img
+c,1-368,118.8,245,62,96.1,.661,2770,1.381,234,236,PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,249,118.2,246,59,96.6,0.591,2710,1.363,226,229,G:img;S0:img;PsatS0:img;PsatT0:img
+c,360,119.6,247,78,100.1,0.379,2060,1.408,245,246,G:img;S0:img;PsatS0:img;PsatT0:img
+c,354,119.2,247,108,105.2,0.444,2420,1.394,239,241,Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,154,118.9,270,93,102.9,0.591,2920,1.375,231,238,reading:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,245,118.5,314,75,99.9,0.499,3560,1.344,218,233,reading:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,156,119.2,356,92,102.6,0.491,3900,1.347,219,241,reading:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,219,119,390,94,103.3,0.482,4290,1.332,213,239,reading:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,217,119,423,110,105.6,0.462,4660,1.321,208,239,reading:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,252,118.9,441,95,102.7,0.443,4900,1.314,205,237,reading:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,254,118.4,460,95,102.9,0.422,5160,1.297,198,231,reading:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,159,118.6,461,102,104,0.424,5120,1.303,200,234,reading:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,258,118.4,462,95,103.3,0.409,5310,1.291,196,231,reading:img;P0:img;Tb:img;Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,215,119,517,124,107.5,0.39,5560,1.297,198,238,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,162,118.9,568,145,110,0.355,6100,1.283,192,237,Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,164,119.2,614,158,111.5,0.335,6450,1.281,191,241,Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,212,118.8,678,125,107.5,0.302,7030,1.260,183,237,Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,1-231,123.7,327,57,95.6,.784,2390,1.519,289,302,PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,353,124,329,55,95.2,0.794,2300,1.528,292,305,G:img;S0:img;PsatS0:img;PsatT0:img
+d,288,124.8,330,53,94.6,0.633,2151,1.576,308,317,G:img;S0:img;PsatS0:img;PsatT0:img
+d,82,123.7,346,64,97.2,0.724,2770,1.498,282,301,Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,232,124.7,358,63,96.7,0.744,2710,1.533,294,317,G:img;S0:img;PsatS0:img;PsatT0:img
+d,210,123.6,377,72,99,0.621,3380,1.474,272,301,G:img;S0:img;PsatS0:img;PsatT0:img
+d,93,124.5,393,73,99.5,0.644,3340,1.495,281,314,Pb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,236,124.7,410,79,100.4,0.59,3650,1.489,278,316,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,207,124.2,426,131,108.1,0.55,3970,1.464,268,309,T0:img;Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,96,123.6,456,123,107.3,0.499,4380,1.432,255,300,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,200,123.7,486,92,103.1,0.476,4730,1.424,252,302,Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,84,124.3,528,107,104.5,0.458,5070,1.425,252,311,reading:img;Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,100,124.3,563,123,107.3,0.431,5380,1.412,247,310,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,197,124,602,146,109.9,0.399,5840,1.392,238,305,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,87,125.3,636,118,106.3,0.399,5880,1.415,248,325,reading:img;Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,105,125.3,636,114,106.0,0.401,5850,1.417,249,326,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,103,124.5,640,118,106.4,0.383,6040,1.394,239,313,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+d,101,124.6,670,121,106.9,0.373,6230,1.390,237,315,Pb:img;Tb:img;G:img;S0:img;PsatS0:img;PsatT0:img
+e,1-191,126.4,339,105,104.8,0.6,1590,0.967,330,,S0:ocr;PsatT0:na
+e,186,128.5,361,42,91.8,0.628,1690,0.992,324,,S0:ocr;PsatT0:na
+e,351,128.8,374,46,92.9,0.631,1800,0.922,336,,S0:ocr;PsatT0:na
+e,188,129.4,379,47,92.9,0.635,1820,0.955,333,,S0:ocr;PsatT0:na
+e,172,129.6,402,55,94.9,0.633,2190,1.798,344,,PsatT0:na
+e,347,129.3,406,59,95.4,0.644,2310,1.745,339,,P0:img;PsatT0:na
+e,174,129.8,423,60,96.1,0.664,2480,1.731,338,,PsatT0:na
+e,329,129.3,433,61,96.7,0.748,2760,1.668,330,,reading:ocr;PsatT0:na
+e,331,129.4,444,64,97.2,0.725,2950,1.654,328,,G:fused;PsatT0:na
+e,183,130.1,462,106,104.7,0.707,3050,1.661,329,,PsatT0:na
+e,344,129,475,137,108.9,0.646,3530,1.598,315,,reading:ocr;P0:fused;PtP0:ocr;PtP0:fused;PsatT0:na
+e,176,129.8,512,86,101.4,0.606,3900,1.597,315,,PsatT0:na
+e,343,129.5,545,88,102,0.55,4380,1.562,304,,PsatT0:na
+e,97,130.1,564,95,103,0.539,4490,1.568,306,,P0:fused;PsatT0:na
+e,340,129.6,597,238,119.2,0.5,4910,1.537,296,,P0:fused;PsatT0:na
+e,332,129.9,638,275,122,0.467,5250,1.526,292,,PsatS0:fused;PsatT0:na
+e,314,129.5,663,117,105.1,0.44,5580,1.506,285,,PsatT0:na
+e,178,129.9,680,113,105.5,0.435,5650,1.51,286,,P0:img;PsatT0:na
+e,336,284.7,343,107,280.4,0.566,870,3.298,,,PsatS0:na;PsatT0:na
+e,337,283.5,343,25,274.3,0.565,874,3.293,,,PsatS0:na;PsatT0:na

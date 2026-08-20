@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="470" viewBox="0 0 720 470" font-family="Helvetica, Arial, sans-serif">
+<rect width="720" height="470" fill="white"/>
+<text x="360" y="24" text-anchor="middle" font-size="15" font-weight="bold">Rigid-column transient configurations</text>
+<!-- (a) cases 1-2: inertial pipe between two pressure boundaries -->
+<text x="48" y="66" font-size="12" font-weight="bold">(a) Cases 1–2 — startup (step ΔP = 1 bar) and decay (ΔP removed)</text>
+<rect x="48" y="88" width="88" height="76" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="92" y="114" text-anchor="middle" font-size="11">P<tspan font-size="9" dy="3">A</tspan></text>
+<text x="92" y="130" text-anchor="middle" font-size="11">2 bar — case 1</text>
+<text x="92" y="146" text-anchor="middle" font-size="11">1 bar — case 2</text>
+<rect x="136" y="114" width="448" height="24" fill="#f5f0e6" stroke="#333" stroke-width="1.6"/>
+<text x="360" y="130" text-anchor="middle" font-size="11">pipe, inertia: true · L = 100 m, D = 100 mm, f = 0.02</text>
+<text x="360" y="106" text-anchor="middle" font-size="11.5">(L/A)·dṁ/dt + ΔP<tspan font-size="9" dy="3">f</tspan><tspan dy="-3">(ṁ)</tspan></text>
+<line x1="166" y1="152" x2="222" y2="152" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="222,152 211,146.5 211,157.5" fill="#1f5fa8"/>
+<text x="230" y="156" font-size="11.5">ṁ(t)</text>
+<rect x="584" y="88" width="88" height="76" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="628" y="114" text-anchor="middle" font-size="11">P<tspan font-size="9" dy="3">B</tspan></text>
+<text x="628" y="130" text-anchor="middle" font-size="11">1 bar</text>
+<text x="628" y="146" text-anchor="middle" font-size="11">(fixed)</text>
+<!-- (b) case 3: reservoir step against the gas cushion -->
+<text x="48" y="196" font-size="12" font-weight="bold">(b) Case 3 — oscillator: reservoir pressure step against the gas spring</text>
+<rect x="48" y="218" width="88" height="76" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="92" y="244" text-anchor="middle" font-size="11">P<tspan font-size="9" dy="3">R</tspan><tspan dy="-3">(t)</tspan></text>
+<text x="92" y="260" text-anchor="middle" font-size="11">1 → 2 bar</text>
+<text x="92" y="276" text-anchor="middle" font-size="11">step at t = 0</text>
+<rect x="136" y="244" width="420" height="24" fill="#f5f0e6" stroke="#333" stroke-width="1.6"/>
+<text x="346" y="260" text-anchor="middle" font-size="11">pipe, inertia: true · L = 10 m, D = 50 mm, roughness 10⁻⁶ m</text>
+<line x1="166" y1="282" x2="222" y2="282" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="222,282 211,276.5 211,287.5" fill="#1f5fa8"/>
+<polygon points="166,282 177,276.5 177,287.5" fill="#1f5fa8"/>
+<text x="230" y="286" font-size="11.5">ṁ(t) — oscillates</text>
+<text x="614" y="198" text-anchor="middle" font-size="11.5">gasCushion node</text>
+<rect x="557" y="207" width="114" height="43" fill="#fdeaea"/>
+<rect x="557" y="250" width="114" height="55.00000000000001" fill="#eef4fb"/>
+<line x1="557" y1="250" x2="671" y2="250" stroke="#666" stroke-width="1" stroke-dasharray="5 3"/>
+<rect x="556" y="206" width="116" height="100" fill="none" stroke="#333" stroke-width="1.6"/>
+<text x="614" y="218" text-anchor="middle" font-size="10.5">trapped gas</text>
+<text x="614" y="230.5" text-anchor="middle" font-size="10.5">P·V<tspan font-size="9" dy="3">g</tspan><tspan dy="-3">&#8319; = C</tspan></text>
+<text x="614" y="243" text-anchor="middle" font-size="10.5">V<tspan font-size="9" dy="3">g0</tspan><tspan dy="-3"> = 5 L, n = 1.4</tspan></text>
+<text x="614" y="276" text-anchor="middle" font-size="10.5">liquid</text>
+<text x="614" y="292" text-anchor="middle" font-size="10.5">V<tspan font-size="9" dy="3">tot</tspan><tspan dy="-3"> = 10 L</tspan></text>
+<!-- (c) case 4: constant flow source compressing the cushion -->
+<text x="48" y="336" font-size="12" font-weight="bold">(c) Case 4 — quasi-static compression: constant flow source, no pipe inertia</text>
+<rect x="48" y="358" width="88" height="76" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="92" y="384" text-anchor="middle" font-size="11">P<tspan font-size="9" dy="3">A</tspan></text>
+<text x="92" y="400" text-anchor="middle" font-size="11">1 bar</text>
+<text x="92" y="416" text-anchor="middle" font-size="11">(boundary)</text>
+<line x1="136" y1="396" x2="556" y2="396" stroke="#333" stroke-width="1.6"/>
+<circle cx="346" cy="396" r="20" fill="white" stroke="#333" stroke-width="1.6"/>
+<line x1="334" y1="396" x2="354" y2="396" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="358,396 347,390.5 347,401.5" fill="#1f5fa8"/>
+<text x="346" y="366" text-anchor="middle" font-size="11.5">flowSource: ṁ = 1.0 kg/s</text>
+<polygon points="556,396 545,390.5 545,401.5" fill="#333"/>
+<text x="614" y="338" text-anchor="middle" font-size="11.5">gasCushion node</text>
+<rect x="557" y="347" width="114" height="43" fill="#fdeaea"/>
+<rect x="557" y="390" width="114" height="55.00000000000001" fill="#eef4fb"/>
+<line x1="557" y1="390" x2="671" y2="390" stroke="#666" stroke-width="1" stroke-dasharray="5 3"/>
+<rect x="556" y="346" width="116" height="100" fill="none" stroke="#333" stroke-width="1.6"/>
+<text x="614" y="358" text-anchor="middle" font-size="10.5">trapped gas</text>
+<text x="614" y="370.5" text-anchor="middle" font-size="10.5">P·V<tspan font-size="9" dy="3">g</tspan><tspan dy="-3">&#8319; = C</tspan></text>
+<text x="614" y="383" text-anchor="middle" font-size="10.5">V<tspan font-size="9" dy="3">g0</tspan><tspan dy="-3"> = 5 L, n = 1.4</tspan></text>
+<text x="614" y="416" text-anchor="middle" font-size="10.5">liquid</text>
+<text x="614" y="432" text-anchor="middle" font-size="10.5">V<tspan font-size="9" dy="3">tot</tspan><tspan dy="-3"> = 10 L</tspan></text>
+</svg>

@@ -1,0 +1,48 @@
+# ---
+# dataset: hartwig2022_flight_test_matrix_ln2_microgravity
+# source: Hartwig, J., Chung, J.N., Dong, J., Han, B., Wang, H., Darr, S., Taliaferro, M., Jain, S., Rame, E.
+#   "Nitrogen flow boiling and chilldown experiments in microgravity using pulse flow and
+#    low-thermally conductive coatings", npj Microgravity 8, 33 (2022). doi:10.1038/s41526-022-00220-9
+# table: Table 1 "Flight test matrix" (p.5 of article PDF) - transcribed verbatim via pdftotext -layout
+# fluid: LN2; facility: NASA Glenn / UF parabolic-flight (C-9) chilldown rig, horizontal SS tube
+# tube: 1.27 cm OD stainless test section (see paper); coatings: "Bare" uncoated, "4L"/"7L" = 4 or 7 layers
+#   of low-thermal-conductivity coating on inner wall
+# columns:
+#   test_id,test_name,inlet_pressure_kPa,pulse_period_s,duty_cycle_pct,g_level_g0,coating,
+#   chilldown_time_s,total_chilldown_mass_kg,steady_state_re,steady_state_mass_flux_kg_m2_s,notes
+# notes_key: a=conducted over multi-parabolas (calcs include high-G part);
+#   b=airplane accelerated to 1 g before end of chilldown;
+#   c=initial temperature lower than other cases (not enough time to reheat);
+#   d=missing time-series mass flow rate data
+# pulse_period_s empty => continuous (trickle) flow, duty_cycle 100%
+# extracted: 2026-08-04
+# ---
+test_id,test_name,inlet_pressure_kPa,pulse_period_s,duty_cycle_pct,g_level_g0,coating,chilldown_time_s,total_chilldown_mass_kg,steady_state_re,steady_state_mass_flux_kg_m2_s,notes
+F1,Flight_day1_1,550,,100,0.38,Bare,15.1,1.08,71976,548.87,
+F2,Flight_day1_2,550,,100,0.05,Bare,14.6,0.872,67324,533.22,
+F3,Flight_day1_3,550,2,10,0.05,Bare,16,0.597,53859,426.58,
+F4,Flight_day1_4,550,3,10,0.05,Bare,16.7,0.614,64092,507.63,
+F5,Flight_day1_5,340,,100,0.05,Bare,70.6,0.264,1761,22.97,a
+F6,Flight_day1_6,340,4,10,0.05,Bare,78.1,0.279,1383,18.04,a
+F7,Flight_day2_1,550,3,7,0.38,Bare,21.3,0.637,32621,347.47,
+F8,Flight_day2_2,340,,100,0.05,Bare,80.3,0.279,1566,20.42,a
+F9,Flight_day2_3,340,5,4,0.05,Bare,162,0.304,881,11.49,a
+F10,Flight_day2_4,340,,100,0.05,Bare,172,0.16,992,15.94,a
+F11,Flight_day2_5,440,3,7,0.05,Bare,21.3,0.645,29761,306.99,b
+F12,Flight_day2_6,440,,100,0.05,Bare,21.1,1.174,53021,459.65,b
+F13,Flight_day3_1,550,,100,0.05,7L,8.19,0.469,63912,506.19,
+F14,Flight_day3_2,550,3,7,0.05,7L,9.94,0.339,38308,351.49,
+F15,Flight_day3_3,550,,100,0.05,7L,6.69,0.309,45760,340.84,
+F16,Flight_day3_4,550,3,7,0.05,7L,10,0.248,43178,329.21,
+F17,Flight_day3_5,340,,100,0.05,7L,12.8,0.0881,8945,73.36,
+F18,Flight_day3_6,440,3,7,0.05,7L,9.31,0.283,38265,364.8,
+F19,Flight_day3_7,440,,100,0.05,7L,7.06,0.514,83353,649.18,c
+F20,Flight_day3_8,440,,100,0.05,7L,7.88,0.585,88127,682.68,
+F21,Flight_day3_9,340,,100,0.05,7L,12.8,0.0855,10949,90.82,
+F22,Flight_day4_1,550,,100,0.05,4L,4.69,0.281,74196,558.16,d
+F23,Flight_day4_2,550,3,7,0.05,4L,9.06,0.269,46373,348.85,d
+F24,Flight_day4_3,550,2,10,0.05,4L,6.19,0.237,63067,474.44,d
+F25,Flight_day4_4,440,,100,0.05,4L,4.5,0.23,59931,476.14,d
+F26,Flight_day4_5,440,3,7,0.05,4L,10,0.288,50941,404.72,d
+F27,Flight_day4_6,340,,100,0.05,4L,7.81,0.0555,8061,66.22,d
+F28,Flight_day4_7,550,3,10,0.05,4L,7.25,0.274,64048,500.43,d

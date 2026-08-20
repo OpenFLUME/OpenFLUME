@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="300" viewBox="0 0 680 300" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="300" fill="white"/>
+<text x="340" y="26" text-anchor="middle" font-size="15" font-weight="bold">Converging-diverging nozzle (cases 4–5)</text>
+<polygon points="120,100 296,110 560,104 560,176 296,170 120,180" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<line x1="120" y1="140" x2="560" y2="140" stroke="#999" stroke-width="0.8" stroke-dasharray="6 4"/>
+<line x1="60" y1="140" x2="112" y2="140" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="112,140 100,134 100,146" fill="#1f5fa8"/>
+<text x="60" y="78" font-size="12">Inlet: P₁ = 50 psia, T₁ = 80 °F, M₁ = 0.25</text>
+<text x="60" y="94" font-size="12">f = 0.05; q = 0 (case 4) or constant wall flux (case 5)</text>
+<text x="114" y="198" font-size="12">D<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = 8 in</tspan></text>
+<text x="296" y="188" text-anchor="middle" font-size="12">D<tspan font-size="9" dy="3">t</tspan><tspan dy="-3"> = 6 in at x = 12 in</tspan></text>
+<text x="564" y="194" text-anchor="end" font-size="12">D<tspan font-size="9" dy="3">e</tspan><tspan dy="-3"> = 7.2 in</tspan></text>
+<line x1="120" y1="214" x2="560" y2="214" stroke="#666" stroke-width="1"/>
+<line x1="120" y1="208" x2="120" y2="220" stroke="#666" stroke-width="1"/>
+<line x1="560" y1="208" x2="560" y2="220" stroke="#666" stroke-width="1"/>
+<text x="340" y="232" text-anchor="middle" font-size="12">L = 30 in, linearly varying diameter</text>
+<text x="340" y="288" text-anchor="middle" font-size="12">Figure 2. Schematic of the converging-diverging nozzle (dimensions chosen for this study; the paper's are arbitrary).</text>
+</svg>

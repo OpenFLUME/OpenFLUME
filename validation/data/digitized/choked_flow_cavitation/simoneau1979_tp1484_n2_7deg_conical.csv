@@ -1,0 +1,149 @@
+# SOURCE: simoneau1979_tp1484_choked_nozzles.pdf (NASA TP-1484)
+# CITATION: Simoneau, R. J., and Hendricks, R. C., 'Two-Phase Choked Flow of Cryogenic Fluids in Converging-Diverging Nozzles,' NASA Technical Paper 1484, July 1979.
+# URL: https://ntrs.nasa.gov/api/citations/19790021297/downloads/19790021297.pdf
+# TABLE: Table VI - data for n2, 7deg conical nozzle (sub-isotherms as printed). Run-summary columns only;
+#   the 15 axial station-pressure columns P1..P15 are NOT extracted
+#   (deferred; see EXTRACTION_NOTES.md backlog).
+# FLUID: n2.
+# COLUMNS:
+#   subtable        - sub-isotherm letter of the source table
+#   reading         - run/reading number as printed (e.g. 101-562
+#                     = run 101, reading 562)
+#   T0_K            - stagnation temperature, K
+#   P0_N_cm2        - stagnation pressure, N/cm^2 (10 kPa)
+#   Pb_N_cm2        - back pressure, N/cm^2
+#   Tb_K            - temperature at back condition, K
+#   Pt_P0           - throat-to-stagnation pressure ratio, -
+#   Gmax_g_cm2_s    - maximum (choked) mass flux, g/(cm^2 s)
+#   S0_J_g_K        - stagnation entropy, J/(g K) [computed, GASP]
+#   Psat_S0_N_cm2   - saturation pressure at S0, N/cm^2 [GASP]
+#   Psat_T0_N_cm2   - saturation pressure at T0, N/cm^2 [GASP]
+#   flags           - per-cell extraction flags: ocr = OCR-uncertain
+#                     (non-minimal-edit candidate); fused = cell
+#                     OCR'd as multiple tokens; img = transcribed
+#                     from page image (OCR-layer gap); missing =
+#                     cell absent from OCR layer / not tabulated
+# EXTRACTION: geometric reconstruction of the embedded OCR layer
+#   (PyMuPDF word coordinates; per-page de-skew + affine column
+#   calibration); numeric cleanup via ocr_clean.py bounds picking.
+#   Script: extract_tp1484.py (table VI).
+subtable,reading,T0_K,P0_N_cm2,Pb_N_cm2,Tb_K,Pt_P0,Gmax_g_cm2_s,S0_J_g_K,Psat_S0_N_cm2,Psat_T0_N_cm2,flags
+a,101-562,95,60,25,86.2,0.543,1580,0.84,54,54,
+a,551,94.7,78,21,84.1,0.504,2000,0.83,52,53,S0:ocr
+a,504,95,90,37,90.6,0.491,2290,0.836,53,54,S0:ocr;reading:img;T0:img;P0:img;Pb:img;Tb:img
+a,559,94.9,111,26,86.9,0.434,2840,0.83,52,53,S0:ocr;PsatT0:img
+a,547,94.8,130,33,88,0.376,3240,0.827,52,,S0:ocr;PsatT0:ditto_arrow
+a,491,95.3,142,55,95.2,0.346,3450,0.837,54,,PsatT0:ditto_arrow
+a,544,94.8,195,40,90.7,0.257,4350,0.821,51,,S0:ocr;PsatT0:ditto_arrow
+a,541,95.1,246,85,95.5,0.207,5050,0.822,51,54,
+a,500,95,284,58,95.5,0.177,5540,0.815,49,54,S0:ocr;Pb:img
+a,539,95.3,338,72,95.9,0.151,6130,.817,50,55,Pb:img;S0:img;PsatS0:img;PsatT0:img
+a,498,95.5,407,64,96.4,.125,6770,.814,49,56,Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,529,95.2,411,53,94.8,.121,6850,.808,48,55,Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,532,94.9,473,87,95.8,.103,7440,.796,46,54,Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,524,95.3,535,77,96.3,.092,7950,.799,47,55,Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,556,95.7,594,91,96.8,.085,8400,.801,47,57,P0:fused;Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+a,488,94.9,646,32,89.1,.071,8840,0.781,44,54,Pb:img;PtP0:img;G:img;PsatS0:img;PsatT0:img
+a,506,94.5,659,61,95.9,.071,8960,.771,42,52,Pb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+b,101-906,109.9,162,29,87.5,0.441,2840,1.164,145,146,
+b,920,110.3,169,28,87.1,0.436,2860,1.173,148,149,
+b,480,109.6,178,46,93.1,0.411,3120,1.154,141,143,
+b,857,109.9,200,52,94.8,0.423,3340,1.155,141,145,
+b,478,109.7,216,61,96.7,0.404,3510,1.149,139,144,reading:img
+b,863,110.3,241,57,96.5,0.418,3660,1.158,143,149,S0:img
+b,874,109.8,251,36,89.9,.428,3780,1.145,138,145,PtP0:img
+b,457,110.4,265,51,94.4,0.426,3880,1.156,142,151,
+b,865,110.5,268,48,93.8,0.429,3940,1.156,142,151,P0:fused;reading:img
+b,868,109.9,283,38,90.8,0.421,4170,1.14,136,146,
+b,879,109.9,295,65,97.7,0.409,4360,1.137,135,146,P0:img
+b,889,109.8,307,64,97.3,0.398,4530,1.135,134,145,reading:img
+b,476,110,319,76,99.7,.388,4630,1.136,134,146,PtP0:img
+b,902,110.4,336,93,103,0.379,4800,1.141,136,150,G:img
+b,461,110.1,348,67,98,0.362,4980,1.134,134,148,
+b,881,110.3,367,84,101.5,0.347,5180,1.135,134,150,
+b,891,109.9,376,58,96.1,0.331,5310,1.124,130,146,
+b,907,110.5,390,65,97.5,0.331,5400,1.134,134,151,
+b,482,110,391,76,100,0.317,5480,1.124,130,147,P0:fused;PsatT0:img
+b,910,110.1,426,50,94,0.294,5820,1.12,129,,G:img;PsatT0:ditto_arrow
+b,894,110,454,52,94.4,0.273,6110,1.115,127,,G:img;PsatT0:ditto_arrow
+b,921,110,472,66,101.5,0.265,6250,1.112,126,,PsatT0:ditto_arrow
+b,895,109.9,520,101,104.2,0.236,6710,1.103,123,146,reading:img
+b,914,110.1,543,56,95.5,0.228,6910,1.103,123,147,
+b,456,109.8,566,37,90.7,0.214,7130,1.093,120,145,T0:img
+b,474,110.3,617,74,99.5,0.199,7510,1.097,121,150,G:fused
+b,918,109.9,645,61,96.8,0.189,7710,1.066,117,146,reading:img;T0:img;S0:img
+b,460,109.9,664,40,91.7,0.161,7890,1.083,116,146,reading:img;T0:img;PtP0:img
+c,101-612,119.2,263,43,92.4,0.608,2990,1.387,236,242,reading:img
+c,648,119.3,281,34,89.6,0.555,3270,1.381,234,243,
+c,587,119.3,289,71,98.9,0.524,3440,1.377,232,243,reading:ocr
+c,669,119.1,294,37,90.5,.492,3570,1.368,228,240,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,657,119.1,313,54,95.3,.451,3790,1.362,225,240,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,656,118.8,317,40,91.3,.428,3900,1.351,221,237,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,603,118.8,322,40,91.5,.423,3950,1.350,220,237,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,606,119.2,345,78,100.2,.410,4110,1.351,221,241,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,597,119.1,361,42,92.0,.407,4210,1.343,217,240,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,572,119.8,379,73,99.2,.408,4340,1.355,223,249,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,615,119.7,407,44,92.8,.416,4540,1.345,218,248,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,617,119,441,50,93.9,.412,4970,1.316,206,239,P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,590,119.4,474,80,100.5,0.4,5260,1.318,207,244,reading:img;T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:img
+c,649,119.9,503,91,102.6,0.387,5480,1.323,209,251,reading:img;T0:img
+c,578,119.5,525,81,100.9,0.366,5760,1.307,202,245,reading:img;T0:img
+c,619,119.5,549,56,95.8,0.348,5980,1.301,200,245,reading:img;T0:img
+c,651,119.6,578,81,100.8,0.33,6260,1.296,198,246,reading:img;T0:img
+c,594,119.8,602,80,100.8,0.319,6430,1.296,198,249,reading:img;T0:img
+c,671,119.2,624,61,96.8,0.297,6690,1.278,190,241,reading:img;T0:img
+c,592,119.2,661,78,100.3,0.281,6970,1.272,187,242,reading:img;T0:img
+d,101-690,124.1,339,29,87.7,0.762,2530,1.526,292,308,
+d,692,124.1,358,33,89.2,0.692,2980,1.508,285,,P0:fused;G:img;PsatT0:ditto_arrow
+d,627,124.1,375,37,90.4,0.637,3310,1.492,280,,PsatT0:ditto_arrow
+d,694,124.1,392,38,90.9,0.592,3590,1.483,276,,PsatT0:ditto_arrow
+d,696,124.3,409,41,91.7,0.557,3820,1.478,274,310,
+d,702,124.4,423,73,99.4,0.531,4000,1.472,272,312,
+d,628,124.4,429,55,95.6,0.521,4080,1.469,270,312,
+d,705,124.1,437,44,92.7,0.491,4250,1.455,265,307,reading:img;T0:img
+d,708,124.5,450,70,98.8,0.491,4320,1.463,268,314,reading:img;T0:img
+d,712,124.2,451,71,99.1,0.476,4400,1.452,263,309,reading:img;T0:img
+d,673,124,456,45,93,0.46,4460,1.445,261,306,PsatS0:fused;reading:img;T0:img;PtP0:img;G:img
+d,714,124.3,457,61,96.9,0.469,4430,1.453,264,310,reading:img;T0:img;PtP0:img;G:img;P0:img
+d,719,124.3,473,69,98.7,0.452,4610,1.446,261,311,reading:img;T0:img;PtP0:img;G:img
+d,722,124.1,483,48,93.8,0.44,4730,1.436,257,307,reading:img;T0:img;PtP0:img;G:img
+d,631,124.4,492,49,93.9,0.44,4780,1.441,259,312,P0:fused;reading:img;T0:img;PtP0:img;G:img
+d,726,124.5,511,50,94.3,0.435,4950,1.437,258,314,reading:img;T0:img;PtP0:img;G:img
+d,677,124.3,530,50,94.6,0.421,5170,1.425,252,311,reading:img;T0:img;PtP0:img;G:img
+d,633,124.7,562,54,95.4,0.41,5430,1.425,252,317,P0:fused;reading:img;T0:img;PtP0:img;G:img
+d,733,124.5,584,79,100.5,0.392,5680,1.41,246,313,reading:img;T0:img;PtP0:img;G:img
+d,678,124.5,598,84,101.3,0.382,5810,1.406,244,313,reading:img;T0:img;PtP0:img;G:img
+d,636,124.8,632,88,102.1,0.366,6070,1.405,244,319,reading:img;T0:img;PtP0:img;G:img
+d,680,124.9,666,86,102,0.344,6320,1.397,240,319,reading:img;T0:img;PtP0:img;G:img
+e,101-762,129.9,377,23,85.5,0.613,1740,2.008,322,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,766,129.9,393,26,86.3,.626,1950,1.891,339,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,768,130.0,411,28,87.5,.622,2250,1.795,341,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,746,130.3,418,59,96.3,.624,2300,1.791,341,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,773,130.0,425,58,96.2,.651,2480,1.737,338,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,781,130.0,427,32,88.4,.653,2520,1.733,338,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,778,130.0,431,54,95.4,.654,2590,1.721,337,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,805,129.9,434,43,92.2,.729,2650,1.704,335,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,806,129.9,434,32,88.7,.709,2630,1.708,336,,T0:img;P0:ditto;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,789,129.9,434,67,98.2,.734,2660,1.702,335,,T0:img;P0:ditto;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,790,129.9,434,32,88.8,.715,2640,1.708,336,,T0:img;P0:ditto;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,791,130.1,434,45,93.0,.668,2600,1.719,337,,T0:img;P0:ditto;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,787,130.0,438,87,101.8,.737,2670,1.703,335,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,796,129.9,440,33,89.1,.737,2750,1.691,334,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,793,130.0,445,78,100.2,.727,2850,1.684,333,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,799,130.1,451,83,101.5,.719,2880,1.682,332,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,802,129.9,458,36,90.2,.692,3100,1.658,328,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,845,129.9,465,53,94.9,.676,3230,1.647,326,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,834,130.0,472,39,91.1,.667,3310,1.645,326,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,813,130.1,481,40,91.4,.650,3440,1.639,325,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,814,130.1,498,67,98.2,.616,3720,1.621,321,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,819,130.2,517,44,92.6,.584,3940,1.607,317,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,755,130.0,531,46,93.0,.557,4190,1.590,313,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,821,130.0,547,48,93.6,.531,4390,1.578,309,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,848,129.7,562,50,94.1,.504,4630,1.558,303,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,826,130.3,586,95,103.0,.490,4810,1.563,304,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,851,129.9,597,83,101.0,.468,4980,1.545,298,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,835,130.3,637,97,103.4,.439,5320,1.537,296,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,751,130.0,658,58,96.0,.418,5570,1.521,290,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,852,130.1,681,87,102.0,.404,5750,1.514,288,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:img;PsatT0:na
+e,717,273.0,356,98,266.9,.522,843,3.239,,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:na;PsatT0:na
+e,718,271.2,356,18,263.4,.522,850,3.232,,,T0:img;P0:img;Pb:img;Tb:img;PtP0:img;G:img;S0:img;PsatS0:na;PsatT0:na

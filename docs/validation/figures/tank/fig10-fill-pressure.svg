@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Adiabatic fill: tank pressure</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0</text>
+<line x1="192" y1="46" x2="192" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="192" y="390" text-anchor="middle" font-size="11">1</text>
+<line x1="308" y1="46" x2="308" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="308" y="390" text-anchor="middle" font-size="11">2</text>
+<line x1="424" y1="46" x2="424" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="424" y="390" text-anchor="middle" font-size="11">3</text>
+<line x1="540" y1="46" x2="540" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="540" y="390" text-anchor="middle" font-size="11">4</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="76" y1="354.5357142857143" x2="656" y2="354.5357142857143" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="358.5357142857143" text-anchor="end" font-size="11">1</text>
+<line x1="76" y1="281.7688133607981" x2="656" y2="281.7688133607981" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="285.7688133607981" text-anchor="end" font-size="11">2</text>
+<line x1="76" y1="209.00191243588193" x2="656" y2="209.00191243588193" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="213.00191243588193" text-anchor="end" font-size="11">3</text>
+<line x1="76" y1="136.23501151096573" x2="656" y2="136.23501151096573" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="140.23501151096573" text-anchor="end" font-size="11">4</text>
+<line x1="76" y1="63.46811058604959" x2="656" y2="63.46811058604959" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="67.46811058604959" text-anchor="end" font-size="11">5</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Time t [s]</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Tank pressure [bar]</text>
+<path d="M76.0,354.5 L78.4,342.4 L80.8,330.5 L83.1,318.9 L85.5,307.6 L87.9,296.5 L90.3,285.6 L92.6,275.1 L95.0,264.7 L97.4,254.7 L99.8,244.9 L102.2,235.3 L104.5,226.0 L106.9,217.0 L109.3,208.2 L111.7,199.7 L114.0,191.5 L116.4,183.5 L118.8,175.7 L121.2,168.2 L123.6,161.0 L125.9,154.1 L128.3,147.3 L130.7,140.9 L133.1,134.7 L135.4,128.8 L137.8,123.1 L140.2,117.7 L142.6,112.5 L145.0,107.6 L147.3,103.0 L149.7,98.6 L152.1,94.5 L154.5,90.6 L156.9,87.0 L159.2,83.6 L161.6,80.5 L164.0,77.7 L166.4,75.1 L168.7,72.8 L171.1,70.7 L173.5,68.9 L175.9,67.4 L178.3,66.1 L180.6,65.0 L183.0,64.3 L185.4,63.8 L187.8,63.5 L190.1,63.5 L192.5,63.5 L194.9,63.5 L197.3,63.5 L199.7,63.5 L202.0,63.5 L204.4,63.5 L206.8,63.5 L209.2,63.5 L211.5,63.5 L213.9,63.5 L216.3,63.5 L218.7,63.5 L221.1,63.5 L223.4,63.5 L225.8,63.5 L228.2,63.5 L230.6,63.5 L232.9,63.5 L235.3,63.5 L237.7,63.5 L240.1,63.5 L242.5,63.5 L244.8,63.5 L247.2,63.5 L249.6,63.5 L252.0,63.5 L254.3,63.5 L256.7,63.5 L259.1,63.5 L261.5,63.5 L263.9,63.5 L266.2,63.5 L268.6,63.5 L271.0,63.5 L273.4,63.5 L275.8,63.5 L278.1,63.5 L280.5,63.5 L282.9,63.5 L285.3,63.5 L287.6,63.5 L290.0,63.5 L292.4,63.5 L294.8,63.5 L297.2,63.5 L299.5,63.5 L301.9,63.5 L304.3,63.5 L306.7,63.5 L309.0,63.5 L311.4,63.5 L313.8,63.5 L316.2,63.5 L318.6,63.5 L320.9,63.5 L323.3,63.5 L325.7,63.5 L328.1,63.5 L330.4,63.5 L332.8,63.5 L335.2,63.5 L337.6,63.5 L340.0,63.5 L342.3,63.5 L344.7,63.5 L347.1,63.5 L349.5,63.5 L351.8,63.5 L354.2,63.5 L356.6,63.5 L359.0,63.5 L361.4,63.5 L363.7,63.5 L366.1,63.5 L368.5,63.5 L370.9,63.5 L373.3,63.5 L375.6,63.5 L378.0,63.5 L380.4,63.5 L382.8,63.5 L385.1,63.5 L387.5,63.5 L389.9,63.5 L392.3,63.5 L394.7,63.5 L397.0,63.5 L399.4,63.5 L401.8,63.5 L404.2,63.5 L406.5,63.5 L408.9,63.5 L411.3,63.5 L413.7,63.5 L416.1,63.5 L418.4,63.5 L420.8,63.5 L423.2,63.5 L425.6,63.5 L427.9,63.5 L430.3,63.5 L432.7,63.5 L435.1,63.5 L437.5,63.5 L439.8,63.5 L442.2,63.5 L444.6,63.5 L447.0,63.5 L449.3,63.5 L451.7,63.5 L454.1,63.5 L456.5,63.5 L458.9,63.5 L461.2,63.5 L463.6,63.5 L466.0,63.5 L468.4,63.5 L470.7,63.5 L473.1,63.5 L475.5,63.5 L477.9,63.5 L480.3,63.5 L482.6,63.5 L485.0,63.5 L487.4,63.5 L489.8,63.5 L492.2,63.5 L494.5,63.5 L496.9,63.5 L499.3,63.5 L501.7,63.5 L504.0,63.5 L506.4,63.5 L508.8,63.5 L511.2,63.5 L513.6,63.5 L515.9,63.5 L518.3,63.5 L520.7,63.5 L523.1,63.5 L525.4,63.5 L527.8,63.5 L530.2,63.5 L532.6,63.5 L535.0,63.5 L537.3,63.5 L539.7,63.5 L542.1,63.5 L544.5,63.5 L546.8,63.5 L549.2,63.5 L551.6,63.5 L554.0,63.5 L556.4,63.5 L558.7,63.5 L561.1,63.5 L563.5,63.5 L565.9,63.5 L568.2,63.5 L570.6,63.5 L573.0,63.5 L575.4,63.5 L577.8,63.5 L580.1,63.5 L582.5,63.5 L584.9,63.5 L587.3,63.5 L589.6,63.5 L592.0,63.5 L594.4,63.5 L596.8,63.5 L599.2,63.5 L601.5,63.5 L603.9,63.5 L606.3,63.5 L608.7,63.5 L611.0,63.5 L613.4,63.5 L615.8,63.5 L618.2,63.5 L620.6,63.5 L622.9,63.5 L625.3,63.5 L627.7,63.5 L630.1,63.5 L632.5,63.5 L634.8,63.5 L637.2,63.5 L639.6,63.5 L642.0,63.5 L644.3,63.5 L646.7,63.5 L649.1,63.5 L651.5,63.5 L653.9,63.5 L656.0,63.5" fill="none" stroke="#000000" stroke-width="1.8"/>
+<circle cx="76" cy="354.5357142857143" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="105" cy="227.4616694744862" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="134" cy="137.4277447334331" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="163" cy="83.74212589057402" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="192" cy="64.18231671826186" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="221" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="250" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="279" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="308" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="337" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="366" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="395" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="424" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="453" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="482" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="511" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="540" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="569" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="598" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="627" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="63.468110586049534" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="463.2" y="318" width="184.8" height="46" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="471.2" y1="328" x2="493.2" y2="328" stroke="#000000" stroke-width="1.8"/>
+<text x="499.2" y="332" font-size="11">Analytical (RK4)</text>
+<circle cx="482.2" cy="346" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="499.2" y="350" font-size="11">Numerical, dt = 0.05 s</text>
+</svg>

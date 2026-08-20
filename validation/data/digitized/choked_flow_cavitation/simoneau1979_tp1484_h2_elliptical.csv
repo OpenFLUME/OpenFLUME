@@ -1,0 +1,51 @@
+# SOURCE: simoneau1979_tp1484_choked_nozzles.pdf (NASA TP-1484)
+# CITATION: Simoneau, R. J., and Hendricks, R. C., 'Two-Phase Choked Flow of Cryogenic Fluids in Converging-Diverging Nozzles,' NASA Technical Paper 1484, July 1979.
+# URL: https://ntrs.nasa.gov/api/citations/19790021297/downloads/19790021297.pdf
+# TABLE: Table XI - data for h2, elliptical nozzle (sub-isotherms as printed). Run-summary columns only;
+#   the 15 axial station-pressure columns P1..P15 are NOT extracted
+#   (deferred; see EXTRACTION_NOTES.md backlog).
+# FLUID: h2.
+# COLUMNS:
+#   subtable        - sub-isotherm letter of the source table
+#   reading         - run/reading number as printed (e.g. 101-562
+#                     = run 101, reading 562)
+#   T0_K            - stagnation temperature, K
+#   P0_N_cm2        - stagnation pressure, N/cm^2 (10 kPa)
+#   Pb_N_cm2        - back pressure, N/cm^2
+#   Tb_K            - temperature at back condition, K
+#   Pt_P0           - throat-to-stagnation pressure ratio, -
+#   Gmax_g_cm2_s    - maximum (choked) mass flux, g/(cm^2 s)
+#   S0_J_g_K        - stagnation entropy, J/(g K) [computed, GASP]
+#   Psat_S0_N_cm2   - saturation pressure at S0, N/cm^2 [GASP]
+#   Psat_T0_N_cm2   - saturation pressure at T0, N/cm^2 [GASP]
+#   flags           - per-cell extraction flags: ocr = OCR-uncertain
+#                     (non-minimal-edit candidate); fused = cell
+#                     OCR'd as multiple tokens; img = transcribed
+#                     from page image (OCR-layer gap); missing =
+#                     cell absent from OCR layer / not tabulated
+# EXTRACTION: geometric reconstruction of the embedded OCR layer
+#   (PyMuPDF word coordinates; per-page de-skew + affine column
+#   calibration); numeric cleanup via ocr_clean.py bounds picking.
+#   Script: extract_tp1484.py (table XI).
+subtable,reading,T0_K,P0_N_cm2,Pb_N_cm2,Tb_K,Pt_P0,Gmax_g_cm2_s,S0_J_g_K,Psat_S0_N_cm2,Psat_T0_N_cm2,flags
+a,,,,,,0.113,1870,10.39,,,T0:missing;P0:missing;Pb:missing;Tb:missing;PsatS0:missing;PsatT0:missing
+a,,,,,,0.104,2090,10.8,,,T0:missing;P0:missing;Pb:missing;Tb:missing;PsatS0:missing;PsatT0:missing
+a,,,,,,0.098,2210,10.7,,,T0:missing;P0:missing;Pb:missing;Tb:missing;PsatS0:missing;PsatT0:missing
+a,,,,,,0.074,2500,10.19,,60,T0:unparsed;P0:missing;Pb:missing;Tb:missing;PsatS0:missing
+a,,,,,,0.075,2510,10.38,33,65,T0:unparsed;P0:missing;Pb:missing;Tb:missing
+b,,29,,,,,890,13.27,83,92,T0:ocr;P0:missing;Pb:missing;Tb:missing;PtP0:missing
+b,,,213,,,0.232,1370,11.66,53,70,T0:missing;Pb:missing;Tb:missing
+b,,28.8,277,,,0.22,1570,12.02,59,86,T0:ocr;Pb:missing;Tb:missing
+b,,35.6,342,,,0.139,1840,11.38,48,76,T0:ocr;T0:fused;Pb:missing;Tb:missing
+b,,36,346,,,0.185,1850,11.37,48,76,T0:ocr;Pb:missing;Tb:missing
+b,,,356,,,0.154,1830,11.84,56,90,T0:missing;Pb:missing;Tb:missing
+b,,,405,,,,2050,11,43,71,T0:missing;Pb:missing;Tb:missing;PtP0:missing
+b,,42.1,405,,,0.128,1990,11.53,51,86,T0:ocr;Pb:missing;Tb:missing
+b,,42.5,409,,,0.119,2020,11.3,47,80,T0:ocr;Pb:missing;Tb:missing
+c,,,11.64,,,,900,14.1,97,117,T0:missing;P0:ocr;Pb:missing;Tb:missing;PtP0:missing
+c,,,,,,0.276,1270,12.72,72,96,T0:missing;P0:missing;Pb:missing;Tb:missing
+c,,,,,,0.298,1190,13.47,86,115,T0:missing;P0:missing;Pb:missing;Tb:missing
+c,,,,,,0.231,1500,12.56,69,101,T0:missing;P0:missing;Pb:missing;Tb:missing
+c,,,,,,0.26,1430,13.09,79,117,T0:missing;P0:missing;Pb:missing;Tb:missing
+c,,,,,,0.225,1520,12.52,69,101,T0:missing;P0:missing;Pb:missing;Tb:missing
+c,,29.4,,,,0.252,1420,12.98,77,115,T0:ocr;T0:fused;P0:missing;Pb:missing;Tb:missing

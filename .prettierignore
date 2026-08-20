@@ -1,0 +1,9 @@
+dist/
+coverage/
+node_modules/
+playwright-report/
+test-results/
+validation/
+docs/validation/figures/
+public/*.svg
+src/core/fluids/generatedFluidCatalogue.ts

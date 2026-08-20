@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="300" viewBox="0 0 720 300" font-family="Helvetica, Arial, sans-serif">
+<rect width="720" height="300" fill="white"/>
+<text x="360" y="24" text-anchor="middle" font-size="15" font-weight="bold">Single-tank transient layout (cases 1, 2, 4, 5)</text>
+<rect x="110" y="92" width="150" height="105" rx="10" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="185" y="132.5" text-anchor="middle" font-size="13">Tank (internal node)</text>
+<text x="185" y="152.5" text-anchor="middle" font-size="13">V = 0.1 m³</text>
+<text x="185" y="172.5" text-anchor="middle" font-size="13">m(t), U(t) → P(t), T(t)</text>
+<line x1="260" y1="144.5" x2="358" y2="144.5" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="358,144.5 346,138.5 346,150.5" fill="#1f5fa8"/>
+<polygon points="362,144.5 362,128.5 380,144.5 362,160.5" fill="none" stroke="#333" stroke-width="1.6"/>
+<polygon points="398,144.5 398,128.5 380,144.5 398,160.5" fill="none" stroke="#333" stroke-width="1.6"/>
+<text x="380" y="118.5" text-anchor="middle" font-size="12">orifice / resistance / valve</text>
+<line x1="402" y1="144.5" x2="530" y2="144.5" stroke="#1f5fa8" stroke-width="2.2"/>
+<polygon points="530,144.5 518,138.5 518,150.5" fill="#1f5fa8"/>
+<circle cx="560" cy="144.5" r="28" fill="#fdf2e3" stroke="#333" stroke-width="1.6"/>
+<text x="560" y="142.5" text-anchor="middle" font-size="12">boundary</text>
+<text x="560" y="158.5" text-anchor="middle" font-size="12">P<tspan font-size="9" dy="3">b</tspan><tspan dy="-3">, T</tspan><tspan font-size="9" dy="3">b</tspan></text>
+<text x="110" y="231" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orificeCompressible C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
+<text x="110" y="249" font-size="12">Case 4 (charge): 5 bar / 300 K supply boundary → resistance (K = 10, A = 10⁻³ m²) → tank initially at 1 bar</text>
+<text x="110" y="267" font-size="12">Case 5 (schedule): tank at 5 bar → valve (position ramps 0 → 1 over 2 s) → orifice → 1 bar boundary</text>
+<text x="360" y="292" text-anchor="middle" font-size="12">Figure 1. Lumped tank connected to a pressure boundary through a flow component.</text>
+</svg>

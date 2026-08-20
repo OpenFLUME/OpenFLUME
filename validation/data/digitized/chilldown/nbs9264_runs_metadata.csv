@@ -1,0 +1,16 @@
+# SOURCE: Brennan et al., NBS Report 9264, 1966; NASA-CR-81338
+# CITATION: Brennan, J.A., Brentari, E.G., Smith, R.V., Steward, W.G., 'Cooldown of Cryogenic Transfer Lines - An Experimental Report', NBS Report 9264 (NASA-CR-81338), Nov 7, 1966; NTRS 19670007291
+# CONTENTS: one row per digitized transient figure (Figs 2-7 LH2, 10-14 LN2 = the 11 CRTech-priority runs); per-point wall-T histories in nbs9264_fig*.csv (long format time_s,station_m,T_wall_K)
+# NOTES: line is vacuum-jacketed, horizontal copper; stations_m = wall-TC positions from supply dewar (report Fig. 1; 20/80/141/198 ft); pdf_page = figure + 22; liquid_state per report sec.3 (subcooled = liquid saturated at ~0.82 atm then pressurized, T_L~19.5 K H2 / 76 K N2; saturated = liquid equilibrated at P_drive, T_inlet_K = Tsat(P_drive), CoolProp); P_drive_Pa = P_drive_atm x 101325 (as in per-figure CSV headers); time_span_s = max time_s in the figure CSV; digitized 2026-08-05, promoted to hand-clicked clicker gold 2026-08-13 (nbs9264_clicker/promote_to_canonical.py), see nbs9264_digitization_log.md
+figure,fluid,liquid_state,P_drive_atm,P_drive_Pa,T_inlet_K,line_length_m,ID_cm,material,stations_m,time_span_s,pdf_page
+2,LH2,saturated,5.1,516757,27.4,61.0,1.59,copper,6.1;24.4;43.0;60.4,79.96,24
+3,LH2,subcooled,2.5,253312,19.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,150,25
+4,LH2,subcooled,4.2,425565,19.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,74.98,26
+5,LH2,subcooled,5.9,597817,19.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,64.92,27
+6,LH2,subcooled,7.6,770070,19.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,43.97,28
+7,LH2,subcooled,11.0,1114575,19.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,27.911,29
+10,LN2,saturated,2.5,253312,86.1,61.0,1.59,copper,6.1;24.4;43.0;60.4,249.8,32
+11,LN2,saturated,3.4,344505,89.5,61.0,1.59,copper,6.1;24.4;43.0;60.4,239.8,33
+12,LN2,saturated,5.9,597817,96.3,61.0,1.59,copper,6.1;24.4;43.0;60.4,129.8,34
+13,LN2,subcooled,4.2,425565,76.0,61.0,1.59,copper,6.1;24.4;43.0;60.4,132,35
+14,LN2,subcooled,5.9,597817,76.0,61.0,1.59,copper,6.1;24.4;43.0;60.4,89.925,36

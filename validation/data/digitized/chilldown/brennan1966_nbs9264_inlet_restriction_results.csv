@@ -1,0 +1,38 @@
+# ---
+# dataset: brennan1966_nbs9264_inlet_restriction_results
+# source: Brennan, J.A., Brentari, E.G., Smith, R.V., Steward, W.G.
+#   "Cooldown of Cryogenic Transfer Lines - An Experimental Report",
+#   NBS Report 9264 (Contract R-45 with NASA), National Bureau of Standards, Boulder, Nov 7 1966.
+#   NTRS: https://ntrs.nasa.gov/citations/19670007291
+# table: Table 1 "Results with Inlet Flow Restrictions" (report p.10-11)
+# facility: 61.0 m (200 ft) vacuum-insulated copper transfer line, inner line 1.90 cm (3/4 in) OD
+#   x 1.59 cm (5/8 in) ID; 4 instrument stations (~20, 60, 100, 140 ft);
+#   subcooled liquid (saturated at ~0.82 atm local) with ball valve inlet; restriction devices
+#   installed at globe-valve location to suppress pressure surge
+# columns: restriction,fluid,driving_pressure_atm,peak_line_pressure_atm
+#   peak_line_pressure_atm given as single value or observed range (surges); ">24.6" = transducer overrange
+# NOTE: the actual cooldown TRANSIENTS (wall T, P, flow vs time) are oscillograph FIGURES 2-51
+#   in this report -> digitization needed. NBS stated more data available on request (1966).
+# extracted: 2026-08-04
+# ---
+restriction,fluid,driving_pressure_atm,peak_line_pressure_atm
+wire_crisscross,LN2,2.52,6.81
+wire_crisscross,LN2,4.22,7.83 to >24.6
+eight_90deg_elbows,LN2,2.52,6.47
+eight_90deg_elbows,LN2,4.22,9.18-13.5
+eight_90deg_elbows,LN2,5.92,16.8
+orifice_1.27cm,LN2,2.52,6.81
+orifice_1.27cm,LN2,4.22,8.3
+orifice_1.27cm,LN2,5.92,9.32 to >24.6
+orifice_0.95cm,LN2,2.52,5.38
+orifice_0.95cm,LN2,4.22,6.73
+orifice_0.95cm,LN2,5.92,8.51-9.67
+orifice_0.95cm,LN2,7.62,11.2
+orifice_0.64cm,LN2,2.52,3.54
+orifice_0.64cm,LN2,4.22,7.14-8.30
+orifice_0.64cm,LN2,5.92,10.1-10.6
+orifice_0.64cm,LN2,7.62,10.2-10.3
+orifice_0.64cm,LH2,2.52,2.99
+orifice_0.64cm,LH2,4.22,5.72
+orifice_0.64cm,LH2,7.62,7.62-8.43
+orifice_0.64cm,LH2,11.0,11.2-11.2

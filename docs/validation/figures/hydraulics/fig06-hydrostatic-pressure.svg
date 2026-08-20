@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Static column: nodal pressure vs elevation (20 m water column)</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0</text>
+<line x1="221" y1="46" x2="221" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="366" y1="46" x2="366" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="366" y="390" text-anchor="middle" font-size="11">10</text>
+<line x1="511" y1="46" x2="511" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="511" y="390" text-anchor="middle" font-size="11">15</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">20</text>
+<line x1="76" y1="360.8693506931762" x2="656" y2="360.8693506931762" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="364.8693506931762" text-anchor="end" font-size="11">100</text>
+<line x1="76" y1="286.5180844484536" x2="656" y2="286.5180844484536" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="290.5180844484536" text-anchor="end" font-size="11">150</text>
+<line x1="76" y1="212.166818203731" x2="656" y2="212.166818203731" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="216.166818203731" text-anchor="end" font-size="11">200</text>
+<line x1="76" y1="137.8155519590084" x2="656" y2="137.8155519590084" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="141.8155519590084" text-anchor="end" font-size="11">250</text>
+<line x1="76" y1="63.46428571428578" x2="656" y2="63.46428571428578" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="67.46428571428578" text-anchor="end" font-size="11">300</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Elevation z [m]</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Pressure [kPa]</text>
+<path d="M76.0,63.5 L656.0,354.5" fill="none" stroke="#000000" stroke-width="1.8"/>
+<polygon points="76,60.06428571428578 72.6,66.86428571428578 79.4,66.86428571428578" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="134,89.17142857142855 130.6,95.97142857142856 137.4,95.97142857142856" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="192,118.27857142857147 188.6,125.07857142857148 195.4,125.07857142857148" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="250,147.38571428571427 246.6,154.18571428571428 253.4,154.18571428571428" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="308,176.49285714285716 304.6,183.29285714285717 311.4,183.29285714285717" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="366,205.59999999999997 362.6,212.39999999999998 369.4,212.39999999999998" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="424,234.70714285714288 420.6,241.5071428571429 427.4,241.5071428571429" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="482,263.81428571428575 478.6,270.6142857142857 485.4,270.6142857142857" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="540,292.9214285714286 536.6,299.72142857142853 543.4,299.72142857142853" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="598,322.02857142857147 594.6,328.8285714285714 601.4,328.8285714285714" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="656,351.1357142857143 652.6,357.93571428571425 659.4,357.93571428571425" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="450.4" y="54" width="197.60000000000002" height="46" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="458.4" y1="64" x2="480.4" y2="64" stroke="#000000" stroke-width="1.8"/>
+<text x="486.4" y="68" font-size="11">Analytical P = P₀ − ρgz</text>
+<polygon points="469.4,78.6 466,85.4 472.79999999999995,85.4" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<text x="486.4" y="86" font-size="11">Numerical node pressures</text>
+</svg>

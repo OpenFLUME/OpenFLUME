@@ -1,0 +1,44 @@
+# ---
+# dataset: chato1991_tm104458_charge_hold_vent_cycles
+# source: Chato, D.J., Sanabria, R., "Review and Test of Chilldown Methods for
+#   Space-Based Cryogenic Tanks," NASA TM-104458 (AIAA-91-1843), 1991.
+#   Table 1 "Cycle History" (p. 11 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/19910016037/downloads/19910016037.pdf
+# context: K-Site charge-hold-vent tank chilldown test, Feb 15 1991; 175 ft3
+#   (4.96 m3) 2219-Al ellipsoidal tank (87-in major dia, 329.25 lb) starting at
+#   average wall 440.1 R, tank GH2 at 1.97 psia; top+bottom spray injection of
+#   subcooled LH2; dewar 20 psia (cycles 1-2), 25 psia (cycle 3), 30 psia
+#   (cycles 4-6); vent to atmosphere then vacuum pump-out. After 6 cycles a
+#   seventh injection ("Fill") filled the tank to the 94% fill cutoff.
+#   Mass-injected values approximate (venturi 2-phase flow caveats, see report);
+#   cycle 1 mass unknown. "Change In Temp." is per-stage wall temperature change.
+# columns: stage,hydrogen_mass_injected_lbm,duration_hr,final_tank_pressure_psia,
+#   final_avg_tank_wall_temp_R,wall_temp_change_R,notes
+# extracted: 2026-08-04
+# ---
+stage,hydrogen_mass_injected_lbm,duration_hr,final_tank_pressure_psia,final_avg_tank_wall_temp_R,wall_temp_change_R,notes
+Start,,,1.97,440.1,,
+Cycle 1 Charge,,0.0208,18.52,433.1,6.9,
+Cycle 1 Hold,,0.1375,20.56,428.7,4.4,
+Cycle 1 Vent to Vacuum,,0.0875,2.6,422.3,6.4,
+Cycle 2 Charge,4.50,0.0167,18.01,412.4,10.0,
+Cycle 2 Hold,,0.1333,20.54,404.9,7.5,
+Cycle 2 Vent to Atmosphere,,0.075,14.23,402.3,2.6,
+Cycle 2 Vent to Vacuum,,0.0567,1.52,398.1,4.2,
+Cycle 3 Charge,7.30,0.0125,23.39,385.7,12.4,
+Cycle 3 Hold,,0.1292,28.28,367.6,18.1,
+Cycle 3 Vent to Atmosphere,,0.0875,14.22,361.8,5.7,
+Cycle 3 Vent to Vacuum,,0.0617,1.09,356.8,5.0,
+Cycle 4 Charge,3.14,0.0125,30.21,339.1,17.7,
+Cycle 4 Hold,,0.1500,36.45,311.9,27.2,
+Cycle 4 Vent to Atmosphere,,0.1042,14.21,302.6,9.3,
+Cycle 4 Vent to Vacuum,,0.0575,0.98,297.0,5.6,
+Cycle 5 Charge,4.93,0.0125,31.59,276.3,20.7,
+Cycle 5 Hold,,0.1167,39.95,242.9,33.5,
+Cycle 5 Vent to Atmosphere,,0.1041,14.26,229.8,13.1,
+Cycle 5 Vent to Vacuum,,0.0809,1.16,222.4,7.5,
+Cycle 6 Charge,12.19,0.0208,30.4,172.5,49.9,only cycle vented on reaching 40 psia limit
+Cycle 6 Hold,,0.025,39.96,136.4,36.0,
+Cycle 6 Vent to Atmosphere,,0.1167,14.28,104.9,31.5,
+Cycle 6 Vent to Vacuum,,0.1325,1.12,76.7,28.2,
+Fill,682.29,0.6,27.78,43.8,32.9,filled to 94% fill-level cutoff

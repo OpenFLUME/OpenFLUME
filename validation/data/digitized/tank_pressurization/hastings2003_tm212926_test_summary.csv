@@ -1,0 +1,39 @@
+# ---
+# dataset: hastings2003_tm212926_test_summary
+# source: Hastings, L.J., Flachbart, R.H., Martin, J.J., Hedayat, A., Fazah, M.,
+#   Lak, T., Nguyen, H., Bailey, J.W., "Spray Bar Zero-Gravity Vent System for
+#   On-Orbit Liquid Hydrogen Storage," NASA/TM-2003-212926, Oct 2003.
+#   Table 2 (p. 92, measured tank heat leak), Table 6 (p. 97, derived TVS heat
+#   extraction), Table 7 (p. 101, TVS test conditions compared with model).
+#   PDF: https://ntrs.nasa.gov/api/citations/20040000092/downloads/20040000092.pdf
+# context: MHTB 18.09 m3 (639 ft3) 5083-Al LH2 tank (3.05 m dia x 3.05 m + 2:1
+#   elliptical domes, 1270 kg), SOFI + 45-layer variable-density MLI; spray-bar
+#   TVS with J-T valve; ullage pressure control band 131.0-137.9 kPa.
+#   Series 1 = 1996 tests, low heat leak (chamber LN2 cold walls operating);
+#   Series 2 = 1998 tests, high heat leak (cold walls off + added hardware).
+#   Table 6 series-2 90% row not calculable (hardware problem, too few J-T cycles).
+#   Table 7 lists segments correlated with the 1D TVS performance model.
+# columns: table,series,fill_level_pct,ullage,heat_leak_W,Q_vent_W,Q_extracted_avg_W,
+#   vent_flow_kg_s,year_test_segment,report_section
+# extracted: 2026-08-04
+# ---
+table,series,fill_level_pct,ullage,heat_leak_W,Q_vent_W,Q_extracted_avg_W,vent_flow_kg_s,year_test_segment,report_section
+table2_heat_leak,1,90,GH2,20.2,,,,,
+table2_heat_leak,1,50,GH2,18.7,,,,,
+table2_heat_leak,1,25,GH2,18.8,,,,,
+table2_heat_leak,2,90,GH2,54.1,,,,,
+table2_heat_leak,2,50,GH2,51.0,,,,,
+table2_heat_leak,2,25,GH2,,,,,,25% not tested in series 2
+table6_tvs_heat_extraction,1,90,GH2,,1444,15.9,0.0034,,
+table6_tvs_heat_extraction,1,50,GH2,,1486,16.3,0.0035,,
+table6_tvs_heat_extraction,1,25,GH2,,1507,17.5,0.0036,,
+table6_tvs_heat_extraction,2,90,GH2,,,,,,hardware problem; not enough J-T cycles
+table6_tvs_heat_extraction,2,50,GH2,,2108,40.6,0.0048,,
+table7_tvs_test_conditions,1,90,GH2,20.2,,,,1996_P263968E_F,section 9.1
+table7_tvs_test_conditions,1,90,GH2,20.2,,,,1996_P263968G,section 9.1
+table7_tvs_test_conditions,1,50,GH2,18.7,,,,1996_P263968K,section 9.1
+table7_tvs_test_conditions,1,25,GH2,18.8,,,,1998_P263968L,section 9.1
+table7_tvs_test_conditions,2,90,GH2,54.1,,,,1998_P263981D,section 9.2
+table7_tvs_test_conditions,2,50,GH2,51.0,,,,1998_P263981T,section 9.2
+table7_tvs_test_conditions,2,50,GH2+GHe,51.0,,,,1996_P263981X,section 9.2 (GHe partial pressure ~43 kPa; GH2 ~165 kPa)
+table7_tvs_test_conditions,2,90,GH2,54.1,,,,1998_P263981E,appendix C

@@ -1,0 +1,48 @@
+# SOURCE: hord1973_cr2242_ogives.pdf (NASA CR-2242)
+# CITATION: Hord, J., 'Cavitation in Liquid Cryogens. Volume III: Ogives,'
+#   NASA CR-2242, National Bureau of Standards, Boulder CO, May 1973.
+# URL: https://ntrs.nasa.gov/api/citations/19730019421/downloads/19730019421.pdf
+# TABLE: Table 4.4 - temperature-compensated desinent data (Nitrogen:
+#   0.21-inch (0.533-cm) 0.5-caliber ogive), report p. 36.
+# FLUID: liquid nitrogen. MEASUREMENT: desinence (developed-cavity
+#   disappearance) conditions; temperature-compensated per the report's
+#   correlating technique.
+# COLUMNS:
+#   T0_R / T0_K      - bulk-stream temperature, deg Rankine / K
+#   V0_ft_s / V0_m_s - test-section inlet velocity, ft/s / m/s
+#   P0_psia / P0_N_cm2 - desinent inlet pressure, psia / N/cm^2 (10 kPa)
+#   K_iv             - desinent cavitation parameter based on vapor pressure, -
+#   flags            - extraction notes (empty = clean parse + all unit
+#                      cross-checks passed)
+# EXTRACTION: PyMuPDF text layer (commas as decimal points); each row
+#   validated with the printed redundant unit pairs (psia<->N/cm^2,
+#   ft/s<->m/s, R<->K); rows failing a cross-check were repaired by
+#   leading-digit substitution against the redundant column and are
+#   flagged. Spot-checked against rendered page images.
+T0_R,V0_ft_s,P0_psia,K_iv,P0_N_cm2,V0_m_s,T0_K,flags
+141.0,30.0,22.56,1.26,15.56,9.1,78.33,
+141.0,40.0,26.77,1.19,18.46,12.2,78.33,
+141.0,50.0,32.24,1.17,22.23,15.2,78.33,
+141.0,60.0,38.99,1.16,26.88,18.3,78.33,
+141.0,70.0,46.99,1.15,32.4,21.3,78.33,
+141.0,80.0,56.27,1.15,38.8,24.4,78.33,
+141.0,90.0,66.82,1.15,46.07,27.4,78.33,
+151.0,30.0,35.89,1.31,24.75,9.1,83.89,
+151.0,40.0,40.1,1.24,27.65,12.2,83.89,
+151.0,50.0,45.57,1.21,31.42,15.2,83.89,
+151.0,60.0,52.31,1.2,36.07,18.3,83.89,
+151.0,70.0,60.32,1.19,41.59,21.3,83.89,
+151.0,80.0,69.6,1.19,47.99,24.4,83.89,
+151.0,90.0,80.15,1.19,55.26,27.4,83.89,
+161.0,30.0,55.31,1.23,38.13,9.1,89.44,
+161.0,40.0,59.51,1.21,41.03,12.2,89.44,
+161.0,50.0,64.99,1.21,44.81,15.2,89.44,
+161.0,60.0,71.73,1.21,49.46,18.3,89.44,
+161.0,70.0,79.74,1.21,54.98,21.3,89.44,
+161.0,80.0,89.02,1.22,61.37,24.4,89.44,
+161.0,90.0,99.56,1.22,68.64,27.4,89.44,
+166.0,40.0,71.76,1.13,49.48,12.2,92.22,
+166.0,50.0,77.24,1.16,53.25,15.2,92.22,
+166.0,60.0,83.98,1.19,57.9,18.3,92.22,
+166.0,70.0,91.99,1.2,63.42,21.3,92.22,
+166.0,80.0,101.27,1.21,69.82,24.4,92.22,

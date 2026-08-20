@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="170" viewBox="0 0 680 170" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="170" fill="white"/>
+<text x="340" y="26" text-anchor="middle" font-size="15" font-weight="bold">Cosine-clustered node distribution (21 nodes)</text>
+<line x1="60" y1="80" x2="620" y2="80" stroke="#333" stroke-width="1.4"/>
+<circle cx="60.0" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="63.4" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="73.7" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="90.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="113.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="142.0" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="175.4" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="212.9" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="253.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="296.2" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="340.0" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="383.8" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="426.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="467.1" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="504.6" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="538.0" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="566.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="589.5" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="606.3" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="616.6" cy="80" r="4" fill="#1f5fa8"/>
+<circle cx="620.0" cy="80" r="4" fill="#1f5fa8"/>
+<text x="60" y="108" font-size="12">x = 0</text>
+<text x="620" y="108" text-anchor="end" font-size="12">x = L</text>
+<text x="340" y="158" text-anchor="middle" font-size="12">Figure 3. Non-uniform node distribution for the constant-area duct: nodes cluster at the inlet and the choked exit.</text>
+</svg>

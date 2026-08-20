@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="470" viewBox="0 0 680 470" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="470" fill="white"/>
+<text x="340" y="26" text-anchor="middle" font-size="15" font-weight="bold">Multi-loop water network (case 4)</text>
+<line x1="110" y1="235" x2="270" y2="105" stroke="#666" stroke-width="1.6"/>
+<text x="182" y="164" text-anchor="end" font-size="10.5" fill="#333">b1 (K=10)</text>
+<line x1="270" y1="105" x2="430" y2="105" stroke="#666" stroke-width="1.6"/>
+<text x="356" y="99" font-size="10.5" fill="#333">b2 (K=5)</text>
+<line x1="430" y1="105" x2="580" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="511" y="164" font-size="10.5" fill="#333">b3 (K=10)</text>
+<line x1="110" y1="235" x2="270" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="196" y="229" font-size="10.5" fill="#333">b4 (K=8)</text>
+<line x1="270" y1="235" x2="430" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="356" y="229" font-size="10.5" fill="#333">b5 (K=6)</text>
+<line x1="430" y1="235" x2="580" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="511" y="229" font-size="10.5" fill="#333">b6 (K=8)</text>
+<line x1="270" y1="235" x2="270" y2="365" stroke="#666" stroke-width="1.6"/>
+<text x="276" y="294" font-size="10.5" fill="#333">b7 (K=10)</text>
+<line x1="270" y1="365" x2="430" y2="365" stroke="#666" stroke-width="1.6"/>
+<text x="356" y="359" font-size="10.5" fill="#333">b8 (K=5)</text>
+<line x1="430" y1="365" x2="580" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="513" y="316" font-size="10.5" fill="#333">b9 (K=10)</text>
+<line x1="270" y1="105" x2="270" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="276" y="164" font-size="10.5" fill="#333">b10 (K=2)</text>
+<line x1="430" y1="105" x2="430" y2="235" stroke="#666" stroke-width="1.6"/>
+<text x="436" y="164" font-size="10.5" fill="#333">b11 (K=2)</text>
+<line x1="430" y1="235" x2="430" y2="365" stroke="#666" stroke-width="1.6"/>
+<text x="436" y="294" font-size="10.5" fill="#333">b12 (K=2)</text>
+<circle cx="110" cy="235" r="17" fill="#fdebd0" stroke="#333" stroke-width="1.6"/>
+<text x="110" y="239" text-anchor="middle" font-size="11.5" font-weight="bold">HP</text>
+<circle cx="270" cy="105" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="270" y="109" text-anchor="middle" font-size="11.5" font-weight="bold">N1</text>
+<circle cx="430" cy="105" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="430" y="109" text-anchor="middle" font-size="11.5" font-weight="bold">N2</text>
+<circle cx="270" cy="235" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="270" y="239" text-anchor="middle" font-size="11.5" font-weight="bold">N3</text>
+<circle cx="430" cy="235" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="430" y="239" text-anchor="middle" font-size="11.5" font-weight="bold">N4</text>
+<circle cx="270" cy="365" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="270" y="369" text-anchor="middle" font-size="11.5" font-weight="bold">N5</text>
+<circle cx="430" cy="365" r="17" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
+<text x="430" y="369" text-anchor="middle" font-size="11.5" font-weight="bold">N6</text>
+<circle cx="580" cy="235" r="17" fill="#fdebd0" stroke="#333" stroke-width="1.6"/>
+<text x="580" y="239" text-anchor="middle" font-size="11.5" font-weight="bold">LP</text>
+<text x="110" y="285" text-anchor="middle" font-size="11.5">500 kPa</text>
+<text x="580" y="285" text-anchor="middle" font-size="11.5">100 kPa</text>
+<text x="340" y="436" text-anchor="middle" font-size="12">All 12 branches are square-law resistances ΔP = K·ṁ|ṁ|/(2ρA²), A = 0.001 m².</text>
+<text x="340" y="456" text-anchor="middle" font-size="12">Figure 1. Topology of the multi-loop network: two pressure boundaries, six internal nodes, four independent loops.</text>
+</svg>

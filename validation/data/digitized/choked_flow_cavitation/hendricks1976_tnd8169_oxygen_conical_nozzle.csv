@@ -1,0 +1,196 @@
+# SOURCE: hendricks1976_tnd8169_lox_ln2_nozzles.pdf (NASA TN D-8169)
+# CITATION: Hendricks, R. C., Simoneau, R. J., and Barrows, R. F., 'Two-Phase
+#   Choked Flow of Subcooled Oxygen and Nitrogen,' NASA TN D-8169, Feb. 1976.
+# URL: https://ntrs.nasa.gov/api/citations/19760011288/downloads/19760011288.pdf
+# TABLE: TableIV - conical nozzle data for oxygen.
+# FLUID: oxygen (subcooled to supercritical stagnation states).
+# GEOMETRY: conical converging-diverging nozzle (Plum Brook facility).
+# COLUMNS:
+#   reading            - run/reading number as printed
+#   Tr                 - reduced stagnation temperature T0/Tc, -
+#   pr                 - reduced stagnation pressure P0/Pc, -
+#   T0_K               - stagnation temperature, K
+#   Pt_over_P0         - throat-to-stagnation pressure ratio at choke
+#   Gmax_g_cm2_s       - max (choked) mass flux, g/(cm^2 s) (x10 -> kg/m^2 s)
+#   Gr                 - reduced mass flux (report eq. 1), -
+#   S0_J_g_K           - stagnation entropy, J/(g K) [computed, GASP]
+#   Psat_T0_N_cm2      - saturation pressure at T0, N/cm^2 [computed]
+#   isotherm_Tr        - nominal reduced-temperature group of the run
+#   flags              - extraction notes (empty = clean parse)
+# NOT EXTRACTED: the 9 axial wall static pressures (station columns 1-9)
+#   - OCR-corrupted in the text layer; flagged for later image-based work.
+#   Critical constants (report Table VIII): Tc(oxygen) = 154.581 K.
+# EXTRACTION: pdftotext -layout, wrapped-row assembly, two-ended parse;
+#   bounds-validated; spot-checked against rendered page images.
+reading,Tr,pr,T0_K,Pt_over_P0,Gmax_g_cm2_s,Gr,S0_J_g_K,Psat_T0_N_cm2,isotherm_Tr,flags
+549,0.75,1.224,115.4,0.514,2100.0,0.311,76.9,17.5,0.75,Tr_garbled:0.146;Gr_Gmax_ratio_check_failed;Psat_group_outlier
+550,0.75,0.359,115.5,0.4,4270.0,0.493,76.2,78.1,0.75,Tr_garbled:.I46
+551,0.749,0.293,115.9,0.469,3500.0,0.404,,80.1,0.75,S0_blank_in_report
+552,0.749,0.429,115.9,0.345,4900.0,0.565,71.4,80.1,0.75,
+553,0.75,0.495,116.1,0.303,5450.0,0.629,71.5,80.8,0.75,
+554,0.75,0.564,116.4,0.273,5950.0,0.686,78.5,82.6,0.75,Tr_garbled:.I52
+576,0.751,1.46,114.8,0.092,10920.0,1.26,63.8,74.4,0.75,
+577,0.75,1.38,114.9,0.098,10570.0,1.22,64.8,75.0,0.75,Tr_garbled:.I42
+578,0.744,1.24,115.2,0.111,9960.0,1.15,67.2,76.4,0.75,
+519,0.75,1.1,115.4,0.128,9320.0,1.01,69.1,77.5,0.75,Tr_garbled:,946
+580,0.75,0.911,115.6,0.147,8650.0,0.998,70.8,78.2,0.75,Tr_garbled:.I47
+581,0.75,0.836,115.7,0.173,1930.0,0.915,72.0,79.0,0.75,Tr_garbled:.I47;Gr_Gmax_ratio_check_failed
+582,0.75,0.701,115.9,0.209,7140.0,0.823,74.7,79.8,0.75,Tr_garbled:.I49
+583,0.75,0.563,116.1,0.263,6230.0,0.118,169.0,80.8,0.75,Tr_garbled:.I50;Gr_Gmax_ratio_check_failed
+584,0.75,0.428,116.3,0.348,5170.0,0.596,79.0,81.7,0.75,Tr_garbled:.I51
+585,0.75,0.292,116.5,0.467,3820.0,0.44,81.6,82.8,0.75,Tr_garbled:.I52
+586,0.754,0.223,116.8,0.485,3190.0,0.368,83.7,84.2,0.75,
+587,0.75,1.76,113.9,0.072,12000.0,1.38,58.5,70.4,0.75,Tr_garbled:.I36
+588,0.749,0.562,115.9,0.261,6040.0,0.696,76.0,80.0,0.75,
+589,0.75,0.1,116.3,0.215,6930.0,0.799,165.0,81.8,0.75,Tr_garbled:.I51
+590,0.75,0.767,116.1,0.193,7350.0,0.848,74.9,80.7,0.75,
+591,0.75,0.836,116.0,0.176,7150.0,0.894,137.0,80.1,0.75,Tr_garbled:.I49
+593,0.755,0.971,116.9,0.158,8420.0,0.971,76.9,84.9,0.75,
+594,0.75,1.04,116.7,0.146,8170.0,1.01,75.4,83.8,0.75,Tr_garbled:.I54
+595,0.753,1.11,116.6,0.136,9090.0,1.05,74.5,83.5,0.75,
+596,0.75,1.17,116.5,0.128,9420.0,1.09,73.3,82.8,0.75,Tr_garbled:.I52
+597,0.75,1.24,116.5,0.444,10168.0,0.76,65.0,55.0,0.75,Tr_garbled:.I52;Gr_Gmax_ratio_check_failed
+598,0.752,1.31,116.3,0.112,10050.0,1.16,115.0,82.1,0.75,
+599,0.751,1.0,115.9,,,,,,0.75,T0_blank_in_report;quad_parse_failed
+601,0.75,1.52,116.1,0.055,10920.0,1.26,69.1,81.1,0.75,
+602,0.75,1.58,116.1,0.091,1160.0,1.29,68.4,80.8,0.75,Gr_Gmax_ratio_check_failed
+603,0.75,1.65,116.0,0.1,736.0,0.53,55.0,,0.75,Psat_blank_in_report;Gr_Gmax_ratio_check_failed
+605,0.749,1.79,115.9,0.079,1960.0,1.38,66.2,80.0,0.75,Gr_Gmax_ratio_check_failed
+606,0.748,1.85,115.9,0.076,12210.0,1.41,65.0,79.7,0.75,
+555,0.865,1.91,133.8,0.181,10960.0,1.26,168.4,210.7,0.866,
+556,0.864,1.79,133.8,0.195,10500.0,1.21,170.7,210.2,0.866,
+557,0.867,1.65,134.3,0.217,9930.0,1.14,177.5,215.0,0.866,
+558,0.867,1.51,134.1,0.237,9380.0,1.08,179.8,213.7,0.866,
+559,0.866,1.38,134.1,0.26,8820.0,1.02,182.7,213.2,0.866,
+560,0.866,1.24,134.0,0.29,8160.0,0.941,185.5,212.4,0.866,
+561,0.867,1.11,134.2,0.328,7480.0,0.863,190.6,214.0,0.866,
+562,0.865,0.969,134.0,0.312,6140.0,0.777,192.8,211.9,0.866,
+563,0.866,0.904,134.1,0.395,6340.0,0.13,196.2,213.5,0.866,Gr_Gmax_ratio_check_failed
+564,0.867,0.836,134.2,0.418,5910.0,0.681,199.1,214.2,0.866,
+565,0.867,0.765,134.1,0.427,5460.0,0.63,200.9,213.7,0.866,
+566,0.866,0.697,133.9,0.418,5100.0,0.588,203.4,213.2,0.866,T0_blank_in_report
+567,0.867,0.698,133.9,0.419,5110.0,0.589,203.8,213.0,0.866,T0_blank_in_report
+568,0.866,0.631,133.9,0.4,4950.0,0.511,205.3,212.9,0.866,T0_blank_in_report
+571,0.866,0.496,,0.426,1340.0,,,,0.866,Tr_blank_in_report;Tr_garbled:.562;Gr_blank_in_report;S0_blank_in_report;Psat_blank_in_report
+386,0.866,0.236,136.0,0.125,11685.0,,,,0.866,Tr_garbled:257;Gr_blank_in_report;S0_blank_in_report;Psat_blank_in_report
+152,0.866,0.211,,0.125,1131.04,,,75.0,0.866,Tr_garbled:228;Gr_blank_in_report;S0_blank_in_report;Psat_group_outlier
+116,0.866,0.191,136.0,0.16,5449.0,,42.0,,0.866,Tr_garbled:200;Gr_blank_in_report;Psat_blank_in_report
+,0.942,1.77,145.6,0.108,3059.0,0.21,279.2,353.0,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.71,145.5,0.105,3158.0,0.97,280.5,351.2,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.62,145.4,0.1,3348.0,0.61,283.5,349.7,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.92,0.1459,145.6,0.113,2839.0,0.75,276.0,357.5,0.942,reading_missing_in_text_layer;T0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.85,145.7,0.11,2939.0,0.5,277.2,355.3,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.79,146.0,0.106,3069.0,0.22,282.6,358.6,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.72,145.7,,,,,,0.942,reading_missing_in_text_layer;Tr_blank_in_report;quad_parse_failed;iso_reassigned_by_T0:0.866
+674,0.941,1.58,145.7,0.97,3488.0,0.39,269.7,355.3,0.942,iso_reassigned_by_T0:0.866
+675,0.942,1.51,145.8,0.95,3668.0,0.05,294.3,356.7,0.942,Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+676,0.941,1.44,145.7,0.91,3817.0,0.75,296.8,355.3,0.942,Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+677,0.942,1.38,145.8,0.87,3957.0,0.41,300.8,355.6,0.942,iso_reassigned_by_T0:0.866
+678,0.941,1.31,145.7,0.4,4077.0,0.06,304.4,355.3,0.942,Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.24,145.9,0.8,4106.0,0.72,310.4,351.1,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.11,145.8,0.4,8170.0,0.3183,356.0,,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Psat_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,1.04,145.7,0.72,3995.0,0.92,322.6,355.3,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.903,0.1458,145.6,0.65,4745.0,0.26,335.4,356.7,0.942,reading_missing_in_text_layer;T0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+,0.942,0.836,145.8,0.6,5414.0,0.76,341.9,356.7,0.942,reading_missing_in_text_layer;Tr_blank_in_report;iso_reassigned_by_T0:0.866
+,0.942,0.766,145.8,0.623,4180.0,,348.0,356.4,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_blank_in_report;iso_reassigned_by_T0:0.866
+,0.942,0.723,146.1,0.45,7183.0,0.5,359.9,361.2,0.942,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:0.866
+610,1.033,1.91,159.9,0.43,7630.0,0.88,,434.5,1.026,S0_blank_in_report
+611,1.031,1.85,159.6,0.445,7400.0,0.853,,435.8,1.026,S0_blank_in_report
+612,1.029,1.79,159.2,0.461,7140.0,0.823,,437.4,1.026,S0_blank_in_report
+613,1.026,1.71,158.8,0.482,6840.0,0.789,,439.5,1.026,S0_blank_in_report
+614,1.025,1.65,158.6,0.502,6540.0,0.754,,443.0,1.026,S0_blank_in_report
+615,1.027,1.59,159.1,0.539,8150.0,0.71,,453.7,1.026,S0_blank_in_report
+616,1.026,1.51,158.0,0.574,5730.0,0.661,,459.2,1.026,S0_blank_in_report
+617,1.026,1.45,158.9,0.617,5260.0,0.606,,467.7,1.026,Tr_blank_in_report;S0_blank_in_report
+618,1.026,1.38,158.9,0.667,4740.0,0.546,,477.2,1.026,Tr_blank_in_report;S0_blank_in_report
+619,1.026,1.31,158.8,0.716,4230.0,0.488,,486.0,1.026,Tr_blank_in_report;S0_blank_in_report
+620,1.026,1.25,,0.651,3660.0,0.422,,498.1,1.026,Tr_blank_in_report;S0_blank_in_report
+621,1.026,1.18,,0.614,3100.0,0.357,,506.4,1.026,Tr_blank_in_report;S0_blank_in_report
+622,1.026,1.12,,0.615,2570.0,0.297,,,1.026,Tr_blank_in_report;S0_blank_in_report;Psat_blank_in_report
+624,1.025,0.977,158.7,0.605,2070.0,0.239,,383.1,1.026,S0_blank_in_report
+625,1.025,0.905,158.6,0.608,1900.0,0.219,,327.8,1.026,S0_blank_in_report
+626,1.026,0.838,158.7,0.541,1730.0,0.2,,276.6,1.026,S0_blank_in_report
+627,1.021,0.771,159.0,0.532,1600.0,0.184,,230.5,1.026,S0_blank_in_report
+628,1.026,0.704,158.7,0.53,1470.0,0.169,,196.3,1.026,S0_blank_in_report;Psat_group_outlier
+629,1.025,0.638,158.7,0.53,1330.0,0.153,,160.0,1.026,S0_blank_in_report;Psat_group_outlier
+630,1.026,0.51,158.0,0.527,1200.0,0.138,,126.4,1.026,S0_blank_in_report;Psat_group_outlier
+631,1.029,0.573,159.3,0.526,1160.0,0.133,,125.4,1.026,S0_blank_in_report;Psat_group_outlier
+632,1.026,0.502,158.9,0.524,1030.0,0.119,,97.9,1.026,S0_blank_in_report;Psat_group_outlier
+633,1.026,0.429,158.0,0.52,910.0,0.104,,72.0,1.026,S0_blank_in_report;Psat_group_outlier
+634,1.027,0.36,158.9,0.517,790.0,0.092,,51.5,1.026,S0_blank_in_report;Psat_group_outlier
+635,1.026,0.291,158.8,0.518,680.0,0.078,,34.8,1.026,S0_blank_in_report;Psat_group_outlier
+,,0.4,169.8,0.437,436.355,0.229,55.0,614.0,1.1,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed
+200,1.1,0.368,,,,,,,1.1,Tr_blank_in_report;quad_parse_failed
+707,1.09,1.31,169.1,0.6,2920.0,0.337,,423.5,1.1,S0_blank_in_report
+708,1.1,1.24,169.6,0.557,2690.0,0.31,,382.6,1.1,S0_blank_in_report
+,1.17,0.1699,170.0,0.527,2460.0,0.284,,341.5,1.1,reading_missing_in_text_layer;T0_blank_in_report;S0_blank_in_report
+,1.11,0.1696,170.0,0.524,2300.0,0.265,,307.7,1.1,reading_missing_in_text_layer;T0_blank_in_report;S0_blank_in_report
+,1.04,0.1699,170.0,0.145,375.24,2.0,160.0,,1.1,reading_missing_in_text_layer;T0_blank_in_report;Psat_blank_in_report;Gr_Gmax_ratio_check_failed
+,1.1,0.904,169.4,0.526,1890.0,0.218,206.0,,1.1,reading_missing_in_text_layer;Tr_blank_in_report;Psat_blank_in_report
+715,1.09,0.769,164.0,0.527,1580.0,0.182,,151.0,1.1,S0_blank_in_report
+716,1.1,0.702,170.0,,,,,,1.1,T0_blank_in_report;quad_parse_failed
+631,,0.1699,170.0,0.528,1280.0,0.148,,99.3,1.1,Tr_blank_in_report;T0_blank_in_report;S0_blank_in_report
+,1.1,0.567,169.7,0.526,1160.0,0.134,,81.0,1.1,reading_missing_in_text_layer;Tr_blank_in_report;S0_blank_in_report
+,1.1,0.496,169.9,0.55,1952.6,0.104,120.0,61.8,1.1,reading_missing_in_text_layer;Tr_blank_in_report;Gr_Gmax_ratio_check_failed
+720,1.1,0.43,169.9,0.524,920.0,0.106,,46.9,1.1,Tr_blank_in_report;S0_blank_in_report
+,1.1,0.36,169.7,0.523,770.0,0.089,,34.1,1.1,reading_missing_in_text_layer;Tr_blank_in_report;S0_blank_in_report
+722,1.1,0.291,169.0,0.521,860.0,0.077,,23.4,1.1,Tr_blank_in_report;S0_blank_in_report;Psat_group_outlier
+723,1.1,0.226,169.7,0.518,580.0,0.066,,15.4,1.1,Tr_blank_in_report;Tr_blank_in_report;S0_blank_in_report;Psat_group_outlier
+838,1.1,0.332,,0.528,5242.0,,180.0,70.0,1.1,Tr_garbled:358;Gr_blank_in_report
+638,,1.0,185.5,,,,,,1.2,Tr_blank_in_report;T0_blank_in_report;quad_parse_failed;iso_reassigned_by_T0:1.1
+639,1.2,1.06,186.3,0.525,1870.0,0.215,,153.0,1.2,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+640,1.2,0.972,185.5,,,,,,1.2,Tr_blank_in_report;quad_parse_failed;iso_reassigned_by_T0:1.1
+641,1.2,0.841,185.9,,,,,,1.2,Tr_blank_in_report;quad_parse_failed;iso_reassigned_by_T0:1.1
+642,1.2,0.762,185.9,0.145,8528.0,0.149,,79.8,1.2,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+643,1.2,0.696,186.2,0.132,7825.0,0.135,,66.0,1.2,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+644,1.2,0.633,185.6,0.12,7123.0,0.124,,55.9,1.2,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+645,1.2,0.564,186.0,0.525,950.0,0.11,,44.2,1.2,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+646,1.2,0.498,185.8,0.524,850.0,0.098,,35.2,1.2,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+647,1.2,0.43,186.0,0.17,522.74,0.085,,26.7,1.2,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1;Psat_group_outlier
+648,1.2,0.361,185.9,,,,,,1.2,Tr_blank_in_report;quad_parse_failed;iso_reassigned_by_T0:1.1
+649,1.2,0.292,185.8,0.14,519.54,0.062,,14.2,1.2,Tr_blank_in_report;Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1;Psat_group_outlier
+724,0.96,0.1534,153.0,0.496,2880.0,0.479,,284.1,0.99,T0_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+725,0.99,1.77,152.6,0.42,505.0,2.0,52.0,257.7,0.99,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+728,0.99,1.6,151.9,0.39,5122.0,0.21,367.0,228.4,0.99,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+727,0.99,1.4,152.4,0.518,1830.0,0.305,176.0,5.0,0.99,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1;Psat_group_outlier
+728,0.99,1.1,152.8,0.52,1530.0,0.254,,129.6,0.99,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+729,1.0,0.1525,153.0,0.523,1250.0,0.207,,89.7,0.99,T0_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+730,0.99,0.814,151.2,0.21,5241.0,0.166,,62.9,0.99,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+731,0.99,0.618,152.0,0.47,1752.5,0.79,131.0,35.8,0.99,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1;Psat_group_outlier
+732,0.99,0.429,151.8,0.52,590.0,0.099,,18.4,0.99,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1;Psat_group_outlier
+650,1.1,0.872,,0.97,1390.0,,160.0,63.5,1.1,Tr_blank_in_report;Gr_blank_in_report
+651,1.1,0.836,,0.93,321.53,,,58.1,1.1,Tr_blank_in_report;Gr_blank_in_report;S0_blank_in_report
+652,1.3,0.766,200.6,0.28,5231.0,0.2,139.0,49.1,1.3,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+654,1.1,0.633,,,,,,,1.1,Tr_blank_in_report;quad_parse_failed
+655,1.3,0.563,200.8,0.521,830.0,0.096,,27.4,1.3,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+656,1.3,0.498,200.7,0.522,730.0,0.084,,22.2,1.3,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+657,1.3,0.427,200.7,0.521,610.0,0.071,,17.1,1.3,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+658,1.1,0.36,,,,,,,1.1,Tr_blank_in_report;quad_parse_failed
+659,1.3,0.293,200.7,0.518,400.0,0.046,,10.1,1.3,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1;Psat_group_outlier
+536,1.1,2.0,176.0,0.5461,516.0,1.0,,,1.1,Tr_garbled:0.698;S0_blank_in_report;Psat_blank_in_report;Gr_Gmax_ratio_check_failed
+537,1.1,0.969,,0.519,1400.0,0.162,,47.3,1.1,Tr_blank_in_report;S0_blank_in_report
+538,1.1,1.24,,,,,,,1.1,Tr_blank_in_report;quad_parse_failed
+539,1.1,1.0,,,,,,,1.1,Tr_blank_in_report;quad_parse_failed
+540,1.1,1.0,,0.512,1790.0,0.206,,36.0,1.1,Tr_blank_in_report;S0_blank_in_report
+541,,1.0,170.0,,,,,,1.1,Tr_blank_in_report;T0_blank_in_report;quad_parse_failed
+542,1.1,0.969,,0.514,1380.0,0.159,44.0,9.0,1.1,Tr_blank_in_report;Psat_group_outlier
+543,1.35,0.835,215.5,0.514,1190.0,0.137,,6.0,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1;Psat_group_outlier
+544,1.35,0.698,212.2,0.25,5131.0,0.115,,29.0,1.35,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+545,1.35,0.564,209.6,0.21,513.0,0.81,94.0,21.4,1.35,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+546,1.3,0.428,201.4,0.512,630.0,0.013,,14.3,1.3,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+547,1.35,0.291,205.6,0.14,511.45,0.052,,,1.35,Tr_blank_in_report;S0_blank_in_report;Psat_blank_in_report;iso_reassigned_by_T0:1.1
+548,1.35,0.156,205.0,0.16,12504.0,,310.0,10.1,1.35,Tr_blank_in_report;Gr_blank_in_report;iso_reassigned_by_T0:1.1
+661,1.35,0.692,208.5,0.522,1000.0,0.116,,31.6,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+662,1.35,0.633,208.4,0.519,900.0,0.104,,27.1,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+663,1.35,0.56,208.5,0.517,790.0,0.091,,21.8,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+664,1.35,0.491,208.5,0.515,690.0,0.079,,17.8,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+665,1.35,0.428,208.4,0.515,580.0,0.067,,13.9,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+666,1.35,0.358,208.3,0.64,3816.0,0.512,,9.9,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+667,1.35,0.292,208.3,0.513,371.0,0.043,,10.1,1.35,Tr_blank_in_report;S0_blank_in_report;iso_reassigned_by_T0:1.1
+668,1.35,0.226,208.4,0.24,13509.0,0.27,,10.1,1.35,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;iso_reassigned_by_T0:1.1
+133,1.1,1.48,170.3,0.518,1710.0,0.285,,52.2,1.1,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed
+734,1.1,1.22,170.5,0.1,305.19,0.144,239.0,63.0,1.1,Tr_blank_in_report;Gr_Gmax_ratio_check_failed
+734,1.01,0.1701,170.0,0.523,1200.0,0.2,44.0,,1.1,T0_blank_in_report;Psat_blank_in_report;Gr_Gmax_ratio_check_failed
+735,1.1,0.814,170.5,0.522,1000.0,,166.0,29.1,1.1,Tr_blank_in_report;Gr_blank_in_report;Psat_group_outlier
+737,1.1,0.622,,0.523,790.0,0.132,,17.8,1.1,Tr_blank_in_report;S0_blank_in_report;Gr_Gmax_ratio_check_failed;Psat_group_outlier
+738,1.1,0.427,170.3,0.521,590.0,0.099,94.0,17.0,1.1,Tr_blank_in_report;Gr_Gmax_ratio_check_failed;Psat_group_outlier

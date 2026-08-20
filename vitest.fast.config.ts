@@ -1,0 +1,55 @@
+import { defineConfig } from "vitest/config";
+
+const scientificAndSlowFiles = [
+  "src/core/__tests__/analyticJacobian.test.ts",
+  "src/core/__tests__/benchmarks.test.ts",
+  "src/core/__tests__/cavitatingVenturi.test.ts",
+  "src/core/__tests__/chilldownLocalTsat.test.ts",
+  "src/core/__tests__/closureParams.test.ts",
+  "src/core/__tests__/correlations.test.ts",
+  "src/core/__tests__/darrHartwig.test.ts",
+  "src/core/__tests__/diagnostics.test.ts",
+  "src/core/__tests__/fluidFrontTransport.test.ts",
+  "src/core/__tests__/naturalCirculation.test.ts",
+  "src/core/__tests__/propertyDerivatives.test.ts",
+  "src/core/__tests__/multiFluidReal.test.ts",
+  "src/core/__tests__/realFluid.test.ts",
+  "src/core/__tests__/statePHDual.test.ts",
+  "src/core/__tests__/ttWf.test.ts",
+  "src/core/__tests__/ttWfNetwork.test.ts",
+  "src/core/__tests__/twoPhaseFlow.test.ts",
+  "src/core/__tests__/twoPhaseMomentum.test.ts",
+  "src/core/__tests__/twoPhaseProps.test.ts",
+  "src/ui/tests/cavitatingVenturi.test.ts",
+  "src/ui/tests/chilldown.test.ts",
+  "src/ui/tests/chilldownBaseline.test.ts",
+  "src/ui/tests/chilldownTwoPhase.test.ts",
+  "src/ui/tests/gfssp-benchmarks.test.ts",
+  "src/ui/tests/leeMartin.test.ts",
+  "src/ui/tests/nureth.test.ts",
+  "src/ui/tests/examples.test.ts",
+  "src/ui/tests/sanity-examples.test.ts",
+];
+
+export default defineConfig({
+  test: {
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
+    reporters: process.env.CI ? ["default"] : ["verbose"],
+    include: [
+      "src/core/__tests__/**/*.test.ts",
+      "src/substrate/__tests__/**/*.test.ts",
+      "src/ui/tests/**/*.test.{ts,tsx}",
+      "src/validation/__tests__/**/*.test.ts",
+      "scripts/__tests__/**/*.test.ts",
+    ],
+    exclude: [
+      "node_modules",
+      "dist",
+      "e2e",
+      "build",
+      "coverage",
+      ...scientificAndSlowFiles,
+    ],
+  },
+});

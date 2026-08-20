@@ -1,0 +1,65 @@
+# ---
+# dataset: moran1992_tm105273_novent_fill_tests
+# source: Moran, M.E., "Hydrogen No-Vent Fill Testing in a 1.2 Cubic Foot
+#   (34 Liter) Tank," NASA TM-105273, 1992. Appendix C "Initial and Averaged
+#   Test Parameters for Hydrogen No-Vent Fill Tests with the Small Receiver
+#   Tank" (pp. 39-40 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/19920004183/downloads/19920004183.pdf
+# context: CCL-7 facility; 34 L (1.2 ft3) stainless receiver; three injection
+#   configurations: BD = bottom diffuser, UP = upward pipe discharge,
+#   TS = top spray. Receiver tank pressure limited to <=30 psia.
+#   "temperature_difference_R" = supply-tank liquid T minus venturi flowmeter T
+#   (transfer-line heat leak indicator). "pressure_at_90pct_or_final_psia" =
+#   receiver pressure when 90% fill reached, or final pressure if <90%.
+#   Sorted within each config by inlet venturi temperature (as published).
+# columns: fill_config,test_id,inlet_venturi_temp_R,supply_liquid_temp_R,
+#   temperature_difference_R,equiv_initial_wall_temp_R,inlet_flow_lbm_min,
+#   initial_tank_pressure_psia,pressure_at_90pct_or_final_psia,final_fill_pct_vol
+# notes: a few config/test-id labels corrected from obvious OCR garble
+#   (e.g. "131);" -> "BD;", "9081 A" -> "9081A", "90941" -> "9094I");
+#   all numeric values transcribed as printed. BD;9081F final fill 29% as printed.
+# extracted: 2026-08-04
+# ---
+fill_config,test_id,inlet_venturi_temp_R,supply_liquid_temp_R,temperature_difference_R,equiv_initial_wall_temp_R,inlet_flow_lbm_min,initial_tank_pressure_psia,pressure_at_90pct_or_final_psia,final_fill_pct_vol
+BD,9088G,34.0,32.5,1.5,124,4.3,3.4,25,91
+BD,9088H,34.0,32.5,1.5,122,4.5,3.4,25,77
+BD,9080D,34.4,32.4,2.0,105,5.3,3.1,26,88
+BD,9080B,34.5,32.2,2.3,94,1.7,3.2,28,79
+BD,9088F,34.6,32.5,2.1,65,1.6,4.0,30,78
+BD,9080C,34.9,32.5,2.4,63,3.5,5.2,28,67
+BD,9081G,35.1,33.3,1.8,111,4.2,3.3,27,89
+BD,9081H,35.4,33.6,1.8,157,5.5,3.4,27,82
+BD,9081C,35.8,35.1,0.7,130,3.5,2.6,26,79
+BD,9081D,36.0,34.3,1.7,114,5.4,3.3,27,82
+BD,9075C,36.0,35.1,0.9,137,1.9,4.3,29,77
+BD,9088D,36.1,35.1,1.0,155,5.4,3.1,27,82
+BD,9088C,36.2,35.1,1.1,136,3.8,3.0,28,81
+BD,9088B,36.5,35.1,1.4,87,1.5,3.7,29,76
+BD,9081B,36.5,35.2,1.3,132,1.4,2.7,30,60
+BD,9081F,37.6,33.4,4.2,154,1.0,2.7,29,29
+UP,9094I,32.8,31.6,1.2,138,6.3,3.7,16,95
+UP,9093F,33.3,32.4,0.9,102,6.5,3.4,11,95
+UP,9093G,33.4,32.4,1.0,80,4.5,3.8,14,96
+UP,9093E,34.7,32.4,2.3,113,1.5,2.7,29,87
+UP,9094F,35.1,34.3,0.8,131,4.2,3.4,27,89
+UP,9094G,35.6,34.5,1.1,99,5.2,2.9,20,94
+UP,9094E,35.9,34.3,1.6,93,1.5,3.5,28,73
+TS,9094H,32.8,31.1,1.7,86,3.8,5.4,10,96
+TS,9093D,33.2,32.4,0.8,99,3.8,4.0,10,99
+TS,9093C,33.6,32.5,1.1,107,3.3,3.6,14,97
+TS,9093B,33.7,32.5,1.2,84,2.8,3.6,11,99
+TS,9093A,33.7,32.3,1.4,128,2.0,3.9,15,98
+TS,9081E,34.1,32.9,1.2,67,0.6,3.9,17,96
+TS,9072B,34.3,32.5,1.8,83,0.7,3.2,16,98
+TS,9075D,34.7,33.8,0.9,100,0.6,3.1,20,94
+TS,9088E,34.9,32.2,2.7,74,0.8,3.8,17,99
+TS,9080A,34.9,31.6,3.3,56,0.7,4.6,18,98
+TS,9094D,35.7,34.4,1.3,98,1.7,4.0,24,88
+TS,9094C,35.7,34.5,1.2,98,2.3,3.9,25,91
+TS,9094A,35.9,34.5,1.4,113,3.6,3.9,17,95
+TS,9094B,35.9,34.7,1.2,103,3.0,3.5,23,90
+TS,9072A,36.4,35.4,1.0,114,0.3,3.0,29,8
+TS,9088A,37.1,34.7,2.4,80,0.6,3.8,28,54
+TS,9075B,37.4,34.2,3.2,81,0.6,3.1,29,67
+TS,9081A,37.6,34.9,2.7,64,0.6,3.6,28,50
+TS,9075A,39.2,33.8,5.4,132,0.3,2.9,29,10

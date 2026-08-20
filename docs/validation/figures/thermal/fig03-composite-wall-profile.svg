@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Composite wall: temperature through the wall</text>
+<line x1="176.8695652173913" y1="46" x2="176.8695652173913" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="176.8695652173913" y="390" text-anchor="middle" font-size="11">0</text>
+<line x1="302.95652173913044" y1="46" x2="302.95652173913044" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="302.95652173913044" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="429.04347826086956" y1="46" x2="429.04347826086956" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="429.04347826086956" y="390" text-anchor="middle" font-size="11">10</text>
+<line x1="555.1304347826087" y1="46" x2="555.1304347826087" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="555.1304347826087" y="390" text-anchor="middle" font-size="11">15</text>
+<line x1="76" y1="354.5357142857143" x2="656" y2="354.5357142857143" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="358.5357142857143" text-anchor="end" font-size="11">300</text>
+<line x1="76" y1="281.7678571428571" x2="656" y2="281.7678571428571" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="285.7678571428571" text-anchor="end" font-size="11">350</text>
+<line x1="76" y1="209" x2="656" y2="209" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="213" text-anchor="end" font-size="11">400</text>
+<line x1="76" y1="136.23214285714286" x2="656" y2="136.23214285714286" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="140.23214285714286" text-anchor="end" font-size="11">450</text>
+<line x1="76" y1="63.46428571428572" x2="656" y2="63.46428571428572" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="67.46428571428572" text-anchor="end" font-size="11">500</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Position x [cm] (0 = hot surface)</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Temperature [K]</text>
+<path d="M76.0,63.5 L176.9,63.5" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="6 4"/>
+<path d="M176.9,69.5 L429.0,89.6 L555.1,330.4" fill="none" stroke="#000000" stroke-width="1.8"/>
+<circle cx="176.8695652173913" cy="69.48645320197039" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="429.04347826086956" cy="89.56034482758622" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="555.1304347826087" cy="330.4470443349754" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M555.1,354.5 L656.0,354.5" fill="none" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="6 4"/>
+<rect x="84" y="282" width="229.60000000000002" height="82" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="92" y1="292" x2="114" y2="292" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="120" y="296" font-size="11">Hot fluid T∞₁ = 500 K</text>
+<line x1="92" y1="310" x2="114" y2="310" stroke="#000000" stroke-width="1.8"/>
+<text x="120" y="314" font-size="11">Analytic (series resistances)</text>
+<circle cx="103" cy="328" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="120" y="332" font-size="11">Solver solid nodes</text>
+<line x1="92" y1="346" x2="114" y2="346" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="120" y="350" font-size="11">Cold fluid T∞₂ = 300 K</text>
+</svg>

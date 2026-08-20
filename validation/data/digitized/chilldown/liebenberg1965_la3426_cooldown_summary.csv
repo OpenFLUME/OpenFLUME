@@ -1,0 +1,21 @@
+# ---
+# dataset: liebenberg1965_la3426_cooldown_summary
+# source: Liebenberg, D.H., (sole author per OSTI record) "Cooldown of Cryogenic Transfer Lines",
+#   Los Alamos Scientific Laboratory Report LA-3426(-MS) (written Nov 22 1965, dist. Jan 28 1966).
+#   OSTI: https://www.osti.gov/servlets/purl/4579353
+# context: full-scale LH2 transfer lines at Nuclear Rocket Development Station (NRDS) Test Cell "C",
+#   Nevada: 8-in and 10-in diameter lines; "Method 1"/"Method 2" are the report's two
+#   cooldown calculation procedures; integral_w_dt_lb = total liquid consumed (lb)
+# table_I: LN2 cooldown of Test Cell "C" line (instrumentation inoperative; visual vent obs >1000 s)
+# table_III: LH2 cooldown of Test Cell "C", dewar pressure 50 psig, flow path through return loop
+# additional reported observation (text): cooldown of first line section took 253 s;
+#   observed dewar mass loss 740 lb (of which ~411 lb to fill line; ~329 lb for cooldown)
+# columns: table,fluid,facility,method,cooldown_time_s,integral_w_dt_lb,notes
+# extracted: 2026-08-04
+# ---
+table,fluid,facility,method,cooldown_time_s,integral_w_dt_lb,notes
+table_I,LN2,NRDS Test Cell C line,Method 1 (calculated),1170,3634,instrumentation not operable; visual obs indicated >1000 s required
+table_I,LN2,NRDS Test Cell C line,Method 2 (calculated),1260,4400,
+table_III,LH2,NRDS Test Cell C return loop,Method 1 (calculated),342,413,dewar pressure 50 psig
+table_III,LH2,NRDS Test Cell C return loop,Method 2 (calculated),540,614,mass includes 411 lb to fill transfer line
+table_III,LH2,NRDS Test Cell C return loop,Observed,560,,weigh-system mass not available

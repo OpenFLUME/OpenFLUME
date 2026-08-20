@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Turbulent pipe flow: mass flow vs pressure drop (fixed f = 0.02)</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0</text>
+<line x1="192" y1="46" x2="192" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="192" y="390" text-anchor="middle" font-size="11">20</text>
+<line x1="308" y1="46" x2="308" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="308" y="390" text-anchor="middle" font-size="11">40</text>
+<line x1="424" y1="46" x2="424" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="424" y="390" text-anchor="middle" font-size="11">60</text>
+<line x1="540" y1="46" x2="540" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="540" y="390" text-anchor="middle" font-size="11">80</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">100</text>
+<line x1="76" y1="354.5357142857143" x2="656" y2="354.5357142857143" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="358.5357142857143" text-anchor="end" font-size="11">0</text>
+<line x1="76" y1="249.6081917228549" x2="656" y2="249.6081917228549" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="253.6081917228549" text-anchor="end" font-size="11">5</text>
+<line x1="76" y1="144.6806691599955" x2="656" y2="144.6806691599955" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="148.6806691599955" text-anchor="end" font-size="11">10</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Pressure drop ΔP [kPa]</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Mass flow rate ṁ [kg/s]</text>
+<path d="M76.0,354.5 L80.8,328.0 L85.7,317.0 L90.5,308.5 L95.3,301.4 L100.2,295.1 L105.0,289.5 L109.8,284.2 L114.7,279.4 L119.5,274.8 L124.3,270.5 L129.2,266.4 L134.0,262.5 L138.8,258.7 L143.7,255.1 L148.5,251.6 L153.3,248.3 L158.2,245.0 L163.0,241.8 L167.8,238.7 L172.7,235.7 L177.5,232.8 L182.3,229.9 L187.2,227.1 L192.0,224.4 L196.8,221.7 L201.7,219.0 L206.5,216.5 L211.3,213.9 L216.2,211.4 L221.0,209.0 L225.8,206.6 L230.7,204.2 L235.5,201.9 L240.3,199.6 L245.2,197.3 L250.0,195.1 L254.8,192.9 L259.7,190.7 L264.5,188.6 L269.3,186.5 L274.2,184.4 L279.0,182.3 L283.8,180.3 L288.7,178.3 L293.5,176.3 L298.3,174.3 L303.2,172.4 L308.0,170.4 L312.8,168.5 L317.7,166.6 L322.5,164.8 L327.3,162.9 L332.2,161.1 L337.0,159.3 L341.8,157.5 L346.7,155.7 L351.5,153.9 L356.3,152.2 L361.2,150.4 L366.0,148.7 L370.8,147.0 L375.7,145.3 L380.5,143.6 L385.3,142.0 L390.2,140.3 L395.0,138.7 L399.8,137.0 L404.7,135.4 L409.5,133.8 L414.3,132.2 L419.2,130.6 L424.0,129.1 L428.8,127.5 L433.7,126.0 L438.5,124.4 L443.3,122.9 L448.2,121.4 L453.0,119.9 L457.8,118.4 L462.7,116.9 L467.5,115.4 L472.3,113.9 L477.2,112.5 L482.0,111.0 L486.8,109.6 L491.7,108.1 L496.5,106.7 L501.3,105.3 L506.2,103.9 L511.0,102.5 L515.8,101.1 L520.7,99.7 L525.5,98.3 L530.3,96.9 L535.2,95.6 L540.0,94.2 L544.8,92.8 L549.7,91.5 L554.5,90.2 L559.3,88.8 L564.2,87.5 L569.0,86.2 L573.8,84.9 L578.7,83.6 L583.5,82.3 L588.3,81.0 L593.2,79.7 L598.0,78.4 L602.8,77.1 L607.7,75.9 L612.5,74.6 L617.3,73.3 L622.2,72.1 L627.0,70.8 L631.8,69.6 L636.7,68.4 L641.5,67.1 L646.3,65.9 L651.2,64.7 L656.0,63.5" fill="none" stroke="#000000" stroke-width="1.8"/>
+<rect x="101.6" y="286.0501642263439" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="117.08969473439734" y="270.5208191214643" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="140.8528599158573" y="251.28618829393193" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="177.30858284158882" y="227.46219439251618" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="233.2363064377118" y="197.95382012196774" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="319.0365598853416" y="161.4047781899627" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="450.66508002392663" y="116.13517255530667" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="652.6" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="84" y="54" width="216.8" height="46" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="92" y1="64" x2="114" y2="64" stroke="#000000" stroke-width="1.8"/>
+<text x="120" y="68" font-size="11">Analytical (Darcy–Weisbach)</text>
+<rect x="99.6" y="78.6" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="120" y="86" font-size="11">Numerical (OpenFLUME)</text>
+</svg>

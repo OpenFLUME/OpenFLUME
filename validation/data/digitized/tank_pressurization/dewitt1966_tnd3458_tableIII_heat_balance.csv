@@ -1,0 +1,41 @@
+# ---
+# dataset: dewitt1966_tnd3458_tableIII_heat_balance
+# source: DeWitt, R.L., Stochl, R.J., Johnson, W.R., "Experimental Evaluation of
+#   Pressurant Gas Injectors During the Pressurized Discharge of Liquid
+#   Hydrogen," NASA TN D-3458, June 1966. TABLE III "Experimental Heat Balance
+#   and Results of Analytical Program" (pp. 26-27 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/19660017895/downloads/19660017895.pdf
+# context: 29-ft3 (0.82 m3) vacuum-jacketed cylindrical LH2 tank (L/D~3, 5/16-in
+#   304 SS); GH2 pressurant; nominal tank pressure 160 psia; inlet gas 508-558 R;
+#   initial ullage 17.5-21.6%. Comparison of cone / multiple-screen / 1-in and
+#   1/2-in straight-pipe injectors vs the TN D-2585 analytical program.
+#   dH_a = enthalpy input by pressurant gas (Btu); QL = total energy lost (Btu);
+#   dH_w = heat lost to tank wall and lid (Btu); dH_sys = change in total system
+#   enthalpy (Btu); m_a_pred = predicted mass requirement (lb);
+#   h_w_pred = predicted heat lost to tank wall (Btu). "+" values are printed
+#   uncertainty bounds in the source (transcription flattened; see PDF).
+#   1/2-in straight-pipe runs have no analytical predictions (dashes in source).
+# columns: injector,expulsion_time_s,enthalpy_input_pressurant_Btu,
+#   total_energy_lost_Btu,heat_lost_wall_lid_Btu,change_system_enthalpy_Btu,
+#   predicted_mass_requirement_lb,predicted_heat_lost_wall_Btu
+# extracted: 2026-08-04
+# ---
+injector,expulsion_time_s,enthalpy_input_pressurant_Btu,total_energy_lost_Btu,heat_lost_wall_lid_Btu,change_system_enthalpy_Btu,predicted_mass_requirement_lb,predicted_heat_lost_wall_Btu
+cone,130.4,4557,2404,2439,2153,2.686,2331
+cone,204.6,5342,3120,2886,2222,2.999,2832
+cone,275.7,5973,3716,3431,2257,3.262,3194
+cone,335.5,6193,3896,3507,2297,3.382,3325
+cone,404.3,6627,4286,3710,2341,3.575,3610
+multiple_screen,124.2,4921,2764,2521,2157,2.680,2287
+multiple_screen,200.3,5706,3521,2936,2185,2.879,2797
+multiple_screen,280.8,6080,3803,3169,2277,3.284,2917
+multiple_screen,339.4,6532,4201,3417,2331,3.392,3433
+multiple_screen,407.1,7039,4669,3803,2370,3.598,3599
+straight_pipe_1in,131.9,3610,1557,1355,2053,2.578,2312
+straight_pipe_1in,208.0,4345,2195,1947,2150,2.913,2660
+straight_pipe_1in,289.7,4894,2702,2676,2192,3.294,3150
+straight_pipe_1in,349.4,5548,3301,2750,2247,3.368,3365
+straight_pipe_1in,411.8,6007,3706,2856,2301,3.585,3677
+straight_pipe_0.5in,280.8,4244,2479,1552,1765,,
+straight_pipe_0.5in,342.4,4661,2717,1768,1944,,
+straight_pipe_0.5in,395.6,4597,1542,2193,2055,,

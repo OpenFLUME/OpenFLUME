@@ -1,0 +1,91 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test & coverage
+test-results/
+playwright-report/
+coverage/
+*.lcov
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local env
+.env
+.env.local
+
+# Misc
+*.tgz
+debug_*.ts
+debug-*.ts
+check_*.ts
+check-*.ts
+diag_*.ts
+diag-*.ts
+scratch_*.ts
+scratch-*.ts
+tmp_*.ts
+tmp-*.ts
+# Root-level scratch scripts named with suffixes (e.g. nh3_debug.ts, nh3_probe.mjs)
+/*_debug*.ts
+/*_debug*.mjs
+/*_probe*.ts
+/*_probe*.mjs
+# Preferred home for local scratch work
+/scratch/
+
+# Vite cache
+.vite/
+
+# Validation source documents — re-fetchable via URLs/DOIs in the CATALOG files
+validation/**/*.pdf
+
+# Cloned upstream repo (nested .git) — re-clonable:
+#   git clone github.com/fateh-btpfl/FlowBoilingHTC && git checkout f2e6d83
+# (see validation/references/CATALOG_TIERS.md, tier-5 entry #31)
+validation/references/tier5/FlowBoilingHTC/
+
+# QC render PNGs (~31 MB, regenerable via validation/qc_review/build_gallery.py) —
+# the gallery scripts/HTML under qc_review/ ARE committed
+validation/qc_review/pdf_pages/
+validation/qc_review/plots/
+
+# Python bytecode from validation extraction scripts
+__pycache__/
+
+# Local digitization scratch workspaces (untracked, regenerable): the ~97 MB
+# nbs9264_verify replot/screenshot workspace and the clicker analysis overlays.
+# Canonical digitized CSVs, calibrations, and annotations remain tracked.
+validation/data/digitized/chilldown/nbs9264_verify/
+validation/data/digitized/chilldown/nbs9264_clicker/analysis/
+
+# Regenerable digitization workspace outputs (retain source points/logs/docs)
+validation/data/digitized/chilldown/*/auto/cache/
+validation/data/digitized/chilldown/*/auto/overlays/
+validation/data/digitized/chilldown/*/analysis/previews/
+validation/data/digitized/chilldown/*/analysis/overlays/
+validation/data/digitized/chilldown/*/analysis/*.png
+validation/data/digitized/chilldown/*/analysis/rejected_*/
+validation/data/digitized/chilldown/*/previews/
+validation/data/digitized/chilldown/*/shots/
+validation/data/digitized/chilldown/*/rejected_*/
+validation/data/digitized/chilldown/*/fast_extract/**/cache.npz
+validation/data/digitized/chilldown/*/fast_extract/**/.preprocess_time.json
+validation/data/digitized/chilldown/*/fast_extract/**/diagnostics.png
+validation/data/digitized/chilldown/*/fast_extract/**/overlay.png
