@@ -1,0 +1,27 @@
+# ---
+# dataset: moran1990_tm102572_ccl7_novent_fill_tests
+# source: Moran, M.E., Nyland, T.W., Papell, S.S., "Liquid Transfer Cryogenic
+#   Test Facility: Initial Hydrogen and Nitrogen No-Vent Fill Data,"
+#   NASA TM-102572, March 1990. Table I (nitrogen) & Table II (hydrogen).
+#   Identical tables also in Chato, Moran, Nyland, NASA TM-103155 (1990).
+#   PDF: https://ntrs.nasa.gov/api/citations/19900011979/downloads/19900011979.pdf
+# context: CCL-7 Liquid Transfer Cryogenic Test Facility (NASA LeRC Cell 7);
+#   0.14 m3 (5 ft3) stainless receiver dewar; top-mounted full-cone spray nozzle
+#   (120 deg cone, 10 psi dP); 1-g; receiver tank pressure kept < 30 psia.
+#   Nitrogen fills all reached >=90% (N2/N3 >=97%); hydrogen proved harder
+#   (only H2 >=90%). Mean droplet sizes (from TM-103155): 882 um N2, 523 um H2.
+# columns: fluid,test_id,liquid_inlet_temp_avg_R,initial_wall_temp_est_R,
+#   inlet_mass_flowrate_avg_lbm_min,initial_receiver_pressure_psia,
+#   final_fill_level_pct_vol,notes
+# extracted: 2026-08-04
+# ---
+fluid,test_id,liquid_inlet_temp_avg_R,initial_wall_temp_est_R,inlet_mass_flowrate_avg_lbm_min,initial_receiver_pressure_psia,final_fill_level_pct_vol,notes
+LN2,N3,122,299,11.2,4.5,97,
+LN2,N2,126,273,10.7,3.9,98,
+LN2,N1,131,223,7.9,3.6,93,
+LN2,N4,143,176,7.1,4.9,90,inlet temp corresponds to 19 psia N2 saturation
+LH2,H4,34,55,3.05,3.1,86,
+LH2,H2,34,103,1.36,3.6,91,only H2 test reaching 90%
+LH2,H1,38,111,1.31,3.7,45,
+LH2,H5,39,90,1.28,4.0,14,
+LH2,H3,41,75,1.89,3.8,39,

@@ -1,0 +1,3744 @@
+/* ==========================================================================
+   OpenFLUME design system
+   Dark engineering console. All colors/spacing/typography flow from the
+   tokens below; shared classes (.btn, .input, .card, .chip, …) are the
+   only sanctioned building blocks. No !important anywhere in this file.
+   ========================================================================== */
+
+:root {
+  /* Surface ramp: distant areas recede; elevated surfaces become lighter. */
+  --bg-0: #171717; /* canvas / app background */
+  --bg-1: #1f1f1f; /* panels (toolbar, palette, property panel) */
+  --bg-2: #292929; /* cards, table headers, canvas chips, buttons */
+  --bg-3: #353535; /* dialogs, menus, hover */
+  --bg-input: #181818; /* recessed form inputs */
+
+  /* Lines */
+  --line-1: #393939;
+  --line-2: #515151;
+  --line-focus: #4b9bc9;
+
+  /* Text ramp (WCAG AA at the sizes used) */
+  --text-1: #e6e6e6;
+  --text-2: #b5b5b5;
+  --text-3: #858585;
+
+  /* Semantic accents — one meaning each */
+  --accent: #197cb4; /* primary action / active tab */
+  --accent-hover: #398ebe;
+  --select: #c99a43; /* selection / pending-connect ONLY */
+  --ok: #58b98b;
+  --warn: #c99a43; /* banner / pill contexts */
+  --danger: #d66b7c;
+  --info: #59a9ba;
+  --on-accent: #f2f2f2;
+
+  /* Canvas notes. Warm paper, deliberately dimmer than the panel surfaces: a
+     note is the largest opaque object on the drawing. Its edge is a muted tan
+     rather than full amber, which at rest is indistinguishable from the amber
+     selection ring. Tokens because the palette rail draws the same card as a
+     legend glyph. */
+  --note-paper: #262320;
+  --note-line: #3f382e;
+  --note-edge: #8a7550;
+
+  /* Low-chroma semantic fills keep large color fields from competing. */
+  --accent-subtle: rgba(25, 124, 180, 0.18);
+  --select-subtle: rgba(201, 154, 67, 0.15);
+  --danger-subtle: rgba(214, 107, 124, 0.14);
+  --info-subtle: rgba(89, 169, 186, 0.14);
+
+  /* Type scale */
+  --fs-micro: 10px; /* ALL-CAPS tracked micro-labels ONLY */
+  --fs-cap: 11px;
+  --fs-body: 12px;
+  --fs-ui: 13px;
+  --fs-h2: 14px;
+  --fs-h1: 17px;
+
+  /* Monospace: model source, JSON editors, anything column-aligned by hand. */
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+
+  /* 4pt spacing grid */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+
+  /* Radii */
+  --r-1: 4px;
+  --r-2: 6px;
+  --r-3: 10px;
+  --r-pill: 999px;
+
+  /* Elevation */
+  --elev-1: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --elev-2: 0 5px 16px rgba(0, 0, 0, 0.36);
+  --elev-3: 0 18px 48px rgba(0, 0, 0, 0.52);
+  --overlay: rgba(13, 13, 13, 0.68);
+
+  /* Focus ring (double ring reads on any surface) */
+  --focus-ring: 0 0 0 2px var(--bg-0), 0 0 0 4px var(--line-focus);
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family:
+    "Inter Variable",
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-size: var(--fs-ui);
+  overflow: hidden;
+}
+
+button,
+select,
+input {
+  font-family: inherit;
+}
+
+button,
+select,
+input[type="text"],
+input[type="number"] {
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
+/* Single focus style — no outline, the double box-shadow ring. */
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+[tabindex]:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Number spinners render white-on-dark in webkit: hide them entirely. */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+::placeholder {
+  color: var(--text-3);
+}
+
+/* Scrollbars: the UA default paints a near-white thumb, which on a dark console
+   reads as a lit element rather than as chrome — loudest exactly where content
+   is densest (dialogs, tables, the property panel). Both syntaxes are declared
+   with the same colors: Chrome honours the standard properties and ignores the
+   -webkit pseudo-elements once they are set, while Safari only understands the
+   pseudo-elements. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-1) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  /* Inset via a transparent border so the thumb floats inside the gutter. */
+  background: var(--line-1);
+  background-clip: content-box;
+  border: 2px solid transparent;
+  border-radius: var(--r-pill);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--line-2);
+  background-clip: content-box;
+}
+
+/* --------------------------------------------------------------------------
+   Shared building blocks
+   -------------------------------------------------------------------------- */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--bg-2);
+  color: var(--text-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  padding: 4px 12px;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  line-height: 1.45;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+}
+.btn--primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+.btn--primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+.btn--danger {
+  background: var(--danger-subtle);
+  border-color: rgba(214, 107, 124, 0.5);
+  color: var(--danger);
+}
+.btn--danger:hover:not(:disabled) {
+  background: rgba(214, 107, 124, 0.24);
+  border-color: var(--danger);
+}
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-2);
+}
+.btn--ghost:hover:not(:disabled) {
+  background: var(--bg-3);
+  border-color: transparent;
+  color: var(--text-1);
+}
+.btn--sm {
+  padding: 2px 8px;
+  font-size: var(--fs-cap);
+}
+/* Toggle buttons (palette tools): pressed = pending-connect/selection amber */
+.btn--toggle[aria-pressed="true"] {
+  background: var(--select-subtle);
+  border-color: var(--select);
+  color: var(--text-1);
+}
+/* Toggle buttons for settings-style choices (unit presets): pressed = accent */
+.btn--choice[aria-pressed="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+/* Run button busy treatment: keeps accent hue, animated stripe, no dead gray */
+.btn--busy,
+.btn--busy:disabled {
+  opacity: 1;
+  cursor: progress;
+  background: linear-gradient(
+    115deg,
+    var(--accent) 0%,
+    var(--accent-hover) 45%,
+    var(--accent) 90%
+  );
+  background-size: 200% 100%;
+  border-color: var(--accent);
+  color: var(--on-accent);
+  animation: btn-busy-slide 1.4s linear infinite;
+}
+@keyframes btn-busy-slide {
+  from {
+    background-position: 0% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.btn__glyph {
+  display: block;
+  width: 15px;
+  height: 15px;
+}
+/* Buttons whose glyph is the whole label (undo/redo): tighter box, and a glyph
+   grown to exactly the line box a text label would fill, so an icon-only
+   button keeps the same height as its lettered neighbours. */
+.btn--icon {
+  padding: 4px 8px;
+}
+/* Full-width action inside a narrow panel. */
+.btn--block {
+  width: 100%;
+}
+.btn--icon .btn__glyph {
+  width: 1.45em;
+  height: 1.45em;
+}
+
+/* Form controls */
+.input,
+.select {
+  width: 100%;
+  background: var(--bg-input);
+  color: var(--text-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  padding: 4px 8px;
+  font-size: var(--fs-body);
+  box-sizing: border-box;
+  font-variant-numeric: tabular-nums;
+}
+.input:hover:not(:disabled),
+.select:hover:not(:disabled) {
+  border-color: var(--line-2);
+}
+.input:focus,
+.select:focus {
+  border-color: var(--line-focus);
+}
+.input:disabled,
+.select:disabled {
+  opacity: 0.65;
+  color: var(--text-2);
+}
+.select {
+  cursor: pointer;
+  appearance: none;
+  /* A select clips its value mid-glyph by default ("US customar", "…converge"),
+     which reads as a rendering fault rather than as truncation. */
+  text-overflow: ellipsis;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='m3 4.5 3 3 3-3' stroke='%23858585' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px;
+}
+.select option,
+.select optgroup {
+  background: var(--bg-1);
+  color: var(--text-1);
+}
+
+.field {
+  margin-bottom: var(--sp-2);
+}
+.field__label {
+  display: block;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  margin-bottom: 2px;
+}
+.field__unit {
+  color: var(--text-3);
+  font-weight: 400;
+}
+.field__hint {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+  line-height: 1.45;
+  margin-top: 3px;
+}
+.field__error {
+  font-size: var(--fs-cap);
+  color: var(--danger);
+  line-height: 1.45;
+  margin-top: 3px;
+}
+/* Checkbox and its text on one row. */
+.check-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* Paired fields (X/Y, min/max) share one row: two three-character numbers do
+   not each deserve a full-width input and a line of their own. */
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+.field-row > .field {
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Formula fields (FormulaUnitInput + FormulaExpressionEditor)
+   The chip editor IS the field's text surface: the source string stays
+   authoritative and chips are atomic contenteditable=false spans.
+   -------------------------------------------------------------------------- */
+
+/* Field header keeps mode/actions out of the chip editor's width budget. */
+.formula-unit-input__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: 2px;
+}
+.formula-unit-input__header .field__label {
+  min-width: 0;
+  margin-bottom: 0;
+}
+.formula-unit-input__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+/* Control row: the editor/input receives the full field width. */
+.formula-unit-input__control {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+}
+.formula-unit-input__control > .input,
+.formula-unit-input__control > .formula-editor {
+  flex: 1;
+  min-width: 0;
+}
+.formula-unit-input__toggle {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--text-3);
+}
+.formula-unit-input__toggle:hover:not(:disabled) {
+  color: var(--text-1);
+}
+.formula-unit-input__toggle[aria-pressed="true"] {
+  color: var(--info);
+  border-color: var(--info);
+}
+/* ƒx "Insert variable" button — the primary formula entry point. */
+.formula-unit-input__insert {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  color: var(--info);
+}
+.formula-unit-input__insert:hover:not(:disabled) {
+  color: var(--text-1);
+  border-color: var(--info);
+}
+.formula-unit-input__preview {
+  line-height: 1.6;
+}
+.formula-editor {
+  min-width: 0;
+}
+
+/* The contenteditable token surface mirrors .input, but wraps and grows. */
+.formula-expression-editor {
+  min-height: 26px;
+  height: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+  cursor: text;
+}
+.formula-expression-editor:hover:not(.formula-expression-editor--disabled) {
+  border-color: var(--line-2);
+}
+.formula-expression-editor:focus {
+  border-color: var(--line-focus);
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.formula-expression-editor--disabled {
+  opacity: 0.65;
+  color: var(--text-2);
+  cursor: default;
+}
+.formula-expression-editor[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* Inline token chip: atomic reference (id · property). */
+.formula-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  max-width: 100%;
+  margin: 0 1px;
+  padding: 0 4px;
+  vertical-align: baseline;
+  background: var(--accent-subtle);
+  border: 1px solid rgba(25, 124, 180, 0.58);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font-size: var(--fs-body);
+  line-height: 1.5;
+  cursor: default;
+  user-select: none;
+  box-decoration-break: clone;
+}
+.formula-chip__accessor {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--info);
+  text-transform: uppercase;
+}
+.formula-chip__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 140px;
+}
+.formula-chip__warn {
+  color: var(--warn);
+  font-size: var(--fs-cap);
+}
+.formula-chip__remove {
+  align-self: center;
+  padding: 0 2px;
+  margin: 0 -2px 0 0;
+  border: none;
+  border-radius: var(--r-1);
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+  line-height: 1.4;
+  cursor: pointer;
+}
+.formula-chip__remove:hover {
+  color: var(--danger);
+  background: var(--danger-subtle);
+}
+.formula-chip__remove:focus-visible {
+  box-shadow: var(--focus-ring);
+  outline: none;
+}
+.formula-chip--selected {
+  border-color: var(--select);
+  background: var(--select-subtle);
+  box-shadow: 0 0 0 1px var(--select);
+}
+.formula-chip--invalid {
+  border-color: var(--danger);
+  border-style: dashed;
+  background: var(--danger-subtle);
+}
+
+/* Autocomplete menu — portaled to document.body (fixed, above panels). */
+.formula-autocomplete {
+  max-height: 264px;
+  overflow-y: auto;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-3);
+  padding: var(--sp-1);
+  box-sizing: border-box;
+}
+.formula-autocomplete__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.formula-autocomplete__option {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: var(--r-1);
+  font-size: var(--fs-body);
+  color: var(--text-1);
+  cursor: pointer;
+}
+.formula-autocomplete__option:hover {
+  background: var(--bg-3);
+}
+.formula-autocomplete__option[aria-selected="true"] {
+  background: var(--bg-3);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.formula-autocomplete__kind {
+  flex-shrink: 0;
+  width: 30px;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.formula-autocomplete__kind--id {
+  color: var(--info);
+}
+.formula-autocomplete__kind--property {
+  color: var(--ok);
+}
+.formula-autocomplete__label {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+.formula-autocomplete__detail {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+}
+
+/* Click-first formula browser: complete references, no syntax knowledge required. */
+.formula-browser {
+  max-height: min(520px, calc(100vh - 16px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-3);
+  color: var(--text-1);
+}
+.formula-browser__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 10px 12px 8px;
+  /* Drag handle: the anchored placement can land awkwardly on short windows. */
+  cursor: grab;
+  user-select: none;
+}
+.formula-browser__header:active {
+  cursor: grabbing;
+}
+.formula-browser__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.formula-browser__grip {
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+}
+.formula-browser__title {
+  font-size: var(--fs-ui);
+  font-weight: 700;
+}
+.formula-browser__hint {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+}
+.formula-browser__tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px 8px;
+  border-bottom: 1px solid var(--line-1);
+}
+.formula-browser__tabs button {
+  padding: 4px 9px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+}
+.formula-browser__tabs button[aria-selected="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+.formula-browser__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 10px 10px;
+}
+.formula-browser__section + .formula-browser__section {
+  margin-top: 12px;
+}
+.formula-browser__section-title,
+.formula-browser__entity-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.formula-browser__section-title {
+  margin-bottom: 5px;
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+  font-weight: 700;
+}
+.formula-browser__section-title code {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-micro);
+  font-weight: 400;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-browser__entity {
+  padding: 6px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+}
+.formula-browser__entity + .formula-browser__entity {
+  margin-top: 5px;
+}
+.formula-browser__entity-title > span:first-child {
+  font-size: var(--fs-body);
+  font-weight: 650;
+}
+.formula-browser__entity-title > span:last-child {
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: var(--fs-micro);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-browser__choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+.formula-browser__choices button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+}
+.formula-browser__choices button:hover,
+.formula-browser__function-list button:hover {
+  border-color: var(--accent);
+  background: var(--accent-subtle);
+}
+.formula-browser__choices small {
+  overflow: hidden;
+  max-width: 120px;
+  color: var(--text-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-browser__function-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+.formula-browser__function-list button {
+  min-width: 0;
+  padding: 6px;
+  text-align: left;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  cursor: pointer;
+}
+.formula-browser__function-list code,
+.formula-browser__function-list span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.formula-browser__function-list span {
+  margin-top: 2px;
+  color: var(--text-3);
+  font-size: var(--fs-micro);
+}
+
+/* Narrow panels/mobile: chips and menu must never force overflow. */
+@media (max-width: 760px) {
+  .formula-chip__label {
+    max-width: 84px;
+  }
+  .formula-autocomplete__detail {
+    display: none;
+  }
+}
+
+/* Surfaces */
+.card {
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: var(--sp-3);
+}
+.panel {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: var(--sp-3);
+}
+/* Canvas overlay panels (legend, hints, pickers, scrubber) */
+.chip {
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  padding: var(--sp-2) var(--sp-3);
+  color: var(--text-1);
+  font-size: var(--fs-body);
+}
+
+/* Banners */
+.banner {
+  border-radius: var(--r-2);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  /* Banners routinely carry three or four lines of explanation; 12px set solid
+     is the hardest text in the app to read. */
+  line-height: 1.5;
+  /* …and on a wide monitor those lines reach 150 characters, which loses the
+     reader's place on every wrap. */
+  max-width: 110ch;
+  border: 1px solid;
+}
+.banner--warn {
+  background: var(--select-subtle);
+  border-color: rgba(201, 154, 67, 0.45);
+  color: var(--warn);
+}
+.banner--error {
+  background: var(--danger-subtle);
+  border-color: rgba(214, 107, 124, 0.5);
+  color: var(--danger);
+}
+.banner--info {
+  background: var(--info-subtle);
+  border-color: rgba(89, 169, 186, 0.45);
+  color: var(--info);
+}
+
+/* Tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-body);
+}
+.table th {
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line-2);
+  white-space: nowrap;
+}
+.table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--line-1);
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+.table tbody tr:hover td {
+  background: var(--bg-3);
+}
+/* Long result tables: one step down the scale buys several more visible rows
+   without dropping below the readable floor. */
+.table--dense {
+  font-size: var(--fs-cap);
+}
+/* Numeric columns right-align so magnitudes stack digit over digit: a column
+   of left-aligned "200 / 409.8 / 1000" cannot be compared at a glance. */
+.table th.table__num,
+.table td.table__num {
+  text-align: right;
+}
+
+/* Status pill */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+  border-radius: var(--r-pill);
+  padding: 3px 8px;
+  background: transparent;
+  color: var(--text-2);
+}
+.pill--ok {
+  color: var(--ok);
+}
+.pill--warn {
+  color: var(--warn);
+}
+.pill--danger {
+  color: var(--danger);
+}
+.pill--info {
+  color: var(--info);
+}
+.pill--muted {
+  color: var(--text-2);
+}
+/* Status readout rather than a state badge — no outline to compete with the
+   health pill beside it. */
+.pill--plain {
+  border-color: transparent;
+}
+button.pill {
+  cursor: pointer;
+}
+button.pill:hover {
+  background: var(--bg-3);
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  align-items: stretch;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line-1);
+  overflow-x: auto;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: var(--fs-ui);
+  font-weight: 600;
+  color: var(--text-2);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tab:hover {
+  color: var(--text-1);
+  background: var(--bg-2);
+}
+.tab[aria-selected="true"] {
+  color: var(--text-1);
+  background: var(--bg-0);
+  border-bottom-color: var(--accent);
+}
+.tab__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  color: var(--text-3);
+  font-size: 13px;
+  line-height: 1;
+  padding: 1px 4px;
+  margin-left: 2px;
+  cursor: pointer;
+}
+.tab__close:hover {
+  color: var(--text-1);
+  background: var(--bg-3);
+}
+
+/* Dialogs */
+.dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  padding: var(--sp-4);
+  box-sizing: border-box;
+}
+.dialog {
+  background: var(--bg-3);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-3);
+  box-shadow: var(--elev-3);
+  padding: var(--sp-5);
+  width: 100%;
+  max-width: 860px;
+  max-height: 90vh;
+  overflow-y: auto;
+  color: var(--text-1);
+  box-sizing: border-box;
+}
+.dialog--sm {
+  max-width: 440px;
+}
+.model-view-dialog {
+  width: calc(100vw - 48px);
+  max-width: 1400px;
+  height: calc(100vh - 48px);
+  max-height: 960px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.model-view-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: none;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line-1);
+}
+.model-view-dialog__body {
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.dialog__title {
+  font-weight: 700;
+  font-size: var(--fs-h2);
+  color: var(--text-1);
+}
+.dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line-1);
+}
+/* Dismiss glyph: a 15px × on a 640px dialog is a target, not a decoration. */
+.dialog__close {
+  font-size: var(--fs-h2);
+  line-height: 1;
+  padding: 3px 9px;
+  color: var(--text-3);
+}
+.dialog__close:hover:not(:disabled) {
+  color: var(--text-1);
+}
+
+/* Key/value readout row: label left, value right, tabular figures so a run of
+   them scans as a column of numbers instead of ragged text. */
+.kv {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 2px 0;
+  font-size: var(--fs-body);
+}
+.kv__key {
+  color: var(--text-2);
+  min-width: 0;
+}
+.kv__value {
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Numeric output surfaces */
+.table td,
+.result-card-value,
+.chip,
+.pill {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utility */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+.text-3 {
+  color: var(--text-3);
+}
+/* The app's section/column heading idiom, as one class instead of the same
+   five declarations copied into every panel's own title rule. */
+.micro-label {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+/* "Nothing here yet" — framed so it reads as a state of the panel rather than
+   a stray sentence floating in its top-left corner. */
+.empty-state {
+  margin: 0;
+  padding: var(--sp-6);
+  border: 1px dashed var(--line-1);
+  border-radius: var(--r-2);
+  color: var(--text-3);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+   App chrome
+   -------------------------------------------------------------------------- */
+
+.app-shell {
+  background: var(--bg-0);
+}
+.workspace {
+  background: var(--bg-0);
+}
+.workspace-tabs {
+  background: var(--bg-1);
+}
+.workspace-panel {
+  background: var(--bg-1);
+}
+.workspace-center {
+  position: relative;
+}
+
+/* Diagram rails float over the canvas, preserving its full working width. */
+.canvas-sidebar {
+  position: absolute;
+  top: var(--sp-3);
+  bottom: var(--sp-3);
+  z-index: 10;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+.canvas-sidebar--right {
+  top: 58px;
+  right: var(--sp-3);
+  align-items: flex-end;
+}
+.workspace-center:has(.canvas-legend) .canvas-sidebar--right {
+  top: 128px;
+}
+.canvas-sidebar__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  color: var(--text-1);
+  padding: 6px 10px;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.canvas-sidebar__toggle:hover {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+}
+/* Shrink-to-fit, not fill: a floating rail sized to the viewport leaves a tall
+   empty slab under a short form. It grows with its content and only starts
+   scrolling internally once it would outrun the canvas. */
+.canvas-sidebar__content {
+  min-height: 0;
+  flex: 0 1 auto;
+  display: flex;
+  overflow: hidden;
+}
+/* The label button caps the panel rather than floating above it: one object
+   with a header, not a chip and an unrelated card. Squared-off joint only
+   while the panel is actually open. */
+.canvas-sidebar--right {
+  gap: 0;
+}
+.canvas-sidebar--right .canvas-sidebar__toggle {
+  align-self: stretch;
+  background: var(--bg-1);
+  color: var(--text-2);
+}
+.canvas-sidebar--right:has(.canvas-sidebar__content) .canvas-sidebar__toggle {
+  border-radius: var(--r-2) var(--r-2) 0 0;
+  border-bottom-color: transparent;
+  box-shadow: none;
+}
+.canvas-sidebar--right:has(.canvas-sidebar__content) .property-panel {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+.node-actions-panel {
+  margin: var(--sp-3);
+}
+/* Icon-only vertical rail. Names unfurl on hover so the strip stays narrow,
+   and hairlines separate canvas tools from fluid / thermal elements / views.
+   The rail itself is click-through: only the buttons capture the pointer, so
+   canvas elements passing behind the gaps stay reachable. */
+.canvas-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  pointer-events: none;
+}
+.canvas-rail__group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.canvas-rail__divider {
+  align-self: stretch;
+  height: 1px;
+  margin: 4px 0;
+  background: var(--line-2);
+}
+.canvas-rail__btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+.canvas-rail__btn svg {
+  width: 19px;
+  height: 19px;
+}
+.canvas-rail__btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.canvas-rail__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.canvas-rail__btn:disabled {
+  color: var(--text-3);
+  cursor: not-allowed;
+}
+.canvas-rail__btn[aria-pressed="true"] {
+  background: var(--accent-subtle);
+  border-color: var(--accent);
+  color: var(--text-1);
+}
+.canvas-rail__btn--element {
+  cursor: grab;
+}
+.canvas-rail__btn--element:active {
+  cursor: grabbing;
+}
+.canvas-rail__btn .canvas-rail__glyph {
+  width: 21px;
+  height: 21px;
+}
+.canvas-rail__tip {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 9px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  padding: 5px 8px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-1);
+  box-shadow: var(--elev-3);
+  font-size: var(--fs-cap);
+  line-height: 1.4;
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-4px, -50%);
+  transition:
+    opacity 90ms ease,
+    transform 90ms ease;
+}
+.canvas-rail__btn:hover .canvas-rail__tip,
+.canvas-rail__btn:focus-visible .canvas-rail__tip {
+  opacity: 1;
+  transform: translate(0, -50%);
+  transition-delay: 220ms;
+}
+.canvas-rail__tip-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.canvas-rail__tip-label {
+  color: var(--text-1);
+}
+/* Which network the element belongs to — the rail dropped its section
+   headings, so the tag carries that grouping into the tooltip. */
+.canvas-rail__tip-tag {
+  padding: 0 4px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.canvas-rail__tip-hint {
+  color: var(--text-3);
+}
+/* View-options menu: a click-toggled checkbox panel, not a hover tooltip
+   (RailTip above), so it needs its own positioning rather than reusing it. */
+.canvas-rail__view-wrap {
+  position: relative;
+}
+.canvas-rail__view-menu {
+  position: absolute;
+  top: 0;
+  left: calc(100% + 9px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 190px;
+  padding: 10px 12px;
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-3);
+  font-size: var(--fs-cap);
+  text-align: left;
+  pointer-events: auto;
+}
+.canvas-rail__view-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.canvas-rail__view-menu-heading {
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.canvas-rail__view-menu-section label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.canvas-rail__view-menu-reset {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--fs-cap);
+  cursor: pointer;
+}
+.canvas-rail__view-menu-reset:hover {
+  text-decoration: underline;
+}
+.connection-chooser {
+  position: absolute;
+  z-index: 30;
+  min-width: 180px;
+  max-width: 300px;
+  transform: translate(10px, 10px);
+  padding: var(--sp-2);
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-3);
+}
+.connection-chooser__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: var(--sp-1);
+  padding: 0 0 3px;
+  background: transparent;
+  border: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: grab;
+}
+.connection-chooser__title:active {
+  cursor: grabbing;
+}
+.connection-chooser__options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1);
+}
+.connection-chooser__section {
+  margin-bottom: var(--sp-2);
+}
+.connection-chooser__section-label {
+  margin-bottom: 3px;
+  color: var(--text-3);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.connection-chooser__option {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 6px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+}
+.connection-chooser__option:hover {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+}
+.connection-chooser__new-component {
+  flex: 1;
+  padding: 5px 6px;
+  background: transparent;
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-1);
+  color: var(--info);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+  text-align: left;
+}
+.connection-chooser__library-actions {
+  display: flex;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+.connection-chooser__refresh {
+  width: 28px;
+  flex: 0 0 auto;
+  background: var(--bg-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: var(--fs-ui);
+}
+.connection-chooser__refresh:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.selection-menu {
+  position: absolute;
+  z-index: 20;
+  display: flex;
+  gap: var(--sp-1);
+  transform: translate(10px, -50%);
+  padding: var(--sp-1);
+  background: var(--bg-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+}
+.selection-menu__action {
+  padding: 4px 7px;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-cap);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.selection-menu__action:hover:not(:disabled) {
+  background: var(--bg-3);
+  border-color: var(--line-2);
+}
+.selection-menu__action:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+.selection-menu__action--danger {
+  color: var(--danger);
+}
+.selection-menu__action--danger:hover:not(:disabled) {
+  background: var(--danger-subtle);
+  border-color: var(--danger);
+}
+.selection-plot {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 15;
+  width: min(440px, calc(100% - 24px));
+  padding: var(--sp-2);
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-3);
+}
+.selection-plot__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: grab;
+}
+.selection-plot__title {
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.selection-plot__properties {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin: var(--sp-1) 0;
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+}
+.selection-plot__steady-properties {
+  display: grid;
+  gap: 1px;
+  max-height: min(480px, calc(100vh - 180px));
+  margin-top: var(--sp-1);
+  overflow: auto;
+  background: var(--line-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+}
+.selection-plot__steady-property {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding: 6px 8px;
+  background: var(--bg-1);
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+}
+.selection-plot__steady-property strong {
+  flex: 0 0 auto;
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+}
+.connection-chooser__new-component:hover {
+  background: var(--info-subtle);
+  border-color: var(--info);
+  color: var(--text-1);
+}
+
+/* Toolbar */
+.toolbar {
+  height: 44px;
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line-1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--sp-4);
+  gap: var(--sp-3);
+  overflow: hidden;
+}
+.toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-shrink: 1;
+  /* Clip overflowing actions instead of letting them slide under the
+     always-visible status cluster. */
+  overflow: hidden;
+}
+.toolbar__group--status {
+  flex-shrink: 0;
+  margin-left: auto;
+  /* The issues popover hangs out of this cluster — never clip it. */
+  overflow: visible;
+}
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.toolbar-title {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  line-height: 0;
+}
+.toolbar-title__full {
+  display: block;
+  height: 16px;
+  width: auto;
+}
+.toolbar-title__short {
+  display: none;
+  height: 18px;
+  width: auto;
+}
+/* Hairline group separators: identity | file + history | model context + run.
+   Nine adjacent buttons in one flat run give no cue about which belong
+   together; the rules cost 1px each and do the whole job. */
+.toolbar__divider {
+  flex: none;
+  align-self: stretch;
+  width: 1px;
+  margin: 11px 3px;
+  background: var(--line-1);
+}
+.toolbar .select,
+.toolbar .btn {
+  width: auto;
+  flex-shrink: 0;
+}
+.toolbar .select {
+  max-width: 132px;
+}
+.network-name-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 1;
+  min-width: 0;
+}
+.network-name {
+  width: 230px;
+  flex-shrink: 1;
+  min-width: 90px;
+  font-weight: 600;
+  padding-right: 18px;
+}
+/* Unsaved-changes dot pinned inside the name field. */
+.network-name-dirty {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--warn);
+  pointer-events: none;
+}
+
+/* Progress meter inside the toolbar status cluster */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.progress__track {
+  width: 120px;
+  height: 6px;
+  background: var(--bg-input);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-pill);
+  overflow: hidden;
+}
+.progress__fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s ease;
+}
+.progress__dt {
+  margin-left: var(--sp-1);
+}
+
+/* Validation issues popover — portaled to document.body with fixed
+   positioning so no toolbar stacking/overflow context can occlude it. */
+.issues-panel {
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(50vh, 480px);
+  overflow-y: auto;
+  padding: var(--sp-2);
+}
+.issues-panel__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  padding: var(--sp-1) var(--sp-2);
+}
+.issues-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.issue-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  color: var(--danger);
+  font-size: var(--fs-body);
+  padding: 6px var(--sp-2);
+  cursor: pointer;
+}
+.issue-item:hover {
+  background: var(--bg-3);
+}
+.issue-item:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+
+/* Settings dialog */
+
+/* Each column is headed by a ruled label, so three columns of unrelated
+   controls read as three sections instead of one field soup. */
+.settings-section-title {
+  font-weight: 700;
+  margin: 0 0 var(--sp-2);
+  padding-bottom: var(--sp-1);
+  border-bottom: 1px solid var(--line-1);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.settings-section-title--advanced {
+  margin-top: var(--sp-5);
+}
+/* Was declared inline at both call sites (with two different minmax values)
+   against a class that had no rule at all. */
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--sp-4);
+  align-items: start;
+}
+/* The JSON editors are equal-height cells so their Apply buttons can share a
+   baseline instead of stepping down with each hint's line count. */
+.settings-grid--advanced {
+  align-items: stretch;
+}
+/* Unit preferences: sixteen selects would otherwise set the height of the whole
+   dialog. Framed as a deliberate scroll region rather than a cropped column. */
+.settings-unit-list {
+  max-height: 216px;
+  overflow-y: auto;
+  padding: var(--sp-2);
+  background: var(--bg-input);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+}
+.settings-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--sp-2);
+}
+/* Label beside its select, not stacked above it: sixteen stacked pairs is a
+   240px-tall list of mostly whitespace. */
+.settings-unit-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+.settings-unit-row:last-child {
+  margin-bottom: 0;
+}
+.settings-unit-row__label {
+  margin-bottom: 0;
+  text-transform: capitalize;
+}
+.settings-unit-row .select {
+  width: auto;
+  min-width: 92px;
+  padding: 2px 28px 2px 6px;
+  background-position: right 8px center;
+}
+.settings-json-field {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 0;
+}
+.settings-json {
+  width: 100%;
+  height: auto;
+  resize: vertical;
+  font-family: var(--font-mono);
+  font-size: var(--fs-cap);
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+}
+.settings-json-field__apply {
+  margin-top: auto;
+  align-self: flex-start;
+}
+/* Fluids: one roster column for every fluid in the network.  The default
+   fluid's full editor is the first (non-removable) card; each named
+   continuum is a compact card — editable name and a × delete in the header,
+   model + spec summary on one row — instead of a tall stack of full-width
+   labelled fields per fluid. */
+.named-fluids-hint {
+  margin-bottom: var(--sp-2);
+}
+.named-fluid-card {
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+.named-fluid-card--default {
+  background: var(--bg-input);
+}
+.named-fluid-card--default .field:last-child {
+  margin-bottom: 0;
+}
+.named-fluid-card__default-label {
+  font-weight: 600;
+  font-size: var(--fs-cap);
+}
+.named-fluid-card__aside {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+.named-fluid-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+}
+.named-fluid-card__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-weight: 600;
+}
+.named-fluid-card__delete {
+  flex: none;
+  line-height: 1;
+}
+.named-fluid-card__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+.named-fluid-card__row .select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.named-fluid-card__summary {
+  flex: none;
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+.named-fluid-card__picker {
+  margin-top: var(--sp-1);
+}
+.named-fluid-card__picker .field {
+  margin-bottom: var(--sp-1);
+}
+.named-fluid-card__picker .field:last-child {
+  margin-bottom: 0;
+}
+
+/* Property panel */
+.property-panel {
+  width: 260px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  padding: var(--sp-3);
+  overflow-y: auto;
+  color: var(--text-1);
+  flex-shrink: 0;
+  max-height: 100%;
+  box-sizing: border-box;
+}
+/* The selected element's identity, ruled off from its parameters. */
+.property-panel__title {
+  font-weight: 700;
+  margin-bottom: var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line-1);
+  font-size: var(--fs-ui);
+  color: var(--text-1);
+}
+/* Sub-heading inside the panel (Position, State, Results …): separates runs of
+   fields that were previously one undifferentiated stack of inputs. */
+.property-panel__group {
+  margin: var(--sp-3) 0 var(--sp-2);
+  padding-top: var(--sp-2);
+  border-top: 1px solid var(--line-1);
+}
+.property-panel__empty {
+  font-size: var(--fs-body);
+  color: var(--text-3);
+}
+/* Quiet explanatory line under a form (e.g. why a note has no parameters). */
+.property-panel__hint {
+  margin-bottom: var(--sp-2);
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+  line-height: 1.45;
+}
+/* Prose field: the shared .input is single-line height and nowrap. */
+.property-panel__textarea {
+  height: auto;
+  padding: 6px 8px;
+  line-height: 1.45;
+  resize: vertical;
+  white-space: pre-wrap;
+}
+/* Per-selection results in the property panel. */
+.property-panel__results {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-1);
+}
+.property-panel__results-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+}
+/* Solved values sit on their own recessed surface: an editable field and a
+   read-only result should never look like the same kind of thing. */
+.property-panel__readout {
+  background: var(--bg-input);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  padding: var(--sp-1) var(--sp-2);
+}
+.property-panel__readout--stale {
+  opacity: 0.75;
+  border-left: 2px solid var(--warn);
+}
+
+/* Results view */
+
+/* Analysis reading column. The scroll container itself stays padding-free at
+   the top so the sticky run strip can reach top: 0; this inner column carries
+   the page padding and caps the measure — a bar list or a six-column table
+   stretched across a 2560px monitor puts its label and its number too far
+   apart to associate. */
+.analysis-page {
+  padding: var(--sp-6);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+@media (max-width: 760px) {
+  .analysis-page {
+    padding: var(--sp-3);
+  }
+}
+
+.precision-selector {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-3);
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+}
+
+/* A titled block inside a disclosure (Run Summary, Nodes, Branches …). */
+.analysis-section {
+  margin-bottom: var(--sp-6);
+}
+.analysis-section:last-child {
+  margin-bottom: 0;
+}
+.analysis-section__title {
+  font-size: var(--fs-h2);
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: var(--sp-2);
+}
+
+/* Run facts. A wrapping row of "label: value" pairs reflows unpredictably and
+   separates each label from its number; a grid keeps every value under its own
+   label and on a shared baseline. */
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: var(--sp-2) var(--sp-4);
+}
+.fact__value {
+  font-size: var(--fs-body);
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+.fact__value--ok {
+  color: var(--ok);
+}
+.fact__value--warn {
+  color: var(--warn);
+}
+.fact__value--danger {
+  color: var(--danger);
+}
+
+.results-overview {
+  display: grid;
+  grid-template-columns: minmax(230px, 1.35fr) repeat(4, minmax(130px, 1fr));
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.result-card {
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: 12px;
+  min-height: 64px;
+}
+/* Six cards in a five-column grid orphan the last one onto its own row; the
+   conservation card also carries the longest detail line, so it takes the extra
+   column instead of wrapping to three lines beside four empty cells. */
+.result-card--wide {
+  grid-column: span 2;
+}
+.result-card-label {
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.result-card-value {
+  color: var(--text-1);
+  font-size: var(--fs-h1);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 5px;
+}
+.result-card-detail {
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+  margin-top: 4px;
+}
+.results-table-wrap {
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  overflow-x: auto;
+  background: var(--bg-1);
+}
+/* Table utility bar: row count anchors the left so the export buttons read as
+   one end of a toolbar rather than as two chips on an empty band. */
+.results-table-wrap__tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2);
+  border-bottom: 1px solid var(--line-1);
+}
+.results-table-wrap__tools .micro-label {
+  margin-right: auto;
+}
+.results-table-wrap table th {
+  background: var(--bg-2);
+  color: var(--text-2);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.results-table-wrap table td {
+  font-variant-numeric: tabular-nums;
+}
+.stale-banner {
+  background: var(--select-subtle);
+  border: 1px solid rgba(201, 154, 67, 0.45);
+  color: var(--warn);
+  border-radius: var(--r-2);
+  padding: 8px 12px;
+  font-size: var(--fs-body);
+  margin-bottom: 14px;
+}
+
+/* --------------------------------------------------------------------------
+   Canvas readouts, legend, scrubber, charts
+   -------------------------------------------------------------------------- */
+
+/* Node/edge readout pills (3-sig-fig formatted values under node labels).
+   Slightly translucent: a chip sits on top of the drawing, and an opaque one
+   punches a visible hole in whatever pipe run passes behind it. */
+.readout-chip {
+  background: rgba(41, 41, 41, 0.92);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-pill);
+  box-shadow: var(--elev-1);
+  padding: 1px 7px;
+  color: var(--text-1);
+  font-size: var(--fs-cap);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+/* Boundary-condition chip: hollow + italic so pre-solve BCs can never be
+   mistaken for solver results. */
+.readout-chip--bc {
+  background: transparent;
+  border-style: dashed;
+  border-color: var(--line-2);
+  color: var(--text-2);
+  font-style: italic;
+}
+
+/* --------------------------------------------------------------------------
+   Canvas notes — free-floating text annotations
+   -------------------------------------------------------------------------- */
+
+/* Paper-ish card with a warm left edge: unmistakably commentary rather than a
+   model element, since nothing else on the canvas is a rectangle of prose. */
+.canvas-note {
+  box-sizing: border-box;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 7px 9px;
+  background: var(--note-paper);
+  border: 1px solid var(--note-line);
+  border-left: 3px solid var(--note-edge);
+  border-radius: var(--r-1);
+  box-shadow: var(--elev-1);
+  color: var(--text-1);
+  /* Body-text size, and it scales with zoom rather than counter-scaling like
+     node labels: a note is content on the drawing, so it grows and shrinks
+     with the network it annotates. */
+  font-size: var(--fs-ui);
+  line-height: 1.45;
+  cursor: grab;
+}
+.canvas-note:hover {
+  border-color: #574d3c;
+}
+.canvas-note--selected {
+  border-color: var(--select);
+  box-shadow:
+    0 0 0 2px var(--select),
+    0 0 6px rgba(201, 154, 67, 0.45);
+}
+/* Authored newlines and runs of spaces are meaningful in prose. */
+.canvas-note__text {
+  flex: 1;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+/* Explicitly sized card: the text scrolls rather than escaping the box.
+   A thin, card-coloured bar — the platform default is a bright slab that
+   would dominate a small note. */
+.canvas-note__text--clipped {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--warn) transparent;
+}
+.canvas-note__text--clipped::-webkit-scrollbar {
+  width: 6px;
+}
+.canvas-note__text--clipped::-webkit-scrollbar-thumb {
+  background: var(--warn);
+  border-radius: 3px;
+}
+.canvas-note__text--clipped::-webkit-scrollbar-track {
+  background: transparent;
+}
+.canvas-note__text--empty {
+  color: var(--text-3);
+  font-style: italic;
+}
+/* Fills the card, so the note's own corner handle is the only resize
+   affordance (no competing native textarea grabber). */
+.canvas-note__editor {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font: inherit;
+  line-height: inherit;
+  resize: none;
+  cursor: text;
+}
+.canvas-note__editor:focus {
+  outline: none;
+}
+.canvas-note__editor::placeholder {
+  color: var(--text-3);
+  font-style: italic;
+}
+
+/* Corner resize grip. React Flow positions the control and counter-scales it
+   with zoom; these rules only override its default square-dot look. */
+.canvas-note__resize.react-flow__resize-control.handle {
+  width: 14px;
+  height: 14px;
+  /* Overlap the corner so the grip reads as part of the card's edge. */
+  transform: translate(-4px, -4px);
+  background: transparent;
+  border: none;
+  color: var(--warn);
+  opacity: 0.75;
+  cursor: nwse-resize;
+}
+.canvas-note__resize.react-flow__resize-control.handle:hover {
+  opacity: 1;
+}
+.canvas-note__resize svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+/* Time scrubber */
+.scrubber {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-body);
+}
+.scrubber__range {
+  width: 200px;
+  cursor: pointer;
+  accent-color: var(--accent);
+  background: transparent;
+}
+
+/* MiniMap → dark. Passive overview: pointer events fall through to the
+   canvas so the minimap never swallows node clicks beneath it. */
+.canvas-minimap,
+.react-flow__minimap {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Collapsible global map card (bottom-right canvas overlay). The card body
+   is click-transparent except its header; the collapsed chip is a button. */
+.global-map-panel {
+  pointer-events: none;
+}
+.global-map-card {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  overflow: hidden;
+  pointer-events: none;
+}
+.global-map-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: 2px 4px 2px 10px;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--line-1);
+  pointer-events: auto;
+}
+.global-map-card__header button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 18px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+}
+.global-map-card__header button:hover {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+/* MiniMap renders its own positioned Panel; dock it inside the card. */
+.global-map-card .react-flow__minimap {
+  position: static;
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  display: block;
+}
+.global-map-collapsed {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  cursor: pointer;
+  color: var(--text-1);
+  pointer-events: auto;
+  font-size: var(--fs-cap);
+}
+.global-map-collapsed:hover {
+  border-color: var(--line-2);
+  color: var(--text-1);
+}
+
+/* 3D view orientation chrome. Sits in a React Flow Panel, so the wrapper must
+   stay pointer-transparent or it would swallow orbit drags around the card. */
+.canvas-3d-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px 8px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  pointer-events: auto;
+}
+.canvas-3d-controls__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.canvas-3d-controls__presets {
+  display: flex;
+  gap: 3px;
+}
+.canvas-3d-controls__preset {
+  padding: 2px 7px;
+  cursor: pointer;
+  font-size: var(--fs-micro);
+  box-shadow: none;
+}
+.canvas-3d-controls__preset:hover {
+  border-color: var(--line-2);
+}
+.canvas-3d-controls__preset[aria-pressed="true"] {
+  border-color: var(--select);
+  color: var(--select);
+}
+.canvas-3d-controls__readout {
+  font-size: var(--fs-micro);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-2);
+}
+.canvas-3d-controls__hint {
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+
+/* --------------------------------------------------------------------------
+   Iteration 2: run history, schedule editor, model table
+   -------------------------------------------------------------------------- */
+
+/* Run history panel */
+.run-history {
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: 10px 12px;
+  margin-bottom: 20px;
+}
+.run-history__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: 6px;
+}
+.run-history__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.run-history__chip-x {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  margin-left: 4px;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+}
+.run-history__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.run-history__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: var(--r-1);
+}
+.run-history__item--selected {
+  background: var(--bg-2);
+}
+.run-history__view {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 11px;
+  line-height: 1;
+}
+.run-history__name {
+  width: 120px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  font-size: var(--fs-cap);
+}
+.run-history__meta {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.run-history__baseline-tag {
+  padding: 1px 7px;
+}
+.run-history__diary {
+  padding: 1px 7px;
+}
+
+/* --------------------------------------------------------------------------
+   Solver diary (convergence-diary inspection in the Analysis view)
+   -------------------------------------------------------------------------- */
+.solver-diary {
+  margin-bottom: 20px;
+  /* Diary jumps focus this card; keep it clear of the sticky run strip. */
+  scroll-margin-top: 56px;
+}
+/* Nested inside the diary disclosure, the disclosure frame is the card. */
+.analysis-disclosure__content > .solver-diary {
+  border: none;
+  padding: 4px 2px;
+  margin-bottom: 0;
+}
+.solver-diary:focus {
+  /* Programmatic focus target only (run-history "Diary" jump); the global
+     focus-visible ring still applies for keyboard users. */
+  outline: none;
+}
+.solver-diary--legacy {
+  color: var(--text-3);
+  font-size: var(--fs-body);
+}
+.solver-diary__head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.solver-diary__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin: 0;
+}
+.solver-diary__digest {
+  font-size: var(--fs-body);
+  color: var(--text-1);
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+.solver-diary__meta {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+  margin-bottom: 6px;
+}
+.solver-diary__list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.solver-diary__event {
+  display: flex;
+  align-items: baseline;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+  padding: 1px 0;
+}
+.solver-diary__coord {
+  flex: 0 0 auto;
+  min-width: 120px;
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+  font-variant-numeric: tabular-nums;
+}
+.solver-diary__sev {
+  flex: 0 0 auto;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  border-radius: var(--r-pill);
+  padding: 0 6px;
+}
+.solver-diary__sev--info {
+  color: var(--text-3);
+}
+.solver-diary__sev--notice {
+  color: var(--info);
+}
+.solver-diary__sev--warning {
+  color: var(--warn);
+}
+.solver-diary__message {
+  flex: 1 1 220px;
+  min-width: 0;
+  color: var(--text-1);
+  font-size: var(--fs-body);
+}
+.solver-diary__count {
+  color: var(--text-3);
+  font-size: var(--fs-cap);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.solver-diary__hidden {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+.solver-diary__empty {
+  color: var(--text-3);
+  font-size: var(--fs-body);
+  margin: 4px 0;
+}
+.solver-diary__foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.sweep-cell-warn {
+  color: var(--warn);
+}
+
+/* --------------------------------------------------------------------------
+   Analysis shell: disclosure cards + run strip
+   -------------------------------------------------------------------------- */
+
+/* Controlled disclosure card (AnalysisDisclosure) */
+.analysis-disclosure {
+  padding: 0;
+  /* Closed disclosures are a stack of identical bars; keeping them tight reads
+     as one index of sections rather than four unrelated cards. */
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+/* The disclosure header button lives inside an h2 (heading hierarchy);
+   reset UA heading styles so the button's own typography wins. */
+.analysis-disclosure__heading {
+  margin: 0;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+}
+.analysis-disclosure__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  color: var(--text-1);
+  text-align: left;
+  cursor: pointer;
+}
+.analysis-disclosure__header:hover {
+  background: var(--bg-2);
+}
+/* The open/closed marker is the only affordance on the bar, so it carries the
+   text-2 weight of a control rather than the text-3 of an aside. */
+.analysis-disclosure__chevron {
+  flex: 0 0 auto;
+  color: var(--text-2);
+  font-size: var(--fs-body);
+  line-height: 1;
+  width: 12px;
+  text-align: center;
+}
+.analysis-disclosure__header:hover .analysis-disclosure__chevron {
+  color: var(--text-1);
+}
+.analysis-disclosure__title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+}
+.analysis-disclosure__badge {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+.analysis-disclosure__meta {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.analysis-disclosure__content {
+  padding: 4px 10px 10px;
+  border-top: 1px solid var(--line-1);
+  /* Keep the programmatically focused region clear of the sticky run strip. */
+  scroll-margin-top: 56px;
+}
+.analysis-disclosure__content:focus {
+  /* Programmatic focus target only (open-then-focus jump); the global
+     focus-visible ring still applies for keyboard users. */
+  outline: none;
+}
+/* Nested cards inside a disclosure (solver diary, tables wrap) stay compact —
+   the disclosure frame already supplies the outer border and padding. */
+.analysis-disclosure__content > .card {
+  padding: var(--sp-2) var(--sp-3);
+  margin-bottom: 8px;
+}
+.analysis-disclosure__content > .card:last-child {
+  margin-bottom: 0;
+}
+
+/* Sticky run-status strip (AnalysisRunStrip) */
+.run-strip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2) var(--sp-3);
+  flex-wrap: wrap;
+  padding: 6px 12px;
+  margin-bottom: 12px;
+  background: var(--bg-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+}
+.run-strip__lead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+.run-strip__title {
+  font-size: var(--fs-ui);
+  font-weight: 700;
+  color: var(--text-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 260px;
+}
+.run-strip__mode {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.run-strip__detail {
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.run-strip__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.run-strip__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.run-strip__field-label {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.run-strip__select {
+  max-width: 220px;
+  padding: 2px 6px;
+  font-size: var(--fs-cap);
+}
+.run-strip__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  background: var(--bg-3);
+  color: var(--text-1);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  line-height: 1.6;
+}
+.run-strip__badge--warn {
+  color: var(--warn);
+}
+
+/* The strip wraps at the existing 1100px / 760px breakpoints: the lead
+   cluster and actions each wrap internally, the select and title surrender
+   width first, and the lowest-value evidence (detail text) retires last. */
+@media (max-width: 1100px) {
+  .run-strip__title {
+    max-width: 180px;
+  }
+  .run-strip__select {
+    max-width: 170px;
+  }
+}
+@media (max-width: 760px) {
+  .run-strip {
+    padding: 4px 8px;
+    gap: 4px var(--sp-2);
+  }
+  .run-strip__title {
+    max-width: 120px;
+  }
+  .run-strip__detail {
+    display: none;
+  }
+  .run-strip__select {
+    max-width: 130px;
+  }
+}
+
+/* Schedule / curve editor */
+.schedule-editor__row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+  align-items: center;
+}
+.schedule-editor__row .input {
+  flex: 1;
+  min-width: 0;
+}
+.schedule-editor__head {
+  margin-bottom: 2px;
+}
+.schedule-editor__colhead {
+  flex: 1;
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+}
+.schedule-editor__alert {
+  margin-top: 6px;
+  padding: 4px 8px;
+  font-size: var(--fs-cap);
+}
+.schedule-editor__sparkline {
+  margin-top: 8px;
+}
+.schedule-editor__paste-fallback {
+  margin-top: 6px;
+}
+.schedule-editor__paste-fallback textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* Model table */
+.mt-table td {
+  vertical-align: middle;
+}
+.mt-table tbody tr:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.mt-cell-input {
+  padding: 2px 6px;
+  font-size: var(--fs-cap);
+  background: transparent;
+  border-color: transparent;
+}
+.mt-cell-input:hover:not(:focus) {
+  border-color: var(--line-1);
+  background: var(--bg-input);
+}
+.mt-cell-input:focus {
+  background: var(--bg-input);
+  border-color: var(--line-focus);
+}
+.mt-cell-input--num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chart tooltip */
+.chart-tooltip {
+  background: var(--bg-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-2);
+  box-shadow: var(--elev-2);
+  padding: 6px 10px;
+  font-size: var(--fs-cap);
+  color: var(--text-1);
+}
+
+/* Chart legend toggle chips */
+.chart-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-cap);
+  color: var(--text-1);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  cursor: pointer;
+  padding: 1px 4px;
+}
+.chart-legend-chip[aria-pressed="false"] {
+  color: var(--text-3);
+}
+.chart-legend-chip:hover {
+  background: var(--bg-3);
+}
+
+/* Sortable table headers */
+.results-table-wrap th[aria-sort] {
+  color: var(--text-1);
+}
+.results-table-wrap th:hover {
+  background: var(--bg-3);
+}
+
+/* --------------------------------------------------------------------------
+   React Flow chrome
+   The library themes itself through --xy-* custom properties, so its furniture
+   is mapped onto our tokens here rather than fought with class overrides —
+   those lose or win depending on stylesheet import order, and they only reach
+   the parts that happen to have been noticed.
+   -------------------------------------------------------------------------- */
+.react-flow {
+  --xy-background-color: var(--bg-0);
+
+  /* Marquee and multi-selection box. Stock is rgba(0, 89, 220, …): the one
+     blue in the app that isn't ours. */
+  --xy-selection-background-color: var(--accent-subtle);
+  --xy-selection-border: 1px dashed var(--accent);
+
+  /* The line dragged out of a port, in the same amber as the pending-connect
+     ring on its source node, so the gesture and its origin read as one thing
+     (stock is a light-gray hairline). */
+  --xy-connectionline-stroke: var(--select);
+  --xy-connectionline-stroke-width: 2;
+
+  --xy-handle-background-color: var(--bg-2);
+  --xy-handle-border-color: var(--line-focus);
+
+  --xy-controls-button-background-color: var(--bg-2);
+  --xy-controls-button-background-color-hover: var(--bg-3);
+  --xy-controls-button-color: var(--text-2);
+  --xy-controls-button-color-hover: var(--text-1);
+  --xy-controls-button-border-color: var(--line-1);
+  --xy-controls-box-shadow: var(--elev-2);
+
+  --xy-minimap-background-color: var(--bg-1);
+  --xy-minimap-mask-background-color: rgba(13, 13, 13, 0.76);
+
+  /* Only reached by edges that opt out of our own edge components. */
+  --xy-edge-stroke: var(--line-2);
+  --xy-edge-stroke-selected: var(--select);
+
+  --xy-resize-background-color: var(--select);
+}
+
+.react-flow__controls {
+  /* Framed like every other floating panel; without the border the button
+     stack reads as a pale slab dropped on the canvas. */
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  overflow: hidden;
+}
+.react-flow__controls button {
+  border-bottom: 1px solid var(--line-1);
+  fill: currentColor;
+}
+.react-flow__controls button:last-child {
+  border-bottom: none;
+}
+.react-flow__controls button svg {
+  fill: currentColor;
+}
+
+/* Dashes are the one part of the drag line the theme variables can't express. */
+.react-flow__connection-path {
+  stroke-dasharray: 6 4;
+}
+.react-flow__attribution {
+  background: rgba(31, 31, 31, 0.78);
+  color: var(--text-3);
+}
+.react-flow__attribution a {
+  color: var(--text-2);
+}
+
+/* --------------------------------------------------------------------------
+   Text model view (source editor over the canonical config)
+   -------------------------------------------------------------------------- */
+
+.text-model-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-0);
+  color: var(--text-1);
+}
+.text-model-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-3);
+  background: var(--bg-1);
+  border-bottom: 1px solid var(--line-1);
+  flex-wrap: wrap;
+}
+.text-model-toolbar__hint {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+.text-model-caret {
+  margin-left: auto;
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Monospace source surface; line-height is set inline (TEXT_LINE_HEIGHT) so
+   the scroll-to-line math uses the same constant. */
+.text-model-editor {
+  flex: 1;
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  border: none;
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+    monospace;
+  font-size: var(--fs-body);
+  padding: var(--sp-3);
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+.text-model-editor:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--bg-0),
+    inset 0 0 0 4px var(--line-focus);
+}
+.text-model-diagnostics {
+  border-top: 1px solid var(--line-1);
+  background: var(--bg-1);
+  max-height: 176px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+.text-model-diagnostics ul {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+}
+.text-model-diagnostic {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  width: 100%;
+  box-sizing: border-box;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-1);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  padding: 4px var(--sp-3);
+  cursor: pointer;
+}
+.text-model-diagnostic:hover:not(:disabled) {
+  background: var(--bg-3);
+}
+.text-model-diagnostic:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.text-model-diagnostic:disabled {
+  cursor: default;
+  opacity: 1;
+}
+.text-model-diagnostic__line {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.text-model-diagnostic__msg {
+  min-width: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Parameter sweep workspace (session-only Exploration POC)
+   -------------------------------------------------------------------------- */
+
+.sweep-panel {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--sp-6);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--bg-0);
+  color: var(--text-1);
+}
+/* Same capped measure as the analysis view (see .analysis-page). */
+.sweep-panel > * {
+  width: 100%;
+  max-width: 1400px;
+}
+/* Restores the banner's own prose cap, which the rule above would otherwise
+   widen back to the full workspace. */
+.sweep-panel > .banner {
+  max-width: 110ch;
+}
+.sweep-card-title {
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin: 0 0 var(--sp-2);
+}
+.sweep-form-row {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-2);
+}
+/* The definition form is a compact set of controls, not a full-bleed layout: an
+   unconstrained target select stretches to 650px to hold a 180px label, and the
+   actions drift a screen away from the inputs they act on. */
+.sweep-form-row .field {
+  flex: 1 1 140px;
+  min-width: 0;
+  max-width: 240px;
+  margin-bottom: 0;
+}
+.sweep-form-row .field--target {
+  flex: 2 1 260px;
+  max-width: 440px;
+}
+/* A categorical target replaces the whole start/stop/count trio, so its
+   checklist claims the row instead of inheriting the narrow numeric column. */
+.sweep-form-row .field--options {
+  flex: 1 1 100%;
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.sweep-form-row .field--options > .field__label {
+  padding: 0;
+}
+.sweep-options__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+/* Checkbox in the gutter, label and reason stacked beside it, so a wrapped
+   hint stays under its own option rather than colliding with the next one. */
+.sweep-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1px var(--sp-1);
+  align-items: baseline;
+  cursor: pointer;
+}
+.sweep-option > input {
+  margin: 0;
+  align-self: center;
+}
+.sweep-option__label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-cap);
+  color: var(--text-1);
+}
+.sweep-option__badge {
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-pill);
+  padding: 0 6px;
+}
+.sweep-option__hint {
+  grid-column: 2;
+  font-size: var(--fs-cap);
+  line-height: 1.45;
+  color: var(--text-3);
+}
+.sweep-option--invalid .sweep-option__label {
+  color: var(--text-2);
+}
+.sweep-option--invalid .sweep-option__hint {
+  color: var(--warn);
+}
+.sweep-form-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: var(--sp-2);
+  align-items: center;
+}
+/* Small print stays at a readable measure rather than running the full card. */
+.sweep-hint {
+  max-width: 96ch;
+}
+/* The variant values are the form's output — the one line here worth reading
+   digit by digit, so it gets figures that line up and a frame of its own. */
+.sweep-values {
+  margin-top: var(--sp-2);
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-input);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.sweep-values__label {
+  color: var(--text-3);
+}
+.sweep-jobs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.sweep-job__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+.sweep-job__heading {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  color: inherit;
+  font: inherit;
+  padding: 2px 4px;
+  cursor: pointer;
+  text-align: left;
+  min-width: 0;
+}
+.sweep-job__heading:hover {
+  background: var(--bg-3);
+}
+.sweep-job__title {
+  font-weight: 700;
+  font-size: var(--fs-ui);
+  color: var(--text-1);
+}
+.sweep-job__meta {
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.sweep-status-line {
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  margin: var(--sp-2) 0;
+  font-variant-numeric: tabular-nums;
+}
+.sweep-progress-track {
+  width: 100%;
+  max-width: 420px;
+  margin-bottom: var(--sp-2);
+}
+.sweep-variants-wrap {
+  margin-top: var(--sp-2);
+}
+.sweep-cell-error {
+  color: var(--danger);
+}
+.sweep-panel .banner ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive: the health/status pill stays visible at ALL widths.
+   Collapse the title to an abbreviation, then make buttons icon-only —
+   never push the right status cluster off-canvas.
+   -------------------------------------------------------------------------- */
+
+/* 1101–1350px: the full product title collapses to an abbreviation and the
+   selects tighten, which keeps full-label buttons and the network-name field
+   from crowding the status cluster. */
+@media (max-width: 1350px) {
+  .toolbar-title__full {
+    display: none;
+  }
+  .toolbar-title__short {
+    display: block;
+  }
+  .toolbar .select {
+    max-width: 116px;
+  }
+}
+
+/* ≤1100px: icon-only action buttons (labels retire, glyphs stay), narrower
+   name field and selects. Previously icon-only started at 760px, which left
+   the 761–1099px band crushing the name input over New/Save and clipping Run
+   to a sliver. The progress meter also retires here (status pill remains). */
+@media (max-width: 1100px) {
+  .toolbar .btn__label {
+    display: none;
+  }
+  /* Labels are gone, so button heights now follow the glyph box alone. */
+  .toolbar .btn__glyph {
+    width: var(--fs-h2);
+    height: var(--fs-h2);
+  }
+  .toolbar .btn {
+    padding: 4px 8px;
+  }
+  .toolbar .select {
+    max-width: 104px;
+  }
+  .network-name {
+    width: 120px;
+    min-width: 0;
+  }
+  /* The wrapper may shrink but must never collapse under its own input —
+     clip inside the wrap instead of overlaying neighboring buttons. */
+  .network-name-wrap {
+    min-width: 0;
+    overflow: hidden;
+  }
+  .progress {
+    display: none;
+  }
+  .property-panel {
+    width: 220px;
+  }
+  .results-overview {
+    grid-template-columns: repeat(2, minmax(150px, 1fr));
+  }
+}
+
+/* ≤1000px: the name field retires entirely before it can crush the actions. */
+@media (max-width: 1000px) {
+  .network-name-wrap {
+    display: none;
+  }
+  .toolbar .select {
+    max-width: 88px;
+  }
+}
+
+@media (max-width: 760px) {
+  .toolbar .select {
+    max-width: 72px;
+  }
+  .property-panel {
+    width: 200px;
+  }
+  .results-overview {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dialog {
+    padding: var(--sp-4);
+    max-height: calc(100vh - 32px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Channel Explorer (Analysis redesign)
+   -------------------------------------------------------------------------- */
+.channel-explorer {
+  margin-bottom: 24px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  background: var(--bg-1);
+  padding: 12px;
+}
+.channel-explorer__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-1);
+  margin: 0;
+}
+.channel-explorer__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.channel-explorer__view {
+  width: auto;
+  min-width: 200px;
+  padding: 4px 6px;
+  font-size: var(--fs-cap);
+}
+/* Single-column full-width body: aggregate presets and the custom view both
+   span the whole component width; nothing reserves a context column. */
+.channel-explorer__body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-top: 12px;
+}
+.channel-explorer__aggregate {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.channel-explorer__chart {
+  min-width: 0;
+}
+.channel-explorer__aggregate-note {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+/* Custom view: the picker subgrid goes two columns on wide screens and
+   stacks at the existing breakpoints (chart never shares a context column). */
+.channel-explorer__custom {
+  min-width: 0;
+}
+.channel-explorer__custom-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 320px) 1fr;
+  gap: 16px;
+}
+@media (max-width: 1100px) {
+  .channel-explorer__custom-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.channel-explorer__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 320px;
+  overflow-y: auto;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+}
+.channel-explorer__row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--line-1);
+}
+.channel-explorer__row:last-child {
+  border-bottom: none;
+}
+.channel-explorer__item {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  background: transparent;
+  border: none;
+  border-left: 3px solid transparent;
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+  text-align: left;
+  cursor: pointer;
+}
+.channel-explorer__item:hover {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+/* Focused channel: border + text marker, never color alone. */
+.channel-explorer__item[aria-current="true"] {
+  border-left-color: var(--select);
+  background: var(--bg-2);
+  color: var(--text-1);
+}
+.channel-explorer__item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.channel-explorer__item-badge {
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  padding: 0 3px;
+}
+.channel-explorer__showing {
+  flex: none;
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--select);
+}
+.channel-explorer__pin {
+  flex: none;
+  border: none;
+  border-radius: 0;
+}
+.channel-explorer__pin[aria-pressed="true"] {
+  color: var(--select);
+}
+.channel-explorer__overflow {
+  padding: 6px 8px;
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+.channel-explorer__watchlist {
+  margin-top: 10px;
+}
+.channel-explorer__chip {
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.channel-explorer__chip[aria-current="true"] {
+  border-color: var(--select);
+  color: var(--text-1);
+}
+.channel-explorer__notice {
+  min-height: 16px;
+  margin-top: 6px;
+  font-size: var(--fs-cap);
+  color: var(--warn);
+}
+.channel-explorer__main {
+  min-width: 0;
+}
+.channel-explorer__primary-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.channel-explorer__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-top: 6px;
+}
+.channel-explorer__time {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+.channel-explorer__scalar {
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  background: var(--bg-2);
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.channel-explorer__context {
+  margin-top: 14px;
+}
+.channel-explorer__context-title {
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+.channel-explorer__context svg [role="button"]:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 2px;
+}
+.channel-explorer__legend {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  margin-top: 4px;
+}
+.channel-explorer__legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.channel-explorer__empty {
+  padding: 24px;
+  color: var(--text-3);
+  font-size: var(--fs-body);
+}
+/* Steady aggregate: full-width horizontal bar/value list. */
+.channel-explorer__bars {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: 6px;
+  background: var(--bg-1);
+}
+.channel-explorer__bar {
+  display: grid;
+  /* Label column hugs the longest label instead of taking a share of the width:
+     an fr column leaves 100px of gap between "Supply · Pressure" and the bar it
+     describes, and the wider the window the further apart they drift. */
+  grid-template-columns: minmax(140px, max-content) 2fr auto;
+  grid-template-areas:
+    "label track value"
+    "label track delta";
+  align-items: center;
+  gap: 2px 10px;
+  padding: 5px 8px;
+  background: transparent;
+  border: none;
+  border-radius: var(--r-1);
+  color: var(--text-2);
+  font-size: var(--fs-cap);
+  text-align: left;
+  cursor: pointer;
+}
+.channel-explorer__bar:hover {
+  background: var(--bg-3);
+  color: var(--text-1);
+}
+.channel-explorer__bar:focus-visible {
+  outline: 2px solid var(--select);
+  outline-offset: 1px;
+}
+.channel-explorer__bar-label {
+  grid-area: label;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-1);
+}
+.channel-explorer__bar-track {
+  grid-area: track;
+  height: 10px;
+  border-radius: 3px;
+  /* Recessed track: the fill has to read as ink in a channel, not as a second
+     colored band sitting next to the first. */
+  background: var(--bg-input);
+  border: 1px solid var(--line-1);
+  overflow: hidden;
+}
+/* Quantity fill, in the accent hue — the same reading as .progress__fill.
+   NOT --select: that is reserved for selection/pending-connect and shares its
+   hex with --warn, so a screenful of amber bars read as a screenful of
+   warnings when nothing was wrong. */
+.channel-explorer__bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+}
+.channel-explorer__bar-value {
+  grid-area: value;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--text-1);
+  font-weight: 700;
+  white-space: nowrap;
+}
+.channel-explorer__bar-delta {
+  grid-area: delta;
+  font-size: var(--fs-micro);
+  text-align: right;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+/* Context diagram: Custom-mode collapsible, full width, never a column. */
+.channel-explorer__context-details {
+  margin-top: 12px;
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  padding: 6px 10px;
+}
+.channel-explorer__context-details > summary {
+  cursor: pointer;
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  color: var(--text-2);
+}
+
+/* Narrow widths: the explorer body is a single full-width column; the custom
+   picker subgrid already stacks at ≤1100px; at ≤760px the list shortens,
+   paddings tighten, the time controls may wrap, the bar list collapses its
+   label column, and the context SVG scales down (never wider than the
+   container → no horizontal overflow at 700px). */
+.channel-explorer__context svg {
+  max-width: 100%;
+  height: auto;
+}
+.channel-explorer__list-col {
+  min-width: 0;
+}
+.channel-explorer__time {
+  flex-wrap: wrap;
+}
+.channel-explorer__time input[type="range"] {
+  min-width: 110px;
+}
+@media (max-width: 760px) {
+  .channel-explorer {
+    padding: 8px;
+  }
+  .channel-explorer__list {
+    max-height: 200px;
+  }
+  .channel-explorer__toolbar .input {
+    max-width: 100%;
+  }
+  .channel-explorer__view {
+    width: 100%;
+  }
+  .channel-explorer__readout {
+    flex-wrap: wrap;
+  }
+  .channel-explorer__bar {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "label value"
+      "track track"
+      "delta delta";
+  }
+}
+
+/* Reduced motion: the only animated affordances are 120–200ms chrome
+   transitions (button/state hovers, progress fill); retire them for users
+   who ask for no motion. */
+@media (prefers-reduced-motion: reduce) {
+  button,
+  select,
+  input[type="text"],
+  input[type="number"],
+  .progress__fill {
+    transition: none;
+  }
+}

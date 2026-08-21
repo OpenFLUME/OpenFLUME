@@ -1,0 +1,122 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
+(`YYYY-MM-DD`).
+
+## [Unreleased]
+
+## [0.1.0] - 2026-08-20
+
+Initial public release of OpenFLUME (Open FLUid Model Environment).
+
+### Added
+
+- **Browser-first simulation** — a local-first finite-volume thermo-fluid
+  network application and TypeScript solver library. Models solve in a web
+  worker; no cloud service is required. An optional local companion server can
+  serve the built app and discover local component files.
+- **Steady and transient solvers** — coupled Newton–Raphson steady analysis and
+  backward-Euler transient analysis with fixed or adaptive stepping, hybrid
+  automatic/finite-difference Jacobians, scaling, line search and trust-region
+  globalization, real-fluid PTC regularization, fluid inertia, trapped-gas
+  cushions, schedules, event alignment, cancellation, and honest convergence
+  reporting.
+- **Fluid and energy models** — incompressible and thermally expandable
+  liquids, ideal gases, and 124 CoolProp HEOS real fluids with two-phase
+  properties. The enthalpy-primary `[P, ṁ, h]` system supports kinetic energy
+  with every EOS; named fluid continua with different EOS classes can coexist
+  and exchange heat through solids.
+- **Compressible duct flow** — optional quasi-1-D momentum-flux and
+  stagnation-enthalpy transport for Fanno friction, Rayleigh heating,
+  converging-diverging nozzles, choking, and seeded supersonic expansion.
+- **Flow components** — pipe, incompressible and compressible orifices,
+  resistance, scheduled valve, static and dynamic check valves, relief valve,
+  pump, bend, area change, cavitating venturi, flow source, pressure regulator,
+  heated pipe, pressure-drop table, Reynolds-dependent resistance, and trusted
+  user components. The dynamic check valve includes accepted-step
+  spring-mass-damper poppet dynamics in transient runs; steady runs hold its
+  configured initial position.
+- **Conjugate heat transfer** — solid and ambient nodes coupled by conduction,
+  convection, and radiation. Convection supports specified/custom
+  coefficients, Dittus–Boelter, Miropolskii, Darr–Hartwig, and TT-WF models.
+  Solid specific heat and conductivity support constants, sourced materials,
+  temperature tables, temperature equations, and transient time tables.
+  Opt-in fluid-front transport can gate TT-WF dry-side heat release.
+- **Material catalogue** — sourced, range-aware properties for OFHC copper,
+  GRCop-84, Aluminum 6061-T6, stainless steels 304 and 316, Inconel 718, PTFE,
+  and anisotropic G-10 CR, with documented interpolation, clamping, provenance,
+  and regression coverage.
+- **Species and controls** — optional transient ideal-gas species advection and
+  node-local stiff Arrhenius chemistry, plus safe expressions, lifecycle
+  registers, stop/logic rules, and transient PID controllers.
+- **Visual model editor** — drag-and-drop P&ID canvas, click or drag
+  connections, component-specific property panels, undo/redo, multi-selection,
+  model tables, physical-coordinate and 3-D views, free-form notes, automatic
+  orientation, and subnetwork groups with tabs and ghost ports.
+- **Formula-bound parameters** — selected geometry, component, and conductor
+  fields can reference other model geometry through a safe static expression
+  language, with dependency validation, unit-aware previews, and lossless text
+  round trips.
+- **Units and visualization** — SI, metric-engineering, and US-customary
+  display presets (including Rankine), engineering formatting, time scrubbing,
+  and shared canvas/channel coloring for all reported node, branch, and
+  conductor quantities, including vapor quality.
+- **Analysis workspace** — channel presets and custom plots, transient charts,
+  result tables, run details and history, run comparison, solver convergence
+  diaries, partial cancelled trajectories, and provenance-bearing CSV, JSON,
+  and text exports.
+- **Derived results** — enthalpy, internal energy, entropy, viscosity, specific
+  heat, thermal conductivity, speed of sound, velocity, pressure drop,
+  Reynolds and Mach numbers, volumetric flow, mass flux, dynamic pressure, heat
+  flux, and heat-transfer coefficient where supported by the model.
+- **Parameter exploration** — session-only linear sweeps of supported scalar
+  fields, sequential worker execution, cancellation/rerun, variant comparison,
+  provenance CSV export, stale-model detection, and promotion into Analysis
+  history without mutating the source model.
+- **Persistence and source editing** — lossless `.fn` text projection, Model
+  Text editor, save/load, browser autosave, model provenance hashes, and canvas
+  notes that do not invalidate numerical results.
+- **Examples** — 13 shipped networks covering inspection, applications,
+  published benchmarks, and extensibility, including tank blowdown, a
+  single-phase cryogenic line-cooldown surrogate, conjugate heat transfer,
+  mixed-fluid regenerative cooling, and a choked rocket chamber/nozzle.
+- **Documentation and verification** — a complete user manual, architecture
+  and extensibility references, worked examples, material/property references,
+  and reproducible validation reports for incompressible hydraulics,
+  compressible flow, thermal networks, tank transients, and rigid-column fluid
+  transients. Automated coverage includes fast/full/slow Vitest tiers and
+  Playwright end-to-end tests.
+- **Validation and diagnostics** — pre-solve structural, physical, expression,
+  and property validation with field-specific errors, plus issues and
+  convergence evidence surfaced in the interface.
+
+### Known limitations
+
+- Compressible duct flow does not capture shocks, acoustic waves, or
+  Rankine–Hugoniot jumps. Supersonic nozzle solutions require appropriate
+  initialization, and thrust is not calculated.
+- Fully coupled near-sonic kinetic-energy analysis is steady-oriented;
+  transients use a segregated stagnation-enthalpy update and are not intended
+  to track moving choking fronts.
+- Real-fluid two-phase flow uses a homogeneous-equilibrium model; separated
+  flow effects and general cavitation inception are not modeled, and difficult
+  saturation-dome states can exhibit documented convergence limits.
+- Fluid inertia is a lumped rigid-column model, not distributed water-hammer
+  or method-of-characteristics wave propagation.
+- Unlike fluid continua cannot mix at a junction and may couple only through
+  solid walls.
+- Reacting species transport is transient-only, and PID controllers do not
+  provide anti-windup.
+- User components execute trusted JavaScript and are not a security sandbox.
+- The shipped cryogenic cooldown example is a qualitative single-phase
+  surrogate, not a prediction of absolute two-phase chilldown time.
+- The text projection (`.fn`) stores raw SI numbers only (property panels and
+  results honor the display-unit preferences).
+- Parameter sweeps and convergence diaries are session-only (not persisted).
+
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/OpenFLUME/OpenFLUME/releases/tag/v0.1.0

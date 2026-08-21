@@ -1,0 +1,59 @@
+# ---
+# dataset: darr2016_ln2_microgravity_and_1g_test_conditions
+# source: Darr, S.R., Dong, J., Glikin, N., Hartwig, J.W., Majumdar, A.K., Leclair, A.C., Chung, J.N.
+#   "The effect of reduced gravity on cryogenic nitrogen boiling and pipe chilldown",
+#   npj Microgravity 2, 16033 (2016). doi:10.1038/npjmgrav.2016.33
+# table: Table 1 "Test data summary" - transcribed verbatim via pdftotext -layout
+# fluid: LN2; facility: UF cryogenic chilldown rig flown on NASA C-9 parabolic aircraft;
+#   horizontal test section in flight; 1-g comparison tests at +90 (vertical up), 0 (horizontal),
+#   -90 (vertical down)
+# geometry: stainless steel tube, TC stations upstream/downstream; values are time-averaged
+#   over the reduced-gravity period (or equivalent 1-g test window)
+# columns: flow_configuration,case_number,inlet_liquid_re,pressure_pt1_kPa,inlet_subcooling_K,mass_flux_kg_m2_s
+#   inlet_liquid_re = G*D/mu_l (saturated liquid mu at time-averaged inlet pressure)
+#   pressure_pt1_kPa = time-averaged pressure at upstream pressure transducer
+#   empty fields = no companion test run (shown as dashes in paper)
+# NOTE: chilldown curves themselves (wall T vs time) are FIGURES in the paper -> digitization needed
+# extracted: 2026-08-04
+# ---
+flow_configuration,case_number,inlet_liquid_re,pressure_pt1_kPa,inlet_subcooling_K,mass_flux_kg_m2_s
+reduced_gravity,1,2838,169.93,0,31.31
+reduced_gravity,2,6145,242.04,0,67.77
+reduced_gravity,3,8801,100.31,0,116.17
+reduced_gravity,4,12133,135.28,0,143.76
+reduced_gravity,5,13318,126.00,0,166.22
+reduced_gravity,6,13881,288.24,0,130.42
+reduced_gravity,7,28704,317.63,0,262.26
+reduced_gravity,8,35291,365.48,0,304.38
+reduced_gravity,9,46245,441.74,0,375.26
+reduced_gravity,10,74177,711.85,0,503.06
+plus90_vertical_upward,1,2888,259.65,0,28.45
+plus90_vertical_upward,2,4841,202.40,0,50.80
+plus90_vertical_upward,3,7421,188.57,0,84.84
+plus90_vertical_upward,4,11097,163.15,0,140.91
+plus90_vertical_upward,5,,,,
+plus90_vertical_upward,6,11349,275.61,0,126.05
+plus90_vertical_upward,7,33985,294.97,0,316.65
+plus90_vertical_upward,8,35254,327.95,0,334.47
+plus90_vertical_upward,9,45059,375.23,1.95,400.93
+plus90_vertical_upward,10,60327,446.72,1.16,449.85
+horizontal_0deg,1,2059,149.13,0,24.93
+horizontal_0deg,2,5483,251.10,0,53.96
+horizontal_0deg,3,7525,210.95,0,81.45
+horizontal_0deg,4,,,,
+horizontal_0deg,5,,,,
+horizontal_0deg,6,12366,267.17,0,121.06
+horizontal_0deg,7,31000,312.30,0.79,294.82
+horizontal_0deg,8,38103,344.46,1.60,344.04
+horizontal_0deg,9,47623,403.69,0.76,403.10
+horizontal_0deg,10,84155,635.22,7.36,612.14
+minus90_vertical_downward,1,2116,194.77,0,23.21
+minus90_vertical_downward,2,,,,
+minus90_vertical_downward,3,5678,135.22,0,68.77
+minus90_vertical_downward,4,,,,
+minus90_vertical_downward,5,,,,
+minus90_vertical_downward,6,14172,302.04,0,127.56
+minus90_vertical_downward,7,34377,295.54,0,315.87
+minus90_vertical_downward,8,36504,333.66,0,325.69
+minus90_vertical_downward,9,52361,365.21,2.33,426.40
+minus90_vertical_downward,10,73953,714.00,4.87,477.64

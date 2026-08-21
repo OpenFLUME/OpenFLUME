@@ -1,0 +1,69 @@
+# SOURCE: simoneau1979_tp1484_choked_nozzles.pdf (NASA TP-1484)
+# CITATION: Simoneau, R. J., and Hendricks, R. C., 'Two-Phase Choked Flow of Cryogenic Fluids in Converging-Diverging Nozzles,' NASA Technical Paper 1484, July 1979.
+# URL: https://ntrs.nasa.gov/api/citations/19790021297/downloads/19790021297.pdf
+# TABLE: Table X - data for ch4, elliptical nozzle (sub-isotherms as printed). Run-summary columns only;
+#   the 15 axial station-pressure columns P1..P15 are NOT extracted
+#   (deferred; see EXTRACTION_NOTES.md backlog).
+# FLUID: ch4.
+# COLUMNS:
+#   subtable        - sub-isotherm letter of the source table
+#   reading         - run/reading number as printed (e.g. 101-562
+#                     = run 101, reading 562)
+#   T0_K            - stagnation temperature, K
+#   P0_N_cm2        - stagnation pressure, N/cm^2 (10 kPa)
+#   Pb_N_cm2        - back pressure, N/cm^2
+#   Tb_K            - temperature at back condition, K
+#   Pt_P0           - throat-to-stagnation pressure ratio, -
+#   Gmax_g_cm2_s    - maximum (choked) mass flux, g/(cm^2 s)
+#   S0_J_g_K        - stagnation entropy, J/(g K) [computed, GASP]
+#   Psat_S0_N_cm2   - saturation pressure at S0, N/cm^2 [GASP]
+#   Psat_T0_N_cm2   - saturation pressure at T0, N/cm^2 [GASP]
+#   flags           - per-cell extraction flags: ocr = OCR-uncertain
+#                     (non-minimal-edit candidate); fused = cell
+#                     OCR'd as multiple tokens; img = transcribed
+#                     from page image (OCR-layer gap); missing =
+#                     cell absent from OCR layer / not tabulated
+# EXTRACTION: geometric reconstruction of the embedded OCR layer
+#   (PyMuPDF word coordinates; per-page de-skew + affine column
+#   calibration); numeric cleanup via ocr_clean.py bounds picking.
+#   Script: extract_tp1484.py (table X).
+subtable,reading,T0_K,P0_N_cm2,Pb_N_cm2,Tb_K,Pt_P0,Gmax_g_cm2_s,S0_J_g_K,Psat_S0_N_cm2,Psat_T0_N_cm2,flags
+b,117-1096,127.7,65,36,127.8,0.425,1680,5.4,32,32,
+b,1095,125.6,89,44,125.8,0.284,2170,5.338,28,28,
+b,1097,124.8,112,36,125.3,0.221,2520,5.313,26,27,
+b,1094,124.2,116,50,124.6,0.203,2590,5.295,25,26,
+b,1038,127.6,278,130,128.2,0.105,4200,5.377,30,32,
+b,1037,125.8,358,161,126.6,0.074,4870,5.318,26,28,
+b,1010,127.8,618,288,129.3,0.05,6430,5.351,28,32,
+b,1009,126.3,737,246,,0.045,7100,5.299,25,29,Tb:missing
+c,117-1040,132.8,,,133,0.242,2910,5.533,42,,P0:missing;Pb:missing;PsatT0:missing
+c,,136.1,,,136.3,0.207,3410,5.616,50,,P0:missing;Pb:missing;PsatT0:missing
+c,,129.6,,,130.1,0.147,3640,5.438,35,,P0:missing;Pb:missing;PsatT0:missing
+c,1012,133.3,284,,133.8,0.136,4100,5.533,42,,Pb:missing;PsatT0:missing
+c,1011,131.2,,,132.1,0.991,4970,5.465,37,,P0:missing;Pb:missing;PsatT0:missing
+d,117-988,156.6,226,,156.1,0.448,2650,6.164,135,139,reading:ocr;Pb:missing
+d,989,156.4,283,,156.2,0.397,3200,6.148,132,138,Pb:missing
+d,987,155.1,293,156,155.1,0.375,3360,6.111,125,131,P0:fused
+d,98,154,352,190,154,0.304,3930,6.072,117,125,reading:ocr
+d,99,155.1,425,174,155.3,0.262,4420,6.09,120,131,reading:ocr
+d,98,152.8,427,232,153,0.235,4550,6.029,109,118,reading:ocr
+d,991,154.4,559,235,154.7,0.185,5330,6.051,113,127,P0:fused
+d,98,151.5,573,303,151.9,0.159,5560,5.975,99,112,reading:ocr;P0:fused
+d,992,153.9,693,289,154.4,0.144,6080,6.02,107,124,
+d,993,154.3,747,310,154.8,0.134,6330,6.023,108,126,
+d,983,150.1,772,401,150.9,0.112,6680,5.914,89,105,
+e,117-1044,167.3,424,230,166.6,0.351,3740,6.413,195,211,
+e,1043,166.9,492,233,166.1,0.349,4190,6.387,189,208,
+e,1042,166.6,599,256,165.7,0.295,4900,6.357,181,206,
+f,117-1017,182.1,501,245,169.3,0.475,,6.786,315,351,G:missing
+f,1023,184.1,555,255,170.6,0.464,,6.818,326,374,G:missing
+f,1025,185.5,576,265,171.9,0.477,,6.849,337,391,G:missing;PsatT0:fused
+f,1016,182.3,628,314,177.3,0.358,,6.737,298,353,G:missing
+f,1024,185.6,731,308,176.7,0.355,,6.781,313,393,G:missing
+f,1015,182.3,746,324,178.3,0.337,4860,6.691,284,353,
+f,117-996,194.4,625,307,176.5,0.649,2910,7.158,429,,reading:ocr;PsatT0:missing
+f,995,195.6,724,369,182.7,0.536,3630,7.108,417,,PsatT0:missing
+f,994,194.7,747,388,184.3,0.499,3900,7.06,405,,PsatT0:missing
+f,117-1101,198.2,690,242,169,0.632,2980,7.247,444,,PsatT0:missing
+f,1100,200,802,292,174.8,0.529,3690,7.199,436,,PsatT0:missing
+f,1099,,925,338,179.7,0.443,4390,7.15,427,,T0:unparsed;PsatT0:missing

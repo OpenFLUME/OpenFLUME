@@ -1,0 +1,20 @@
+# ---
+# dataset: liebenberg1965_la3426_tableIV_cart_line_transient
+# source: Liebenberg, D.H., (sole author per OSTI record) "Cooldown of Cryogenic Transfer Lines",
+#   Los Alamos Scientific Laboratory Report LA-3426(-MS) (1965/1966).
+#   OSTI: https://www.osti.gov/servlets/purl/4579353
+# table: TABLE IV "LH2 COOLDOWN OF CART PROPELLANT LINE COMPARED WITH PREDICTED VALUES"
+#   vent gas temperature (restrictive orifice at end of line) vs time; driving pressure 140 psig
+#   (pump-driven, so oscillations observed; line was continuation of an already-cooled line)
+# columns: time_min, method2_vent_temp_K_or_status, observed_vent_temp_K_or_status
+# NOTE: only 6 coarse points; detailed T-vs-time for two other cooldowns is in report Figs 2-3
+#   (needs digitization)
+# extracted: 2026-08-04
+# ---
+time_min,method2_vent_temp,observed_vent_temp
+0,300 K,
+15,110 K,177 K
+22,cooldown complete,110 K
+30,,100 K
+60,,60 K
+75,,cooldown complete

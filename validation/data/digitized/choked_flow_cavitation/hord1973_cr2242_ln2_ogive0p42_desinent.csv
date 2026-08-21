@@ -1,0 +1,53 @@
+# SOURCE: hord1973_cr2242_ogives.pdf (NASA CR-2242)
+# CITATION: Hord, J., 'Cavitation in Liquid Cryogens. Volume III: Ogives,'
+#   NASA CR-2242, National Bureau of Standards, Boulder CO, May 1973.
+# URL: https://ntrs.nasa.gov/api/citations/19730019421/downloads/19730019421.pdf
+# TABLE: Table 4.6 - temperature-compensated desinent data (Nitrogen:
+#   0.42-inch (1.067-cm) 0.5-caliber ogive), report p. 38.
+# FLUID: liquid nitrogen. MEASUREMENT: desinence (developed-cavity
+#   disappearance) conditions; temperature-compensated per the report's
+#   correlating technique.
+# COLUMNS:
+#   T0_R / T0_K      - bulk-stream temperature, deg Rankine / K
+#   V0_ft_s / V0_m_s - test-section inlet velocity, ft/s / m/s
+#   P0_psia / P0_N_cm2 - desinent inlet pressure, psia / N/cm^2 (10 kPa)
+#   K_iv             - desinent cavitation parameter based on vapor pressure, -
+#   flags            - extraction notes (empty = clean parse + all unit
+#                      cross-checks passed)
+# EXTRACTION: PyMuPDF text layer (commas as decimal points); each row
+#   validated with the printed redundant unit pairs (psia<->N/cm^2,
+#   ft/s<->m/s, R<->K); rows failing a cross-check were repaired by
+#   leading-digit substitution against the redundant column and are
+#   flagged. Spot-checked against rendered page images.
+T0_R,V0_ft_s,P0_psia,K_iv,P0_N_cm2,V0_m_s,T0_K,flags
+140.0,25.0,18.11,0.79,12.49,7.6,77.78,
+140.0,30.0,20.55,1.05,14.17,9.1,77.78,
+140.0,35.0,23.06,1.15,15.9,10.7,77.78,
+140.0,40.0,25.66,1.18,17.69,12.2,77.78,
+140.0,45.0,28.34,1.18,19.54,13.7,77.78,
+140.0,50.0,31.11,1.16,21.45,15.2,77.78,
+140.0,55.0,33.96,1.13,23.42,16.8,77.78,
+140.0,60.0,36.9,1.1,25.44,18.3,77.78,
+140.0,65.0,39.92,1.07,27.52,19.8,77.78,
+140.0,70.0,43.02,1.04,29.66,21.3,77.78,
+150.0,35.0,33.01,0.76,22.76,10.7,83.33,
+150.0,40.0,35.61,0.89,24.55,12.2,83.33,
+150.0,45.0,38.29,0.96,26.4,13.7,83.33,
+150.0,50.0,41.06,0.99,28.31,15.2,83.33,
+150.0,55.0,43.91,0.99,30.28,16.8,83.33,
+150.0,60.0,46.85,0.99,32.3,18.3,83.33,
+150.0,65.0,49.87,0.98,34.38,19.8,83.33,
+150.0,70.0,52.97,0.97,36.52,21.3,83.33,
+160.5,40.0,52.31,0.46,36.07,12.2,89.17,
+160.5,45.0,54.99,0.63,37.92,13.7,89.17,
+160.5,50.0,57.76,0.73,39.82,15.2,89.17,
+160.5,55.0,60.61,0.79,41.79,16.8,89.17,
+160.5,60.0,63.55,0.82,43.81,18.3,89.17,
+160.5,65.0,66.57,0.84,45.9,19.8,89.17,
+160.5,70.0,69.67,0.85,48.03,21.3,89.17,
+165.5,45.0,65.47,0.4,45.14,13.7,91.94,
+165.5,50.0,68.24,0.55,47.05,15.2,91.94,
+165.5,55.0,71.09,0.65,49.02,16.8,91.94,
+165.5,60.0,74.03,0.71,51.04,18.3,91.94,
+165.5,65.0,77.05,0.75,53.12,19.8,91.94,
+165.5,70.0,80.15,0.77,55.26,21.3,91.94,

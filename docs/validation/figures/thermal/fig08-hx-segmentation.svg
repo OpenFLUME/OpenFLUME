@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Counterflow HX: effectiveness vs segment count (UA fixed)</text>
+<line x1="142.9230769230769" y1="46" x2="142.9230769230769" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="142.9230769230769" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="254.46153846153848" y1="46" x2="254.46153846153848" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="254.46153846153848" y="390" text-anchor="middle" font-size="11">10</text>
+<line x1="366" y1="46" x2="366" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="366" y="390" text-anchor="middle" font-size="11">15</text>
+<line x1="477.53846153846155" y1="46" x2="477.53846153846155" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="477.53846153846155" y="390" text-anchor="middle" font-size="11">20</text>
+<line x1="589.0769230769231" y1="46" x2="589.0769230769231" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="589.0769230769231" y="390" text-anchor="middle" font-size="11">25</text>
+<line x1="76" y1="368.9827797799494" x2="656" y2="368.9827797799494" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="372.9827797799494" text-anchor="end" font-size="11">0.50</text>
+<line x1="76" y1="279.54197221130494" x2="656" y2="279.54197221130494" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="283.54197221130494" text-anchor="end" font-size="11">0.55</text>
+<line x1="76" y1="190.10116464266042" x2="656" y2="190.10116464266042" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="194.10116464266042" text-anchor="end" font-size="11">0.60</text>
+<line x1="76" y1="100.66035707401596" x2="656" y2="100.66035707401596" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="104.66035707401596" text-anchor="end" font-size="11">0.65</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Number of wall segments N</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Effectiveness ε</text>
+<path d="M76.0,83.6 L656.0,83.6" fill="none" stroke="#000000" stroke-width="1.8" stroke-dasharray="7 4"/>
+<path d="M76.0,334.4 L98.3,263.4 L142.9,198.4 L209.8,158.1 L299.1,134.3 L388.3,122.0 L477.5,114.6 L656.0,105.9" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="76,330.9846153846154 72.6,337.78461538461534 79.4,337.78461538461534" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="98.3076923076923,260.04507135419425 94.9076923076923,266.8450713541942 101.70769230769231,266.8450713541942" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="142.9230769230769,195.04931205501967 139.5230769230769,201.84931205501968 146.3230769230769,201.84931205501968" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="209.84615384615384,154.67310195943367 206.44615384615383,161.47310195943368 213.24615384615385,161.47310195943368" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="299.0769230769231,130.90635082824977 295.6769230769231,137.70635082824978 302.4769230769231,137.70635082824978" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="388.3076923076923,118.64059017702147 384.90769230769234,125.44059017702148 391.7076923076923,125.44059017702148" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="477.53846153846155,111.15416447076578 474.13846153846157,117.95416447076579 480.9384615384615,117.95416447076579" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,102.47884885124151 652.6,109.27884885124152 659.4,109.27884885124152" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<rect x="399.2" y="318" width="248.8" height="46" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="407.2" y1="328" x2="429.2" y2="328" stroke="#000000" stroke-width="1.8" stroke-dasharray="7 4"/>
+<text x="435.2" y="332" font-size="11">ε–NTU closed form (0.6595)</text>
+<line x1="407.2" y1="346" x2="429.2" y2="346" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="418.2,342.6 414.8,349.4 421.59999999999997,349.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<text x="435.2" y="350" font-size="11">Numerical (segmented wall model)</text>
+</svg>

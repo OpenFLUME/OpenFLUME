@@ -1,0 +1,20 @@
+# ---
+# dataset: hasan1991_tm103804_pressure_rise_rates
+# source: Hasan, M.M., Lin, C.S., Van Dresar, N.T., "Self-Pressurization of a
+#   Flightweight Liquid Hydrogen Storage Tank Subjected to Low Heat Flux,"
+#   NASA TM-103804, 1991. TABLE 1 (p. 5 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/19910011011/downloads/19910011011.pdf
+# context: K-Site facility (NASA LeRC Plum Brook); flightweight 2219-Al ellipsoidal
+#   LH2 tank, V=4.89 m3, major dia 2.2 m, axis ratio 1.2, mass 149 kg, 2x17-layer
+#   MLI; fill level 83-84%; normal gravity; quasi-steady pressure rise rates
+#   measured after initial transient. "Steady boil-off" and "isothermal" are the
+#   two initial conditions; "homogeneous" = homogeneous (no stratification) theory.
+# columns: heat_flux_W_m2,pressure_range_kPa,rise_rate_steady_boiloff_IC_kPa_hr,
+#   rise_rate_isothermal_IC_kPa_hr,rise_rate_homogeneous_theory_kPa_hr,
+#   measured_to_homogeneous_ratio
+# extracted: 2026-08-04
+# ---
+heat_flux_W_m2,pressure_range_kPa,rise_rate_steady_boiloff_IC_kPa_hr,rise_rate_isothermal_IC_kPa_hr,rise_rate_homogeneous_theory_kPa_hr,measured_to_homogeneous_ratio
+0.35,121-128,0.223,,0.198,1.13
+2.0,159-172,3.47,3.63,1.46,2.38
+3.5,186-200,8.14,8.27,2.63,3.10

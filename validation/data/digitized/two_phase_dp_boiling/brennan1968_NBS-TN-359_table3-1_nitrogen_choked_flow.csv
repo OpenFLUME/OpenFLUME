@@ -1,0 +1,100 @@
+# NBS TN 359, Table 3.1 - Two-phase (liquid-vapor) mass-limiting (choked) flow, NITROGEN
+# Source: Brennan, J.A., Edmonds, D.K., Smith, R.V., "Two-Phase (Liquid-Vapor), Mass-Limiting
+#   Flow with Hydrogen and Nitrogen", NBS Technical Note 359, Jan 30 1968 (NBS Boulder Cryogenics
+#   Div.; NASA SNPO Contract R-45). URL: https://nvlpubs.nist.gov/nistpubs/Legacy/TN/nbstechnicalnote359.pdf
+# Experiment: blowdown of saturated liquid from supply dewar through constant-area tube test
+#   section exhausting to atmosphere; critical (choked) two-phase flow at exit plane.
+#   Static pressure tap 3.2 mm from exit plane; quality from energy balance on liquid supply.
+# Columns: mass flux G [g/(s cm^2)] (turbine flowmeter in all-liquid supply); exit-plane static
+#   pressure [atm]; receiver static pressure [atm]; exit quality x [percent].
+# Accuracy: mass flow +-4% (N2); pressure +-0.2 atm at low quality, +-0.1 atm at high quality.
+# flag 'pressure_recovery_upstream' = asterisked runs: exit-plane pressure exceeded pressure just
+#   upstream (possible shock moved into tube - treat with caution, see report sec. 3).
+# flag 'ocr_uncertain' = digit illegible in scan, best estimate entered.
+# Extracted from scanned PDF OCR; all rows cross-checked vs table image. Rows: 85.
+mass_flux_g_s_cm2,exit_plane_pressure_atm,receiver_pressure_atm,quality_percent,flag
+1423,1.6,1.29,2.5,
+1301.4,1.54,1.27,2.8,pressure_recovery_upstream
+1007.4,1.5,1.23,3.2,pressure_recovery_upstream
+1408,2.5,2.4,3.3,
+1415.6,1.92,1.37,3.4,
+1459,1.85,1.61,3.5,
+1331.4,3.04,2.98,3.6,
+1314,1.83,1.25,3.8,
+1409,2.26,1.41,3.8,
+1107,1.83,1.16,4.1,
+596.2,1.41,1.1,4.3,
+1432.7,3.41,3.34,4.3,
+861.9,1.81,1.25,4.6,ocr_uncertain
+1314.1,2.62,1.4,4.7,
+641.7,1.74,1,5.2,
+888,2.08,1.16,5.2,
+1403.7,3.01,1.44,5.2,
+1284.7,3,1.43,5.3,
+1307,4.33,4.21,5.4,
+819,2.51,1.51,5.8,
+1088.2,3.5,3.19,6,
+1537,4.98,4.44,6.2,
+1082,3.26,1.34,6.6,
+1532.9,4.75,1.76,6.6,
+1220,3.7,1.51,6.9,
+277.6,0.99,0.94,7.4,
+1245.9,4.6,1.54,7.4,
+1317.4,4.9,4.22,7.4,
+434.1,1.32,0.91,7.6,
+1311.7,4.64,1.61,8,
+645,2.45,1.09,8.1,
+456.4,1.54,1.04,8.2,pressure_recovery_upstream
+1227,5.03,4.15,8.9,
+1240.1,4.76,1.6,9.2,
+935.9,4.12,0.92,9.8,
+1209.2,5.17,4.22,9.8,
+272.1,0.98,0.93,9.9,
+1171.4,5.41,4.32,10.4,
+509.7,1.84,1.05,10.5,
+820.6,3.65,1.24,10.5,
+1144.3,5.31,1.91,10.6,
+1226.5,4.74,1.67,10.6,
+571.5,2.18,1.07,10.9,
+1181.1,5.45,4.29,11,
+296.8,1.07,0.97,11.1,
+379.2,1.34,0.99,11.3,pressure_recovery_upstream
+1041.6,5.49,3.99,11.4,
+1274.4,4.99,1.79,11.6,
+505.5,1.91,1.04,12,
+998.2,5.15,1.75,12.2,
+510.3,2.04,1.08,13.2,
+431.1,1.62,1.06,13.3,pressure_recovery_upstream
+266.06,1.01,0.92,13.5,pressure_recovery_upstream
+339,1.32,1.02,15,pressure_recovery_upstream
+401.4,1.58,1.03,15.2,pressure_recovery_upstream
+257.4,1,0.9,15.4,
+752.2,3.67,1.18,15.8,
+219,0.94,0.91,16,
+246.8,1,0.92,17,
+452.5,1.91,1.03,17,
+302.2,1.18,0.97,17.2,pressure_recovery_upstream
+420.3,1.67,0.99,17.2,
+495.1,2.04,1.04,17.7,
+519,1.67,1.09,17.8,pressure_recovery_upstream
+369.8,1.52,1,18.6,pressure_recovery_upstream
+442.6,1.74,1.02,18.7,
+223.6,0.96,0.91,19,
+473.9,2.04,1.09,19,
+296.7,1.27,0.96,20.1,pressure_recovery_upstream
+342.3,1.25,0.94,20.6,pressure_recovery_upstream
+390.5,1.56,1.02,20.6,pressure_recovery_upstream
+388.6,1.76,1.07,21.3,
+425.2,1.88,1.07,21.3,
+212,0.95,0.88,21.6,
+283,1.08,0.97,21.8,
+285.5,1.22,0.92,21.9,
+220.1,0.98,0.9,22.1,
+314.2,1.43,1.05,22.7,
+325.6,1.4,1.01,23.3,pressure_recovery_upstream
+227,0.97,0.9,24.1,
+233.4,1.08,0.94,24.7,
+252.2,1.12,0.95,24.9,
+193.6,0.96,0.9,25.8,
+218.6,1,0.92,25.8,pressure_recovery_upstream
+193.4,0.93,0.86,26.5,

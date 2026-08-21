@@ -1,0 +1,41 @@
+# ---
+# dataset: chato1993_tm106293_novent_fill_runs
+# source: Chato, D.J., "Ground Testing for the No-Vent Fill of Cryogenic Tanks:
+#   Results of Tests for a 71 Cubic Foot Tank," NASA TM-106293 (AIAA-93-1967),
+#   1993. Table 1 "Run Summary" (p. 9 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/19940013013/downloads/19940013013.pdf
+# context: K-Site no-vent fill tests (1992); 71 ft3 (2.0 m3) 2219-Al ellipsoidal
+#   receiver tank (69.3-in major dia, axis ratio 1.41, wall 0.065 in, 243 lb) in
+#   LN2 cryoshroud (160 R +-10 R); conditioned LH2 supplied from the 175 ft3 tank;
+#   two injection systems: spray bar (axial) and bottom orifice. Inlet saturation
+#   pressures ~5/15/25 psia (inlet liquid temps ~31/37/39 R); transfer heads
+#   20/30/45 psia. Test 330 (highest wall temp) failed to fill (back-flow on
+#   initial wall-cooldown pressure transient). Fill terminated at 95% level or
+#   when tank pressure exceeded transfer head.
+# columns: test_id,inlet_type,initial_wall_temp_R,liquid_inlet_temp_R,
+#   inlet_mass_flowrate_lbm_hr,final_pressure_psia,final_fill_pct,notes
+# extracted: 2026-08-04
+# ---
+test_id,inlet_type,initial_wall_temp_R,liquid_inlet_temp_R,inlet_mass_flowrate_lbm_hr,final_pressure_psia,final_fill_pct,notes
+286,spray_bar,32.7,37.0,630,20.8,96,
+291,spray_bar,46.0,31.1,1047,5.7,95,
+298,spray_bar,31.7,37.2,998,18.0,97,
+299,spray_bar,45.0,37.2,1349,17.7,96,
+311,spray_bar,38.1,31.1,1228,5.6,94,
+324,spray_bar,155.5,37.0,877,29.7,97,elevated wall temperature
+326,spray_bar,151.3,31.2,1087,8.3,94,elevated wall temperature
+330,spray_bar,232.3,31.4,804,33.3,0,failed to fill (pressure transient exceeded supply; back-flow)
+332,spray_bar,178.8,31.3,1017,10.5,95,elevated wall temperature
+337,spray_bar,37.5,38.9,879,27.1,97,
+339,spray_bar,33.5,39.2,1256,29.8,97,
+340,spray_bar,51.8,31.0,1561,5.8,92,
+283,bottom_orifice,56.4,37.4,790,19.9,97,
+287,bottom_orifice,29.3,30.9,1385,5.4,96,
+297,bottom_orifice,58.4,37.4,1380,16.7,96,
+300,bottom_orifice,29.9,37.2,1747,16.8,96,
+309,bottom_orifice,29.3,31.0,1724,5.6,93,
+321,bottom_orifice,147.6,37.0,1126,20.8,96,elevated wall temperature
+328,bottom_orifice,152.5,30.8,1652,8.0,93,elevated wall temperature
+334,bottom_orifice,173.9,30.8,1518,9.4,94,elevated wall temperature
+336,bottom_orifice,41.0,38.9,1198,22.3,96,
+338,bottom_orifice,29.6,39.2,1735,23.0,97,

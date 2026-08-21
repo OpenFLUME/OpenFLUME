@@ -1,0 +1,40 @@
+# SOURCE: hord1973_cr2242_ogives.pdf (NASA CR-2242)
+# CITATION: Hord, J., 'Cavitation in Liquid Cryogens. Volume III: Ogives,'
+#   NASA CR-2242, National Bureau of Standards, Boulder CO, May 1973.
+# URL: https://ntrs.nasa.gov/api/citations/19730019421/downloads/19730019421.pdf
+# TABLE: Table 4.3 - temperature-compensated desinent data (Hydrogen:
+#   0.42-inch (1.067-cm) 0.5-caliber ogive), report p. 35.
+# FLUID: liquid hydrogen. MEASUREMENT: desinence (developed-cavity
+#   disappearance) conditions; temperature-compensated per the report's
+#   correlating technique.
+# COLUMNS:
+#   T0_R / T0_K      - bulk-stream temperature, deg Rankine / K
+#   V0_ft_s / V0_m_s - test-section inlet velocity, ft/s / m/s
+#   P0_psia / P0_N_cm2 - desinent inlet pressure, psia / N/cm^2 (10 kPa)
+#   K_iv             - desinent cavitation parameter based on vapor pressure, -
+#   flags            - extraction notes (empty = clean parse + all unit
+#                      cross-checks passed)
+# EXTRACTION: PyMuPDF text layer (commas as decimal points); each row
+#   validated with the printed redundant unit pairs (psia<->N/cm^2,
+#   ft/s<->m/s, R<->K); rows failing a cross-check were repaired by
+#   leading-digit substitution against the redundant column and are
+#   flagged. Spot-checked against rendered page images.
+T0_R,V0_ft_s,P0_psia,K_iv,P0_N_cm2,V0_m_s,T0_K,flags
+37.5,110.0,19.32,0.35,13.32,33.5,20.83,
+37.5,120.0,21.11,0.56,14.55,36.6,20.83,
+37.5,130.0,22.9,0.7,15.79,39.6,20.83,
+37.5,140.0,24.68,0.8,17.02,42.7,20.83,
+37.5,150.0,26.47,0.86,18.25,45.7,20.83,
+37.5,160.0,28.26,0.9,19.49,48.8,20.83,
+39.25,110.0,24.2,0.3,16.69,33.5,21.81,
+39.25,120.0,25.72,0.48,17.74,36.6,21.81,
+39.25,130.0,27.24,0.6,18.78,39.6,21.81,
+39.25,140.0,28.76,0.68,19.83,42.7,21.81,
+39.25,150.0,30.29,0.74,20.88,45.7,21.81,
+39.25,160.0,31.81,0.78,21.93,48.8,21.81,
+41.0,110.0,29.79,0.18,20.54,33.5,22.78,
+41.0,120.0,31.04,0.34,21.4,36.6,22.78,
+41.0,130.0,32.29,0.45,22.26,39.6,22.78,
+41.0,140.0,33.54,0.53,23.13,42.7,22.78,
+41.0,150.0,34.8,0.58,23.99,45.7,22.78,
+41.0,160.0,36.05,0.62,24.86,48.8,22.78,

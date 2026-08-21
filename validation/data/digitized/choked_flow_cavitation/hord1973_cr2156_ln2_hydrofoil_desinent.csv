@@ -1,0 +1,39 @@
+# SOURCE: hord1973_cr2156_hydrofoil.pdf (NASA CR-2156)
+# CITATION: Hord, J., 'Cavitation in Liquid Cryogens. Volume II: Hydrofoil,'
+#   NASA CR-2156, National Bureau of Standards, Boulder CO, Dec. 1972 (1973).
+# URL: https://ntrs.nasa.gov/api/citations/19730007528/downloads/19730007528.pdf
+# TABLE: Table 5.2 - temperature-compensated desinent data (Nitrogen: 0.312-inch
+#   (0.792-cm) 0.5-caliber ogive-nose hydrofoil).
+# FLUID: liquid nitrogen. MEASUREMENT: desinence (developed-cavity
+#   disappearance) conditions determined from film; data temperature-compensated
+#   by the report's correlating technique (appendix C of the report).
+# COLUMNS:
+#   T0_R / T0_K     - bulk-stream temperature, deg Rankine / K
+#   V0_ft_s / V0_m_s - test-section inlet velocity, ft/s / m/s
+#   P0_psia / P0_N_cm2 - desinent inlet pressure, psia / N/cm^2 (10 kPa)
+#   K_iv            - desinent cavitation parameter based on vapor pressure, -
+#                     K_iv = (P0 - Pv(T0)) / (rho_l * V0^2 / 2) in SI
+# NOTES: P0 at desinence vs T0 and V0 is the validation quantity; K_iv drops
+#   strongly as T0 approaches the critical temperature (thermal effect).
+# EXTRACTION: hand-transcribed from rendered page images (200 dpi); the
+#   embedded OCR text layer on these pages is unusable. Unit conversions
+#   (psia<->N/cm^2, ft/s<->m/s, R<->K) cross-checked row by row.
+T0_R,V0_ft_s,P0_psia,K_iv,P0_N_cm2,V0_m_s,T0_K
+140.0,25.0,23.76,2.46,16.38,7.6,77.78
+140.0,35.0,30.51,2.27,21.03,10.7,77.78
+140.0,45.0,41.03,2.33,28.29,13.7,77.78
+140.0,55.0,55.32,2.43,38.14,16.8,77.78
+140.0,65.0,73.39,2.53,50.6,19.8,77.78
+140.0,75.0,95.23,2.61,65.66,22.9,77.78
+150.0,25.0,39.38,3.43,27.15,7.6,83.33
+150.0,35.0,45.22,2.66,31.18,10.7,83.33
+150.0,45.0,54.83,2.51,37.81,13.7,83.33
+150.0,55.0,68.22,2.52,47.03,16.8,83.33
+150.0,65.0,85.37,2.58,58.86,19.8,83.33
+150.0,75.0,106.3,2.64,73.29,22.9,83.33
+160.0,25.0,57.18,3.09,39.42,7.6,88.89
+160.0,35.0,62.1,2.37,42.82,10.7,88.89
+160.0,45.0,70.8,2.28,48.82,13.7,88.89
+160.0,55.0,83.27,2.34,57.42,16.8,88.89
+160.0,65.0,99.52,2.43,68.62,19.8,88.89
+160.0,75.0,119.54,2.53,82.42,22.9,88.89

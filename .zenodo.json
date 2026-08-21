@@ -1,0 +1,28 @@
+{
+  "title": "OpenFLUME: Open FLUid Model Environment",
+  "description": "A browser-first, open-source finite-volume thermal-fluid network simulator with steady and transient analysis, parameter sweeps, and a visual P&ID editor.",
+  "upload_type": "software",
+  "creators": [
+    {
+      "name": "Rising, John"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "version": "0.1.0",
+  "publication_date": "2026-08-20",
+  "keywords": [
+    "thermal-fluid",
+    "network solver",
+    "heat transfer",
+    "two-phase flow",
+    "finite volume"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/OpenFLUME/OpenFLUME",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}

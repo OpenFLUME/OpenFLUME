@@ -1,0 +1,29 @@
+# ---
+# dataset: velat2004_ln2_horizontal_chilldown_summary
+# source: Velat, C.J. "Experiments in Cryogenic Two Phase Flow", M.S. thesis,
+#   University of Florida, 2004 (advisor: J.N. Chung). UF Digital Collections UF00096941.
+#   http://ufdc.ufl.edu/UF00096941
+# table: Table 4-1 "Summary of the chilldown data from the temperature histories" (p.61)
+# fluid: LN2 (near atmospheric); geometry: horizontal stainless steel transfer line with
+#   glass viewing section; 8 thermocouples arranged 8 cm apart (top/bottom/side)
+# measured: outer wall temperature histories, mass flux histories, flow visualization
+# columns:
+#   experiment_number, mass_flux_min_kg_m2_s, mass_flux_max_kg_m2_s  (range over the test),
+#   quench_front_velocity_m_s (approximate),
+#   chilldown_time_s (referenced to ti = chilldown initiation),
+#   quench_front_observation_time_s (referenced to ti),
+#   leidenfrost_temp_C (approximate, from bottom-wall TC rapid-drop point)
+# NOTE: full wall-temperature & mass-flux histories are FIGURES (Figs 4-2..4-21) -> digitization needed
+# extracted: 2026-08-04
+# ---
+experiment_number,mass_flux_min_kg_m2_s,mass_flux_max_kg_m2_s,quench_front_velocity_m_s,chilldown_time_s,quench_front_observation_time_s,leidenfrost_temp_C
+1,125,250,0.052,71,32,-146
+2,50,90,0.021,110,43,-144
+3,40,120,0.016,145,43,-146
+4,200,260,0.062,46,27,-144
+5,200,400,0.047,51,24,-148
+6,200,350,0.056,54,28,-152
+7,125,250,0.047,75,28,-152
+8,150,270,0.032,95,32,-148
+9,30,60,0.016,197,38,-156
+10,20,50,0.019,245,50,-144

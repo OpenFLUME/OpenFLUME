@@ -1,0 +1,30 @@
+# ---
+# dataset: martin2001_tm211089_orbit_hold_heatleak
+# source: Martin, J.J., Hastings, L., "Large-Scale Liquid Hydrogen Testing of a
+#   Variable Density Multilayer Insulation With a Foam Substrate,"
+#   NASA/TM-2001-211089, June 2001. Table 7 "TCS steady-state measured orbit
+#   hold performance" (p. 29 of PDF).
+#   PDF: https://ntrs.nasa.gov/api/citations/20010063699/downloads/20010063699.pdf
+# context: MHTB 18.09 m3 LH2 tank (35.74 m2 surface); SOFI (Isofoam SS-1171,
+#   ~3.56 cm avg) + 45-layer variable-density MLI; orbit-hold (vacuum) tests in
+#   MSFC Test Stand 300. Q_boiloff = total measured heat leak from boiloff;
+#   component corrections for vent, fill line, pressurization line, legs, other;
+#   Q_insul = insulation heat leak = boiloff minus components;
+#   last column = insulation heat flux per tank surface area.
+#   ullage_heat_shroud_range_pct = ullage heater shroud control band (%).
+# columns: test_no,initial_conditions,chamber_press_torr,interstitial_press_torr,
+#   penetration_heat_guards,shroud_temp_K,ullage_heat_shroud_range_pct,
+#   Q_boiloff_W,Q_vent_W,Q_fill_line_W,Q_press_line_W,Q_legs_W,Q_other_W,
+#   Q_insul_W,Q_insul_flux_W_m2
+# extracted: 2026-08-04
+# ---
+test_no,initial_conditions,chamber_press_torr,interstitial_press_torr,penetration_heat_guards,shroud_temp_K,ullage_heat_shroud_range_pct,Q_boiloff_W,Q_vent_W,Q_fill_line_W,Q_press_line_W,Q_legs_W,Q_other_W,Q_insul_W,Q_insul_flux_W_m2
+P9502,vacuum chamber rapid evacuation to orbit conditions after ground hold test,6e-8,,off,305,12-17,13.10,0.05,0.07,0.71,1.45,0.10,10.71,0.31
+P9502,same,9e-8,,off,164,17-21,5.34,0.04,0.03,0.36,0.49,0.03,4.38,0.13
+P9601,vacuum chamber rapid evacuation to orbit conditions after ground hold test,2e-7,,off,305,25-30,11.07,0.05,0.13,0.70,1.40,0.11,8.66,0.25
+P9601,same,6e-8,,on,305,25-30,7.89,0.00,0.03,0.00,0.13,0.10,7.64,0.22
+P9601,same,2e-7,,off,305,25-30,10.90,0.05,0.16,0.67,1.40,0.11,8.51,0.24
+P9601,same,9e-8,,off,164,30-35,3.90,0.05,0.07,0.29,0.48,0.02,2.98,0.086
+P9602A,vacuum chamber evacuated to 1e-5 torr and test article vacuum conditioned prior,5e-8,8e-6,off,235,5-8,8.41,0.05,0.09,0.52,0.89,0.05,6.82,0.20
+P9602A,same,4e-8,4e-6,on_legs_only,235,5-8,7.28,0.05,0.09,0.50,0.08,0.05,6.52,0.19
+P9602A,same (off-nominal/damaged MLI),4e-8,1e-7,off,305,8-12,12.87,0.06,0.12,0.78,1.37,0.11,10.47,0.30
