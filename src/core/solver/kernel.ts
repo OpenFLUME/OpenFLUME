@@ -53,7 +53,8 @@ import {
 } from "../components";
 import { FALLBACK_H_FLOOR } from "../correlations";
 import type { Dual } from "../dual";
-import { constant, add, sub, mul, div, pow, neg } from "../dual";
+import { constant, add, sub, mul, div, pow, neg, abs } from "../dual";
+import type { SolverJunctionEntry } from "./types";
 
 /** Environment captured by the Newton kernel factory.  `conductorHMap` is
  *  rebound per outer Picard iteration (h-map under-relaxation), so it is read
@@ -162,6 +163,44 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
   // fluid, species mixtures, and fluids without R/γ keep the frozen static T.
   const compressibleKE =
     ctx.kineticEnergy && !ctx.isRealFluid && !ctx.hasSpecies && !useCoupledH;
+
+  // ── Reacting junctions (config.junctions, coupled steady h-system only) ──
+  //
+  // A junction node's energy row is REPLACED by the thermochemical closure
+  //     R = (h_node − η · h(T0(Pc, ṁ_roles))) / max(|h_target|, 1e4)
+  // where Pc is the node's own pressure DOF and the per-role mass flows are
+  // Σ|ṁ| over that role's inlet branches — all Newton unknowns, so the
+  // divergent Pc → injector ΔP → ṁ → T0 → Pc loop of the retired outer
+  // fixed-point driver lives entirely inside the Jacobian.  Normalisation
+  // mirrors the degenerate-node h-pin convention (dimensionless, O(1)).
+  //
+  // Junction INLET branches join unlike fluids (reactant feed → product
+  // node), so their momentum closure keeps the UPSTREAM (reactant) density
+  // only: the cross-fluid harmonic-mean friction density and the
+  // momentum-flux acceleration term would otherwise mix a liquid and a hot
+  // gas across the injection face, where the density jump is combustion,
+  // not duct acceleration — the injector component model already carries
+  // the whole ΔP.
+  const junctionByNode = new Map<string, SolverJunctionEntry>();
+  const junctionInletBranches = new Set<number>();
+  for (const jn of ctx.junctions) {
+    junctionByNode.set(jn.nodeId, jn);
+    for (const idx of jn.inletBranchIdx) junctionInletBranches.add(idx);
+  }
+
+  /** Per-role Σ|ṁ| of a junction's inlet branches at the iterate x. */
+  function junctionMdotByRole(
+    jn: SolverJunctionEntry,
+    x: number[],
+  ): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const [role, idxs] of jn.roleBranches) {
+      let sum = 0;
+      for (const idx of idxs) sum += Math.abs(x[nInt + idx]);
+      out.set(role, sum);
+    }
+    return out;
+  }
 
   function staticTFromStag(
     T0: number,
@@ -398,12 +437,17 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         rho = phUp.rho;
         mu = phUp.mu;
         upT = phUp.T;
-        if (useCoupledH && ctx.kineticEnergy) {
+        if (
+          useCoupledH &&
+          ctx.kineticEnergy &&
+          !junctionInletBranches.has(j)
+        ) {
           // Friction ΔP ∝ ∫G²/ρ dx: the harmonic mean of the endpoint
           // densities integrates 1/ρ to second order, where the upstream
           // density alone underestimates friction in strongly accelerating
           // (near-choked) cells — same convention as the retired
-          // compressible-T mode.
+          // compressible-T mode.  Junction inlet branches keep the pure
+          // upstream (reactant) density — see the junction block above.
           const downNode = mdot >= 0 ? b.to : b.from;
           const downP =
             nodeMap.get(downNode)!.type === "boundary"
@@ -479,7 +523,12 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // For branches with elevation change, use average of upstream and downstream
       // density to better represent the local density along the pipe. This is
       // important for natural circulation with thermally expanding liquids.
-      if ((b.component.elevationChange ?? 0) !== 0) {
+      // (Junction inlet branches keep the upstream reactant density — the
+      // endpoints hold unlike fluids.)
+      if (
+        (b.component.elevationChange ?? 0) !== 0 &&
+        !junctionInletBranches.has(j)
+      ) {
         const downNode = mdot >= 0 ? b.to : b.from;
         const downP =
           nodeMap.get(downNode)!.type === "boundary"
@@ -576,7 +625,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // form; zero for constant-density constant-area flow and for
       // components without a flow area.
       let accelTerm = 0;
-      const accelArea = ctx.momentumFlux ? b.component.area : undefined;
+      const accelArea =
+        ctx.momentumFlux && !junctionInletBranches.has(j)
+          ? b.component.area
+          : undefined;
       if (accelArea !== undefined && accelArea > 0) {
         const rhoAt = (nodeId: string, P: number, Aend: number): number => {
           if (usePHFor(nodeId)) {
@@ -651,6 +703,34 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         const node = nodeMap.get(nodeId)!;
         const Pcurr = x[i];
         const hcurr = x[energyIdx];
+
+        // Reacting junction: the node's energy row IS the thermochemical
+        // closure (see the junction block at the top of makeKernel) — the
+        // upwind-mixing balance below never applies (reactant enthalpies
+        // must not mix linearly into the product enthalpy; the released
+        // heat of reaction is inside T0).
+        //
+        // Normalization is FROZEN at the outer state (state.nodeH), never a
+        // function of x: an x-dependent denominator makes the residual's true
+        // derivative carry a −(h−h_t)·h_t'/h_t² term that the dual-number
+        // path (which freezes the same constant) would omit — the two
+        // Jacobians then disagree far from the solution, and the inner
+        // Newton was observed to walk off spurious roots because of it.
+        const jn = junctionByNode.get(nodeId);
+        if (jn !== undefined) {
+          const T0 = jn.model.evaluate(Pcurr, junctionMdotByRole(jn, x)).gas
+            .T0;
+          const hTarget = fluidOf(nodeId).enthalpyPT(
+            Pcurr,
+            jn.efficiency * T0,
+          );
+          const hRef = Math.max(
+            Math.abs(state.nodeH?.get(nodeId) ?? hTarget),
+            1e4,
+          );
+          R[energyIdx] = (hcurr - hTarget) / hRef;
+          continue;
+        }
 
         const phCurr = safeStatePH(
           fluidOf(nodeId),
@@ -1113,8 +1193,13 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         rho = upSt.rho;
         mu = upSt.mu;
         upT = upSt.T.v;
-        if (useCoupledH && ctx.kineticEnergy) {
-          // Harmonic-mean friction density (mirrors the scalar path).
+        if (
+          useCoupledH &&
+          ctx.kineticEnergy &&
+          !junctionInletBranches.has(j)
+        ) {
+          // Harmonic-mean friction density (mirrors the scalar path;
+          // junction inlets keep the upstream reactant density).
           const downNode = mdot.v >= 0 ? b.to : b.from;
           const rhoDown = nodeStateDual(downNode).rho;
           if (rho.v > 0 && rhoDown.v > 0) {
@@ -1182,7 +1267,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       }
 
       // Elevation change: average of upstream and downstream density (as scalar).
-      if ((b.component.elevationChange ?? 0) !== 0) {
+      if (
+        (b.component.elevationChange ?? 0) !== 0 &&
+        !junctionInletBranches.has(j)
+      ) {
         const downNode = mdot.v >= 0 ? b.to : b.from;
         if (usePHFor(downNode)) {
           rho = mul(constant(0.5), add(rho, nodeStateDual(downNode).rho));
@@ -1276,7 +1364,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // block: ΔP_accel = (ṁ/Ā)(u_to − u_from) at the endpoint states and
       // areas (areaOut for tapered components).
       let accelTerm: Dual = constant(0);
-      const accelArea = ctx.momentumFlux ? b.component.area : undefined;
+      const accelArea =
+        ctx.momentumFlux && !junctionInletBranches.has(j)
+          ? b.component.area
+          : undefined;
       if (accelArea !== undefined && accelArea > 0) {
         const rhoDualAt = (nodeId: string, Aend: number): Dual => {
           if (usePHFor(nodeId)) return nodeStateDual(nodeId).rho;
@@ -1382,6 +1473,49 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         const node = nodeMap.get(nodeId)!;
         const Pcurr = x[i];
         const hcurr = x[energyIdx];
+
+        // Reacting junction: dual mirror of the scalar closure row.  T0
+        // chains through the model's dual table interpolation (exact ∂/∂Pc
+        // and ∂/∂ṁ — bilinear interpolation is plain arithmetic); the
+        // enthalpy target h(T_eff) is linear in T for the validated
+        // idealGas product fluid, so dh/dT = h/T reproduces the scalar
+        // value bit-for-bit with the exact derivative.
+        const jnDual = junctionByNode.get(nodeId);
+        if (jnDual !== undefined) {
+          const mdotByRole = new Map<string, Dual>();
+          for (const [role, idxs] of jnDual.roleBranches) {
+            let sum = constant(0);
+            for (const idx of idxs) sum = add(sum, abs(branchMdot[idx]));
+            mdotByRole.set(role, sum);
+          }
+          const T0 = jnDual.model.chamberT0Dual(Pcurr, mdotByRole);
+          const Teff = mul(constant(jnDual.efficiency), T0);
+          const hTargetV = fluidOf(nodeId).enthalpyPT(Pcurr.v, Teff.v);
+          const hTarget: Dual = {
+            v: hTargetV,
+            d: Teff.v !== 0 ? (hTargetV / Teff.v) * Teff.d : 0,
+          };
+          // Same FROZEN normalization as the scalar row (see its comment):
+          // constant during the inner Newton, so value AND derivative match.
+          const hRef = Math.max(
+            Math.abs(state.nodeH?.get(nodeId) ?? hTargetV),
+            1e4,
+          );
+          R[energyIdx] = div(sub(hcurr, hTarget), constant(hRef));
+          // FD-patch this row's entries: the CEA table is only C0 at grid
+          // lines and CLAMPED at its edges, so the dual bilerp's two-sided
+          // slope disagrees with the scalar function's one-sided behaviour
+          // exactly at those kinks (e.g. O/F pinned at the table edge by
+          // equal default warm-start mdots).  The FD patch reproduces the
+          // pure-FD builder bit-for-bit, so the default hybrid path steers
+          // Newton identically to jacobian: "fd" through the closure.
+          const jnCols = [energyIdx, i];
+          for (const idxs of jnDual.roleBranches.values()) {
+            for (const idx of idxs) jnCols.push(nInt + idx);
+          }
+          markFd(energyIdx, jnCols);
+          continue;
+        }
 
         const curr = nodeStateDual(nodeId);
         const Tcurr = curr.T;

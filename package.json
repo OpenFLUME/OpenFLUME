@@ -45,6 +45,8 @@
     "gen:trace-corpus": "tsx scripts/build-nbs-trace-corpus.ts",
     "gen:fluid-catalogue": "tsx scripts/build-fluid-catalogue.ts",
     "check:fluid-catalogue": "tsx scripts/build-fluid-catalogue.ts --check",
+    "gen:cea-tables": "python3 scripts/build-cea-tables.py",
+    "check:cea-tables": "python3 scripts/build-cea-tables.py --check",
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run format:check && npm run build && npm test",
     "preview": "vite preview",

@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Characteristic velocity at Pc = 10 bar: table vs frozen closed form</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">1</text>
+<line x1="221" y1="46" x2="221" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="390" text-anchor="middle" font-size="11">2</text>
+<line x1="366" y1="46" x2="366" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="366" y="390" text-anchor="middle" font-size="11">3</text>
+<line x1="511" y1="46" x2="511" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="511" y="390" text-anchor="middle" font-size="11">4</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="76" y1="320.68449963158696" x2="656" y2="320.68449963158696" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="324.68449963158696" text-anchor="end" font-size="11">1400</text>
+<line x1="76" y1="252.6430461236679" x2="656" y2="252.6430461236679" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="256.6430461236679" text-anchor="end" font-size="11">1500</text>
+<line x1="76" y1="184.6015926157488" x2="656" y2="184.6015926157488" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="188.6015926157488" text-anchor="end" font-size="11">1600</text>
+<line x1="76" y1="116.56013910782977" x2="656" y2="116.56013910782977" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="120.56013910782977" text-anchor="end" font-size="11">1700</text>
+<line x1="76" y1="48.518685599910725" x2="656" y2="48.518685599910725" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="52.518685599910725" text-anchor="end" font-size="11">1800</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Mixture ratio O/F</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">c* [m/s]</text>
+<path d="M76.0,328.4 L82.0,327.0 L88.1,325.9 L94.1,324.8 L100.2,303.3 L106.2,282.9 L112.3,263.5 L118.3,241.8 L124.3,221.0 L130.4,201.1 L136.4,184.5 L142.5,168.4 L148.5,152.8 L154.5,140.4 L160.6,128.4 L166.6,116.5 L172.7,107.9 L178.7,99.5 L184.8,91.2 L190.8,85.7 L196.8,80.3 L202.9,75.0 L208.9,72.1 L215.0,69.2 L221.0,66.3 L227.0,65.4 L233.1,64.4 L239.1,63.5 L245.2,64.0 L251.2,64.5 L257.3,65.0 L263.3,66.5 L269.3,68.0 L275.4,69.5 L281.4,71.6 L287.5,73.6 L293.5,75.7 L299.5,78.1 L305.6,80.5 L311.6,82.9 L317.7,85.4 L323.7,88.0 L329.8,90.6 L335.8,93.2 L341.8,95.9 L347.9,98.5 L353.9,101.1 L360.0,103.8 L366.0,106.4 L372.0,109.0 L378.1,111.6 L384.1,114.3 L390.2,116.8 L396.2,119.4 L402.3,122.0 L408.3,124.5 L414.3,127.0 L420.4,129.5 L426.4,131.9 L432.5,134.4 L438.5,136.8 L444.5,139.2 L450.6,141.6 L456.6,143.9 L462.7,146.2 L468.7,148.6 L474.8,150.8 L480.8,153.1 L486.8,155.3 L492.9,157.6 L498.9,159.7 L505.0,161.9 L511.0,164.1 L517.0,166.2 L523.1,168.3 L529.1,170.4 L535.2,172.4 L541.2,174.5 L547.3,176.5 L553.3,178.5 L559.3,180.5 L565.4,182.5 L571.4,184.4 L577.5,186.3 L583.5,188.2 L589.5,190.1 L595.6,192.0 L601.6,193.9 L607.7,195.7 L613.7,197.5 L619.8,199.3 L625.8,201.1 L631.8,202.9 L637.9,204.7 L643.9,206.4 L650.0,208.1 L656.0,209.9" fill="none" stroke="#000000" stroke-width="1.8"/>
+<circle cx="76" cy="354.53571428571433" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="100.16666666666669" cy="305.22650612687823" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="124.33333333333331" cy="223.6329898687453" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="148.5" cy="155.65507824007048" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="172.66666666666663" cy="111.09999296643474" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="196.83333333333337" cy="82.61092352761369" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="221" cy="67.41123552062697" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="245.1666666666667" cy="64.18503345911734" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="269.33333333333326" cy="67.572193314922" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="293.5" cy="74.93919161294536" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="317.66666666666674" cy="84.57214572999612" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="341.8333333333333" cy="94.91922203128303" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="366" cy="105.46791227128068" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="390.16666666666663" cy="115.89101396721054" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="414.33333333333337" cy="126.05850426175638" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="438.5" cy="135.91257355563457" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="462.66666666666663" cy="145.35755603342056" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="486.83333333333337" cy="154.45871401372608" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="511" cy="163.2241262558374" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="535.1666666666665" cy="171.60506700185138" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="559.3333333333335" cy="179.68473634611559" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="583.5" cy="187.4798603704051" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="607.6666666666666" cy="194.9585543521055" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="631.8333333333334" cy="202.19307427624622" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="656" cy="209.199750091669" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="322.4" y="318" width="325.6" height="46" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="330.4" y1="328" x2="352.4" y2="328" stroke="#000000" stroke-width="1.8"/>
+<text x="358.4" y="332" font-size="11">sqrt(R T0)/Gamma(gamma) from tabulated state</text>
+<circle cx="341.4" cy="346" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="358.4" y="350" font-size="11">tabulated c*</text>
+</svg>

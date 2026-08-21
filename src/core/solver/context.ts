@@ -27,7 +27,13 @@ import {
   PiecewiseLinearProperty,
 } from "../solidProperties";
 import { resolveClosureParams } from "../closureParams";
-import type { ConductorEntry, SolverContext, StepState } from "./types";
+import { createCombustionModel } from "../combustion/model";
+import type {
+  ConductorEntry,
+  SolverContext,
+  SolverJunctionEntry,
+  StepState,
+} from "./types";
 
 /**
  * Build the immutable per-solve context.  Static parameter bindings
@@ -117,6 +123,40 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
       branches: branches.map((b) => b.id),
     },
     assignmentMaps,
+  );
+
+  // Reacting junctions (config.junctions): resolve node/branch references to
+  // solver indices and build the thermochemistry closure once per context.
+  // validate/junctions.ts guarantees the references exist and the inlet
+  // branches terminate at the junction node.
+  const branchIndexById = new Map<string, number>();
+  branches.forEach((b, j) => branchIndexById.set(b.id, j));
+  const junctions: SolverJunctionEntry[] = (config.junctions ?? []).map(
+    (jn) => {
+      const roleBranches = new Map<string, number[]>();
+      const inletBranchIdx = new Set<number>();
+      for (const inlet of jn.inlets) {
+        const idx = branchIndexById.get(inlet.branch);
+        if (idx === undefined) {
+          throw new Error(
+            `buildSolverContext: junction ${jn.id} inlet references missing branch "${inlet.branch}"`,
+          );
+        }
+        inletBranchIdx.add(idx);
+        const list = roleBranches.get(inlet.role);
+        if (list) list.push(idx);
+        else roleBranches.set(inlet.role, [idx]);
+      }
+      return {
+        id: jn.id,
+        nodeId: jn.node,
+        roleBranches,
+        inletBranchIdx,
+        model: createCombustionModel(jn.model),
+        efficiency: jn.model.efficiency ?? 1,
+        productFluidName: jn.productFluid,
+      };
+    },
   );
 
   // Build thermal context
@@ -356,6 +396,8 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
     boundaryPressureOverride: new Map(),
     boundaryTemperatureOverride: new Map(),
     heatInputOverride: new Map(),
+    junctions,
+    namedFluidModels: assignmentMaps?.named,
   };
 }
 

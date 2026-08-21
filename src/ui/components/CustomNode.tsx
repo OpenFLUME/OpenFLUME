@@ -71,6 +71,11 @@ export default React.memo(function CustomNode({
   const [hovered, setHovered] = React.useState(false);
   const [portHovered, setPortHovered] = React.useState(false);
   const isBoundary = node.type === "boundary";
+  // Reacting junction (config.junctions): marked with an inner dashed ring
+  // so a combustion chamber reads differently from a plain mixing node.
+  const isJunction = useStore((s) =>
+    (s.config.junctions ?? []).some((j) => j.node === node.id),
+  );
   const size = fluidNodeSize(node.type);
 
   if (isGhost) {
@@ -238,6 +243,20 @@ export default React.memo(function CustomNode({
             stroke={NODE_OUTLINE}
             strokeWidth={2}
           />
+        )}
+        {isJunction && !isBoundary && (
+          <circle
+            data-testid={`node-junction-ring-${id}`}
+            cx={size / 2}
+            cy={size / 2}
+            r={size / 2 - 6}
+            fill="none"
+            stroke="#d68910"
+            strokeWidth={1.6}
+            strokeDasharray="3 2"
+          >
+            <title>Reacting junction</title>
+          </circle>
         )}
       </svg>
       {/* Hover gave no feedback on the shape itself, so a node looked inert

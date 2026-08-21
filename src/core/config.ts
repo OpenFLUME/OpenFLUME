@@ -458,6 +458,66 @@ function checkController(
   optionalObject(controller.limits, `${path}.limits`);
 }
 
+function checkJunction(
+  junction: Record<string, unknown>,
+  path: string,
+): void {
+  // validate.ts string-indexes every reference field unconditionally.
+  for (const field of ["node", "productFluid"] as const) {
+    if (typeof junction[field] !== "string") {
+      throw new ConfigDecodeError(
+        "invalid-type",
+        `${path}.${field}`,
+        `expected a string, got ${describe(junction[field])}`,
+      );
+    }
+  }
+  const inlets = junction.inlets;
+  if (!Array.isArray(inlets)) {
+    throw new ConfigDecodeError(
+      "invalid-type",
+      `${path}.inlets`,
+      `expected an array, got ${describe(inlets)}`,
+    );
+  }
+  inlets.forEach((inlet, i) => {
+    const inletPath = `${path}.inlets[${i}]`;
+    if (!isRecord(inlet)) {
+      throw new ConfigDecodeError(
+        "invalid-type",
+        inletPath,
+        `expected an object, got ${describe(inlet)}`,
+      );
+    }
+    for (const field of ["branch", "role"] as const) {
+      if (typeof inlet[field] !== "string") {
+        throw new ConfigDecodeError(
+          "invalid-type",
+          `${inletPath}.${field}`,
+          `expected a string, got ${describe(inlet[field])}`,
+        );
+      }
+    }
+  });
+  const model = junction.model;
+  if (!isRecord(model)) {
+    throw new ConfigDecodeError(
+      "invalid-type",
+      `${path}.model`,
+      `expected an object, got ${describe(model)}`,
+    );
+  }
+  for (const field of ["type", "propellants"] as const) {
+    if (typeof model[field] !== "string") {
+      throw new ConfigDecodeError(
+        "invalid-type",
+        `${path}.model.${field}`,
+        `expected a string, got ${describe(model[field])}`,
+      );
+    }
+  }
+}
+
 function checkSpecies(species: Record<string, unknown>, path: string): void {
   for (const key of [
     "names",
@@ -586,6 +646,8 @@ export function decodeNetworkConfig(input: unknown): NetworkConfig {
   if (logic) checkElements(logic, "logic");
   const controllers = optionalArray(input.controllers, "controllers");
   if (controllers) checkElements(controllers, "controllers", checkController);
+  const junctions = optionalArray(input.junctions, "junctions");
+  if (junctions) checkElements(junctions, "junctions", checkJunction);
   const species = optionalObject(input.species, "species");
   if (species) checkSpecies(species, "species");
   optionalObject(input.registers, "registers");

@@ -1,7 +1,13 @@
 import React from "react";
 import { useStore } from "../store";
 import { NetworkConfig } from "../types";
-import type { PhysicalPosition, SolidPropertySpec } from "../../core";
+import type {
+  CombustionPropellants,
+  JunctionConfig,
+  PhysicalPosition,
+  SolidPropertySpec,
+} from "../../core";
+import { listCombustionPropellants } from "../../core";
 import UnitInput from "./UnitInput";
 import NumberField from "./NumberField";
 import FormulaUnitInput from "./FormulaUnitInput";
@@ -426,6 +432,213 @@ function FieldSelect({
         {children}
       </select>
     </div>
+  );
+}
+
+/** Roles each thermochemistry model's junction inlets must be mapped to
+ *  (validate/junctions.ts rejects a junction missing any of them). */
+const JUNCTION_MODEL_ROLES: Record<JunctionConfig["model"]["type"], string[]> =
+  {
+    ceaTable: ["oxidizer", "fuel"],
+  };
+
+/**
+ * Reacting-junction editor for an internal fluid node (config.junctions,
+ * keyed by junction.node — see core/schema.ts JunctionConfig and
+ * docs/combustion.md).  Rendered inside the node PropertyPanel branch as a
+ * gas-cushion-style opt-in section: a checkbox declares the node a junction,
+ * and the conditional form edits the thermochemistry model, propellants,
+ * efficiency, product fluid, and the role of each inbound branch.
+ */
+function JunctionSection({
+  node,
+  config,
+}: {
+  node: NodeConfig;
+  config: NetworkConfig;
+}) {
+  const upsertJunction = useStore((s) => s.upsertJunction);
+  const removeJunction = useStore((s) => s.removeJunction);
+  const junction = (config.junctions ?? []).find((j) => j.node === node.id);
+  // Junction inlets must END at the junction node (validate/junctions.ts),
+  // so only inbound branches are role candidates.
+  const inbound = config.branches.filter((b) => b.to === node.id);
+  const propellantChoices = listCombustionPropellants();
+  // The product fluid must be a NAMED idealGas entry — its params are
+  // rewritten from the thermochemistry lookup between outer iterations.
+  const productFluidChoices = Object.entries(config.fluids ?? {})
+    .filter(([, f]) => f.model === "idealGas")
+    .map(([name]) => name);
+
+  const commit = (patch: Partial<JunctionConfig>) => {
+    if (junction) upsertJunction({ ...junction, ...patch });
+  };
+  const roles = junction
+    ? JUNCTION_MODEL_ROLES[junction.model.type]
+    : JUNCTION_MODEL_ROLES.ceaTable;
+  const setRole = (branchId: string, role: string) => {
+    if (!junction) return;
+    const inlets = junction.inlets.filter((i) => i.branch !== branchId);
+    if (role !== "") inlets.push({ branch: branchId, role });
+    commit({ inlets });
+  };
+
+  // productFluid is REQUIRED (schema) — without a named idealGas fluid to
+  // point it at, a junction cannot be validly declared at all.
+  const canCreate = productFluidChoices.length > 0;
+
+  return (
+    <>
+      <div className="field">
+        <label className="field__label check-label">
+          <input
+            type="checkbox"
+            data-testid="node-junction-toggle"
+            checked={junction !== undefined}
+            disabled={junction === undefined && !canCreate}
+            onChange={(e) => {
+              if (e.target.checked) {
+                const taken = new Set(
+                  (config.junctions ?? []).map((j) => j.id),
+                );
+                let jid = `${node.id}Combustor`;
+                for (let n = 2; taken.has(jid); n++)
+                  jid = `${node.id}Combustor${n}`;
+                upsertJunction({
+                  id: jid,
+                  node: node.id,
+                  // Left for the user: which feed branch carries which role.
+                  inlets: [],
+                  model: {
+                    type: "ceaTable",
+                    propellants:
+                      propellantChoices[0] as CombustionPropellants,
+                  },
+                  productFluid:
+                    node.fluid && productFluidChoices.includes(node.fluid)
+                      ? node.fluid
+                      : productFluidChoices[0],
+                });
+              } else {
+                removeJunction(node.id);
+              }
+            }}
+            style={{ cursor: "pointer" }}
+          />
+          Reacting junction (combustor)
+        </label>
+      </div>
+      {!junction && !canCreate && (
+        <div className="property-panel__hint">
+          Requires a named idealGas fluid to act as the combustion product
+          (its R/γ/μ/cp are rewritten from the thermochemistry lookup). Add
+          one under Settings → Fluids first.
+        </div>
+      )}
+      {junction && (
+        <>
+          <TextInput
+            label="Junction Label"
+            value={junction.label}
+            onChange={(v) => commit({ label: v })}
+          />
+          <FieldSelect
+            label="Thermochemistry Model"
+            dataTestId="junction-model-select"
+            value={junction.model.type}
+            onChange={() => {
+              /* single model type in v1 — nothing to switch to */
+            }}
+          >
+            <option value="ceaTable">NASA CEA equilibrium table</option>
+          </FieldSelect>
+          <FieldSelect
+            label="Propellants"
+            dataTestId="junction-propellants-select"
+            value={junction.model.propellants}
+            onChange={(v) =>
+              commit({
+                model: {
+                  ...junction.model,
+                  propellants: v as CombustionPropellants,
+                },
+              })
+            }
+          >
+            {propellantChoices.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </FieldSelect>
+          <NumberField
+            label="Efficiency (enthalpy rise, 0–1]"
+            dataTestId="junction-efficiency"
+            value={junction.model.efficiency}
+            step={0.01}
+            min={0}
+            max={1}
+            onChange={(v) =>
+              commit({
+                model: {
+                  ...junction.model,
+                  ...(v === undefined
+                    ? { efficiency: undefined }
+                    : { efficiency: v }),
+                },
+              })
+            }
+          />
+          <FieldSelect
+            label="Product Fluid"
+            dataTestId="junction-product-fluid-select"
+            value={junction.productFluid}
+            onChange={(v) => commit({ productFluid: v })}
+          >
+            {productFluidChoices.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </FieldSelect>
+          <div className="micro-label property-panel__group">
+            Inlet Roles
+          </div>
+          {inbound.length === 0 ? (
+            <div className="property-panel__hint">
+              No branch ends at this node yet. Draw the reactant feed
+              branches into it, then assign each one a role here.
+            </div>
+          ) : (
+            inbound.map((b) => (
+              <FieldSelect
+                key={b.id}
+                label={b.label || b.id}
+                dataTestId={`junction-role-${b.id}`}
+                value={
+                  junction.inlets.find((i) => i.branch === b.id)?.role ?? ""
+                }
+                onChange={(v) => setRole(b.id, v)}
+              >
+                <option value="">Not an inlet</option>
+                {roles.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </FieldSelect>
+            ))
+          )}
+          <div className="property-panel__hint">
+            The node&apos;s energy equation becomes the thermochemical
+            closure h = efficiency · h(T0(Pc, O/F)) solved inside the Newton
+            system; the product fluid&apos;s gas properties refresh from the
+            same lookup. Requires steady mode with kinetic energy enabled,
+            and every role above must be covered by at least one inlet.
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -919,6 +1132,7 @@ export default function PropertyPanel() {
                 </>
               );
             })()}
+            <JunctionSection node={node} config={config} />
           </>
         )}
         <FormulaUnitInput

@@ -28,6 +28,11 @@ Thumbs.db
 
 # Local env
 .env
+
+# Python venv for scripts/build-cea-tables.py (offline table generator only —
+# never imported at runtime; see docs/combustion.md)
+.venv-cea/
+__pycache__/
 .env.local
 
 # Misc

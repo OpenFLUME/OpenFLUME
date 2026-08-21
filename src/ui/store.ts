@@ -262,6 +262,15 @@ interface StoreState {
     id: string,
     patch: Partial<NonNullable<NetworkConfig["conductors"]>[number]>,
   ) => void;
+  /** Create or replace the reacting junction attached to `junction.node`
+   *  (junctions are keyed by their node: one per node, enforced by
+   *  validate/junctions.ts). One undoable edit. */
+  upsertJunction: (
+    junction: NonNullable<NetworkConfig["junctions"]>[number],
+  ) => void;
+  /** Remove the reacting junction attached to a node (no-op when absent).
+   *  Dropping the last junction removes the `junctions` field entirely. */
+  removeJunction: (nodeId: string) => void;
   /** Apply many per-entity patches as ONE undoable edit (one history entry,
    *  one commit) — the multi-selection PropertyPanel's commit path. Updates
    *  whose id no longer exists are skipped; when none apply, nothing is
@@ -713,6 +722,28 @@ export const useStore = create<StoreState>((set, get) => {
       if (!cfg.conductors) cfg.conductors = [];
       const idx = cfg.conductors.findIndex((c) => c.id === id);
       cfg.conductors[idx] = { ...cfg.conductors[idx], ...patch };
+      commitConfig(cfg);
+    },
+
+    upsertJunction: (junction) => {
+      if (!get().config.nodes.some((n) => n.id === junction.node)) return;
+      pushHistory();
+      const cfg = cloneConfig(get().config);
+      const list = cfg.junctions ?? [];
+      const idx = list.findIndex((j) => j.node === junction.node);
+      if (idx >= 0) list[idx] = junction;
+      else list.push(junction);
+      cfg.junctions = list;
+      commitConfig(cfg);
+    },
+
+    removeJunction: (nodeId) => {
+      if (!(get().config.junctions ?? []).some((j) => j.node === nodeId))
+        return;
+      pushHistory();
+      const cfg = cloneConfig(get().config);
+      cfg.junctions = (cfg.junctions ?? []).filter((j) => j.node !== nodeId);
+      if (cfg.junctions.length === 0) delete cfg.junctions;
       commitConfig(cfg);
     },
 

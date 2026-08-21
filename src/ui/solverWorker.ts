@@ -150,21 +150,22 @@ function installWorkerHandlers(): void {
       } else {
         let lastProgressTime = 0;
         let hasSentFirstProgress = false;
+        const onProgress = (p: { iteration: number; residual: number }) => {
+          const now = performance.now();
+          if (hasSentFirstProgress && now - lastProgressTime < 100) return;
+          hasSentFirstProgress = true;
+          lastProgressTime = now;
+          self.postMessage({
+            type: "progress",
+            payload: {
+              kind: "steady",
+              iteration: p.iteration,
+              residual: p.residual,
+            },
+          });
+        };
         const result = solveSteady(config, {
-          onProgress: (p) => {
-            const now = performance.now();
-            if (hasSentFirstProgress && now - lastProgressTime < 100) return;
-            hasSentFirstProgress = true;
-            lastProgressTime = now;
-            self.postMessage({
-              type: "progress",
-              payload: {
-                kind: "steady",
-                iteration: p.iteration,
-                residual: p.residual,
-              },
-            });
-          },
+          onProgress,
           shouldAbort: () => _cancelled,
         });
         self.postMessage({ type: "done", result });

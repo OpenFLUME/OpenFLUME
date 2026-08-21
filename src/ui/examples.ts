@@ -3,6 +3,7 @@ import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
 import { mirandaRegenCoolingChannel } from "./regenCoolingChannel";
 import { rocketCombustionChamber } from "./rocketCombustionChamber";
+import { thrusterCombustor } from "./thrusterCombustor";
 import { CANVAS_GRID_SIZE } from "./canvasGeometry";
 
 export {
@@ -10,6 +11,7 @@ export {
   lh2StorageTankNoVentFill,
   mirandaRegenCoolingChannel,
   rocketCombustionChamber,
+  thrusterCombustor,
 };
 
 /** Physical coordinates [m], z-up. Canvas `x`/`y` on the node stay schematic pixels. */
@@ -4682,6 +4684,7 @@ export const exampleGroups: Record<string, string[]> = {
     "Spacecraft radiator panel (ammonia loop heat pipe)",
     "Regenerative cooling channel (LOX/RP-1 booster chamber)",
     "Rocket combustion chamber (choked CD nozzle)",
+    "LOX/RP-1 thruster (combustor)",
   ],
   Benchmarks: [
     "GFSSP Ex.5: Water-water counterflow HX (steady)",
@@ -5047,6 +5050,7 @@ export const examples: Record<string, NetworkConfig> = {
   "Regenerative cooling channel (LOX/RP-1 booster chamber)":
     mirandaRegenCoolingChannel,
   "Rocket combustion chamber (choked CD nozzle)": rocketCombustionChamber,
+  "LOX/RP-1 thruster (combustor)": thrusterCombustor,
   "GFSSP Ex.5: Water-water counterflow HX (steady)": gfsspEx5WaterWaterHX,
   "Lee & Martin: entrapped-air (GFSSP Fig.10)": leeMartinEntrappedAir,
   "Extension: Cryo tank vent control (transient)": extensionAdvancedExample,

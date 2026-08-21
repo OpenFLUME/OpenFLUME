@@ -91,6 +91,10 @@ export type {
   ControllerConfig,
   ControllerSense,
   ControllerOutputTarget,
+  JunctionConfig,
+  JunctionInletConfig,
+  JunctionModelConfig,
+  JunctionSummary,
 } from "./schema";
 export {
   DEFAULT_GRAVITY,
@@ -199,6 +203,24 @@ export type {
   ContinuationResult,
   ContinuationHistoryEntry,
 } from "./continuation";
+export {
+  lookupCombustionGas,
+  combustionGasBounds,
+  listCombustionPropellants,
+  R_UNIVERSAL as COMBUSTION_R_UNIVERSAL,
+  CEA_PROVENANCE,
+} from "./combustion/combustionGas";
+export type {
+  CombustionPropellants,
+  CombustionGasState,
+  CombustionGasBounds,
+  CombustionGasResult,
+} from "./combustion/combustionGas";
+export { createCombustionModel } from "./combustion/model";
+export type {
+  CombustionModel,
+  CombustionProductEvaluation,
+} from "./combustion/model";
 export { getSolverDiagnostics, resetSolverDiagnostics } from "./diagnostics";
 export type {
   SolverDiagnostics,

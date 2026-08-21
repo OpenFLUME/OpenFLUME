@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Nozzle Mach number: solver vs analytical references</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0.00</text>
+<line x1="222.93960275638426" y1="46" x2="222.93960275638426" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="222.93960275638426" y="390" text-anchor="middle" font-size="11">0.05</text>
+<line x1="369.8792055127685" y1="46" x2="369.8792055127685" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="369.8792055127685" y="390" text-anchor="middle" font-size="11">0.10</text>
+<line x1="516.8188082691529" y1="46" x2="516.8188082691529" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="516.8188082691529" y="390" text-anchor="middle" font-size="11">0.15</text>
+<line x1="76" y1="309.3784073213404" x2="656" y2="309.3784073213404" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="313.3784073213404" text-anchor="end" font-size="11">0.5</text>
+<line x1="76" y1="244.66030428086387" x2="656" y2="244.66030428086387" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="248.66030428086387" text-anchor="end" font-size="11">1.0</text>
+<line x1="76" y1="179.94220124038736" x2="656" y2="179.94220124038736" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="183.94220124038736" text-anchor="end" font-size="11">1.5</text>
+<line x1="76" y1="115.22409819991088" x2="656" y2="115.22409819991088" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="119.22409819991088" text-anchor="end" font-size="11">2.0</text>
+<line x1="76" y1="50.50599515943435" x2="656" y2="50.50599515943435" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="54.50599515943435" text-anchor="end" font-size="11">2.5</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">axial position z [m]</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">M</text>
+<path d="M76.0,354.5 L222.9,354.5 L369.9,354.5 L393.7,348.8 L414.4,341.3 L431.9,331.8 L446.2,319.8 L457.4,305.1 L465.3,287.5 L470.1,267.3 L471.7,244.7 L473.2,228.6 L477.8,211.9 L485.4,194.8 L496.1,177.6 L509.8,160.4 L526.5,143.3 L546.3,126.5 L569.2,110.0 L595.1,94.0 L624.0,78.5 L656.0,63.5" fill="none" stroke="#000000" stroke-width="1.8"/>
+<polygon points="222.93960275638426,349.85203329350276 219.53960275638426,356.6520332935027 226.33960275638427,356.6520332935027" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="369.8792055127685,349.8680751670047 366.47920551276854,356.66807516700464 373.2792055127685,356.66807516700464" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="393.73925820835024,343.7250172192929 390.33925820835026,350.52501721929286 397.1392582083502,350.52501721929286" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="414.4165991082286,335.7152556419594 411.0165991082286,342.51525564195936 417.81659910822856,342.51525564195936" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="431.9141670044589,325.3624991446436 428.5141670044589,332.16249914464356 435.31416700445885,332.16249914464356" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="446.23196189704095,312.1064330947341 442.83196189704097,318.90643309473404 449.6319618970409,318.90643309473404" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="457.36704499391976,295.14925040120124 453.9670449939198,301.9492504012012 460.76704499391974,301.9492504012012" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="485.3913660316174,187.90760383917265 481.9913660316174,194.70760383917266 488.7913660316174,194.70760383917266" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="496.0533036076206,171.67829539079804 492.6533036076206,178.47829539079805 499.45330360762057,178.47829539079805" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="509.7657073368464,155.19627158969269 506.3657073368464,161.9962715896927 513.1657073368464,161.9962715896927" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="526.5197608431292,138.76160214974018 523.1197608431293,145.5616021497402 529.9197608431292,145.5616021497402" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="546.3242805026348,122.56422543461767 542.9242805026348,129.36422543461768 549.7242805026348,129.36422543461768" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="569.1733887312525,106.72961269015306 565.7733887312526,113.52961269015307 572.5733887312525,113.52961269015307" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="595.0700243210377,91.34160043919539 591.6700243210378,98.1416004391954 598.4700243210377,98.1416004391954" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="624.0112484799351,76.4524071171742 620.6112484799352,83.25240711717422 627.4112484799351,83.25240711717422" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,62.09105965431397 652.6,68.89105965431398 659.4,68.89105965431398" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<circle cx="76" cy="353.2459742378064" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="222.93960275638426" cy="353.26200579818595" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="369.8792055127685" cy="353.26968238986024" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="393.73925820835024" cy="347.13153138373576" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="414.4165991082286" cy="339.133676843877" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="431.9141670044589" cy="328.8089552925348" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="446.23196189704095" cy="315.61851102479926" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="457.36704499391976" cy="298.8267140954016" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="470.0920145926226" cy="268.93246755128916" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="477.7740170247264" cy="206.72301886953232" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="485.3913660316174" cy="191.2251248861259" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="496.0533036076206" cy="174.92210786080824" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="509.7657073368464" cy="158.3699300018184" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="526.5197608431292" cy="141.8670275109984" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="546.3242805026348" cy="125.60375871545966" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="569.1733887312525" cy="109.70635692153115" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="595.0700243210377" cy="94.26092935348913" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="624.0112484799351" cy="79.32031765373245" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="64.91425935738772" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="461.91941629509535" y="181.5041230724627" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="468.28190109444677" y="250.70310296556218" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="469.80419537900286" y="259.06438738895133" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="84" y="54" width="306.40000000000003" height="82" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="92" y1="64" x2="114" y2="64" stroke="#000000" stroke-width="1.8"/>
+<text x="120" y="68" font-size="11">frozen-gamma isentropic (geometric A/At)</text>
+<polygon points="103,78.6 99.6,85.4 106.4,85.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<text x="120" y="86" font-size="11">RK4 ODE, friction + wall heat (both legs)</text>
+<circle cx="103" cy="100" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="120" y="104" font-size="11">solver (clean stations)</text>
+<rect x="99.6" y="114.6" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="120" y="122" font-size="11">solver (transonic-artifact stations)</text>
+</svg>

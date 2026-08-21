@@ -42,9 +42,21 @@ import {
 } from "./safeProps";
 import { solveDense, norm2, dot, matVec, matVecTrans } from "./linalg";
 import { RealFluid, clampToValidPH, getFluidLimits } from "../fluids/realFluid";
+import { IdealGas } from "../fluids";
 import { integrateBDF1 } from "../stiffOde";
 import { makeChemistryRHS } from "../chemistry";
 import { FALLBACK_H_FLOOR } from "../correlations";
+
+/**
+ * Settle bar for the reacting-junction product-gas property lag: an outer
+ * iterate may certify only when the largest relative change any junction's
+ * lag update applied to its product fluid's (R, γ, μ, cp) this iteration is
+ * below this.  The gas properties are weak functions of (Pc, O/F) — the
+ * lag's loop gain is ≪ 1 — so this settles alongside (not after) the state
+ * itself; the bar exists so a certified result is never reported against
+ * properties that materially moved after its residual was measured.
+ */
+const JUNCTION_PARAM_SETTLE_REL = 1e-6;
 
 export interface SolveStepOptions {
   dt?: number;
@@ -1818,7 +1830,59 @@ function solveStateStepAttempt(
     for (let i = 0; i < nInt; i++) {
       state.nodeP.set(internalIds[i], X[i]);
     }
+
+    // ── Reacting-junction product-gas property lag (Picard) ─────────────
+    // T0 itself is coupled inside the Newton residual (kernel.ts); only the
+    // weakly-sensitive property closure (R, γ, μ, cp) of each junction's
+    // product continuum is refreshed here, from the model at the
+    // just-published (Pc, per-role ṁ).  The swap goes through the LIVE
+    // named-fluid map backing fluidAssignment, so the property refresh
+    // below and the next inner Newton read the updated gas.  The largest
+    // relative parameter change gates certification (settle criterion).
+    let maxJunctionParamDelta = 0;
+    const swappedProductFluids: IdealGas[] = [];
+    if (ctx.junctions.length > 0 && ctx.namedFluidModels) {
+      for (const jn of ctx.junctions) {
+        const mdotByRole = new Map<string, number>();
+        for (const [role, idxs] of jn.roleBranches) {
+          let sum = 0;
+          for (const jb of idxs) sum += Math.abs(X[nInt + jb]);
+          mdotByRole.set(role, sum);
+        }
+        const pc = state.nodeP.get(jn.nodeId)!;
+        const gas = jn.model.evaluate(pc, mdotByRole).gas;
+        const current = ctx.namedFluidModels.get(jn.productFluidName);
+        if (!(current instanceof IdealGas)) continue; // validated upstream
+        const rel = (next: number, prev: number): number =>
+          Math.abs(next - prev) / Math.max(Math.abs(prev), 1e-12);
+        const delta = Math.max(
+          rel(gas.R, current.R),
+          rel(gas.gamma, current.gamma),
+          rel(gas.mu, current.mu),
+          rel(gas.cp, current.cp(pc, gas.T0)),
+        );
+        maxJunctionParamDelta = Math.max(maxJunctionParamDelta, delta);
+        if (delta > 0) {
+          const next = new IdealGas(gas.R, gas.gamma, gas.mu, gas.cp);
+          ctx.namedFluidModels.set(jn.productFluidName, next);
+          swappedProductFluids.push(next);
+        }
+      }
+    }
+
     refreshNodeProperties(ctx, state);
+    // A product-fluid swap re-interprets h = cp·T.  refreshNodeProperties
+    // above re-derived state.nodeH from the (continuous) temperature under
+    // the NEW cp; the inner Newton's persistent unknown vector must follow,
+    // or the next outer warm-starts from enthalpies that decode to
+    // (cp_old/cp_new)-scaled temperatures and can strand the Newton.
+    if (swappedProductFluids.length > 0 && useCoupledH) {
+      for (const id of dof.energyNodes) {
+        const f = ctx.fluidAssignment.node(id);
+        if (!swappedProductFluids.includes(f as IdealGas)) continue;
+        X[dof.energyCol(id)!] = state.nodeH!.get(id)!;
+      }
+    }
     for (let j = 0; j < nBranch; j++) state.mdots[j] = X[nInt + j];
     // State maps changed — the compressible stagnation-T memo is stale for
     // any residual evaluated below (e.g. the coupled-honesty gate).
@@ -1903,7 +1967,10 @@ function solveStateStepAttempt(
     // Node-only debug flag. `process` is not defined in the browser worker.
     if (typeof process !== "undefined" && process.env?.FN_DEBUG_OUTER) {
       console.log(
-        `[outer ${outer}] res=${returnResidual.toExponential(2)} maxDeltaT=${maxDeltaT.toExponential(2)}`,
+        `[outer ${outer}] res=${returnResidual.toExponential(2)} maxDeltaT=${maxDeltaT.toExponential(2)}` +
+          (ctx.junctions.length > 0
+            ? ` jnParamDelta=${maxJunctionParamDelta.toExponential(2)}`
+            : ""),
       );
     }
 
@@ -1962,7 +2029,11 @@ function solveStateStepAttempt(
             // whose Newton drifted (observed as a certified supersonic
             // "shock train" in the compressible duct validation).
             returnResidual < tol;
-    if (maxDeltaT < fluidTol && innerConverged) {
+    // Reacting junctions: the product-gas property lag must have settled —
+    // a residual measured against properties that materially moved this
+    // outer iteration must not certify (see JUNCTION_PARAM_SETTLE_REL).
+    const junctionsSettled = maxJunctionParamDelta < JUNCTION_PARAM_SETTLE_REL;
+    if (maxDeltaT < fluidTol && innerConverged && junctionsSettled) {
       outerConverged = true;
       break;
     }
@@ -1996,9 +2067,11 @@ function solveStateStepAttempt(
         outerConverged = false;
         break;
       }
-    } else if (maxDeltaT < fluidTol) {
+    } else if (maxDeltaT < fluidTol && junctionsSettled) {
       // Legacy stalled-step test (non-extended paths): the state stopped
-      // moving but the inner Newton did not meet tolerance.
+      // moving but the inner Newton did not meet tolerance.  A still-moving
+      // junction property lag is NOT a stall — the properties keep the
+      // residual moving, so let the iteration continue.
       stalledOuters++;
       if (stalledOuters >= 3) {
         outerConverged = false;

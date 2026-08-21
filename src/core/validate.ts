@@ -17,6 +17,7 @@
  *                                 the darrHartwig/ttWf/custom correlation models)
  *   validate/logic.ts            Register + LogicRule expression checks
  *   validate/controllers.ts      PID/register controller reference/range checks
+ *   validate/junctions.ts        Reacting-junction reference/type/fluid checks
  *   validate/componentLibrary.ts Declarative component-library syntax checks
  *   validate/expressions.ts      Shared checkExpression() parse-only helper
  *
@@ -36,6 +37,7 @@ import { validateBranches } from "./validate/branches";
 import { validateConductors } from "./validate/conductors";
 import { validateRegistersAndLogic } from "./validate/logic";
 import { validateControllers } from "./validate/controllers";
+import { validateJunctions } from "./validate/junctions";
 import { validateComponentLibrary } from "./validate/componentLibrary";
 
 /**
@@ -128,6 +130,10 @@ function validateResolvedNetwork(config: ResolvedNetworkConfig): string[] {
       branchIds,
       allNodeIds,
     }),
+  );
+
+  errors.push(
+    ...validateJunctions(config, { nodeIds, boundaryIds, branchIds }),
   );
 
   errors.push(...validateComponentLibrary(config));

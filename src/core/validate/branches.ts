@@ -8,6 +8,7 @@ import type { ResolvedNetworkConfig } from "../schema";
 import type { TopologyModel } from "../topology";
 import { isFluidNode } from "../topology";
 import { resolveFluidSpec, resolvedFluidName } from "../fluidAssignment";
+import { junctionInletBranchNodes } from "./junctions";
 
 export interface BranchValidationResult {
   errors: string[];
@@ -22,6 +23,11 @@ export function validateBranches(
   if (!config.branches || config.branches.length === 0) {
     errors.push("No branches defined");
   }
+
+  // Reacting-junction inlet branches (branch id → junction node id) are the
+  // ONE exception to the same-fluid rule below: a reactant stream may end at
+  // an unlike-fluid junction node (validate/junctions.ts checks the rest).
+  const junctionInlets = junctionInletBranchNodes(config);
 
   const branchIds = new Set<string>();
   for (const branch of config.branches ?? []) {
@@ -47,9 +53,10 @@ export function validateBranches(
     if (fromNode && toNode) {
       const fromKey = resolvedFluidName(fromNode) ?? "";
       const toKey = resolvedFluidName(toNode) ?? "";
-      if (fromKey !== toKey) {
+      const isJunctionInlet = junctionInlets.get(branch.id) === branch.to;
+      if (fromKey !== toKey && !isJunctionInlet) {
         errors.push(
-          `Branch ${branch.id} connects different fluids ("${fromKey || "default"}" and "${toKey || "default"}"); unlike fluids may only couple through a solid wall`,
+          `Branch ${branch.id} connects different fluids ("${fromKey || "default"}" and "${toKey || "default"}"); unlike fluids may only couple through a solid wall or a reacting-junction inlet`,
         );
       }
     }

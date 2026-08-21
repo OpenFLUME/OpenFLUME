@@ -21,6 +21,31 @@ import type { DarrHartwigSharedState, TtWfSharedState } from "../correlations";
 import type { FluidFrontSharedState } from "../fluidFront";
 import type { PiecewiseLinearProperty } from "../solidProperties";
 import type { ResolvedClosureParams } from "../closureParams";
+import type { CombustionModel } from "../combustion/model";
+
+/** One reacting junction (JunctionConfig, core/schema.ts) resolved to
+ *  solver indices at context build.  The kernel replaces the junction
+ *  node's energy row with the thermochemical closure; the step driver
+ *  Picard-lags the product continuum's ideal-gas params from `model`. */
+export interface SolverJunctionEntry {
+  id: string;
+  /** Internal product node whose energy row carries the closure. */
+  nodeId: string;
+  /** Inlet branch indices per reactant role (per-role |ṁ| sums feed the
+   *  model). */
+  roleBranches: Map<string, number[]>;
+  /** All inlet branch indices — these branches join unlike fluids, so the
+   *  kernel keeps their momentum closure on the UPSTREAM (reactant) density
+   *  only (no cross-fluid harmonic-mean friction density, no momentum-flux
+   *  acceleration term across the injection face). */
+  inletBranchIdx: Set<number>;
+  model: CombustionModel;
+  /** Combustion efficiency applied to the model's adiabatic T0. */
+  efficiency: number;
+  /** Named fluid (config.fluids key) of the product continuum, whose model
+   *  instance is swapped in ctx.namedFluidModels between outer iterations. */
+  productFluidName: string;
+}
 
 export interface ConductorEntry {
   id: string;
@@ -197,6 +222,20 @@ export interface SolverContext {
   boundaryPressureOverride: Map<string, number>;
   boundaryTemperatureOverride: Map<string, number>;
   heatInputOverride: Map<string, number>;
+  /**
+   * Reacting junctions resolved to solver indices (config.junctions).
+   * Always allocated; empty when none are configured — every path is then
+   * bit-identical to a solve without junctions.
+   */
+  junctions: SolverJunctionEntry[];
+  /**
+   * The LIVE named-fluid model map backing fluidAssignment (multi-fluid
+   * networks only).  The outer Picard loop swaps a junction's product-gas
+   * IdealGas instance here between iterations (property lag) — the
+   * assignment resolves names at lookup time, so kernels see the update on
+   * their next property call without a context rebuild.
+   */
+  namedFluidModels?: Map<string, FluidModel>;
 }
 
 /**

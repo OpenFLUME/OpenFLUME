@@ -21,7 +21,8 @@
  *                  | conductorRec | groupRec | noteRec
  *   fieldLine    ::= fieldKey ": " jsonValue
  *   fieldKey     ::= "settings" | "fluid" | "fluids" | "closureParams" | "species"
- *                  | "registers" | "logic" | "controllers" | "componentLibrary"
+ *                  | "registers" | "logic" | "controllers" | "junctions"
+ *                  | "componentLibrary"
  *   markerLine   ::= markerKey ": []"
  *   markerKey    ::= "solidNodes" | "conductors" | "groups" | "notes"
  *   nodeRec      ::= "node " jsonString " " nodeType
@@ -240,6 +241,7 @@ const FIELD_ORDER = [
   "registers",
   "logic",
   "controllers",
+  "junctions",
   "componentLibrary",
 ] as const;
 type FieldKey = (typeof FIELD_ORDER)[number];
@@ -584,6 +586,7 @@ const SEMANTIC_ENTITY_PATTERNS: ReadonlyArray<
 const SEMANTIC_FIELD_PATTERNS: ReadonlyArray<readonly [RegExp, FieldKey]> = [
   [/^Logic rule /, "logic"],
   [/^Controllers? /, "controllers"],
+  [/^(Junctions? |Duplicate junction )/, "junctions"],
   [/^Component library /, "componentLibrary"],
   [/^Register /, "registers"],
   [/^Reaction /, "species"],
@@ -1212,6 +1215,8 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
     if (fields.logic !== undefined) assembled.logic = fields.logic;
     if (fields.controllers !== undefined)
       assembled.controllers = fields.controllers;
+    if (fields.junctions !== undefined)
+      assembled.junctions = fields.junctions;
     if (fields.componentLibrary !== undefined)
       assembled.componentLibrary = fields.componentLibrary;
     assembled.nodes = nodes;
