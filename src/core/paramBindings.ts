@@ -222,6 +222,43 @@ export function previewNetworkParameters(
   return resolveNetworkParameters(config);
 }
 
+/**
+ * Evaluate one static expression against `config`'s model scope. Existing
+ * formula bindings are resolved first (same as {@link previewNetworkParameters});
+ * the expression itself need not be stored on a bindable field.
+ *
+ * Used by the property-panel preview when the field's `{ expr }` is known
+ * but the snapshot's `resolved` map does not list that field path.
+ */
+export function evaluateStaticExpression(
+  config: NetworkConfig,
+  expr: string,
+): { ok: true; value: number } | { ok: false; errors: string[] } {
+  const resolution = resolveNetworkParameters(config);
+  const forScope = (
+    resolution.ok ? resolution.config : config
+  ) as NetworkConfig;
+  const index = buildModelIndex(forScope);
+  const resolvedSoFar = new Map<string, number>(
+    resolution.ok ? Object.entries(resolution.resolved) : [],
+  );
+  const scope = buildStaticScope(forScope, index, resolvedSoFar);
+  try {
+    const value = compileExpression(expr).evaluateNumber(scope);
+    if (!Number.isFinite(value)) {
+      return {
+        ok: false,
+        errors: [
+          `expression evaluated to ${String(value)}, which is not a finite number`,
+        ],
+      };
+    }
+    return { ok: true, value };
+  } catch (e) {
+    return { ok: false, errors: [errorMessage(e)] };
+  }
+}
+
 /** Readable field paths — used in `resolved` keys and error messages. */
 const nodePath = (id: string, field: string): string => `node '${id}'.${field}`;
 const branchPath = (id: string, field: string): string =>

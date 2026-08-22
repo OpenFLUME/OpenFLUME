@@ -30,6 +30,8 @@ import {
 import { previewNetworkParameters } from "../../core";
 import { serializeText, parseText } from "../../substrate/textProjection";
 import type { NetworkConfig, Selection } from "../types";
+import { threePipeJunction } from "../examples";
+import { cloneConfig } from "../utils";
 
 /* ------------------------------------------------------------------ */
 /* Fixtures + harness                                                  */
@@ -210,6 +212,25 @@ describe("previewBoundField", () => {
     expect(serializeText(config)).toBe(before);
     expect(config.nodes[1].volume).toEqual({ expr: "pipe('seg1').volume" });
   });
+
+  it("previews a committed formula even when the snapshot has already been resolved to literals", () => {
+    const config = makeConfig();
+    config.nodes[1].volume = { expr: "pipe('seg1').volume" };
+    const resolved = previewNetworkParameters(config);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    const numeric = resolved.config as unknown as NetworkConfig;
+    expect(previewBoundField(numeric, "node 'n1'.volume").status).toBe("error");
+    const volumeBefore = numeric.nodes[1].volume;
+    const recovered = previewBoundField(numeric, "node 'n1'.volume", {
+      expr: "pipe('seg1').volume",
+    });
+    expect(recovered.status).toBe("ok");
+    if (recovered.status === "ok") {
+      expect(recovered.value).toBeCloseTo(2 * Math.PI * 0.05 * 0.05 * 0.25, 12);
+    }
+    expect(numeric.nodes[1].volume).toBe(volumeBefore);
+  });
 });
 
 /* ------------------------------------------------------------------ */
@@ -302,6 +323,18 @@ describe("PropertyPanel formula fields (SSR)", () => {
     // The chip wraps only the reference; ' * 2' stays plain text.
     expect(html).toContain('data-chip-source="pipe(&#39;seg2&#39;).length"');
     expect(html).toContain(">seg2 · length</span>");
+  });
+
+  it("three-pipe junction roughness formulas preview instead of a false missing-binding error", () => {
+    const html = renderPanelSsr(cloneConfig(threePipeJunction), {
+      kind: "branch",
+      id: "b3",
+    });
+    expect(html).toContain("Roughness");
+    expect(html).not.toContain("no formula binding is stored here");
+    expect(html).toContain("pipe(&#39;b1&#39;).roughness");
+    expect(html).toContain("→ 0.00001");
+    expect(html).toContain("Use resolved value");
   });
 
   it("the formula scope documents accessors and helpers, with no obsolete = instruction", () => {

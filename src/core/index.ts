@@ -114,6 +114,7 @@ export type { FluidAssignment, FluidAssignmentMaps } from "./fluidAssignment";
 export {
   resolveNetworkParameters,
   previewNetworkParameters,
+  evaluateStaticExpression,
   isParameterExpression,
 } from "./paramBindings";
 export type { ParameterResolution } from "./paramBindings";

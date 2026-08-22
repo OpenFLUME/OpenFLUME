@@ -276,8 +276,8 @@ export default function FormulaUnitInput({
 
   const preview = React.useMemo(() => {
     if (!bound || runtimeSemantics) return null;
-    return previewBoundField(config, path);
-  }, [bound, runtimeSemantics, config, path]);
+    return previewBoundField(config, path, value);
+  }, [bound, runtimeSemantics, config, path, value]);
 
   // Candidate parse feedback while editing a not-yet-committed formula.
   const candidateError = React.useMemo(() => {

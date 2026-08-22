@@ -24,6 +24,7 @@
 import type { NetworkConfig } from "../core";
 import {
   compileExpression,
+  evaluateStaticExpression,
   ExpressionError,
   isParameterExpression,
   previewNetworkParameters,
@@ -75,20 +76,7 @@ export function expressionParseError(expr: string): string | null {
 export type FormulaPreview =
   { status: "ok"; value: number } | { status: "error"; errors: string[] };
 
-/**
- * Preview the formula bound at `path` against the static model scope.
- *
- * Pure: previewNetworkParameters never mutates `config` and is never routed
- * through the store/history.  `path` is the readable field path used as the
- * `resolved` map key and the error prefix, e.g. "branch 'seg1'.diameter"
- * (see core/paramBindings.ts collectBindings).
- *
- * Errors are filtered to this field: a broken formula ELSEWHERE in the
- * model must not mask this field's own preview (its own error is still
- * reported, since resolveNetworkParameters attributes every failure to its
- * field path).
- */
-export function previewBoundField(
+function previewFromResolution(
   config: NetworkConfig,
   path: string,
 ): FormulaPreview {
@@ -119,6 +107,43 @@ export function previewBoundField(
     status: "error",
     errors: [`unresolved while another formula in the model has errors`],
   };
+}
+
+/**
+ * Preview the formula bound at `path` against the static model scope.
+ *
+ * Pure: previewNetworkParameters never mutates `config` and is never routed
+ * through the store/history.  `path` is the readable field path used as the
+ * `resolved` map key and the error prefix, e.g. "branch 'seg1'.diameter"
+ * (see core/paramBindings.ts collectBindings).
+ *
+ * Errors are filtered to this field: a broken formula ELSEWHERE in the
+ * model must not mask this field's own preview (its own error is still
+ * reported, since resolveNetworkParameters attributes every failure to its
+ * field path).
+ *
+ * `committed` is the field's stored `{ expr }` when the caller already has
+ * it (FormulaUnitInput).  If the snapshot's `resolved` map does not list
+ * this path — already-resolved literals, a path-key mismatch — the
+ * expression is evaluated against the static model scope so the panel
+ * shows the value instead of a false "no formula binding is stored here".
+ */
+export function previewBoundField(
+  config: NetworkConfig,
+  path: string,
+  committed?: BindableValue,
+): FormulaPreview {
+  const preview = previewFromResolution(config, path);
+  if (preview.status === "ok") return preview;
+  if (
+    !isParameterExpression(committed) ||
+    !preview.errors.some((e) => e.endsWith("no formula binding is stored here"))
+  ) {
+    return preview;
+  }
+  const evaluated = evaluateStaticExpression(config, committed.expr);
+  if (evaluated.ok) return { status: "ok", value: evaluated.value };
+  return { status: "error", errors: evaluated.errors };
 }
 
 /** True when the value holds a formula object. */

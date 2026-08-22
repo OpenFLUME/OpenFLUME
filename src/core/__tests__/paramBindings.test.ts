@@ -8,6 +8,7 @@ import type { NetworkConfig } from "../schema";
 import {
   isParameterExpression,
   previewNetworkParameters,
+  evaluateStaticExpression,
   resolveNetworkParameters,
 } from "../paramBindings";
 import { validateNetwork } from "../validate";
@@ -171,6 +172,13 @@ describe("resolveNetworkParameters fast path", () => {
     const r = previewNetworkParameters(config);
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.config).toBe(config);
+  });
+
+  it("evaluateStaticExpression reads derived pipe geometry from literals", () => {
+    const config = steadyBase();
+    const r = evaluateStaticExpression(config, "pipe('seg1').volume");
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value).toBeCloseTo(2 * Math.PI * 0.05 * 0.05 * 0.25, 12);
   });
 });
 
