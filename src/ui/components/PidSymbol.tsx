@@ -9,6 +9,7 @@
  * claim of strict standards compliance — the human-readable component name
  * is always available via tooltip / aria title.
  */
+/* eslint-disable react-refresh/only-export-components -- symbol policy helpers are public and tested */
 import React from "react";
 import { EDGE_GLYPH_SIZE, edgeGlyphScale } from "../canvasGeometry";
 

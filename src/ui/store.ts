@@ -989,7 +989,16 @@ export const useStore = create<StoreState>((set, get) => {
       commitConfig(cfg);
     },
 
-    setSelection: (sel) => set({ selection: sel }),
+    setSelection: (sel) =>
+      set((state) => ({
+        selection: sel,
+        canvasSelection:
+          sel.kind === "multi"
+            ? state.canvasSelection
+            : sel.kind === "node" || sel.kind === "solidNode"
+              ? [sel.id]
+              : [],
+      })),
     setResult: (res) =>
       set({
         result: res,
@@ -1473,19 +1482,21 @@ export const useStore = create<StoreState>((set, get) => {
         parts.push(
           `${conductorCount} conductor${conductorCount === 1 ? "" : "s"}`,
         );
+      const only = newNodeIds.length === 1 ? newNodeIds[0] : undefined;
       set({
         canvasSelection: newNodeIds,
         duplicateNotice: `Duplicated ${parts.join(", ")}`,
+        ...(only
+          ? {
+              selection: {
+                kind: cfg.nodes.some((n) => n.id === only)
+                  ? ("node" as const)
+                  : ("solidNode" as const),
+                id: only,
+              },
+            }
+          : {}),
       });
-      if (newNodeIds.length === 1) {
-        const only = newNodeIds[0];
-        set({
-          selection: {
-            kind: cfg.nodes.some((n) => n.id === only) ? "node" : "solidNode",
-            id: only,
-          },
-        });
-      }
       return {
         nodes: newNodeIds.length,
         branches: branchCount,

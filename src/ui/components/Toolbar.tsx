@@ -79,6 +79,7 @@ export default function Toolbar() {
   const runSessionRef = useRef<RunDiarySession | null>(null);
 
   const activePreset = activeUnitPreset(unitPreferences);
+  const usesRealFluid = networkUsesRealFluid(config);
 
   const bundledComponentSources = React.useMemo(
     () =>
@@ -96,7 +97,7 @@ export default function Toolbar() {
     let active = true;
     let clearTimer: (() => void) | null = null;
 
-    if (!networkUsesRealFluid(config)) {
+    if (!usesRealFluid) {
       setCoolpropStatus(null);
       return;
     }
@@ -133,7 +134,7 @@ export default function Toolbar() {
       active = false;
       if (clearTimer) clearTimer();
     };
-  }, [config.fluid, config.fluids, setFluidError]);
+  }, [usesRealFluid, setFluidError]);
 
   const handleSave = async () => {
     if (!beginPreparation("save")) return;

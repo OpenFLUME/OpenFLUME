@@ -557,7 +557,7 @@ describe("TT-WF dry-side front gate (local, hand-built ctx)", () => {
   // Tv = max(Eq. 9, 100) < Tw — a clean dry-side FB/SP evaluation.
   const Tnode = 100;
   let hNode = 0;
-  let Tw = 300;
+  const Tw = 300;
 
   beforeAll(async () => {
     await initRealFluids();

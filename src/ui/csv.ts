@@ -1,5 +1,5 @@
-const FORMULA_LEADER = /^[=+\-@\t\r]/;
-const NUMERIC_TEXT = /^[+\-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+\-]?\d+)?$/i;
+const FORMULA_LEADER = /^[=+@\t\r-]/;
+const NUMERIC_TEXT = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
 
 /** RFC-4180 encoding with spreadsheet-formula protection for free text. */
 export function csvCell(value: string | number | null | undefined): string {

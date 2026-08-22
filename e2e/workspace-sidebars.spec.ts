@@ -1,20 +1,16 @@
 /**
- * e2e/workspace-sidebars.spec.ts — Diagram-only canvas sidebars.
+ * e2e/workspace-sidebars.spec.ts — Diagram-only canvas tools.
  *
- * The BUILD MODEL palette (left rail) and the Edit property panel (right
- * rail) render only while an editable FlowCanvas is the active center
- * content: the main Diagram tab and group/subnetwork canvas tabs (which keep
- * activeTab === 'editor'; see src/ui/workspaceLayout.ts).  Text, Model
- * Table, Sweep and Analysis UNMOUNT both rails — not width-collapsed — so:
+ * The model-builder rail and contextual property panel render only while an
+ * editable FlowCanvas is active. Text, Model Table, Sweep and Analysis
+ * unmount the canvas tools.
  *
  *   - the center column expands to the full workspace width (no blank
  *     left/right rails),
  *   - the page never gains horizontal overflow (desktop and ~700px), and
  *   - hidden sidebar controls can never retain or receive keyboard focus.
  *
- * Sidebar state survives the round trip because it lives outside the
- * unmounted components: palette section collapse is persisted to
- * localStorage, and the property-panel selection lives in the zustand store.
+ * Selection survives the round trip in the zustand store.
  *
  * The workspace tab strip is a full-width sibling ABOVE the sidebar row
  * (Toolbar → tabs → sidebars+content), so the tabs never move when the
@@ -38,7 +34,7 @@ function attachConsoleWatcher(page: Page) {
   };
 }
 
-const PALETTE = '[data-testid="palette"]';
+const RAIL = '[aria-label="Model builder tools"]';
 const PANEL = '[data-testid="property-panel"]';
 const CENTER = '[data-testid="workspace-center"]';
 const WORKSPACE = ".workspace";
@@ -52,13 +48,12 @@ const NON_CANVAS_TABS = [
 
 /** Both sidebars are unmounted — absent from the DOM, not merely hidden. */
 async function expectSidebarsAbsent(page: Page) {
-  await expect(page.locator(PALETTE)).toHaveCount(0);
+  await expect(page.locator(RAIL)).toHaveCount(0);
   await expect(page.locator(PANEL)).toHaveCount(0);
 }
 
-async function expectSidebarsPresent(page: Page) {
-  await expect(page.locator(PALETTE)).toBeVisible();
-  await expect(page.locator(PANEL)).toBeVisible();
+async function expectCanvasRailPresent(page: Page) {
+  await expect(page.locator(RAIL)).toBeVisible();
 }
 
 /** The center column spans the workspace edge to edge (no blank rails). */
@@ -76,19 +71,6 @@ async function expectCenterFullWidth(page: Page) {
     center!.x + center!.width,
     "no empty right rail",
   ).toBeGreaterThanOrEqual(workspace!.x + workspace!.width - 2);
-}
-
-/** The center column leaves room for both rails (palette + property panel). */
-async function expectCenterBesideRails(page: Page) {
-  const center = await page.locator(CENTER).boundingBox();
-  const workspace = await page.locator(WORKSPACE).boundingBox();
-  expect(center).not.toBeNull();
-  expect(workspace).not.toBeNull();
-  // Rails: 188px palette + 260px panel at ≥1101px widths (see index.css).
-  expect(
-    workspace!.width - center!.width,
-    "rails occupy their width",
-  ).toBeGreaterThanOrEqual(400);
 }
 
 /** No document-level horizontal overflow at the current viewport. */
@@ -144,32 +126,25 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
 
-    // --- Step 1: default Diagram shows both rails --------------------------
+    // --- Step 1: default Diagram shows the model-builder rail --------------
     await expect(page.locator('[data-testid="editor-tab"]')).toHaveAttribute(
       "aria-selected",
       "true",
     );
-    await expectSidebarsPresent(page);
-    await expect(page.locator(PALETTE)).toContainText("BUILD MODEL");
-    await expectCenterBesideRails(page);
+    await expectCanvasRailPresent(page);
+    await expect(page.locator(PANEL)).toHaveCount(0);
+    await expectCenterFullWidth(page);
 
     // Reference box for the tab strip: it must be identical on every tab.
     const diagramTabs = await tabStripBox(page);
 
-    // --- Step 2: select an entity; collapse a palette section --------------
+    // --- Step 2: selecting an entity mounts its contextual panel -----------
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B1"]').click();
     await expect(page.locator(PANEL)).toContainText("Node: B1");
 
-    const advancedToggle = page.locator(
-      '[data-testid="palette-section-advanced-toggle"]',
-    );
-    await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
-    await advancedToggle.click();
-    await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
-
-    // --- Step 3: every non-canvas tab unmounts both rails ------------------
+    // --- Step 3: every non-canvas tab unmounts canvas tools ----------------
     for (const { tab, view, name } of NON_CANVAS_TABS) {
       await page.locator(`[data-testid="${tab}"]`).click();
       await expect(
@@ -195,19 +170,15 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
       await expectTabStripStable(page, diagramTabs, `${name} @1280px`);
     }
 
-    // --- Step 4: returning to Diagram restores rails and their state -------
+    // --- Step 4: returning to Diagram restores tools and selection --------
     await page.locator('[data-testid="editor-tab"]').click();
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
-    await expectSidebarsPresent(page);
-    await expectCenterBesideRails(page);
+    await expectCanvasRailPresent(page);
+    await expectCenterFullWidth(page);
     await expectTabStripStable(page, diagramTabs, "back to Diagram");
 
     // Selection survived the unmount: the property editor is still on B1.
     await expect(page.locator(PANEL)).toContainText("Node: B1");
-    // Palette section collapse survived (persisted to localStorage).
-    await expect(
-      page.locator('[data-testid="palette-section-advanced-toggle"]'),
-    ).toHaveAttribute("aria-expanded", "false");
 
     consoleWatcher.assertNoErrors();
   });
@@ -233,7 +204,10 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
       .locator('[data-testid="node-B2"]')
       .click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="create-subnetwork"]').click();
+    await page
+      .getByRole("toolbar", { name: "Selection actions" })
+      .getByRole("button", { name: "Create subnetwork" })
+      .click();
     await page.waitForTimeout(500);
 
     // Open the group canvas tab from the container's Open button.
@@ -242,10 +216,10 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     await expect(groupTab).toBeVisible();
     await expect(groupTab).toHaveAttribute("aria-selected", "true");
 
-    // The group canvas is an editable FlowCanvas: both rails stay mounted.
+    // The group canvas is an editable FlowCanvas: its rail stays mounted.
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
-    await expectSidebarsPresent(page);
-    await expectCenterBesideRails(page);
+    await expectCanvasRailPresent(page);
+    await expectCenterFullWidth(page);
     const groupTabs = await tabStripBox(page);
 
     // Opening Text keeps the group canvas selected behind the modal.
@@ -260,7 +234,7 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     await page.locator('[data-testid="model-view-dialog-close"]').click();
     await expect(groupTab).toHaveAttribute("aria-selected", "true");
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
-    await expectSidebarsPresent(page);
+    await expectCanvasRailPresent(page);
     await expectTabStripStable(page, groupTabs, "Text → group tab");
 
     consoleWatcher.assertNoErrors();
@@ -286,7 +260,7 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
         const el = document.activeElement as HTMLElement | null;
         return {
           inSidebar: !!el?.closest(
-            '[data-testid="palette"], [data-testid="property-panel"]',
+            '.canvas-rail, [data-testid="property-panel"]',
           ),
           testid: el?.getAttribute("data-testid"),
         };

@@ -409,7 +409,7 @@ export function ttWfWettedFractionUpdate(
   rEnergy: number,
   rLiquid: number,
   dt: number,
-  segmentLength: number,
+  _segmentLength: number,
 ): { fNext: number; rFront: number; clamped: boolean; limiter: TtWfLimiter } {
   // Both rates are non-negative BY CONSTRUCTION (r_E carries max(q_W−q_F, 0);
   // r_L = j_l/Δz with G, χ_l ≥ 0).  smoothMin undershoots by up to ε_u/2 at

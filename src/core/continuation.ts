@@ -177,8 +177,9 @@ export function solveWithContinuation(
 
   // Solve the easy start point
   const startConfig = buildConfig(currentParam);
-  let { result: currentResult, converged: startConverged } =
+  const { result: initialResult, converged: startConverged } =
     attemptSolve(startConfig);
+  let currentResult = initialResult;
   history.push({
     paramValue: currentParam,
     converged: startConverged,

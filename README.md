@@ -944,7 +944,7 @@ The worker is spawned as a Vite-native module worker (`new Worker(new URL('./sol
 
 If this software contributes to your research, please cite it. See [CITATION.cff](CITATION.cff) for the current citation metadata, or use:
 
-> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.1.0). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
+> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.0). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
 
 ---
 

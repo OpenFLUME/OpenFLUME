@@ -9,6 +9,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-22
+
 ### Added
 
 - **CEA-coupled reacting junctions** (`config.junctions`) — steady
@@ -69,6 +71,9 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 - **Canvas subnetwork creation** — a selected solid node's position is
   looked up by id (a truthiness bug could place the group container far
   from its members).
+- **Formula previews** — committed formulas remain visible in the property
+  panel when parameter resolution succeeds without returning that field in
+  the resolved-binding map.
 - **Schedule editor** — pasted multi-row blocks keep both columns; pending
   cell edits are committed and cleared before row remove/sort (a stale
   index could corrupt a reindexed row in Safari/Firefox); numeric cells
@@ -79,7 +84,10 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   large-array `Math.min/max` spreads replaced with loop helpers; chart PNG
   export reports image-load failures; conditional React hooks in
   `CustomNode`/`CustomSolidNode` hoisted above the ghost early-return;
-  connect-tool canvas rebuilds reuse one topology model (was O(N²)).
+  connect-tool canvas rebuilds reuse one topology model (was O(N²)); stale
+  React Flow callbacks no longer turn single selections into bulk selections;
+  newly authored local components connect and embed immediately; and formula
+  options open reliably from literal visual fields.
 - **Solver worker hardening** — exfiltration-capable globals (`fetch`,
   `XMLHttpRequest`, `WebSocket`, `indexedDB`, `caches`, …) are stripped
   from the worker scope before any solve, as defense in depth around
@@ -89,10 +97,24 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   suite (`RUN_SLOW=1`) and the full Playwright e2e suite (previously never
   run anywhere); `react-hooks/rules-of-hooks` is a lint error;
   `scripts/**` is typechecked; deploy credentials are scoped to the deploy
-  job; stale example counts corrected.
+  job; stale example counts corrected; and the repository lint baseline is
+  clean with zero warnings. Full scientific and four-way-sharded e2e jobs now
+  gate pull requests, with Playwright diagnostics retained as artifacts.
 
 ### Changed
 
+- **Solver hot paths** — nodal incidence and convection tables replace
+  repeated whole-network scans; static predicates, residual seeds, and dual
+  workspaces are reused; and accepted-step state restoration refills existing
+  containers. These changes preserve accumulation order while reducing
+  residual and Jacobian overhead on large networks.
+- **Named-fluid settings** — every named continuum now has the same model,
+  preset, CoolProp picker, and editable numeric-parameter controls as the
+  default fluid, with unique accessible labels for repeated fields.
+- **LOX/RP-1 thruster example** — the nozzle and regenerative jacket use a
+  42-station table-driven grid, and the supersonic exhaust boundary is set to
+  the matched-expansion pressure. Validation figures and the central-scheme
+  admissibility findings were regenerated for the refined grid.
 - **Example library** — dropped the standalone regenerative-cooling-channel
   and choked-CD-nozzle examples. Regenerative cooling and the choked nozzle
   now live only in the LOX/RP-1 thruster (combustor), which already couples

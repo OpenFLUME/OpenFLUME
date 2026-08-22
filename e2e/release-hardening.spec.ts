@@ -67,23 +67,21 @@ test.describe("Release hardening", () => {
       1,
     );
 
-    // Edit the outlet pipe diameter 0.02 → 0.015 via the Model Table "Open in
+    // Edit the vent-valve area via the Model Table "Open in
     // properties" affordance (robust selector — no canvas hit-testing).
     await page.locator('[data-testid="editor-tab"]').click();
     await page.locator('[data-testid="canvas-table-view"]').click();
-    await page.locator('[data-testid="mt-open-pipe"]').click();
+    await page.locator('[data-testid="mt-open-vent"]').click();
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
-      "Branch: pipe",
+      "Branch: vent",
     );
-    // Pipe diameter is formula-capable: the visual chip editor is the
-    // default surface (literals are plain text there).
-    const diameter = page.locator('[data-testid="pipe-diameter-editor"]');
-    await expect(diameter).toHaveText("0.02");
-    await diameter.click();
-    await diameter.fill("0.015");
-    await diameter.press("Enter");
+    const area = page.getByRole("textbox", { name: /^Area \(/ }).first();
+    await expect(area).toHaveText("5e-7");
+    await area.click();
+    await area.fill("4e-7");
+    await area.press("Enter");
     await page.waitForTimeout(200);
-    await expect(diameter).toHaveText("0.015");
+    await expect(area).toHaveText("4e-7");
 
     // Rerun — the exact chain that used to white-screen the app.  The Model
     // Table round-trip remounted the Analysis view, so disclosures re-closed.

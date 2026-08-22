@@ -145,9 +145,12 @@ test.describe("Solver diary", () => {
     // A second run (edited inlet pressure) pushes Run 2 with its own diary.
     await page.locator('[data-testid="editor-tab"]').click();
     await page.locator('[data-testid="node-in"]').click();
-    const pressureInput = page.locator('label:has-text("Pressure") + input');
+    const pressureInput = page
+      .getByRole("textbox", { name: /^Pressure \(/ })
+      .first();
+    await pressureInput.click();
     await pressureInput.fill("250000");
-    await pressureInput.blur();
+    await pressureInput.press("Enter");
     await page.waitForTimeout(300);
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(

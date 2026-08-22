@@ -74,6 +74,7 @@ import {
   localComponentToolId,
   refreshComponentLibrary,
   resolveBranchTool,
+  type LocalComponent,
   useComponentLibrary,
 } from "../componentLibrary";
 import {
@@ -959,6 +960,8 @@ export default function FlowCanvas({
     [connectionSourceId, branchTool, conductorTool, config],
   );
   const pointerRef = useRef({ x: 0, y: 0 });
+  const shiftSelectingRef = useRef(false);
+  const marqueeSelectingRef = useRef(false);
 
   /* ── Orbit (3D view only) ────────────────────────────────────────────────
    * Left-drag on empty canvas spins the camera. React Flow keeps panning on
@@ -1435,6 +1438,7 @@ export default function FlowCanvas({
     }
 
     return nodes;
+    // This helper closes over the connect-tool state already listed below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     nodesArr,
@@ -1682,7 +1686,6 @@ export default function FlowCanvas({
     }
 
     return edges;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     nodesArr,
     solidNodesArr,
@@ -1714,7 +1717,12 @@ export default function FlowCanvas({
   }, [initialEdges, setEdges]);
 
   const createBranchFromTool = useCallback(
-    (source: string, target: string, toolOverride?: string) => {
+    (
+      source: string,
+      target: string,
+      toolOverride?: string,
+      localOverride?: LocalComponent,
+    ) => {
       // Resolve ghost nodes to real nodes
       const realSource = source.startsWith("ghost-")
         ? source.replace("ghost-", "")
@@ -1735,14 +1743,15 @@ export default function FlowCanvas({
       const tool = toolOverride ?? branchTool ?? "pipe";
       const id = createId("b", new Set(config.branches.map((b) => b.id)));
       const resolvedTool = resolveBranchTool(tool, componentLibrary.components);
-      if (resolvedTool.kind === "stale-local") {
+      if (resolvedTool.kind === "stale-local" && !localOverride) {
         setConnectError(
           `Local component "${resolvedTool.key ?? "unknown"}" is no longer available; refresh the library and select it again`,
         );
         return;
       }
       const local =
-        resolvedTool.kind === "local" ? resolvedTool.component : undefined;
+        localOverride ??
+        (resolvedTool.kind === "local" ? resolvedTool.component : undefined);
       const component: BranchConfig["component"] = local
         ? componentInstanceDefaults(local)
         : defaultComponent(
@@ -1754,6 +1763,10 @@ export default function FlowCanvas({
         to: realTarget,
         component,
       };
+      // Clear endpoint selection before the new selected edge mounts; doing
+      // this afterward lets React Flow briefly report node + edge as a bulk
+      // selection.
+      setSelection({ kind: "branch", id });
       addBranch(
         branch,
         local
@@ -1767,7 +1780,6 @@ export default function FlowCanvas({
             }
           : undefined,
       );
-      setSelection({ kind: "branch", id });
     },
     [branchTool, componentLibrary.components, config, addBranch, setSelection],
   );
@@ -1803,8 +1815,8 @@ export default function FlowCanvas({
         to: realTarget,
         type: defaultConductor(kind),
       };
-      addConductor(conductor);
       setSelection({ kind: "conductor", id });
+      addConductor(conductor);
     },
     [conductorTool, config, addConductor, setSelection],
   );
@@ -2092,6 +2104,7 @@ export default function FlowCanvas({
       } else {
         // Shift-click grows the React Flow multi-selection; the panel
         // selection is then owned by onSelectionChange.
+        shiftSelectingRef.current = _e.shiftKey;
         if (_e.shiftKey) return;
         if (node.type === "groupContainer") {
           const gid = groupIdFromNode(node);
@@ -2600,6 +2613,7 @@ export default function FlowCanvas({
           onEdgeClick={(e, edge) => {
             // Shift-click grows the React Flow multi-selection; the panel
             // selection is then owned by onSelectionChange.
+            shiftSelectingRef.current = e.shiftKey;
             if (e.shiftKey) return;
             if (config.conductors?.some((c) => c.id === edge.id)) {
               setSelection({ kind: "conductor", id: edge.id });
@@ -2638,12 +2652,6 @@ export default function FlowCanvas({
                 !n.id.startsWith("ghost-"),
             );
             const next = realNodes.map((n) => n.id);
-            const cur = useStore.getState().canvasSelection;
-            if (!(
-              cur.length === next.length && cur.every((v, i) => v === next[i])
-            )) {
-              setCanvasSelection(next);
-            }
             // Multi-entity panel selection ("elements and ties"): 2+ selected
             // nodes/edges drive the bulk-edit PropertyPanel. Single-entity and
             // empty selections stay owned by the click handlers, except when
@@ -2664,6 +2672,19 @@ export default function FlowCanvas({
             ];
             const panelSel = useStore.getState().selection;
             if (items.length >= 2) {
+              // React Flow can emit one stale multi-selection after an
+              // ordinary click or programmatic navigation has already
+              // selected a single entity. Only Shift-click and marquee
+              // gestures are allowed to promote that callback to `multi`.
+              if (!shiftSelectingRef.current && !marqueeSelectingRef.current) {
+                return;
+              }
+              const cur = useStore.getState().canvasSelection;
+              if (!(
+                cur.length === next.length && cur.every((v, i) => v === next[i])
+              )) {
+                setCanvasSelection(next);
+              }
               const same =
                 panelSel.kind === "multi" &&
                 panelSel.items.length === items.length &&
@@ -2671,9 +2692,16 @@ export default function FlowCanvas({
                   (it, i) => it.kind === items[i].kind && it.id === items[i].id,
                 );
               if (!same) setSelection({ kind: "multi", items });
+              shiftSelectingRef.current = false;
             } else if (panelSel.kind === "multi") {
               setSelection(items.length === 1 ? items[0] : { kind: "none" });
             }
+          }}
+          onSelectionStart={() => {
+            marqueeSelectingRef.current = multiSelectActive;
+          }}
+          onSelectionEnd={() => {
+            marqueeSelectingRef.current = false;
           }}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
@@ -3340,6 +3368,7 @@ export default function FlowCanvas({
               componentEditorConnection.source,
               componentEditorConnection.target,
               localComponentToolId(component.key),
+              component,
             );
             setConnectionChooser(null);
             setComponentEditorConnection(null);

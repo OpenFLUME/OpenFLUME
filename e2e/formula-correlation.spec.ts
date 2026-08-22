@@ -70,6 +70,22 @@ async function selectConductor(page: Page, id: string) {
   await expect(panel).toContainText(`Conductor: ${id}`);
 }
 
+async function connectWith(
+  page: Page,
+  sourceId: string,
+  targetId: string,
+  choice: string,
+) {
+  const source = page.locator(`[data-testid="node-${sourceId}"]`);
+  const target = page.locator(`[data-testid="node-${targetId}"]`);
+  await source
+    .locator('[data-testid="handle-right"]')
+    .dragTo(target.locator('[data-testid="handle-left"]'));
+  const chooser = page.getByRole("dialog", { name: "Choose connection type" });
+  await expect(chooser).toBeVisible();
+  await chooser.getByRole("button", { name: choice, exact: true }).click();
+}
+
 test.describe("Formula inputs and convection models", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -79,7 +95,7 @@ test.describe("Formula inputs and convection models", () => {
     await page.reload();
   });
 
-  test("1. Shipped formula binding shows badge + resolved preview; edits and reverts work", async ({
+  test("1. Shipped formula binding shows its resolved preview; edits and reverts work", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -88,20 +104,15 @@ test.describe("Formula inputs and convection models", () => {
     await selectConductor(page, "c1");
 
     // The example ships c1.area = { expr: "pipe('b_in').surfaceArea" }.
-    await expect(
-      page.locator('[data-testid="convection-area-formula-badge"]'),
-    ).toBeVisible();
     const preview = page.locator('[data-testid="convection-area-preview"]');
     await expect(preview).toBeVisible();
     // π · 0.03 m · 0.5 m = 0.047124 m²
     await expect(preview).toContainText("→ 0.0471239");
     await expect(preview).toContainText("m²");
 
-    // Use resolved value → literal replaces the formula (badge disappears).
+    // Use resolved value → literal replaces the formula and preview.
     await page.locator('[data-testid="convection-area-use-resolved"]').click();
-    await expect(
-      page.locator('[data-testid="convection-area-formula-badge"]'),
-    ).toHaveCount(0);
+    await expect(preview).toHaveCount(0);
     // The chip editor is the default surface: literal values are plain text.
     const areaEditor = page.locator('[data-testid="convection-area-editor"]');
     await expect(areaEditor).toHaveText(/0\.04712/);
@@ -114,9 +125,6 @@ test.describe("Formula inputs and convection models", () => {
     await page.keyboard.press("Control+z");
     await page.waitForTimeout(200);
     await selectConductor(page, "c1");
-    await expect(
-      page.locator('[data-testid="convection-area-formula-badge"]'),
-    ).toBeVisible();
     // …and the reference renders as a chip again.
     await expect(
       page.locator('[data-testid="convection-area-chip"]'),
@@ -292,7 +300,7 @@ test.describe("Formula inputs and convection models", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("3. Fresh model: palette-built conductor accepts a formula area", async ({
+  test("3. Fresh model: chooser-built conductor accepts a formula area", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -301,17 +309,12 @@ test.describe("Formula inputs and convection models", () => {
     await page.locator('[data-testid="confirm-dialog-accept"]').click();
     await page.waitForTimeout(300);
 
-    // Solid + ambient + conduction conductor (same flow as network.spec 17).
-    await page.locator('[data-testid="palette-add-solid-node"]').click();
+    // Solid + ambient + conduction conductor through the canvas rail/chooser.
+    await page.locator('[data-testid="add-solid-node"]').click();
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="palette-add-ambient-node"]').click();
+    await page.locator('[data-testid="add-ambient-node"]').click();
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="palette-conduction"]').click();
-    await expect(
-      page.locator('[data-testid="palette-active-hint"]'),
-    ).toBeVisible();
-    await page.locator('[data-testid="node-S1"]').click();
-    await page.locator('[data-testid="node-A1"]').click();
+    await connectWith(page, "S1", "A1", "Conduction");
     await page.waitForTimeout(300);
 
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
@@ -324,19 +327,10 @@ test.describe("Formula inputs and convection models", () => {
     await areaInput.fill("=circleArea(0.113)");
     await areaInput.press("Enter");
     await expect(
-      page.locator('[data-testid="conduction-area-formula-badge"]'),
-    ).toBeVisible();
-    await expect(
       page.locator('[data-testid="conduction-area-preview"]'),
     ).toContainText("0.0100287");
 
     // Solid cp: the five-mode selector includes equation + time table.
-    // (Deactivate the still-armed conduction tool first so the click
-    // selects the node instead of starting another conductor.)
-    await page.locator('[data-testid="palette-conduction"]').click();
-    await expect(
-      page.locator('[data-testid="palette-active-hint"]'),
-    ).toHaveCount(0);
     await page.locator('[data-testid="node-S1"]').click();
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Solid Node: S1",

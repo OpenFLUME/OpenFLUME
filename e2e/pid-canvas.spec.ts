@@ -5,8 +5,8 @@ import { test, expect, Page } from "@playwright/test";
  *
  * Fluid branches are straight pipe runs with NO arrowheads; component
  * symbols sit on the run midpoint (valve = centered bow-tie; pipe = no
- * glyph); nodes render as compact glyphs (boundary 24px rounded square,
- * internal 16px junction dot, solid 20px diamond); result chips keep their
+ * glyph); nodes render as compact glyphs (boundary 26px rounded square,
+ * internal 22px junction dot, solid 26px diamond); result chips keep their
  * readouts beside the run without the duplicate in-chip icon.
  */
 
@@ -194,23 +194,22 @@ test.describe("P&ID canvas", () => {
     await seedPipeValveModel(page);
 
     // Compact glyph dimensions (flow units, zoom-independent inline styles):
-    // boundary 24px, internal 16px junction dot.
+    // boundary 26px, internal 22px junction dot.
     const dims = async (testid: string) =>
       page.locator(`[data-testid="${testid}"]`).evaluate((el) => ({
         w: (el as HTMLElement).style.width,
         h: (el as HTMLElement).style.height,
       }));
-    expect(await dims("node-in")).toEqual({ w: "24px", h: "24px" });
-    expect(await dims("node-mid")).toEqual({ w: "16px", h: "16px" });
-    expect(await dims("node-out")).toEqual({ w: "24px", h: "24px" });
+    expect(await dims("node-in")).toEqual({ w: "26px", h: "26px" });
+    expect(await dims("node-mid")).toEqual({ w: "22px", h: "22px" });
+    expect(await dims("node-out")).toEqual({ w: "26px", h: "26px" });
 
     // Handles still exist on every node (invisible until armed).
     await expect(
       page.locator('[data-testid="node-in"] [data-testid="handle-right"]'),
     ).toHaveCount(1);
 
-    // Handle drag still connects: arm the valve tool, drag a handle from
-    // the internal node onto the outlet boundary → new branch created.
+    // Handle drag opens the connection chooser and creates the selected tie.
     await page.locator('[data-testid="toolbar-new"]').click();
     await page.locator('[data-testid="confirm-dialog-accept"]').click();
     await page.waitForTimeout(300);
@@ -218,12 +217,17 @@ test.describe("P&ID canvas", () => {
     await page.waitForTimeout(200);
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="palette-pipe"]').click();
     const sourceHandle = page
       .locator('[data-testid="node-B1"] [data-testid="handle-right"]')
       .first();
-    const target = page.locator('[data-testid="node-B2"]');
-    await sourceHandle.dragTo(target, { timeout: 5000 });
+    const targetHandle = page
+      .locator('[data-testid="node-B2"] [data-testid="handle-left"]')
+      .first();
+    await sourceHandle.dragTo(targetHandle, { timeout: 5000 });
+    const chooser = page.getByRole("dialog", {
+      name: "Choose connection type",
+    });
+    await chooser.getByRole("button", { name: "Pipe", exact: true }).click();
     await page.waitForTimeout(400);
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Branch:",
@@ -246,7 +250,17 @@ test.describe("P&ID canvas", () => {
     await page.locator('[data-testid="editor-tab"]').click();
     await page.waitForTimeout(300);
 
-    // Chip keeps its label + signed ṁ readout, but carries NO svg symbol.
+    // The edge hover chip keeps its label + signed ṁ readout, but carries no
+    // duplicate svg symbol.
+    const interaction = page.locator(
+      '[data-testid="rf__edge-bValve"] path.react-flow__edge-interaction',
+    );
+    const interactionBox = await interaction.boundingBox();
+    expect(interactionBox).not.toBeNull();
+    await page.mouse.move(
+      interactionBox!.x + interactionBox!.width / 2,
+      interactionBox!.y + interactionBox!.height / 2,
+    );
     const chip = page.locator('[data-testid="edge-chip-bValve"]');
     await expect(chip).toBeVisible();
     await expect(chip).toContainText("Valve");

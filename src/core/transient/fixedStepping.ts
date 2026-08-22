@@ -61,7 +61,7 @@ export function runFixedTimeStepping(
   const controllers = createControllerRuntime(config, ctx);
   controllers?.initialize();
 
-  let state = createInitialState(ctx, config);
+  const state = createInitialState(ctx, config);
   applyBoundaryConditions(ctx, config, state, 0);
   // darrHartwig + ttWf + fluidFront: initialize the step-level accepted
   // states from the t=0 state (no-op when no such conductor is configured).

@@ -296,9 +296,12 @@ test.describe("Analysis redesign", () => {
     // Edit the inlet pressure between runs so the two results differ.
     await page.locator('[data-testid="editor-tab"]').click();
     await page.locator('[data-testid="node-in"]').click();
-    const pressureInput = page.locator('label:has-text("Pressure") + input');
+    const pressureInput = page
+      .getByRole("textbox", { name: /^Pressure \(/ })
+      .first();
+    await pressureInput.click();
     await pressureInput.fill("250000");
-    await pressureInput.blur();
+    await pressureInput.press("Enter");
     await page.waitForTimeout(300);
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(
@@ -365,7 +368,7 @@ test.describe("Analysis redesign", () => {
 
     // Runs disclosure: rename the newest run (strip title follows the
     // selection), pin the older run as baseline (strip baseline pill), and
-    // delete the renamed run (strip falls back to "Latest run").
+    // delete the renamed run (strip falls back to the remaining run).
     await openAnalysisSection(page, "runs");
     const items = page.locator('[data-testid="run-history-item"]');
     await expect(items).toHaveCount(2);
@@ -394,7 +397,7 @@ test.describe("Analysis redesign", () => {
       1,
     );
     await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Latest run",
+      "Run 1",
     );
     // The pinned baseline survives the deletion of the other run.
     await expect(page.locator('[data-testid="run-strip-baseline"]')).toHaveText(

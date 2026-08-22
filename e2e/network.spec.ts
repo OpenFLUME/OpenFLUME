@@ -57,6 +57,42 @@ function recordData(fnText: string, prefix: string): any {
   return JSON.parse(line!.slice(line!.indexOf("data:") + 5));
 }
 
+async function connectWith(
+  page: Page,
+  sourceId: string,
+  targetId: string,
+  choice: string,
+) {
+  const source = page.locator(`[data-testid="node-${sourceId}"]`);
+  const target = page.locator(`[data-testid="node-${targetId}"]`);
+  await source
+    .locator('[data-testid="handle-bottom"]')
+    .dragTo(target.locator('[data-testid="handle-top"]'));
+  const chooser = page.getByRole("dialog", { name: "Choose connection type" });
+  await expect(chooser).toBeVisible();
+  await chooser.getByRole("button", { name: choice, exact: true }).click();
+}
+
+function propertyField(page: Page, label: string) {
+  return page
+    .getByRole("textbox", { name: new RegExp(`^${label} \\(`) })
+    .first();
+}
+
+async function editPropertyField(page: Page, label: string, value: string) {
+  const field = propertyField(page, label);
+  await field.click();
+  await field.fill(value);
+  await field.press("Enter");
+  return field;
+}
+
+function selectionAction(page: Page, name: string) {
+  return page
+    .getByRole("toolbar", { name: "Selection actions" })
+    .getByRole("button", { name, exact: true });
+}
+
 test.describe("OpenFLUME E2E", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -71,7 +107,9 @@ test.describe("OpenFLUME E2E", () => {
     const consoleWatcher = attachConsoleWatcher(page);
 
     await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
-    await expect(page.locator('[data-testid="palette"]')).toBeVisible();
+    await expect(
+      page.getByRole("group", { name: "Model builder tools" }),
+    ).toBeVisible();
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
 
     // Give React a moment to settle and any lazy async work to finish
@@ -259,8 +297,7 @@ test.describe("OpenFLUME E2E", () => {
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Node: B1",
     );
-    const pressureField = page.locator('label:has-text("Pressure") + input');
-    await pressureField.fill("200000");
+    await editPropertyField(page, "Pressure", "200000");
     await page.waitForTimeout(200);
 
     // Select second boundary node and set pressure to 100000
@@ -268,28 +305,15 @@ test.describe("OpenFLUME E2E", () => {
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Node: B2",
     );
-    const pressureField2 = page.locator('label:has-text("Pressure") + input');
-    await pressureField2.fill("100000");
+    await editPropertyField(page, "Pressure", "100000");
     await page.waitForTimeout(200);
 
-    // Select Pipe from palette
-    await page.locator('[data-testid="palette-pipe"]').click();
-    await expect(
-      page.locator('[data-testid="palette-active-hint"]'),
-    ).toBeVisible();
-
-    // Click-click connect: click B1 as source, then B2 as target
-    await page.locator('[data-testid="node-B1"]').click();
-    await expect(
-      page.locator('[data-testid="canvas-connect-hint"]'),
-    ).toContainText("B1 selected");
-    await page.locator('[data-testid="node-B2"]').click();
+    await connectWith(page, "B1", "B2", "Pipe");
     await page.waitForTimeout(300);
 
-    // After connecting, the new branch should be selected (property panel shows branch)
-    await expect(page.locator('[data-testid="property-panel"]')).toContainText(
-      "Branch:",
-    );
+    await expect(
+      page.locator('[data-testid="branch-type-select"]'),
+    ).toHaveValue("pipe");
 
     await page.locator('[data-testid="toolbar-run"]').click();
 
@@ -440,6 +464,7 @@ test.describe("OpenFLUME E2E", () => {
     ).toBeVisible();
     await page.locator('label:has-text("Time Step") + input').fill("0.02");
     await page.locator('label:has-text("End Time") + input').fill("2.5");
+    await page.locator('label:has-text("End Time") + input').blur();
 
     // Close via Escape
     await page.keyboard.press("Escape");
@@ -478,13 +503,7 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
 
-    // Select Valve from palette
-    await page.locator('[data-testid="palette-valve"]').click();
-    await expect(
-      page.locator('[data-testid="palette-active-hint"]'),
-    ).toBeVisible();
-
-    // Handles should now be genuinely visible (opacity 1, 22px) so dragTo works
+    // Handles open the connection chooser directly.
     const sourceHandle = page
       .locator('[data-testid="node-B1"] [data-testid="handle-bottom"]')
       .first();
@@ -494,6 +513,10 @@ test.describe("OpenFLUME E2E", () => {
     await expect(sourceHandle).toBeVisible();
     await expect(targetHandle).toBeVisible();
     await sourceHandle.dragTo(targetHandle, { timeout: 5000 });
+    const chooser = page.getByRole("dialog", {
+      name: "Choose connection type",
+    });
+    await chooser.getByRole("button", { name: "Valve", exact: true }).click();
     await page.waitForTimeout(500);
 
     // The new branch should be auto-selected
@@ -534,13 +557,12 @@ test.describe("OpenFLUME E2E", () => {
     // Assert label shows psi and value is approximately 14.696
     const pressureLabel = page.locator('label:has-text("Pressure")');
     await expect(pressureLabel).toContainText("psi");
-    const pressureInput = page.locator('label:has-text("Pressure") + input');
-    const displayedValue = await pressureInput.inputValue();
-    expect(parseFloat(displayedValue)).toBeCloseTo(14.696, 2);
+    const pressureInput = propertyField(page, "Pressure");
+    const displayedValue = await pressureInput.textContent();
+    expect(parseFloat(displayedValue ?? "")).toBeCloseTo(14.696, 2);
 
     // Edit the field in psi and assert the saved config stores correct SI Pa
-    await pressureInput.fill("20");
-    await pressureInput.blur();
+    await editPropertyField(page, "Pressure", "20");
     await page.waitForTimeout(200);
 
     // Save and verify the .fn text projection contains the correct SI value
@@ -588,9 +610,9 @@ test.describe("OpenFLUME E2E", () => {
     await expect(page.locator('[data-testid="node-ambient"]')).toBeVisible();
 
     await page.locator('[data-testid="node-ambient"]').click();
-    const siInput = page.locator('label:has-text("Pressure") + input');
-    const siValue = await siInput.inputValue();
-    expect(parseFloat(siValue)).toBeCloseTo(20 * 6894.757293168, 0);
+    const siInput = propertyField(page, "Pressure");
+    const siValue = await siInput.textContent();
+    expect(parseFloat(siValue ?? "")).toBeCloseTo(20 * 6894.757293168, 0);
 
     consoleWatcher.assertNoErrors();
   });
@@ -666,24 +688,19 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
 
-    // The subnetwork action teaches its own enablement condition
-    await expect(page.locator('[data-testid="subnetwork-hint"]')).toBeVisible();
-    await expect(
-      page.locator('[data-testid="create-subnetwork"]'),
-    ).toBeDisabled();
-
-    // Multi-select both nodes (Shift-click)
+    // One selected node exposes a disabled group action.
     await page.locator('[data-testid="node-B1"]').click();
     await page.waitForTimeout(200);
+    await expect(selectionAction(page, "Create subnetwork")).toBeDisabled();
+
+    // Multi-select both nodes (Shift-click)
     await page
       .locator('[data-testid="node-B2"]')
       .click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
 
-    await expect(
-      page.locator('[data-testid="create-subnetwork"]'),
-    ).toBeEnabled();
-    await page.locator('[data-testid="create-subnetwork"]').click();
+    await expect(selectionAction(page, "Create subnetwork")).toBeEnabled();
+    await selectionAction(page, "Create subnetwork").click();
     await page.waitForTimeout(500);
 
     // Container should appear with a member count and a Subnetwork badge
@@ -724,31 +741,34 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B1"]').click();
-    await page.locator('label:has-text("X") + input').fill("300");
-    await page.locator('label:has-text("Y") + input').fill("400");
+    await editPropertyField(page, "X", "300");
+    await editPropertyField(page, "Y", "400");
     await page.waitForTimeout(200);
 
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B2"]').click();
-    await page.locator('label:has-text("X") + input').fill("500");
-    await page.locator('label:has-text("Y") + input').fill("400");
+    await editPropertyField(page, "X", "500");
+    await editPropertyField(page, "Y", "400");
     await page.waitForTimeout(200);
 
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B3"]').click();
-    await page.locator('label:has-text("X") + input').fill("700");
-    await page.locator('label:has-text("Y") + input').fill("400");
+    await editPropertyField(page, "X", "700");
+    await editPropertyField(page, "Y", "400");
     await page.waitForTimeout(200);
 
     // A fourth node so B1 can be grouped (subnetworks require 2+ members)
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B4"]').click();
-    await page.locator('label:has-text("X") + input').fill("300");
-    await page.locator('label:has-text("Y") + input').fill("560");
+    await editPropertyField(page, "X", "300");
+    await editPropertyField(page, "Y", "560");
     await page.waitForTimeout(200);
+
+    // Create a pipe from B2 to B3 before grouping changes canvas geometry.
+    await connectWith(page, "B2", "B3", "Pipe");
 
     // Subnetwork of B1 + B4 (multi-select via Shift-click)
     await page.locator('[data-testid="node-B1"]').click();
@@ -757,14 +777,12 @@ test.describe("OpenFLUME E2E", () => {
       .locator('[data-testid="node-B4"]')
       .click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="create-subnetwork"]').click();
+    await selectionAction(page, "Create subnetwork").click();
     await page.waitForTimeout(500);
 
-    // Create a pipe from B2 to B3
-    await page.locator('[data-testid="palette-pipe"]').click();
-    await page.locator('[data-testid="node-B2"]').click();
-    await page.locator('[data-testid="node-B3"]').click();
-    await page.waitForTimeout(300);
+    // Open the new branch through the table to avoid collapsed-group overlap.
+    await page.locator('[data-testid="canvas-table-view"]').click();
+    await page.locator('[data-testid="mt-open-b1"]').click();
 
     // Now retarget the branch To endpoint to B1 (inside the group) via the property panel dropdown
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
@@ -798,28 +816,21 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B1"]').click();
-    await page.locator('label:has-text("X") + input').fill("300");
-    await page.locator('label:has-text("Y") + input').fill("400");
-    await page.locator('label:has-text("Pressure") + input').fill("200000");
+    await editPropertyField(page, "X", "300");
+    await editPropertyField(page, "Y", "400");
+    await editPropertyField(page, "Pressure", "200000");
     await page.waitForTimeout(200);
 
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B2"]').click();
-    await page.locator('label:has-text("X") + input').fill("500");
-    await page.locator('label:has-text("Y") + input').fill("400");
-    await page.locator('label:has-text("Pressure") + input').fill("100000");
+    await editPropertyField(page, "X", "500");
+    await editPropertyField(page, "Y", "400");
+    await editPropertyField(page, "Pressure", "100000");
     await page.waitForTimeout(200);
 
-    await page.locator('[data-testid="palette-pipe"]').click();
-    await page.locator('[data-testid="node-B1"]').click();
-    await page.locator('[data-testid="node-B2"]').click();
+    await connectWith(page, "B1", "B2", "Pipe");
     await page.waitForTimeout(300);
-
-    // Disarm the pipe tool (Wave 2: picking a connect source no longer
-    // steals the property-panel selection, so node selection requires an
-    // unarmed click).
-    await page.locator('[data-testid="palette-pipe"]').click();
 
     // Group B1+B2 into a subnetwork (multi-select via Shift-click)
     await page.locator('[data-testid="node-B1"]').click();
@@ -828,7 +839,7 @@ test.describe("OpenFLUME E2E", () => {
       .locator('[data-testid="node-B2"]')
       .click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="create-subnetwork"]').click();
+    await selectionAction(page, "Create subnetwork").click();
     await page.waitForTimeout(500);
 
     // Solve
@@ -891,38 +902,27 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B1"]').click();
-    await page.locator('label:has-text("X") + input').fill("300");
-    await page.locator('label:has-text("Y") + input').fill("400");
-    await page.locator('label:has-text("Pressure") + input').fill("200000");
+    await editPropertyField(page, "X", "300");
+    await editPropertyField(page, "Y", "400");
+    await editPropertyField(page, "Pressure", "200000");
     await page.waitForTimeout(200);
 
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B2"]').click();
-    await page.locator('label:has-text("X") + input').fill("500");
-    await page.locator('label:has-text("Y") + input').fill("400");
-    await page.locator('label:has-text("Pressure") + input').fill("100000");
+    await editPropertyField(page, "X", "500");
+    await editPropertyField(page, "Y", "400");
+    await editPropertyField(page, "Pressure", "100000");
     await page.waitForTimeout(200);
 
-    // Click-click connect B1 -> B2
-    await page.locator('[data-testid="palette-heatedPipe"]').click();
-    await page.locator('[data-testid="node-B1"]').click();
-    await page.locator('[data-testid="node-B2"]').click();
+    await connectWith(page, "B1", "B2", "Heated Pipe");
     await page.waitForTimeout(300);
 
-    // Property panel should show branch with Heated Pipe type
-    await expect(page.locator('[data-testid="property-panel"]')).toContainText(
-      "Branch:",
-    );
     const typeSelect = page.locator('[data-testid="branch-type-select"]');
     await expect(typeSelect).toHaveValue("heatedPipe");
 
     // Set wall temperature
-    const wallTempInput = page.locator(
-      'label:has-text("Wall Temperature") + input',
-    );
-    await wallTempInput.fill("350");
-    await wallTempInput.blur();
+    await editPropertyField(page, "Wall Temperature", "350");
     await page.waitForTimeout(200);
 
     // Solve
@@ -972,7 +972,7 @@ test.describe("OpenFLUME E2E", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("17. Thermal palette: add solid and ambient, click-click conduction conductor", async ({
+  test("17. Model rail: add thermal nodes and choose a conduction tie", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -982,19 +982,12 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('[data-testid="confirm-dialog-accept"]').click();
     await page.waitForTimeout(300);
 
-    // Add solid and ambient nodes from palette
-    await page.locator('[data-testid="palette-add-solid-node"]').click();
+    await page.locator('[data-testid="add-solid-node"]').click();
     await page.waitForTimeout(200);
-    await page.locator('[data-testid="palette-add-ambient-node"]').click();
+    await page.locator('[data-testid="add-ambient-node"]').click();
     await page.waitForTimeout(200);
 
-    // Select conduction tool and click-click connect S1 -> A1
-    await page.locator('[data-testid="palette-conduction"]').click();
-    await expect(
-      page.locator('[data-testid="palette-active-hint"]'),
-    ).toBeVisible();
-    await page.locator('[data-testid="node-S1"]').click();
-    await page.locator('[data-testid="node-A1"]').click();
+    await connectWith(page, "S1", "A1", "Conduction");
     await page.waitForTimeout(300);
 
     // The new conductor should be selected
@@ -1003,13 +996,11 @@ test.describe("OpenFLUME E2E", () => {
     );
 
     // Set k via unit-aware input
-    const kInput = page.locator('label:has-text("k") + input');
-    await kInput.fill("50");
-    await kInput.blur();
+    const kInput = await editPropertyField(page, "k", "50");
     await page.waitForTimeout(200);
 
     // Assert the input persisted
-    await expect(kInput).toHaveValue("50");
+    await expect(kInput).toHaveText("50");
 
     // Assert the conductor edge exists on canvas by checking individual edge count
     const edgePaths = page.locator(".react-flow__edge");
@@ -1703,9 +1694,7 @@ test.describe("OpenFLUME E2E", () => {
     await page.waitForTimeout(300);
 
     // Set color by Mass flow
-    await page
-      .locator('[data-testid="color-by-select"]')
-      .selectOption("massFlow");
+    await page.locator('[data-testid="color-by-select"]').selectOption("mdot");
     await page.waitForTimeout(200);
 
     await page.locator('[data-testid="toolbar-run"]').click();
@@ -1843,70 +1832,36 @@ test.describe("OpenFLUME E2E", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("28. Palette sections are collapsible (expanded by default)", async ({
+  test("28. Model builder rail exposes fluid, thermal, annotation, and view tools", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
 
-    const commonToggle = page.locator(
-      '[data-testid="palette-section-common-toggle"]',
-    );
-    const advancedToggle = page.locator(
-      '[data-testid="palette-section-advanced-toggle"]',
-    );
-    const customToggle = page.locator(
-      '[data-testid="palette-section-custom-toggle"]',
-    );
-    const thermalToggle = page.locator(
-      '[data-testid="palette-section-thermal-toggle"]',
-    );
-    await expect(commonToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(customToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(thermalToggle).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator('[data-testid="palette-pipe"]')).toBeVisible();
-    await expect(
-      page.locator('[data-testid="palette-conduction"]'),
-    ).toBeVisible();
+    const rail = page.getByRole("group", { name: "Model builder tools" });
+    await expect(rail).toBeVisible();
+    for (const id of [
+      "add-internal-node",
+      "add-boundary-node",
+      "add-solid-node",
+      "add-ambient-node",
+      "add-note",
+      "canvas-text-view",
+      "canvas-table-view",
+    ]) {
+      await expect(page.locator(`[data-testid="${id}"]`)).toBeVisible();
+    }
 
-    // Collapse Common; other sections unaffected
-    await commonToggle.click();
-    await expect(commonToggle).toHaveAttribute("aria-expanded", "false");
-    await expect(page.locator('[data-testid="palette-pipe"]')).toBeHidden();
-    await expect(
-      page.locator('[data-testid="palette-orificeCompressible"]'),
-    ).toBeVisible();
-
-    // Collapse Thermal (solid/ambient adds + conductors)
-    await thermalToggle.click();
-    await expect(
-      page.locator('[data-testid="palette-conduction"]'),
-    ).toBeHidden();
-    await expect(
-      page.locator('[data-testid="palette-add-solid-node"]'),
-    ).toBeHidden();
-
-    // Persisted
-    const stored = await page.evaluate(() =>
-      localStorage.getItem("fluids-network-palette-sections-v1"),
+    await page.locator('[data-testid="add-internal-node"]').click();
+    await expect(page.locator('[data-testid="node-N1"]')).toBeVisible();
+    await page.locator('[data-testid="node-N1"]').click();
+    await expect(page.locator('[data-testid="property-panel"]')).toContainText(
+      "Node: N1",
     );
-    expect(JSON.parse(stored || "{}")).toMatchObject({
-      common: false,
-      thermal: false,
-    });
-
-    // Re-expand
-    await commonToggle.click();
-    await expect(page.locator('[data-testid="palette-pipe"]')).toBeVisible();
-    await thermalToggle.click();
-    await expect(
-      page.locator('[data-testid="palette-conduction"]'),
-    ).toBeVisible();
 
     consoleWatcher.assertNoErrors();
   });
 
-  test("36. Custom components: create from sidebar, place, and embed on save", async ({
+  test("36. Custom components: create from connection chooser and embed on save", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -1945,40 +1900,28 @@ test.describe("OpenFLUME E2E", () => {
     });
     await page.reload();
 
-    await expect(
-      page.locator('[data-testid="palette-section-custom-toggle"]'),
-    ).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      page.locator('[data-testid="local-library-status"]'),
-    ).toContainText("0 local components");
-    await page.locator('[data-testid="local-library-new"]').click();
+    await page
+      .locator('[data-testid="toolbar-examples"]')
+      .selectOption("Three-pipe junction");
+    await page.waitForTimeout(200);
+
+    const source = page.locator('[data-testid="node-in"]');
+    const target = page.locator('[data-testid="node-out1"]');
+    await source
+      .locator('[data-testid="handle-bottom"]')
+      .dragTo(target.locator('[data-testid="handle-top"]'));
+    const chooser = page.getByRole("dialog", {
+      name: "Choose connection type",
+    });
+    await chooser
+      .getByRole("button", { name: "+ Create custom component" })
+      .click();
     await expect(
       page.getByRole("dialog", { name: "New local component" }),
     ).toBeVisible();
     await page.locator("#component-name").fill("e2e-k-factor");
     await page.locator("#component-label").fill("E2E K-factor");
     await page.getByRole("button", { name: "Create component" }).click();
-
-    const localTool = page.locator(
-      '[data-testid="palette-local-e2e-k-factor"]',
-    );
-    await expect(localTool).toBeVisible();
-    await expect(localTool).toHaveAttribute("aria-pressed", "true");
-
-    await page
-      .locator('[data-testid="toolbar-examples"]')
-      .selectOption("Three-pipe junction");
-    await page.waitForTimeout(200);
-    if ((await localTool.getAttribute("aria-pressed")) !== "true")
-      await localTool.click();
-    await page.locator('[data-testid="node-in"]').click();
-    await page.locator('[data-testid="node-out1"]').click();
-    await expect(
-      page.locator('[data-testid="branch-type-select"]'),
-    ).toHaveValue("userComponent");
-    await expect(
-      page.locator('[data-testid="user-component-select"]'),
-    ).toHaveValue("e2e-k-factor");
 
     const fnText = await captureTextDownload(page, () =>
       page.locator('[data-testid="toolbar-save"]').click(),
@@ -2031,9 +1974,7 @@ test.describe("OpenFLUME E2E", () => {
       .locator('[data-testid="node-N1"]')
       .click({ modifiers: ["Shift"] });
     await page.waitForTimeout(200);
-    await expect(
-      page.locator('[data-testid="create-subnetwork"]'),
-    ).toBeEnabled();
+    await expect(selectionAction(page, "Create subnetwork")).toBeEnabled();
     await page.keyboard.press("Control+g");
     await page.waitForTimeout(500);
 
@@ -2173,9 +2114,7 @@ test.describe("OpenFLUME E2E", () => {
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Node: in",
     );
-    const pressureInput = page.locator('label:has-text("Pressure") + input');
-    await pressureInput.fill("250000");
-    await pressureInput.blur();
+    await editPropertyField(page, "Pressure", "250000");
     await page.waitForTimeout(200);
 
     // Run 2 (the editor round-trip remounted the view → disclosures reset)
@@ -2246,10 +2185,6 @@ test.describe("OpenFLUME E2E", () => {
     await expect(
       page.locator('[data-testid="results-stale-banner"]'),
     ).toBeHidden();
-    await expect(
-      page.locator('[data-testid="baseline-indicator"]'),
-    ).toBeVisible();
-
     consoleWatcher.assertNoErrors();
   });
 
@@ -2390,7 +2325,7 @@ test.describe("OpenFLUME E2E", () => {
     await page.waitForTimeout(300);
 
     const rfNodes = page.locator(".react-flow__node");
-    await expect(rfNodes).toHaveCount(4);
+    await expect(rfNodes).toHaveCount(5);
 
     await page.locator('[data-testid="node-j"]').click();
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
@@ -2399,7 +2334,7 @@ test.describe("OpenFLUME E2E", () => {
 
     await page.keyboard.press("Control+d");
     await page.waitForTimeout(300);
-    await expect(rfNodes).toHaveCount(5);
+    await expect(rfNodes).toHaveCount(6);
     await expect(page.locator('[data-testid="canvas-announce"]')).toContainText(
       "Duplicated 1 node",
     );
@@ -2411,12 +2346,12 @@ test.describe("OpenFLUME E2E", () => {
     // Undo removes the duplicate
     await page.keyboard.press("Control+z");
     await page.waitForTimeout(300);
-    await expect(rfNodes).toHaveCount(4);
+    await expect(rfNodes).toHaveCount(5);
 
     // Redo restores it
     await page.keyboard.press("Control+Shift+z");
     await page.waitForTimeout(300);
-    await expect(rfNodes).toHaveCount(5);
+    await expect(rfNodes).toHaveCount(6);
 
     consoleWatcher.assertNoErrors();
   });

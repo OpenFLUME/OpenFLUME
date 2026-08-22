@@ -53,7 +53,7 @@ function runFixedTransient(
   const endTime = config.settings.endTime!;
   const steps = Math.round(endTime / dt);
 
-  let state = createInitialState(ctx, config);
+  const state = createInitialState(ctx, config);
   applyBoundaryConditions(ctx, config, state, 0);
   if (initialMdots) {
     for (let j = 0; j < ctx.nBranch; j++) state.mdots[j] = initialMdots[j];

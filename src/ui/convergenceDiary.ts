@@ -274,6 +274,8 @@ export function sanitizeDiaryText(
   cap = DIARY_MESSAGE_CAP,
 ): string {
   const cleaned = raw
+    // Control characters are exactly what this boundary sanitizer removes.
+    // eslint-disable-next-line no-control-regex
     .replace(/[\u0000-\u001F\u007F-\u009F]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -402,7 +404,7 @@ export function createDiaryCollector(
     ...(extras.configSha256 ? { configSha256: extras.configSha256 } : {}),
   };
 
-  let events: DiaryEvent[] = [];
+  const events: DiaryEvent[] = [];
   let seq = 0;
   let emitted = 0;
   let dropped = 0;
