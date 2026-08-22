@@ -221,7 +221,6 @@ export function compileUserComponent(
   }
   let factory: (dc: (def: unknown) => unknown) => void;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     factory = new Function(
       "defineComponent",
       `"use strict";\n${source}`,
@@ -261,7 +260,6 @@ export function compileInlinePressureDrop(
   }
   let fn: (args: UserPressureDropArgs) => unknown;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-implied-eval
     fn = new Function("args", `"use strict";\n${source}`) as typeof fn;
   } catch (e) {
     throw new UserCodeError(sourceId, "compile", describeError(e));
@@ -298,10 +296,8 @@ export function checkUserCodeSyntax(
   }
   try {
     if (format === "defineComponent") {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       new Function("defineComponent", `"use strict";\n${source}`);
     } else {
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       new Function("args", `"use strict";\n${source}`);
     }
     return null;

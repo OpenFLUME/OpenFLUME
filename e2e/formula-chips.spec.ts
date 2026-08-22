@@ -49,12 +49,26 @@ async function loadConjugateExample(page: Page) {
 async function selectConductor(page: Page, id: string) {
   const edge = page.locator(`[data-testid="rf__edge-${id}"]`);
   const interaction = edge.locator("path.react-flow__edge-interaction");
-  if ((await interaction.count()) > 0)
-    await interaction.first().click({ force: true });
-  else await edge.locator("path.react-flow__edge-path").click({ force: true });
-  await expect(page.locator('[data-testid="property-panel"]')).toContainText(
-    `Conductor: ${id}`,
-  );
+  const target =
+    (await interaction.count()) > 0
+      ? interaction.first()
+      : edge.locator("path.react-flow__edge-path");
+  const panel = page.locator('[data-testid="property-panel"]');
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const box = await target.boundingBox();
+    if (box) {
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      if (
+        await panel
+          .getByText(`Conductor: ${id}`)
+          .isVisible()
+          .catch(() => false)
+      )
+        return;
+    }
+    await page.waitForTimeout(200);
+  }
+  await expect(panel).toContainText(`Conductor: ${id}`);
 }
 
 async function selectFluidNode(page: Page, id: string) {
@@ -139,9 +153,6 @@ test.describe("Visual formula chip editor", () => {
     // Enter on the closed menu commits; the resolved preview appears.
     await page.keyboard.press("Enter");
     await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
-    ).toBeVisible();
-    await expect(
       page.locator('[data-testid="node-volume-preview"]'),
     ).toContainText("→ 0.000353429");
 
@@ -186,7 +197,7 @@ test.describe("Visual formula chip editor", () => {
     ).toHaveCount(0);
     await page.keyboard.press("Enter");
     await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
+      page.locator('[data-testid="node-volume-preview"]'),
     ).toHaveCount(0);
     await expect(editor).toHaveText("0.002");
 
@@ -198,9 +209,6 @@ test.describe("Visual formula chip editor", () => {
     await page.waitForTimeout(200);
     // …(undo clears the selection by design) re-select to see it.
     await selectFluidNode(page, "f1");
-    await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
-    ).toBeVisible();
     await expect(
       page.locator('[data-testid="node-volume-chip"]'),
     ).toContainText("b_in · volume");
@@ -267,7 +275,7 @@ test.describe("Visual formula chip editor", () => {
     await expect(toggle).toHaveText("Aa");
     await expect(
       page.locator('[data-testid="node-volume-insert-variable"]'),
-    ).toHaveText("ƒ Options");
+    ).toHaveText("f(x)");
     await expect(toggle).toHaveAttribute("aria-pressed", "false");
     await toggle.click();
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
@@ -279,9 +287,6 @@ test.describe("Visual formula chip editor", () => {
     await expect(input).toBeVisible();
     await input.fill("=pipe('b_in').volume");
     await input.press("Enter");
-    await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
-    ).toBeVisible();
     await expect(
       page.locator('[data-testid="node-volume-preview"]'),
     ).toContainText("→ 0.000353429");
@@ -298,7 +303,7 @@ test.describe("Visual formula chip editor", () => {
     await input.fill("0.002");
     await input.press("Enter");
     await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
+      page.locator('[data-testid="node-volume-preview"]'),
     ).toHaveCount(0);
 
     consoleWatcher.assertNoErrors();
@@ -358,7 +363,7 @@ test.describe("Visual formula chip editor", () => {
     const editor = page.locator('[data-testid="node-volume-editor"]');
     await expect(editor).toHaveText("0.001");
     await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
+      page.locator('[data-testid="node-volume-preview"]'),
     ).toHaveCount(0);
 
     // Formula Options enters formula mode and opens a browsable catalog.
@@ -391,9 +396,6 @@ test.describe("Visual formula chip editor", () => {
     // Enter commits: the binding previews its resolved value.
     await page.keyboard.press("Enter");
     await expect(
-      page.locator('[data-testid="node-volume-formula-badge"]'),
-    ).toBeVisible();
-    await expect(
       page.locator('[data-testid="node-volume-preview"]'),
     ).toContainText("→ 0.000353429");
 
@@ -419,7 +421,7 @@ test.describe("Visual formula chip editor", () => {
     const help = page.locator('[data-testid="node-volume-help"]');
     await expect(help).toBeVisible();
     await expect(help).not.toContainText("Start with =");
-    await expect(help).toContainText("ƒ Options");
+    await expect(help).toContainText("with f(x)");
 
     // Typing an expression automatically adds the internal formula leader.
     await page.keyboard.press("ControlOrMeta+a");

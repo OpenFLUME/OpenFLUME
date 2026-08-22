@@ -30,6 +30,7 @@
  * Nothing here throws on weird input: the tokenizer/segmenter are tolerant
  * by design and every DOM helper degrades to the end-of-text caret.
  */
+/* eslint-disable react-refresh/only-export-components -- pure helpers are exported for focused editor tests */
 import React from "react";
 import { createPortal } from "react-dom";
 import { parseFormulaInput } from "../formulaBinding";
@@ -605,9 +606,11 @@ const FormulaExpressionEditor = React.forwardRef<
     if (el instanceof HTMLElement) el.scrollIntoView({ block: "nearest" });
   }, [menu]);
 
+  const menuOpen = menu !== null;
+
   /* Close the menu on scroll/resize: the fixed-position anchor is stale. */
   React.useEffect(() => {
-    if (!menu) return;
+    if (!menuOpen) return;
     const close = () => setMenu(null);
     window.addEventListener("scroll", close, true);
     window.addEventListener("resize", close);
@@ -615,7 +618,7 @@ const FormulaExpressionEditor = React.forwardRef<
       window.removeEventListener("scroll", close, true);
       window.removeEventListener("resize", close);
     };
-  }, [menu !== null]);
+  }, [menuOpen]);
 
   /* ------- autocomplete -------------------------------------------------- */
 

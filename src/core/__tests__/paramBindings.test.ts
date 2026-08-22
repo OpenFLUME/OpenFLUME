@@ -741,7 +741,6 @@ describe("decodeNetworkConfig expression objects", () => {
       string,
       unknown
     >;
-    (raw.nodes as Array<Record<string, unknown>>)[0].volume; // boundary node: volume not required, still bindable
     (
       (raw.branches as Array<Record<string, unknown>>)[0].component as Record<
         string,

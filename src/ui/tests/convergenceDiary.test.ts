@@ -490,7 +490,8 @@ describe("cancel/error partial finalization", () => {
     const finish = find(d, "runFinish")!;
     expect(finish.severity).toBe("warning");
     expect(finish.message).toContain("solver blew up at row 7");
-    expect(finish.message).not.toMatch(/[\n\x00]/);
+    expect(finish.message).not.toContain("\n");
+    expect(finish.message).not.toContain("\x00");
     expect(finish.at).toEqual({ kind: "transient", time: 3, step: 3 });
   });
 

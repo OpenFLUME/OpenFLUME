@@ -178,9 +178,12 @@ test.describe("Sweep workspace", () => {
     // Editing the model marks the sweep's frozen base snapshot as stale.
     await page.locator('[data-testid="editor-tab"]').click();
     await page.locator('[data-testid="node-in"]').click();
-    const pressureInput = page.locator('label:has-text("Pressure") + input');
+    const pressureInput = page
+      .getByRole("textbox", { name: /^Pressure \(/ })
+      .first();
+    await pressureInput.click();
     await pressureInput.fill("250000");
-    await pressureInput.blur();
+    await pressureInput.press("Enter");
     await page.waitForTimeout(300);
     await page.locator('[data-testid="sweep-tab"]').click();
     await expect(

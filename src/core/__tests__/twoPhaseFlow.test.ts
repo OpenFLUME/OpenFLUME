@@ -226,12 +226,6 @@ describeSlow("Two-phase boiling pot (water) — staircase", () => {
     }
     expect(plateauIdx.length).toBeGreaterThan(5);
 
-    let mAvg = 0;
-    for (const i of plateauIdx) {
-      mAvg += res.nodes.tank.density[i] * V;
-    }
-    mAvg /= plateauIdx.length;
-
     // Energy-balance check: d(m·u)/dt ≈ Q·dt − ṁ_out·h  (the exact transient
     // energy equation for the node).  This reduces to the latent-heat
     // balance when mass loss is negligible, but remains valid when the vent
@@ -507,12 +501,6 @@ describe("Two-phase condensation (nitrogen) — staircase", () => {
       }
     }
     expect(plateauIdx.length).toBeGreaterThan(5);
-
-    let mAvg = 0;
-    for (const i of plateauIdx) {
-      mAvg += res.nodes.vap.density[i] * V;
-    }
-    mAvg /= plateauIdx.length;
 
     // Energy-balance check: d(m·u)/dt ≈ −Q_conv·dt + ṁ_in·h_in  for a node
     // that is condensing while drawing saturated-vapour inflow through the vent.

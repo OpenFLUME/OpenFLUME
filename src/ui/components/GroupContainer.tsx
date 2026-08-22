@@ -15,7 +15,7 @@ interface GroupContainerData {
 
 export default React.memo(function GroupContainer({
   data,
-  id,
+  id: _id,
 }: {
   data: GroupContainerData;
   id: string;

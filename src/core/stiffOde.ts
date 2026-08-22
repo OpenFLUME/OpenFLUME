@@ -136,13 +136,13 @@ export function integrateBDF1(
       t += dt;
       nSteps += 2;
       // Grow step slightly
-      let dtNew =
+      const dtNew =
         dt *
         Math.min(5, Math.max(0.2, 0.9 * Math.sqrt(1 / Math.max(err, 1e-10))));
       dt = Math.min(dtMax, Math.max(dtMin, dtNew));
     } else {
       nRejected++;
-      let dtNew = dt * Math.min(0.5, Math.max(0.1, 0.9 * Math.sqrt(1 / err)));
+      const dtNew = dt * Math.min(0.5, Math.max(0.1, 0.9 * Math.sqrt(1 / err)));
       if (dtNew < dtMin) {
         // Accept at minimum step to avoid infinite loop
         y = y2;
@@ -168,7 +168,7 @@ function bdf1Step(
   n: number,
   tol: number,
 ): number[] {
-  let y = [...yPrev];
+  const y = [...yPrev];
   const tNew = t + dt;
 
   for (let iter = 0; iter < 20; iter++) {

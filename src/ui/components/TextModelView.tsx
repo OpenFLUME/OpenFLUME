@@ -153,7 +153,6 @@ export default function TextModelView(): React.ReactElement {
     revealLine(ta, text, offsets, target.startLine);
     caretEchoRef.current = selection;
     setCaretLine(target.startLine);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, canonical, lineMap, offsets, text]);
 
   // ── Caret → store selection ─────────────────────────────────────────

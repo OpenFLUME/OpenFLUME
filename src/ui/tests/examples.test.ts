@@ -319,6 +319,7 @@ describe("examples library: validation, convergence, and physics", () => {
               // heatRate is positive from -> to; amb is 'to', so positive means wall->amb
               Q_rad += q;
             }
+            expect(Q_rad).toBeGreaterThan(0);
             const cp = 4182;
             const T_in = res.nodes["in"].temperature;
             const T_outlet = res.nodes["f2"].temperature; // last internal fluid node before fixed boundary

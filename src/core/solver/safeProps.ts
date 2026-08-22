@@ -34,7 +34,7 @@ export function safeStatePH(
   fluid: FluidModel,
   P: number,
   h: number,
-  context?: string,
+  _context?: string,
 ): PHState {
   if (!(fluid instanceof RealFluid)) return fluid.statePH(P, h);
   const [cP, cH] = clampToValidPH(fluid.fluidName, P, h);

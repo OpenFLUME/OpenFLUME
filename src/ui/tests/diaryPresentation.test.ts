@@ -306,7 +306,10 @@ describe("export payloads", () => {
     });
     expect(payload.run!.name).toBe("bad name");
     expect(payload.run!.id).toBe("id 1");
-    expect(JSON.stringify(payload.run)).not.toMatch(/[\n\t\x00]/);
+    const serialized = JSON.stringify(payload.run);
+    expect(serialized).not.toContain("\n");
+    expect(serialized).not.toContain("\t");
+    expect(serialized).not.toContain("\x00");
   });
 
   it("text export equals diaryToText without context", () => {

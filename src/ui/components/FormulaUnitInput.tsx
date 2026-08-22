@@ -260,8 +260,12 @@ export default function FormulaUnitInput({
       return;
     }
     editorRef.current?.beginFormula();
-    const rect = insertButtonRef.current?.getBoundingClientRect();
-    if (rect) setBrowserAnchor(rect);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const rect = insertButtonRef.current?.getBoundingClientRect();
+        if (rect) setBrowserAnchor(rect);
+      });
+    });
   }, [disabled, plainText]);
 
   React.useEffect(() => {

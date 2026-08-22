@@ -75,7 +75,7 @@ function assertSteadiness(trace: number[], label: string) {
   const max = Math.max(...slice);
   const avg = slice.reduce((a, b) => a + b, 0) / slice.length;
   const variation = Math.abs(max - min) / avg;
-  expect(variation).toBeLessThan(0.005); // < 0.5 %
+  expect(variation, `${label} did not reach steady state`).toBeLessThan(0.005); // < 0.5 %
 }
 
 function assertMonotoneIncrease(trace: number[]) {

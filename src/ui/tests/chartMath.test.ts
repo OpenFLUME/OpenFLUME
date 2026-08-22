@@ -46,7 +46,7 @@ describe("chartMath", () => {
       [5e-324, 1e-323], // subnormal endpoints
       [-1e308, 1e308], // range overflows to Infinity
       [1e-12, 1e-12 + 1e-300], // span far below ULP of the lower bound
-      [123456.789, 123456.78900000001], // sub-ULP at everyday magnitude
+      [123456.789, 123456.789 + Number.EPSILON], // sub-ULP at everyday magnitude
     ];
     for (const [a, b] of cases) {
       const ticks = niceTicks(a, b, 5);

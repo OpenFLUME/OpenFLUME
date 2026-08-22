@@ -606,6 +606,30 @@ describe("maintainability regressions", () => {
   });
 });
 
+describe("selection synchronization", () => {
+  beforeEach(resetStore);
+
+  it("clears stale canvas multi-selection when selecting one entity", () => {
+    useStore.setState({
+      canvasSelection: ["A", "B"],
+      selection: {
+        kind: "multi",
+        items: [
+          { kind: "node", id: "A" },
+          { kind: "node", id: "B" },
+        ],
+      },
+    });
+
+    useStore.getState().setSelection({ kind: "node", id: "A" });
+    expect(useStore.getState().selection).toEqual({ kind: "node", id: "A" });
+    expect(useStore.getState().canvasSelection).toEqual(["A"]);
+
+    useStore.getState().setSelection({ kind: "branch", id: "b1" });
+    expect(useStore.getState().canvasSelection).toEqual([]);
+  });
+});
+
 describe("canvas notes", () => {
   beforeEach(resetStore);
 
