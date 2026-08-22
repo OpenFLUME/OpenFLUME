@@ -131,6 +131,62 @@ export class LruMap<K, V> {
 }
 
 /**
+ * Bounded two-generation map (segmented FIFO with promotion) — an
+ * approximate LRU whose HIT PATH is a single Map.get with no mutation.
+ * LruMap's classic delete+re-insert recency refresh measured ~14 % of
+ * solver wall on the hot property caches (hundreds of thousands of hits per
+ * solve), almost all of it pure bookkeeping; here a young-generation hit
+ * does no map mutation at all.
+ *
+ * Eviction is BULK: when the young generation reaches capacity/2 it becomes
+ * the old generation and the previous old generation is dropped.  Keys hit
+ * while in the old generation are promoted back to young, so hot keys
+ * survive swaps.  Total size ≤ capacity, and — exactly as with LruMap —
+ * eviction only discards a memoized value that is recomputed bit-identically
+ * on the next miss, so results stay exact while the heap stays bounded.
+ */
+export class GenCacheMap<K, V> {
+  private young = new Map<K, V>();
+  private old = new Map<K, V>();
+  private readonly half: number;
+  constructor(capacity: number) {
+    if (!(capacity >= 2)) {
+      throw new Error(`GenCacheMap capacity must be >= 2, got ${capacity}`);
+    }
+    this.half = Math.floor(capacity / 2);
+  }
+  get(key: K): V | undefined {
+    const y = this.young.get(key);
+    if (y !== undefined) return y;
+    const o = this.old.get(key);
+    if (o !== undefined) {
+      this.old.delete(key);
+      this.setYoung(key, o); // promote: hot keys outlive generation swaps
+      return o;
+    }
+    return undefined;
+  }
+  set(key: K, v: V): void {
+    if (this.old.has(key)) this.old.delete(key);
+    this.setYoung(key, v);
+  }
+  private setYoung(key: K, v: V): void {
+    this.young.set(key, v);
+    if (this.young.size >= this.half) {
+      this.old = this.young;
+      this.young = new Map();
+    }
+  }
+  get size(): number {
+    return this.young.size + this.old.size;
+  }
+  clear(): void {
+    this.young.clear();
+    this.old.clear();
+  }
+}
+
+/**
  * Capacity of the exact-pressure-keyed property caches.  Sized far above any
  * simultaneous working set (a 50-node network touches ~10² distinct
  * pressures per h-map refresh; each entry is ~150 B) and far below anything
@@ -147,9 +203,7 @@ export function getFluidCacheSizes(): Record<string, number> {
     stateCache: stateCache.size,
     criticalCache: criticalCache.size,
     fluidLimitsCache: fluidLimitsCache.size,
-    statePHCache: statePHCache.size,
-    derivativesPHCache: derivativesPHCache.size,
-    internalEnergyPHCache: internalEnergyPHCache.size,
+    phCache: phCache.size,
   };
 }
 
@@ -562,7 +616,7 @@ export interface PHStateDual {
 }
 
 /** Cached saturation properties per (fluidName, P). */
-const satPropCache = new LruMap<
+const satPropCache = new GenCacheMap<
   string,
   {
     Tsat: number;
@@ -627,6 +681,14 @@ function getSatPropsBody(fluidName: SupportedRealFluid, P: number) {
     }
   }
 
+  // Opportunistic satDerivs: the Q=0 / Q=1 saturation solves below are
+  // exactly the updates getSatDerivsBody would redo at this P, and the
+  // derivative reads on a positioned state are ~1 µs each — so read them
+  // here and spare getSatDerivs its own two PQ saturation solves.  Values
+  // are bit-identical (same reads on identically-updated states).
+  const wantDerivs = satDerivCache.get(key) === undefined;
+  const { iP, iT, iDmass, iHmass } = cp.parameters;
+
   // Saturated liquid (Q=0)
   updateWithFallback(cp.input_pairs.PQ_INPUTS, P, 0);
   const Tsat = state.T();
@@ -636,6 +698,18 @@ function getSatPropsBody(fluidName: SupportedRealFluid, P: number) {
   const uf = state.umass();
   const cpf = state.cpmass();
   const kf = safeConductivity(state, fluidName) ?? 0;
+  let fD: { dT: number; dh: number; drho: number } | undefined;
+  if (wantDerivs) {
+    try {
+      fD = {
+        dT: state.first_saturation_deriv(iT, iP),
+        dh: state.first_saturation_deriv(iHmass, iP),
+        drho: state.first_saturation_deriv(iDmass, iP),
+      };
+    } catch {
+      fD = undefined; // getSatDerivs computes on demand for this fluid
+    }
+  }
 
   // Saturated vapor (Q=1)
   updateWithFallback(cp.input_pairs.PQ_INPUTS, P, 1);
@@ -645,6 +719,19 @@ function getSatPropsBody(fluidName: SupportedRealFluid, P: number) {
   const ug = state.umass();
   const cpg = state.cpmass();
   const kg = safeConductivity(state, fluidName) ?? 0;
+  if (fD) {
+    try {
+      satDerivCache.set(key, {
+        dTsat: fD.dT,
+        dhf: fD.dh,
+        dhg: state.first_saturation_deriv(iHmass, iP),
+        drhof: fD.drho,
+        drhog: state.first_saturation_deriv(iDmass, iP),
+      });
+    } catch {
+      // getSatDerivs computes on demand
+    }
+  }
 
   props = { Tsat, hf, hg, rhof, rhog, muf, mug, uf, ug, cpf, cpg, kf, kg };
   satPropCache.set(key, props);
@@ -652,8 +739,8 @@ function getSatPropsBody(fluidName: SupportedRealFluid, P: number) {
 }
 
 /** Cached saturation-curve pressure derivatives per (fluidName, P).
- *  Bounded LRU, same exact-P rationale as satPropCache. */
-const satDerivCache = new LruMap<
+ *  Bounded, same exact-P rationale as satPropCache. */
+const satDerivCache = new GenCacheMap<
   string,
   {
     dTsat: number; // dTsat/dP along the saturation curve [K/Pa]
@@ -758,6 +845,39 @@ export interface PHDerivatives {
  * docs/real-fluid-performance.md §2).  EnumValue OBJECTS are passed, per the
  * embind calling convention noted at getSatDerivs.
  */
+/** Read the (P, h) partials off an ALREADY HmassP-updated state.  Shared by
+ *  singlePhaseDerivs and the eager-derivative path in statePH (which has the
+ *  state positioned anyway, so the reads cost <5 % of the flash). */
+function readPHDerivsOnState(
+  s: AbstractState,
+  phase: FluidPhase,
+): PHDerivatives {
+  const cp = getCoolProp();
+  const { iP, iT, iDmass, iHmass, iCpmass } = cp.parameters;
+  // cp partials ARE supported by this build (cp is EOS-derived, unlike
+  // viscosity — validated against central FD of statePH.cp to ≤8e-7 for all
+  // four fluids × liquid/vapor/supercritical).  Read defensively anyway: a
+  // CoolProp build that rejected iCpmass must not break the ρ/T partials.
+  let dcpdP_h: number | undefined;
+  let dcpdh_P: number | undefined;
+  try {
+    dcpdP_h = s.first_partial_deriv(iCpmass, iP, iHmass);
+    dcpdh_P = s.first_partial_deriv(iCpmass, iHmass, iP);
+  } catch {
+    dcpdP_h = undefined;
+    dcpdh_P = undefined;
+  }
+  return {
+    drhodP_h: s.first_partial_deriv(iDmass, iP, iHmass),
+    drhodh_P: s.first_partial_deriv(iDmass, iHmass, iP),
+    dTdP_h: s.first_partial_deriv(iT, iP, iHmass),
+    dTdh_P: s.first_partial_deriv(iT, iHmass, iP),
+    dcpdP_h,
+    dcpdh_P,
+    phase,
+  };
+}
+
 function singlePhaseDerivs(
   fluidName: SupportedRealFluid,
   P: number,
@@ -766,32 +886,8 @@ function singlePhaseDerivs(
 ): PHDerivatives {
   const cp = getCoolProp();
   let state = getState(fluidName);
-  const { iP, iT, iDmass, iHmass, iCpmass } = cp.parameters;
-
-  const readDerivs = (s: AbstractState): PHDerivatives => {
-    // cp partials ARE supported by this build (cp is EOS-derived, unlike
-    // viscosity — validated against central FD of statePH.cp to ≤8e-7 for all
-    // four fluids × liquid/vapor/supercritical).  Read defensively anyway: a
-    // CoolProp build that rejected iCpmass must not break the ρ/T partials.
-    let dcpdP_h: number | undefined;
-    let dcpdh_P: number | undefined;
-    try {
-      dcpdP_h = s.first_partial_deriv(iCpmass, iP, iHmass);
-      dcpdh_P = s.first_partial_deriv(iCpmass, iHmass, iP);
-    } catch {
-      dcpdP_h = undefined;
-      dcpdh_P = undefined;
-    }
-    return {
-      drhodP_h: s.first_partial_deriv(iDmass, iP, iHmass),
-      drhodh_P: s.first_partial_deriv(iDmass, iHmass, iP),
-      dTdP_h: s.first_partial_deriv(iT, iP, iHmass),
-      dTdh_P: s.first_partial_deriv(iT, iHmass, iP),
-      dcpdP_h,
-      dcpdh_P,
-      phase,
-    };
-  };
+  const readDerivs = (s: AbstractState): PHDerivatives =>
+    readPHDerivsOnState(s, phase);
 
   try {
     state.update(cp.input_pairs.HmassP_INPUTS, h, P);
@@ -919,16 +1015,72 @@ function twoPhaseDerivs(
  * any future caller mutation throws in strict mode instead of silently
  * corrupting every later read of the same key.
  */
-const statePHCache = new LruMap<string, PHState>(PROPERTY_CACHE_CAPACITY);
-const derivativesPHCache = new LruMap<string, PHDerivatives>(
-  PROPERTY_CACHE_CAPACITY,
-);
-const internalEnergyPHCache = new LruMap<string, number>(
-  PROPERTY_CACHE_CAPACITY,
-);
+/**
+ * FUSED cache entry: one key serves all three (P, h) entry points.  Fields
+ * fill progressively (statePH populates `st` and `u` together, and — for
+ * single-phase / supercritical states — `d` eagerly, since the derivative
+ * reads cost <5 % of the flash the state is already positioned by).  One
+ * key build + one map lookup replaces the three separate caches this
+ * started as, and derivativesPH branch-locks to `st.phase` when present.
+ */
+interface PHCacheEntry {
+  st?: PHState;
+  u?: number;
+  d?: PHDerivatives;
+}
+
+const phCache = new GenCacheMap<string, PHCacheEntry>(PROPERTY_CACHE_CAPACITY);
 
 const phKey = (fluidName: string, P: number, h: number): string =>
   `${fluidName}\0${P}\0${h}`;
+
+/** Cache-only satProps lookup: no CoolProp work on miss. */
+function peekSatProps(fluidName: SupportedRealFluid, P: number) {
+  return satPropCache.get(`${fluidName}@${P}`);
+}
+
+/**
+ * CoolProp phases-enum values used by the flash-first region test, read once
+ * from the live build (embind EnumValue objects).  Returns undefined when a
+ * build lacks the enum — the flash-first fast path is then disabled and the
+ * satProps-first region test is used everywhere, exactly as before.
+ */
+let phaseEnumVals:
+  { liquid: number; gas: number; scGas: number } | null | undefined;
+function getPhaseEnumVals() {
+  if (phaseEnumVals === undefined) {
+    try {
+      const ph = getCoolProp().phases as unknown as Record<
+        string,
+        { value?: number } | undefined
+      >;
+      const liquid = ph.iphase_liquid?.value;
+      const gas = ph.iphase_gas?.value;
+      const scGas = ph.iphase_supercritical_gas?.value;
+      phaseEnumVals =
+        typeof liquid === "number" &&
+        typeof gas === "number" &&
+        typeof scGas === "number"
+          ? { liquid, gas, scGas }
+          : null;
+    } catch {
+      phaseEnumVals = null;
+    }
+  }
+  return phaseEnumVals ?? undefined;
+}
+
+/** phase() of an updated state as a raw enum value, or undefined when the
+ *  read throws or the build returns something unusable. */
+function phaseValueOf(state: AbstractState): number | undefined {
+  try {
+    const p = state.phase?.() as unknown as number | { value?: number };
+    const v = typeof p === "number" ? p : p?.value;
+    return typeof v === "number" && isFinite(v) ? v : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 export class RealFluid {
   readonly fluidName: SupportedRealFluid;
@@ -1307,26 +1459,153 @@ export class RealFluid {
    *
    * Two-phase density:   1/ρ = x/ρ_g + (1−x)/ρ_f   (harmonic/volume mixture)
    * Two-phase viscosity:   1/μ = x/μ_g + (1−x)/μ_f   (McAdams mixing rule)
+   *
+   * Region test order (performance): when satProps for this EXACT P are
+   * already cached the inclusive h ∈ [h_f, h_g] test is free and runs first.
+   * Otherwise the HmassP flash runs FIRST and CoolProp's own phase() verdict
+   * short-circuits clearly single-phase states (1 flash instead of
+   * 2 PQ saturation solves + 1 flash).  Probed semantics (all four validation
+   * fluids): CoolProp's two-phase window is at least as wide as the solver's
+   * inclusive test at both dome edges, so a liquid/gas verdict is safely
+   * single-phase; every other verdict falls back to getSatProps + the
+   * authoritative inclusive test, leaving the dome-edge branch convention
+   * unchanged.
+   *
+   * A miss also computes u (free umass() read on the positioned state; the
+   * unclamped mixture formula in the dome) and — single-phase /
+   * supercritical only — the analytic partials, so internalEnergyPH and
+   * derivativesPH at the same key are served from the fused cache entry
+   * without re-flashing.
    */
   statePH(P: number, h: number): PHState {
     const track = beginProp("statePH");
     if (track) recordPHKey("statePH", this.fluidName, P, h);
     try {
       const key = phKey(this.fluidName, P, h);
-      const hit = statePHCache.get(key);
-      if (hit !== undefined) {
+      let e = phCache.get(key);
+      if (e?.st !== undefined) {
         recordCacheHit("statePH");
-        return hit;
+        return e.st;
       }
-      const st = Object.freeze(this.statePHBody(P, h));
-      statePHCache.set(key, st);
-      return st;
+      const { st, u, d } = this.computePH(P, h);
+      const fst = Object.freeze(st);
+      if (!e) {
+        e = {};
+        phCache.set(key, e);
+      }
+      e.st = fst;
+      if (u !== undefined) e.u = u;
+      if (d !== undefined && e.d === undefined) e.d = Object.freeze(d);
+      return fst;
     } finally {
       endProp(track);
     }
   }
 
-  private statePHBody(P: number, h: number): PHState {
+  /** HmassP update with the cached-state-corruption retry (fresh
+   *  AbstractState on abort/out-of-bounds), shared by every P-h flash site
+   *  in this class.  Throws FluidPropertyError labelled `operation`. */
+  private updateHmassP(P: number, h: number, operation: string): AbstractState {
+    const cp = getCoolProp();
+    let state = getState(this.fluidName);
+    try {
+      state.update(cp.input_pairs.HmassP_INPUTS, h, P);
+      return state;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (
+        msg.includes("abort") ||
+        msg.includes("Abort") ||
+        msg.includes("out of bounds")
+      ) {
+        state = getFreshState(this.fluidName);
+        try {
+          state.update(cp.input_pairs.HmassP_INPUTS, h, P);
+          return state;
+        } catch (e2) {
+          throw new FluidPropertyError(this.fluidName, operation, P, h, e2);
+        }
+      }
+      throw new FluidPropertyError(this.fluidName, operation, P, h, e);
+    }
+  }
+
+  /** Read the full single-phase/supercritical bundle off a state positioned
+   *  at (h, P): values, u, and eager analytic partials.  u and the partials
+   *  are read defensively — their failure must not fail statePH (the fused
+   *  entry simply stays partial and the dedicated call computes on demand). */
+  private readSinglePhasePH(
+    state: AbstractState,
+    phase: FluidPhase,
+    P: number,
+    h: number,
+    operation: string,
+  ): { st: PHState; u?: number; d?: PHDerivatives } {
+    const T = state.T();
+    const rho = state.rhomass();
+    if (!isFinite(T) || !isFinite(rho) || rho <= 0) {
+      throw new FluidPropertyError(
+        this.fluidName,
+        operation,
+        P,
+        h,
+        `Non-finite state (T=${T}, rho=${rho})`,
+      );
+    }
+    const st: PHState = {
+      T,
+      rho,
+      quality: undefined,
+      mu: safeViscosity(state, this.fluidName),
+      k: safeConductivity(state, this.fluidName),
+      cp: state.cpmass(),
+      phase,
+    };
+    let u: number | undefined;
+    try {
+      const v = state.umass();
+      u = isFinite(v) ? v : undefined;
+    } catch {
+      u = undefined;
+    }
+    let d: PHDerivatives | undefined;
+    try {
+      d = readPHDerivsOnState(state, phase);
+    } catch {
+      d = undefined;
+    }
+    return { st, u, d };
+  }
+
+  /** In-dome HEM mixture state + internal energy from cached satProps. */
+  private domePH(
+    h: number,
+    sat: ReturnType<typeof getSatProps>,
+  ): { st: PHState; u: number } {
+    const { Tsat, hf, hg, rhof, rhog, muf, mug, kf, kg, uf, ug } = sat;
+    // The h_g − h_f gap collapses as P → Pc⁻ (degenerate dome); the clamp
+    // keeps the quality finite there — same rationale as twoPhaseDerivs.
+    const dhfg = Math.max(
+      hg - hf,
+      1e-9 * Math.max(Math.abs(hf), Math.abs(hg), 1),
+    );
+    const x = (h - hf) / dhfg;
+    const rho = 1 / (x / rhog + (1 - x) / rhof);
+    const mu = 1 / (x / mug + (1 - x) / muf);
+    // Thermal conductivity (optional) using McAdams-like mixture.  kf/kg
+    // come from the same cached getSatProps read (0 when the fluid lacks a
+    // conductivity model) — no extra PQ flashes here.
+    const k = kf > 0 && kg > 0 ? 1 / (x / kg + (1 - x) / kf) : undefined;
+    // u deliberately uses internalEnergyPH's historical UNCLAMPED-x mixture
+    // formula so the fused entry serves internalEnergyPH bit-identically.
+    const u = uf + ((h - hf) / (hg - hf)) * (ug - uf);
+    return { st: { T: Tsat, rho, quality: x, mu, k, phase: "twoPhase" }, u };
+  }
+
+  private computePH(
+    P: number,
+    h: number,
+  ): { st: PHState; u?: number; d?: PHDerivatives } {
     if (!isFinite(P) || !isFinite(h)) {
       throw new FluidPropertyError(
         this.fluidName,
@@ -1350,143 +1629,94 @@ export class RealFluid {
 
     // Supercritical or very near critical
     if (P >= Pc) {
-      const cp = getCoolProp();
-      const state = getState(this.fluidName);
-      try {
-        state.update(cp.input_pairs.HmassP_INPUTS, h, P);
-      } catch (e) {
-        throw new FluidPropertyError(
-          this.fluidName,
-          "statePH (supercritical)",
-          P,
-          h,
-          e,
-        );
-      }
-      const Tsc = state.T();
-      const rhoSc = state.rhomass();
-      if (!isFinite(Tsc) || !isFinite(rhoSc) || rhoSc <= 0) {
-        throw new FluidPropertyError(
-          this.fluidName,
-          "statePH (supercritical)",
-          P,
-          h,
-          `Non-finite state (T=${Tsc}, rho=${rhoSc})`,
-        );
-      }
-      return {
-        T: Tsc,
-        rho: rhoSc,
-        quality: undefined,
-        mu: safeViscosity(state, this.fluidName),
-        k: safeConductivity(state, this.fluidName),
-        cp: state.cpmass(),
-        phase: "supercritical",
-      };
-    }
-
-    // Subcritical: determine region relative to saturation enthalpies
-    const { Tsat, hf, hg, rhof, rhog, muf, mug, kf, kg } = getSatProps(
-      this.fluidName,
-      P,
-    );
-
-    // Two-phase dome.  The h_g − h_f gap collapses as P → Pc⁻ (degenerate
-    // dome); the clamp keeps the quality finite there — same rationale as
-    // twoPhaseDerivs.
-    if (h >= hf && h <= hg) {
-      const dhfg = Math.max(
-        hg - hf,
-        1e-9 * Math.max(Math.abs(hf), Math.abs(hg), 1),
-      );
-      const x = (h - hf) / dhfg;
-      const rho = 1 / (x / rhog + (1 - x) / rhof);
-      const mu = 1 / (x / mug + (1 - x) / muf);
-
-      // Thermal conductivity (optional) using McAdams-like mixture.  kf/kg
-      // come from the SAME cached getSatProps read as the rest of this
-      // branch (0 when the fluid lacks a conductivity model) — no extra
-      // PQ flashes here.
-      const k = kf > 0 && kg > 0 ? 1 / (x / kg + (1 - x) / kf) : undefined;
-
-      return {
-        T: Tsat,
-        rho,
-        quality: x,
-        mu,
-        k,
-        phase: "twoPhase",
-      };
-    }
-
-    // Single-phase: subcooled liquid or superheated vapor
-    const phase: FluidPhase = h < hf ? "liquid" : "vapor";
-    const cp = getCoolProp();
-    let state = getState(this.fluidName);
-    try {
-      state.update(cp.input_pairs.HmassP_INPUTS, h, P);
-    } catch (e) {
-      // Cached state may be corrupted after an unrecoverable CoolProp abort.
-      // Retry with a fresh AbstractState before giving up.
-      const msg = e instanceof Error ? e.message : String(e);
-      if (
-        msg.includes("abort") ||
-        msg.includes("Abort") ||
-        msg.includes("out of bounds")
-      ) {
-        state = getFreshState(this.fluidName);
-        try {
-          state.update(cp.input_pairs.HmassP_INPUTS, h, P);
-        } catch (e2) {
-          throw new FluidPropertyError(
-            this.fluidName,
-            "statePH (single-phase)",
-            P,
-            h,
-            e2,
-          );
-        }
-      } else {
-        throw new FluidPropertyError(
-          this.fluidName,
-          "statePH (single-phase)",
-          P,
-          h,
-          e,
-        );
-      }
-    }
-
-    const mu2 = safeViscosity(state, this.fluidName);
-    const k2 = safeConductivity(state, this.fluidName);
-
-    const Tsp = state.T();
-    const rhoSp = state.rhomass();
-    if (!isFinite(Tsp) || !isFinite(rhoSp) || rhoSp <= 0) {
-      throw new FluidPropertyError(
-        this.fluidName,
-        "statePH (single-phase)",
+      const state = this.updateHmassP(P, h, "statePH (supercritical)");
+      return this.readSinglePhasePH(
+        state,
+        "supercritical",
         P,
         h,
-        `Non-finite state (T=${Tsp}, rho=${rhoSp})`,
+        "statePH (supercritical)",
       );
     }
-    return {
-      T: Tsp,
-      rho: rhoSp,
-      quality: undefined,
-      mu: mu2,
-      k: k2,
-      cp: state.cpmass(),
-      phase,
-    };
+
+    // Subcritical with satProps already cached at this exact P: the
+    // inclusive region test is free.
+    const sat = peekSatProps(this.fluidName, P);
+    if (sat !== undefined) {
+      if (h >= sat.hf && h <= sat.hg) return this.domePH(h, sat);
+      const phase: FluidPhase = h < sat.hf ? "liquid" : "vapor";
+      const state = this.updateHmassP(P, h, "statePH (single-phase)");
+      return this.readSinglePhasePH(
+        state,
+        phase,
+        P,
+        h,
+        "statePH (single-phase)",
+      );
+    }
+
+    // Flash-first: one HmassP flash decides the region for clearly
+    // single-phase states (see the statePH doc comment for the probed
+    // phase() semantics that make this safe).
+    const vals = getPhaseEnumVals();
+    let flashed: AbstractState | undefined;
+    if (vals !== undefined) {
+      try {
+        flashed = this.updateHmassP(P, h, "statePH (single-phase)");
+      } catch {
+        // The flash may legitimately fail where the satProps path can still
+        // classify (e.g. degenerate near-critical dome states); fall through.
+        flashed = undefined;
+      }
+      if (flashed !== undefined) {
+        const pv = phaseValueOf(flashed);
+        if (pv === vals.liquid) {
+          return this.readSinglePhasePH(
+            flashed,
+            "liquid",
+            P,
+            h,
+            "statePH (single-phase)",
+          );
+        }
+        if (pv === vals.gas || pv === vals.scGas) {
+          return this.readSinglePhasePH(
+            flashed,
+            "vapor",
+            P,
+            h,
+            "statePH (single-phase)",
+          );
+        }
+      }
+    }
+
+    // Two-phase or ambiguous verdict: fetch satProps and apply the
+    // authoritative inclusive test — identical branch convention to the
+    // satProps-first path above.
+    const sat2 = getSatProps(this.fluidName, P);
+    if (h >= sat2.hf && h <= sat2.hg) return this.domePH(h, sat2);
+    const phase2: FluidPhase = h < sat2.hf ? "liquid" : "vapor";
+    // getSatProps repositioned the shared AbstractState at the PQ points, so
+    // the earlier flash (if any) is stale — re-flash before reading.
+    const state2 = this.updateHmassP(P, h, "statePH (single-phase)");
+    return this.readSinglePhasePH(
+      state2,
+      phase2,
+      P,
+      h,
+      "statePH (single-phase)",
+    );
   }
 
   /**
    * Analytic partial derivatives of statePH(P, h) with respect to P and h.
    *
-   * Region branching is IDENTICAL to statePH (same getSatProps cache and the
-   * same inclusive dome comparisons), so `derivativesPH(P, h).phase ===
+   * Region branching is LOCKED to statePH: when the fused cache entry at
+   * this exact key carries statePH's phase verdict, the derivative branch
+   * dispatches on it directly; standalone calls replay statePH's region-test
+   * order (cached-satProps inclusive test, else flash-first phase(), else
+   * satProps fallback).  Either way `derivativesPH(P, h).phase ===
    * statePH(P, h).phase` at every point:
    *
    * 1. Single-phase / supercritical — CoolProp `first_partial_deriv` on an
@@ -1526,20 +1756,32 @@ export class RealFluid {
     const track = beginProp("derivativesPH");
     try {
       const key = phKey(this.fluidName, P, h);
-      const hit = derivativesPHCache.get(key);
-      if (hit !== undefined) {
+      let e = phCache.get(key);
+      if (e?.d !== undefined) {
         recordCacheHit("derivativesPH");
-        return hit;
+        return e.d;
       }
-      const d = Object.freeze(this.derivativesPHBody(P, h));
-      derivativesPHCache.set(key, d);
+      // Branch-lock: when the fused entry already carries statePH's phase
+      // verdict at this exact key, dispatch on it directly — this GUARANTEES
+      // derivativesPH(P, h).phase === statePH(P, h).phase even in the
+      // sub-ULP window where independent region tests could disagree.
+      const d = Object.freeze(this.derivativesPHBody(P, h, e?.st?.phase));
+      if (!e) {
+        e = {};
+        phCache.set(key, e);
+      }
+      e.d = d;
       return d;
     } finally {
       endProp(track);
     }
   }
 
-  private derivativesPHBody(P: number, h: number): PHDerivatives {
+  private derivativesPHBody(
+    P: number,
+    h: number,
+    stPhase?: FluidPhase,
+  ): PHDerivatives {
     if (!isFinite(P) || !isFinite(h)) {
       throw new FluidPropertyError(
         this.fluidName,
@@ -1566,10 +1808,55 @@ export class RealFluid {
       return singlePhaseDerivs(this.fluidName, P, h, "supercritical");
     }
 
-    // Subcritical: same region test as statePH
-    const { hf, hg } = getSatProps(this.fluidName, P);
+    // Branch-locked dispatch from the fused statePH entry (see wrapper).
+    if (stPhase === "twoPhase") {
+      return twoPhaseDerivs(this.fluidName, P, h);
+    }
+    if (stPhase === "liquid" || stPhase === "vapor") {
+      return singlePhaseDerivs(this.fluidName, P, h, stPhase);
+    }
+
+    // Standalone call (no statePH entry): same region-test order as
+    // computePH — free inclusive test when satProps is cached at this exact
+    // P, flash-first phase() short-circuit otherwise, satProps fallback for
+    // everything else.
+    const sat = peekSatProps(this.fluidName, P);
+    if (sat !== undefined) {
+      if (h >= sat.hf && h <= sat.hg) {
+        return twoPhaseDerivs(this.fluidName, P, h);
+      }
+      return singlePhaseDerivs(
+        this.fluidName,
+        P,
+        h,
+        h < sat.hf ? "liquid" : "vapor",
+      );
+    }
+
+    const vals = getPhaseEnumVals();
+    if (vals !== undefined) {
+      let flashed: AbstractState | undefined;
+      try {
+        flashed = this.updateHmassP(P, h, "derivativesPH (single-phase)");
+      } catch {
+        flashed = undefined; // fall through to the satProps path
+      }
+      if (flashed !== undefined) {
+        const pv = phaseValueOf(flashed);
+        try {
+          if (pv === vals.liquid) return readPHDerivsOnState(flashed, "liquid");
+          if (pv === vals.gas || pv === vals.scGas) {
+            return readPHDerivsOnState(flashed, "vapor");
+          }
+        } catch {
+          // deriv reads failed on the positioned state — fall through to the
+          // satProps path, whose singlePhaseDerivs carries the retry logic.
+        }
+      }
+    }
 
     // Two-phase dome (inclusive bounds — boundary convention, see doc comment)
+    const { hf, hg } = getSatProps(this.fluidName, P);
     if (h >= hf && h <= hg) {
       return twoPhaseDerivs(this.fluidName, P, h);
     }
@@ -1655,19 +1942,25 @@ export class RealFluid {
     };
   }
 
-  /** Internal energy from (P, h) — valid in dome via single mixture call. */
+  /** Internal energy from (P, h) — valid in dome via single mixture call.
+   *  Usually served from the fused cache entry that statePH populated at the
+   *  same key (u is a free read on statePH's own flash / dome algebra). */
   internalEnergyPH(P: number, h: number): number {
     const track = beginProp("internalEnergyPH");
     if (track) recordPHKey("internalEnergyPH", this.fluidName, P, h);
     try {
       const key = phKey(this.fluidName, P, h);
-      const hit = internalEnergyPHCache.get(key);
-      if (hit !== undefined) {
+      let e = phCache.get(key);
+      if (e?.u !== undefined) {
         recordCacheHit("internalEnergyPH");
-        return hit;
+        return e.u;
       }
       const u = this.internalEnergyPHBody(P, h);
-      internalEnergyPHCache.set(key, u);
+      if (!e) {
+        e = {};
+        phCache.set(key, e);
+      }
+      e.u = u;
       return u;
     } finally {
       endProp(track);

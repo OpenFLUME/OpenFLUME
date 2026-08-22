@@ -12,6 +12,7 @@ import {
   LruMap,
   PROPERTY_CACHE_CAPACITY,
   getFluidCacheSizes,
+  GenCacheMap,
 } from "../fluids/realFluid";
 import { solveSteady } from "../solver";
 import { solveTransient } from "../transient";
@@ -910,6 +911,19 @@ describe("Property cache bounding (LruMap)", () => {
     expect(() => new LruMap(0)).toThrow(/capacity/);
   });
 
+  it("GenCacheMap stays bounded, promotes hot keys across generation swaps, and bulk-evicts cold ones", () => {
+    const m = new GenCacheMap<number, number>(8); // generations of 4
+    for (let i = 0; i < 100; i++) {
+      m.set(i, i * 10);
+      m.get(0); // key 0 stays hot: promoted back to young on every access
+      expect(m.size).toBeLessThanOrEqual(8);
+    }
+    expect(m.get(0)).toBe(0); // hot key survived 100 inserts
+    expect(m.get(1)).toBeUndefined(); // cold key was bulk-evicted
+    expect(m.get(99)).toBe(990); // recent keys still present
+    expect(() => new GenCacheMap(1)).toThrow(/capacity/);
+  });
+
   it("saturation/surface-tension caches stay bounded under a pressure sweep", () => {
     const f = new RealFluid("ParaHydrogen");
     // 3× the capacity worth of distinct pressures across the subcritical range
@@ -943,7 +957,7 @@ describe("Property cache bounding (LruMap)", () => {
     for (let i = 0; i < n; i++) {
       f.statePH(P, h0 + i); // 1 J/kg apart: distinct exact doubles, same phase
     }
-    expect(getFluidCacheSizes().statePHCache).toBeLessThanOrEqual(
+    expect(getFluidCacheSizes().phCache).toBeLessThanOrEqual(
       PROPERTY_CACHE_CAPACITY,
     );
     // …then the evicted key recomputes to a bit-identical value.

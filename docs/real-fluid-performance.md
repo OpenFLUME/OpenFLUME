@@ -28,31 +28,36 @@ Numbers below were measured on one machine; re-run the script to refresh them.
 ## 1. Performance profile
 
 Exact-attribution profiling (`src/core/perf.ts`: cumulative accumulators +
-call counters, not a sampling profiler) on three current-architecture
+call counters, not a sampling profiler) on four current-architecture
 real-fluid solves:
 
 1. **Two-phase LN₂ chilldown** — N=4 audit line (60.96 m, 0.5169 MPa saturated
    inlet), first 75 s at dt = 15 s. No `kineticEnergy`. This is the
    diagnostics-audit network with a truncated horizon so the FD Jacobian A/B
-   stays tractable; CoolProp share is not sensitive to horizon once WASM is
-   warm.
-2. **N₂O cavitating venturi** — shipped 9-node one-step transient (area-change cascade, throat seeded on the liquid-side dome edge). No `kineticEnergy`. Area-change components are dual-capable, so the hybrid Jacobian has no FD patches on this network.
-3. **Real-fluid transonic N₂ CD nozzle** — CoolProp nitrogen at 5 bar / 300 K,
+   stays tractable. With warm value caches its whole trajectory is
+   cache-resident, so its property share is a WARM-CACHE floor, not a
+   long-horizon estimate — that is what case 2 is for.
+2. **LN₂ chilldown, full 300 s horizon** — the same network run to the full
+   diagnostics horizon. Each solve visits ~25k fresh `(P, h)` keys, so this
+   case shows the property share long transients actually pay (first-visit
+   flashes; the caches absorb only within-solve reuse).
+3. **N₂O cavitating venturi** — shipped 9-node one-step transient (area-change cascade, throat seeded on the liquid-side dome edge). No `kineticEnergy`. Area-change components are dual-capable, so the hybrid Jacobian has no FD patches on this network.
+4. **Real-fluid transonic N₂ CD nozzle** — CoolProp nitrogen at 5 bar / 300 K,
    `kineticEnergy` + default limited-upwind momentum faces, coupled
-   `[P, ṁ, h]` system. This path did not exist when the previous profile was
-   taken.
+   `[P, ṁ, h]` system.
 
 | Case                    | hybrid wall | property | other  | dense solve | statePH / derivativesPH | scalar R evals in J (hybrid) | hybrid vs FD wall / calls | scalar R evals in J (FD) |
 | ----------------------- | ----------- | -------- | ------ | ----------- | ----------------------- | ---------------------------- | ------------------------- | ------------------------ |
-| LN₂ two-phase chilldown | 298 ms      | 29.6 %   | 70.4 % | 1.1 %       | 32,832 / 6,095          | 0.0 %                        | 13.07× / 5.91×            | 86.9 %                   |
-| N₂O cavitating venturi  | 56 ms       | 26.7 %   | 73.3 % | 3.5 %       | 3,348 / 516             | 0.0 %                        | 6.72× / 17.07×            | 95.3 %                   |
-| N₂ transonic CD nozzle  | 60 ms       | 8.3 %    | 91.7 % | 2.2 %       | 1,812 / 120             | 0.0 %                        | 5.84× / 70.63×            | 97.2 %                   |
+| LN₂ two-phase chilldown | 167 ms      | 18.3 %   | 81.7 % | 1.3 %       | 32,832 / 6,095          | 0.0 %                        | 6.78× / 5.41×             | 86.9 %                   |
+| LN₂ chilldown 300 s     | 1.34 s      | 74.9 %   | 25.1 % | 0.4 %       | 138,750 / 16,930        | 0.0 %                        | 1.53× / 2.75×             | 87.0 %                   |
+| N₂O cavitating venturi  | 30 ms       | 12.2 %   | 87.8 % | 4.3 %       | 3,348 / 516             | 0.0 %                        | 2.32× / 17.07×            | 95.3 %                   |
+| N₂ transonic CD nozzle  | 40 ms       | 7.0 %    | 93.0 % | 2.0 %       | 1,812 / 120             | 0.0 %                        | 2.89× / 70.63×            | 97.2 %                   |
 
-Property evaluation is 8.3 %–29.6 % of hybrid wall. The bounded LRU value caches (§5, item 2) absorb the repeated exact-key traffic that used to dominate; the timed solves ride caches warmed by an identical warmup solve, which is also the steady state a long transient reaches after its first few steps. Residual assembly, dense solves, Jacobian bookkeeping, state cloning, upwind-face reconstruction, and transient stepping share the remaining 70.4 %–91.7 %. Dense Gaussian elimination alone is 1.1 %–3.5 %. On the FD Jacobian path the same three cases still spend 72.4 %–94.1 % of wall in property evaluation: the O(columns) residual sweep evaluates at perturbed states whose exact keys are new, so the value caches cannot absorb it and CoolProp remains the dominant cost there.
+Property evaluation is 7.0 %–74.9 % of hybrid wall (highest on the 300 s chilldown, whose ~25k first-visit keys must each be flashed once; lowest on the short cases whose trajectories are fully cache-resident after warmup). The bounded value caches (§5, item 2) absorb repeated exact-key traffic — realized hit rates equal the within-solve exact-key ceiling, so the remaining property cost is genuine first-visit flash work, not cache misses that a bigger cache could recover. Residual assembly, dense solves, Jacobian bookkeeping, state cloning, upwind-face reconstruction, and transient stepping share the remaining 25.1 %–93.0 %. Dense Gaussian elimination alone is 0.4 %–4.3 %. On the FD Jacobian path the same cases spend 51.3 %–89.5 % of wall in property evaluation: the O(columns) residual sweep evaluates at perturbed states whose exact keys are new, so the value caches cannot absorb it and CoolProp remains the dominant cost there.
 
 Consequences, scoped to these cases:
 
-- The Amdahl ceiling on any solver-side optimization that leaves CoolProp untouched is 3.38×–12.02× on the hybrid path and 1.06×–1.38× on the FD path. With warm value caches the hybrid path is NO LONGER CoolProp-dominated — the majority of wall is solver-side JS (residual assembly, cloning, bookkeeping). CoolProp still dominates the FD path and any cold-cache first solve.
+- The Amdahl ceiling on any solver-side optimization that leaves CoolProp untouched is 1.34×–14.33× on the hybrid path and 1.12×–1.95× on the FD path. Short warm-cache solves are solver-side-majority (residual assembly, cloning, bookkeeping); the long-horizon chilldown is still property-majority because every fresh Newton iterate pays first-visit flashes. CoolProp also still dominates the FD path and any cold-cache first solve.
 - Scalar residual evaluations (not dual-number Jacobian columns) that run inside Jacobian builds: 86.9 %–97.2 % on the FD path (one residual per column plus step-control extras, mostly at states the solve has already visited). The hybrid path drops that share to 0.0 %, leaving only FD patches on non-differentiable pieces; each hybrid build is O(nodes) property calls plus dual arithmetic rather than O(nodes × columns) residual re-evaluations.
 - Coupled `[P, ṁ, h]` systems (transonic, any `kineticEnergy` real-fluid solve) have more Newton columns than the enthalpy-segregated chilldown, so the FD Jacobian's O(columns) residual sweep is correspondingly more expensive. That is why the transonic hybrid/FD property-call ratio sits at the high end of the range in §4.
 
@@ -67,9 +72,9 @@ The `coolprop-wasm@^6.6.0` `AbstractState` exposes `first_partial_deriv`,
   `cp.parameters.`\* EnumValue OBJECTS, NOT raw `.value` numbers. Raw
   numbers silently coerce to parameter key 0 and the call throws
   `Unable to match the key [0] in get_parameter_information`.
-- `PropsSI("D", "P", P, "HMASS", h, …)` returns the same density as `update(HmassP) + rhomass()` on a cached `AbstractState`, but a full PropsSI round trip costs 11.12× more than the cached-state flash (1.79e+0 ms vs 1.61e-1 ms per call, Nitrogen 2 MPa subcooled). Use the cached-state interface on hot paths, and keep PropsSI off them.
-- On an already-updated state a derivative call (1.12e-3 ms) costs 3.0× a plain `rhomass()` (3.66e-4 ms) and 0.7 % of a full HmassP flash. Adding the ρ partials to a flash is a small increment on top of the flash itself.
-- The first CoolProp call of a fresh process pays the WASM compile (2.48 s here), which is visible as a fixed per-solve overhead in short transients.
+- `PropsSI("D", "P", P, "HMASS", h, …)` returns the same density as `update(HmassP) + rhomass()` on a cached `AbstractState`, but a full PropsSI round trip costs 9.29× more than the cached-state flash (1.11e+0 ms vs 1.19e-1 ms per call, Nitrogen 2 MPa subcooled). Use the cached-state interface on hot paths, and keep PropsSI off them.
+- On an already-updated state a derivative call (6.06e-4 ms) costs 2.8× a plain `rhomass()` (2.20e-4 ms) and 0.5 % of a full HmassP flash. Adding the ρ partials to a flash is a small increment on top of the flash itself.
+- The first CoolProp call of a fresh process pays the WASM compile (1.67 s here), which is visible as a fixed per-solve overhead in short transients.
 - Single-phase / supercritical analytic partials validate against central
   finite differences of `statePH` to 1e-12…1e-7 relative for Nitrogen,
   NitrousOxide, Water, and Hydrogen (`src/core/__tests__/propertyDerivatives.test.ts`).
@@ -102,15 +107,19 @@ convention exactly at h = h_f / h_g. See the `derivativesPH` doc comment.
 analytically: one `statePH` + one `derivativesPH` per node per build
 (O(nodes) property calls instead of O(nodes × columns)), with FD patches
 only on the entries touching non-differentiable pieces. Measured against
-`jacobian: 'fd'` on the three cases above, the analytic path uses
-**5.91×–70.63× fewer property calls** (this ratio repeats
-across runs) and converges to the same trajectories. Wall-clock was also
-faster on this machine (5.84×–13.07×; load-dependent — see
+`jacobian: 'fd'` on the four cases above, the analytic path uses
+**2.75×–70.63× fewer property calls** (this ratio repeats
+across runs) and converges to the same trajectories — exactly on the short
+cases; on the 300 s horizon the two Jacobian schemes take slightly different
+Newton paths through the moving chilldown front and the wall traces differ
+by a sub-percent front-timing offset (below). Wall-clock was also
+faster on this machine (1.53×–6.78×; load-dependent — see
 the timing caveat). The transonic call-count ratio sits at the high end
 because the coupled `[P, ṁ, h]` unknown vector is longer, so each FD
 Jacobian build re-evaluates the residual once per extra enthalpy column:
 
 - final time 75 s vs 75 s; worst wall ΔT 6.07e-8 K on s2 (0.000 % relative)
+- 300 s horizon: final time 300 s vs 300 s; worst wall ΔT 1.81e-1 K on s0 (0.168 % relative)
 - throat P relative 9.03e-15, mdot relative 1.44e-15
 - mdot relative 1.29e-13
 
@@ -131,46 +140,62 @@ terms. Harmless where the momentum rows sit at the noise floor; see
    of residual evaluations that existed only to build FD columns, and it
    removes FD-noise convergence failures at dome edges. Set
    `settings.jacobian: 'fd'` only for debugging or comparison.
-2. **Exact-key value caching is bounded-LRU only.** `statePH`,
-   `derivativesPH`, and `internalEnergyPH` are memoized in bounded LRU
-   caches of _values_ (8192 exact `(fluid, P, h)` keys each, frozen shared
-   objects — `src/core/fluids/realFluid.ts`), stacked sub-multiplicatively
-   on the analytic Jacobian. Realized hit rates on these hybrid solves:
-   100.0 % of `statePH` calls and
-   100.0 % of `derivativesPH` calls
-   (within-solve exact-key ceiling 87.0 %–91.9 %; warm
-   caches can exceed it). In-dome `statePH` additionally rides the cached
-   saturation properties end to end (including conductivity), so a warm
-   dome evaluation makes zero CoolProp calls. The bound is mandatory: keys
-   are exact IEEE doubles, and an UNBOUNDED map grows without bound on long
-   transients (the 2026-08-07 Darr–Hartwig OOM). Caching CoolProp
-   `AbstractState` objects remains forbidden either way: a corrupted N₂O
-   state must be replaceable with `getFreshState`. Eviction only discards
-   a value that is recomputed bit-identically on the next miss, so results
-   are exact while the heap stays bounded.
+2. **Exact-key value caching is bounded and fused.** One bounded cache of
+   per-key entries (8192 exact `(fluid, P, h)` keys,
+   `src/core/fluids/realFluid.ts`) serves `statePH`, `internalEnergyPH`,
+   and `derivativesPH` together: a `statePH` miss also computes u (a free
+   `umass()` read on its own flash) and — single-phase / supercritical —
+   the analytic partials eagerly, so the other two calls at the same key
+   never re-flash. `derivativesPH` branch-locks to the entry's
+   `statePH` phase verdict. Realized hit rates on these hybrid solves:
+   82.2 %–100.0 % of `statePH` calls and
+   61.0 %–100.0 % of `derivativesPH` calls
+   (within-solve exact-key ceiling 82.2 %–91.9 %; warm
+   caches can exceed it). Supporting structure, same file:
+   - **Region-test order:** with satProps cached at the exact P the
+     inclusive h ∈ [h_f, h_g] test is free; otherwise the HmassP flash runs
+     FIRST and CoolProp's `phase()` verdict short-circuits clearly
+     single-phase states (1 flash instead of 2 PQ saturation solves + 1
+     flash). Two-phase/ambiguous verdicts fall back to getSatProps + the
+     inclusive test, so the dome-edge subgradient convention is unchanged.
+   - **getSatProps also reads the saturation derivatives** while the
+     Q=0 / Q=1 states are positioned (~1 µs each), so getSatDerivs never
+     re-runs the two PQ saturation solves.
+   - **GenCacheMap** (two-generation, bulk-evicting): the LruMap
+     delete+re-insert recency refresh measured ~14 % of solver wall at these
+     hit volumes; a young-generation hit is now a single `Map.get`.
+     The bound is mandatory: keys are exact IEEE doubles, and an UNBOUNDED map
+     grows without bound on long transients (the 2026-08-07 Darr–Hartwig
+     OOM). Caching CoolProp `AbstractState` objects remains forbidden either
+     way: a corrupted N₂O state must be replaceable with `getFreshState`.
+     Eviction only discards a value that is recomputed bit-identically on the
+     next miss, so results are exact while the heap stays bounded.
 3. **Do not port the solver to another language to make real-fluid solves
    fast.** Historically this was an Amdahl statement (CoolProp WASM was
    84 %–95 % of hybrid wall, so solver-side rewrites were capped at
-   1.05×–1.18×). The item 2 value caches flipped the warm hybrid profile to
-   solver-side-majority (70.4 %–91.7 %), but the conclusion
-   stands on different grounds: absolute walls are now
-   56 ms–298 ms
-   on these cases (298 ms for the 75 s two-phase
-   chilldown), the remaining time is spread across residual assembly /
-   cloning / bookkeeping with no single compiled-code-shaped hotspot, and a
-   port would forfeit the browser-worker deployment. Revisit only with a
-   profile of a real workload that is still too slow.
-4. **Keep PropsSI off hot paths.** It incurs a 11.12×
+   1.05×–1.18×). The item 2 caches changed the profile shape (solver-side
+   share is now 25.1 %–93.0 %), but the conclusion stands:
+   absolute walls are
+   30 ms–1.34 s
+   on these cases (1.34 s for the FULL 300 s
+   chilldown horizon), on long horizons the dominant cost is still
+   first-visit CoolProp flashes that a port would not touch, the solver-side
+   remainder is spread across residual assembly / cloning / bookkeeping with
+   no single compiled-code-shaped hotspot, and a port would forfeit the
+   browser-worker deployment. Revisit only with a profile of a real workload
+   that is still too slow.
+4. **Keep PropsSI off hot paths.** It incurs a 9.29×
    per-call overhead vs the cached `AbstractState` interface (see §2).
 
 ## 6. Future work
 
 1. **Evaluate a native CoolProp binding instead of WASM.** Measure the
    WASM-vs-native delta on HEOS flashes (available from Node without
-   porting the solver) before entertaining any port decision. Since the
-   §5 value caches landed, the warm hybrid ceiling for ANY faster property
-   backend is only 1.09×–1.42×;
-   the win would be on cold-cache first solves, FD debugging runs, and the
-   WASM compile itself. This tree still has no native binding, so that
-   delta was not re-measured here.
-2. **Avoid dense-solve micro-optimization.** Dense elimination is 1.1 %–3.5 % of hybrid wall. With property time cached away, residual assembly and state cloning are now the largest hybrid share — any future solver-side optimization should start there, guided by a fresh profile, not here.
+   porting the solver) before entertaining any port decision. The hybrid
+   ceiling for ANY faster property backend is
+   1.08×–3.98×
+   on these cases (highest on the long-horizon chilldown, whose first-visit
+   flashes the value caches cannot absorb); FD debugging runs, cold-cache
+   first solves, and the WASM compile itself would also benefit. This tree
+   still has no native binding, so that delta was not re-measured here.
+2. **Avoid dense-solve micro-optimization.** Dense elimination is 0.4 %–4.3 % of hybrid wall. On warm short solves residual assembly, cloning, and dual arithmetic are the largest share; on long horizons first-visit flashes still lead — either way the dense solve is noise. Guide any future solver-side optimization with a fresh CPU profile.
