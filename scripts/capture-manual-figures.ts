@@ -10,7 +10,7 @@
  *   first-run-orifice.png       §2.3 fig 2-1  orifice sanity check, branch selected
  *   tank-blowdown-results.png   §2.3 fig 2-2  Analysis tab after the transient
  *   tank-blowdown-scrubber.png  §2.3 fig 2-3  canvas colored by pressure + scrubber
- *   regen-cooling-canvas.png    §6.3 fig 6-1  regen cooling channel by temperature
+ *   regen-cooling-canvas.png    §6.3 fig 6-1  conjugate model by temperature
  *   settings-dialog.png         §6.6 fig 6-2  Global Settings over the same model
  *   model-text-view.png         §6.10 fig 6-3 Model Text over the same model
  *
@@ -43,7 +43,7 @@ const VIEWPORT = { width: 1400, height: 920 };
 const SCALE = 2;
 
 const STEADY_TIMEOUT = 30_000;
-/** The regen-cooling channel is a real-fluid model: CoolProp init + solve. */
+/** Spacecraft radiator is a real-fluid model: CoolProp init + solve. */
 const REAL_FLUID_TIMEOUT = 180_000;
 
 function testId(page: Page, id: string): Locator {
@@ -174,10 +174,10 @@ async function capture(baseURL: string): Promise<void> {
     await parkPointer(page);
     await shoot(page, "tank-blowdown-scrubber");
 
-    // --- Figure 6-1: regen cooling channel colored by temperature ------------
+    // --- Figure 6-1: spacecraft radiator colored by temperature --------------
     await loadExample(
       page,
-      "Regenerative cooling channel (LOX/RP-1 booster chamber)",
+      "Spacecraft radiator panel (ammonia loop heat pipe)",
     );
     await runToCompletion(page, REAL_FLUID_TIMEOUT);
     await testId(page, "color-by-select").selectOption({

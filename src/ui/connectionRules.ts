@@ -18,7 +18,12 @@ import {
 
 export type { ConductorKind } from "../core";
 
-function topologyOf(config: NetworkConfig): TopologyModel {
+/**
+ * Build the topology model once for a config; the query helpers below accept
+ * it as an optional last argument so hot paths (e.g. canvas rebuilds) can
+ * reuse a single model instead of rebuilding it per call.
+ */
+export function topologyOf(config: NetworkConfig): TopologyModel {
   return createTopologyModel(
     config.nodes.map((node) => node.id),
     (config.solidNodes ?? []).map((node) => node.id),
@@ -29,8 +34,9 @@ export function fluidBranchEndpointError(
   config: NetworkConfig,
   from: string,
   to: string,
+  topology: TopologyModel = topologyOf(config),
 ): string | null {
-  return topologyFluidBranchEndpointError(topologyOf(config), from, to);
+  return topologyFluidBranchEndpointError(topology, from, to);
 }
 
 export function conductorEndpointError(
@@ -38,8 +44,9 @@ export function conductorEndpointError(
   kind: ConductorKind,
   from: string,
   to: string,
+  topology: TopologyModel = topologyOf(config),
 ): string | null {
-  return topologyConductorEndpointError(topologyOf(config), kind, from, to);
+  return topologyConductorEndpointError(topology, kind, from, to);
 }
 
 export function compatibleConductorNodeIds(
@@ -65,14 +72,16 @@ export function compatibleConductorKinds(
 export function canStartFluidBranch(
   config: NetworkConfig,
   id: string,
+  topology: TopologyModel = topologyOf(config),
 ): boolean {
-  return topologyCanStartFluidBranch(topologyOf(config), id);
+  return topologyCanStartFluidBranch(topology, id);
 }
 
 export function canStartConductor(
   config: NetworkConfig,
   kind: ConductorKind,
   id: string,
+  topology: TopologyModel = topologyOf(config),
 ): boolean {
-  return topologyCanStartConductor(topologyOf(config), kind, id);
+  return topologyCanStartConductor(topology, kind, id);
 }

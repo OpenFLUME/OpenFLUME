@@ -857,7 +857,8 @@ function buildRegenSystem(): {
         key: "Fin",
         label: `Channel fins @ ${st.id}`,
         r: (D1 + CHANNEL_H) / 2,
-        mass: CU_RHO * FIN_SOLIDITY * Math.PI * (D1 + CHANNEL_H) * L * CHANNEL_H,
+        mass:
+          CU_RHO * FIN_SOLIDITY * Math.PI * (D1 + CHANNEL_H) * L * CHANNEL_H,
         T: st.T[1],
         f: 0.5,
       },
@@ -1014,8 +1015,14 @@ export const thrusterCombustor: NetworkConfig = {
       model: "idealGas",
       params: { R: 363.671, gamma: 1.126622, mu: 0.00010611, cp: 3235.774 },
     },
-    lox: { model: "incompressible", params: { rho: 1141, mu: 0.000195, cp: 1700 } },
-    rp1: { model: "incompressible", params: { rho: 810, mu: 0.0017, cp: 2000 } },
+    lox: {
+      model: "incompressible",
+      params: { rho: 1141, mu: 0.000195, cp: 1700 },
+    },
+    rp1: {
+      model: "incompressible",
+      params: { rho: 810, mu: 0.0017, cp: 2000 },
+    },
   },
   junctions: [
     {
@@ -1064,7 +1071,7 @@ export const thrusterCombustor: NetworkConfig = {
     {
       id: "noteNozzle",
       text:
-        "CHOKED CD NOZZLE (see the 'Rocket combustion chamber' example): momentumFlux + kineticEnergy on, throat-clustered stations, initialMdot warm start on every duct branch.\n" +
+        "CHOKED CD NOZZLE: momentumFlux + kineticEnergy on, throat-clustered stations, initialMdot warm start on every duct branch.\n" +
         "The gas properties here are not fixed: gamma, R, mu, cp all update from the CEA lookup as O/F and Pc converge, so the choking condition itself moves during the solve.",
       x: 1095,
       y: 870,

@@ -73,6 +73,22 @@ export default React.memo(function CustomSolidNode({
   const isAmbient = node.type === "ambient";
   const size = SOLID_NODE_SIZE;
 
+  const unitPrefs = useStore((s) => s.unitPreferences);
+
+  // (Hooks stay above the ghost early-return so the hook order is identical
+  // on every render.)
+  const resultChip = React.useMemo(() => {
+    if (resultTemperature === undefined) return null;
+    return formatWithUnit(resultTemperature, "temperature", unitPrefs, 3);
+  }, [resultTemperature, unitPrefs]);
+
+  // Ambient BC chip: configured temperature visible before any run.
+  const bcChip = React.useMemo(() => {
+    if (resultChip || !isAmbient || node.temperature === undefined) return null;
+    if (typeof node.temperature !== "number") return "BC ƒ";
+    return `BC ${formatWithUnit(node.temperature, "temperature", unitPrefs, 3)}`;
+  }, [resultChip, isAmbient, node.temperature, unitPrefs]);
+
   if (isGhost) {
     return (
       <div
@@ -138,20 +154,6 @@ export default React.memo(function CustomSolidNode({
     zIndex: 20,
     cursor: connectionAffordanceActive ? "crosshair" : "default",
   };
-
-  const unitPrefs = useStore((s) => s.unitPreferences);
-
-  const resultChip = React.useMemo(() => {
-    if (resultTemperature === undefined) return null;
-    return formatWithUnit(resultTemperature, "temperature", unitPrefs, 3);
-  }, [resultTemperature, unitPrefs]);
-
-  // Ambient BC chip: configured temperature visible before any run.
-  const bcChip = React.useMemo(() => {
-    if (resultChip || !isAmbient || node.temperature === undefined) return null;
-    if (typeof node.temperature !== "number") return "BC ƒ";
-    return `BC ${formatWithUnit(node.temperature, "temperature", unitPrefs, 3)}`;
-  }, [resultChip, isAmbient, node.temperature, unitPrefs]);
 
   const showName = showsNodeName({
     tier,

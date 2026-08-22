@@ -91,8 +91,8 @@ export default function ScheduleEditor({
 
   const commitCell = (i: number, side: "left" | "right"): ScheduleRow[] => {
     const str = (side === "left" ? rawLeft[i] : rawRight[i]) ?? "";
-    const parsed =
-      str.trim() === "" || str.trim() === "-" ? NaN : parseFloat(str);
+    const trimmed = str.trim();
+    const parsed = trimmed === "" ? NaN : Number(trimmed);
     if (Number.isNaN(parsed)) {
       setFocused(null);
       return rows;
@@ -130,7 +130,24 @@ export default function ScheduleEditor({
     if (focusAfter) pendingFocus.current = { i: source.length, side };
   };
 
-  const remove = (i: number) => onChange(rows.filter((_, idx) => idx !== i));
+  /**
+   * Commit any in-flight cell edit and drop the index-keyed raw-edit and
+   * focus state. Rows are keyed by index, so any operation that reindexes
+   * them (remove, sort) must flush first — otherwise a still-focused cell's
+   * later blur could commit into whichever row now occupies that index.
+   */
+  const flushPendingEdit = (): ScheduleRow[] => {
+    const current = focused ? commitCell(focused.i, focused.side) : rows;
+    setRawLeft({});
+    setRawRight({});
+    setFocused(null);
+    return current;
+  };
+
+  const remove = (i: number) => {
+    const current = flushPendingEdit();
+    onChange(current.filter((_, idx) => idx !== i));
+  };
 
   // Focus a pending cell after rows change (Enter-at-bottom adds + focuses).
   React.useEffect(() => {
@@ -143,7 +160,8 @@ export default function ScheduleEditor({
   }, [rows]);
 
   const sortByX = () => {
-    const sorted = [...rows].sort((a, b) => a[0] - b[0]);
+    const current = flushPendingEdit();
+    const sorted = [...current].sort((a, b) => a[0] - b[0]);
     onChange(sorted);
   };
 
@@ -163,12 +181,7 @@ export default function ScheduleEditor({
       parsed.forEach((r, di) => {
         const ti = focused.i + di;
         if (ti >= next.length) next.push([0, 0]);
-        if (focused.side === "left") {
-          next[ti] = [r[0], di === 0 ? r[1] : next[ti][1]];
-          if (di === 0) next[ti] = [r[0], r[1]];
-        } else {
-          next[ti] = di === 0 ? [r[0], r[1]] : [next[ti][0], r[1]];
-        }
+        next[ti] = [r[0], r[1]];
       });
       onChange(next);
     } else {

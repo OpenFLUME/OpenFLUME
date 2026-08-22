@@ -1215,8 +1215,7 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
     if (fields.logic !== undefined) assembled.logic = fields.logic;
     if (fields.controllers !== undefined)
       assembled.controllers = fields.controllers;
-    if (fields.junctions !== undefined)
-      assembled.junctions = fields.junctions;
+    if (fields.junctions !== undefined) assembled.junctions = fields.junctions;
     if (fields.componentLibrary !== undefined)
       assembled.componentLibrary = fields.componentLibrary;
     assembled.nodes = nodes;

@@ -1,16 +1,13 @@
 import { NetworkConfig } from "./types";
 import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
-import { mirandaRegenCoolingChannel } from "./regenCoolingChannel";
-import { rocketCombustionChamber } from "./rocketCombustionChamber";
 import { thrusterCombustor } from "./thrusterCombustor";
 import { CANVAS_GRID_SIZE } from "./canvasGeometry";
+import { arrayMin, arrayMax } from "./arrayMinMax";
 
 export {
   extensionAdvancedExample,
   lh2StorageTankNoVentFill,
-  mirandaRegenCoolingChannel,
-  rocketCombustionChamber,
   thrusterCombustor,
 };
 
@@ -1622,7 +1619,7 @@ const EX5_COLD_Z = -(0.5 / 2) * EX5_IN;
 const ex5X = (i: number) => EX5_HX_START + (i - 0.5) * EX5_SEG;
 
 export const gfsspEx5WaterWaterHX: NetworkConfig = {
-  meta: { name: "GFSSP Ex.5: Water-water counterflow HX (steady)", version: 2 },
+  meta: { name: "Water-water counterflow heat exchanger", version: 2 },
   settings: {
     mode: "steady",
     dt: 2,
@@ -3097,7 +3094,7 @@ export function buildLeeMartin(options?: {
   }
 
   return {
-    meta: { name: "Lee & Martin: entrapped-air (GFSSP Fig.10)", version: 2 },
+    meta: { name: "Entrapped-air line", version: 2 },
     settings: {
       mode: "transient",
       dt,
@@ -3804,7 +3801,7 @@ export const sindaFluintCryoLineCooldown: NetworkConfig = (() => {
 
   return {
     meta: {
-      name: "SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)",
+      name: "Cryogenic line cooldown",
       version: 2,
     },
     settings: {
@@ -4345,10 +4342,10 @@ function configureShippedExamples(): void {
     const xs = pts.map((p) => p.x);
     const ys = pts.map((p) => p.y);
     return {
-      minX: Math.min(...xs) - glyphPad,
-      minY: Math.min(...ys) - glyphPad,
-      maxX: Math.max(...xs) + glyphPad,
-      maxY: Math.max(...ys) + labelPad,
+      minX: arrayMin(xs) - glyphPad,
+      minY: arrayMin(ys) - glyphPad,
+      maxX: arrayMax(xs) + glyphPad,
+      maxY: arrayMax(ys) + labelPad,
     };
   };
   /** Place a note under the model so it never sits on top of nodes or labels. */
@@ -4643,19 +4640,19 @@ function configureShippedExamples(): void {
   placeNoteBelow(
     gfsspEx5WaterWaterHX,
     "overview",
-    "Reference: GFSSP v5 Manual, Example 5.\n\nTwo water streams pass each other in opposite directions.\nThey exchange heat through a wall between them.\nHot water moves left to right. Cold water moves right to left.\nThere are 12 segments. After Run, outlet temps should be within 0.44 K (hot) and 0.19 K (cold) of the published values.",
+    "Reference: GFSSP Example 5.\n\nTwo water streams pass each other in opposite directions.\nThey exchange heat through a wall between them.\nHot water moves left to right. Cold water moves right to left.\nThere are 12 segments. After Run, outlet temps should be within 0.44 K (hot) and 0.19 K (cold) of the published values.",
     285,
   );
   placeNoteBelow(
     leeMartinEntrappedAir,
     "overview",
-    "Reference: Lee & Martin; GFSSP Figure 10.\n\nWater fills a long pipe. Trapped air sits at the far end.\nEach pipe segment has fluid inertia — flow cannot change instantly.\nAt about 0.15 s the valve opens.\nPress Run and watch pressure go up and down at node 12.",
+    "Reference: GFSSP Figure 10 (Lee & Martin).\n\nWater fills a long pipe. Trapped air sits at the far end.\nEach pipe segment has fluid inertia — flow cannot change instantly.\nAt about 0.15 s the valve opens.\nPress Run and watch pressure go up and down at node 12.",
     285,
   );
   placeNoteBelow(
     sindaFluintCryoLineCooldown,
     "overview",
-    "Cooldown of LH2 Cryogenic Transfer Line\n\nReference: NBS Report 9264, Figure 2",
+    "Reference: NBS Report 9264, Figure 2 (SINDA/FLUINT validation case).\n\nCooldown of an LH2 cryogenic transfer line.\nSaturated liquid hydrogen enters a warm copper pipe; the wall chills station by station.\nPress Run and watch the quench front move down the line.",
     300,
   );
   placeNoteBelow(
@@ -4682,18 +4679,16 @@ export const exampleGroups: Record<string, string[]> = {
     "Water distribution network",
     "Heated pipe with radiating wall (conjugate HT)",
     "Spacecraft radiator panel (ammonia loop heat pipe)",
-    "Regenerative cooling channel (LOX/RP-1 booster chamber)",
-    "Rocket combustion chamber (choked CD nozzle)",
     "LOX/RP-1 thruster (combustor)",
   ],
   Benchmarks: [
-    "GFSSP Ex.5: Water-water counterflow HX (steady)",
-    "Lee & Martin: entrapped-air (GFSSP Fig.10)",
-    "SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)",
+    "Water-water counterflow heat exchanger",
+    "Entrapped-air line",
+    "Cryogenic line cooldown",
   ],
   Extensibility: [
     "Extension: Cryo tank vent control (transient)",
-    "SINDA/FLUINT: LH2 tank no-vent fill (Sample F)",
+    "LH2 tank no-vent fill",
   ],
 };
 
@@ -5027,7 +5022,7 @@ export const nitrousOxideCavitatingVenturiSteady: NetworkConfig = {
 };
 
 /**
- * The shipped example library — these 13 entries populate the UI
+ * The shipped example library — these 12 entries populate the UI
  * **Examples ▾** dropdown (see `exampleGroups`) and are the configs
  * covered by the examples-library round-trip/physics tests.
  *
@@ -5047,14 +5042,10 @@ export const examples: Record<string, NetworkConfig> = {
   "Water distribution network": waterDistributionNetwork,
   "Heated pipe with radiating wall (conjugate HT)": heatedPipeRadiatingWall,
   "Spacecraft radiator panel (ammonia loop heat pipe)": spacecraftRadiatorPanel,
-  "Regenerative cooling channel (LOX/RP-1 booster chamber)":
-    mirandaRegenCoolingChannel,
-  "Rocket combustion chamber (choked CD nozzle)": rocketCombustionChamber,
   "LOX/RP-1 thruster (combustor)": thrusterCombustor,
-  "GFSSP Ex.5: Water-water counterflow HX (steady)": gfsspEx5WaterWaterHX,
-  "Lee & Martin: entrapped-air (GFSSP Fig.10)": leeMartinEntrappedAir,
+  "Water-water counterflow heat exchanger": gfsspEx5WaterWaterHX,
+  "Entrapped-air line": leeMartinEntrappedAir,
   "Extension: Cryo tank vent control (transient)": extensionAdvancedExample,
-  "SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)":
-    sindaFluintCryoLineCooldown,
-  "SINDA/FLUINT: LH2 tank no-vent fill (Sample F)": lh2StorageTankNoVentFill,
+  "Cryogenic line cooldown": sindaFluintCryoLineCooldown,
+  "LH2 tank no-vent fill": lh2StorageTankNoVentFill,
 };

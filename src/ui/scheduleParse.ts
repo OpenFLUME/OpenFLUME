@@ -21,6 +21,15 @@ export function parseDelimited(text: string): string[][] {
     );
 }
 
+/**
+ * Strict full-string numeric parse: "10 ft" or "1.5e3Pa" is rejected rather
+ * than silently truncated the way parseFloat would truncate it.
+ */
+function parseStrictNumber(cell: string): number {
+  const trimmed = cell.trim();
+  return trimmed === "" ? NaN : Number(trimmed);
+}
+
 export interface ScheduleParseResult {
   /** Parsed rows in SI. */
   rows: Array<[number, number]>;
@@ -47,8 +56,8 @@ export function cellsToSchedule(
       skipped++;
       continue;
     }
-    const x = parseFloat(line[0]);
-    const y = parseFloat(line[1]);
+    const x = parseStrictNumber(line[0]);
+    const y = parseStrictNumber(line[1]);
     if (Number.isNaN(x) || Number.isNaN(y)) {
       skipped++;
       continue;

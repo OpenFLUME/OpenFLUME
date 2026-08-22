@@ -42,9 +42,7 @@ describe("examples library: validation, convergence, and physics", () => {
           );
         }
 
-        if (
-          name === "SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)"
-        ) {
+        if (name === "Cryogenic line cooldown") {
           const resolution = resolveNetworkParameters(config);
           expect(resolution.ok).toBe(true);
           if (!resolution.ok) return;
@@ -364,9 +362,7 @@ describe("examples library: validation, convergence, and physics", () => {
             expect(mdots[mdots.length - 1]).toBeLessThan(mdots[1]);
           }
 
-          if (
-            name === "SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)"
-          ) {
+          if (name === "Cryogenic line cooldown") {
             const lastOf = (a: number[]) => a[a.length - 1];
             // The config validates cleanly.
             expect(validateNetwork(config)).toEqual([]);

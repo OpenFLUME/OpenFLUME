@@ -924,15 +924,17 @@ export const useStore = create<StoreState>((set, get) => {
       const cfg = cloneConfig(get().config);
       cfg.nodes = cfg.nodes.filter((n) => n.id !== id);
       cfg.branches = cfg.branches.filter((b) => b.from !== id && b.to !== id);
-      cfg.conductors = (cfg.conductors ?? []).filter(
-        (c) => c.from !== id && c.to !== id,
-      );
+      if (cfg.conductors) {
+        cfg.conductors = cfg.conductors.filter(
+          (c) => c.from !== id && c.to !== id,
+        );
+      }
       const sel = get().selection;
       if (
         (sel.kind === "node" && sel.id === id) ||
         (sel.kind === "branch" && cfg.branches.every((b) => b.id !== sel.id)) ||
         (sel.kind === "conductor" &&
-          cfg.conductors.every((c) => c.id !== sel.id))
+          (cfg.conductors ?? []).every((c) => c.id !== sel.id))
       ) {
         set({ selection: { kind: "none" } });
       }
@@ -953,8 +955,9 @@ export const useStore = create<StoreState>((set, get) => {
     removeSolidNode: (id) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
-      if (!cfg.solidNodes) cfg.solidNodes = [];
-      cfg.solidNodes = cfg.solidNodes.filter((n) => n.id !== id);
+      if (cfg.solidNodes) {
+        cfg.solidNodes = cfg.solidNodes.filter((n) => n.id !== id);
+      }
       if (cfg.conductors) {
         cfg.conductors = cfg.conductors.filter(
           (c) => c.from !== id && c.to !== id,
@@ -976,8 +979,9 @@ export const useStore = create<StoreState>((set, get) => {
     removeConductor: (id) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
-      if (!cfg.conductors) cfg.conductors = [];
-      cfg.conductors = cfg.conductors.filter((c) => c.id !== id);
+      if (cfg.conductors) {
+        cfg.conductors = cfg.conductors.filter((c) => c.id !== id);
+      }
       const sel = get().selection;
       if (sel.kind === "conductor" && sel.id === id) {
         set({ selection: { kind: "none" } });

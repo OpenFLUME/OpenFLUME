@@ -661,6 +661,11 @@ export default function InteractiveChart({
           downloadBlob(blob, `${fileStem()}${light ? "-light" : ""}.png`);
       }, "image/png");
     };
+    img.onerror = () => {
+      console.error(
+        "PNG export failed: the exported SVG could not be rasterized",
+      );
+    };
     img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml);
   };
 

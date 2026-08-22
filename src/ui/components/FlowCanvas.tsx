@@ -106,7 +106,9 @@ import {
   canStartFluidBranch,
   conductorEndpointError,
   fluidBranchEndpointError,
+  topologyOf,
 } from "../connectionRules";
+import { arrayMin, arrayMax } from "../arrayMinMax";
 import { canvasElementFromDrop, startCanvasElementDrag } from "../canvasDnd";
 import { physicalLayout, projectLayout } from "../physicalLayout";
 import {
@@ -901,6 +903,8 @@ export default function FlowCanvas({
   ]);
 
   const connectionToolActiveFor = (id: string): boolean => {
+    const topology = connectionTopology;
+    if (!topology) return false;
     if (connectionSourceId) {
       const source = connectionSourceId.startsWith("ghost-")
         ? connectionSourceId.slice(6)
@@ -908,19 +912,26 @@ export default function FlowCanvas({
       const target = id.startsWith("ghost-") ? id.slice(6) : id;
       if (source === target) return false;
       return (
-        fluidBranchEndpointError(config, source, target) === null ||
+        fluidBranchEndpointError(config, source, target, topology) === null ||
         CONDUCTORS.some(
           (item) =>
-            conductorEndpointError(config, item.id, source, target) === null,
+            conductorEndpointError(
+              config,
+              item.id,
+              source,
+              target,
+              topology,
+            ) === null,
         )
       );
     }
-    if (branchTool) return canStartFluidBranch(config, id);
+    if (branchTool) return canStartFluidBranch(config, id, topology);
     if (conductorTool) {
       return canStartConductor(
         config,
         conductorTool as "conduction" | "convection" | "radiation",
         id,
+        topology,
       );
     }
     return false;
@@ -937,6 +948,15 @@ export default function FlowCanvas({
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectionSourceId, setConnectionSourceId] = useState<string | null>(
     null,
+  );
+  // One topology model per rebuild while a connect tool is armed, shared by
+  // every connectionToolActiveFor call; null (and never built) otherwise.
+  const connectionTopology = useMemo(
+    () =>
+      connectionSourceId || branchTool || conductorTool
+        ? topologyOf(config)
+        : null,
+    [connectionSourceId, branchTool, conductorTool, config],
   );
   const pointerRef = useRef({ x: 0, y: 0 });
 
@@ -1137,9 +1157,9 @@ export default function FlowCanvas({
       // Nodes first (their removal cascades attached edges), then any
       // still-existing selected edges — skipping already-cascaded ones so
       // no undo entry is burned on a no-op removal.
-      const items = [...selection.items].sort((a) =>
-        a.kind === "node" || a.kind === "solidNode" ? -1 : 1,
-      );
+      const rank = (item: MultiSelectionItem) =>
+        item.kind === "node" || item.kind === "solidNode" ? 0 : 1;
+      const items = [...selection.items].sort((a, b) => rank(a) - rank(b));
       for (const item of items) {
         const cfg = useStore.getState().config;
         if (item.kind === "node" && cfg.nodes.some((n) => n.id === item.id))
@@ -2319,15 +2339,16 @@ export default function FlowCanvas({
     const positions = eligibleMemberIds
       .map(
         (id) =>
-          nodesArr.find((n) => n.id === id) ?? solidNodesArr.find((n) => n.id),
+          nodesArr.find((n) => n.id === id) ??
+          solidNodesArr.find((n) => n.id === id),
       )
       .filter((n): n is NodeConfig | SolidNodeConfig => !!n);
     const xs = positions.map((n) => n.x);
     const ys = positions.map((n) => n.y);
     // The container sits centered on the member bounding box.
     const origin = groupOriginForCenter(
-      (Math.min(...xs) + Math.max(...xs)) / 2,
-      (Math.min(...ys) + Math.max(...ys)) / 2,
+      (arrayMin(xs) + arrayMax(xs)) / 2,
+      (arrayMin(ys) + arrayMax(ys)) / 2,
     );
     const { x: cx, y: cy } = snapOriginToGrid(
       origin,
@@ -2460,11 +2481,11 @@ export default function FlowCanvas({
       .filter((node): node is NodeConfig | SolidNodeConfig => !!node);
     if (selected.length) {
       const right =
-        Math.max(...selected.map((node) => node.x)) * canvasViewport.zoom +
+        arrayMax(selected.map((node) => node.x)) * canvasViewport.zoom +
         canvasViewport.x +
         32;
       const top =
-        Math.min(...selected.map((node) => node.y)) * canvasViewport.zoom +
+        arrayMin(selected.map((node) => node.y)) * canvasViewport.zoom +
         canvasViewport.y -
         8;
       return { x: right, y: Math.max(8, top) };

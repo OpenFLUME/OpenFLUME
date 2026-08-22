@@ -511,8 +511,7 @@ function JunctionSection({
                   inlets: [],
                   model: {
                     type: "ceaTable",
-                    propellants:
-                      propellantChoices[0] as CombustionPropellants,
+                    propellants: propellantChoices[0] as CombustionPropellants,
                   },
                   productFluid:
                     node.fluid && productFluidChoices.includes(node.fluid)
@@ -530,9 +529,9 @@ function JunctionSection({
       </div>
       {!junction && !canCreate && (
         <div className="property-panel__hint">
-          Requires a named idealGas fluid to act as the combustion product
-          (its R/γ/μ/cp are rewritten from the thermochemistry lookup). Add
-          one under Settings → Fluids first.
+          Requires a named idealGas fluid to act as the combustion product (its
+          R/γ/μ/cp are rewritten from the thermochemistry lookup). Add one under
+          Settings → Fluids first.
         </div>
       )}
       {junction && (
@@ -601,13 +600,11 @@ function JunctionSection({
               </option>
             ))}
           </FieldSelect>
-          <div className="micro-label property-panel__group">
-            Inlet Roles
-          </div>
+          <div className="micro-label property-panel__group">Inlet Roles</div>
           {inbound.length === 0 ? (
             <div className="property-panel__hint">
-              No branch ends at this node yet. Draw the reactant feed
-              branches into it, then assign each one a role here.
+              No branch ends at this node yet. Draw the reactant feed branches
+              into it, then assign each one a role here.
             </div>
           ) : (
             inbound.map((b) => (
@@ -630,11 +627,11 @@ function JunctionSection({
             ))
           )}
           <div className="property-panel__hint">
-            The node&apos;s energy equation becomes the thermochemical
-            closure h = efficiency · h(T0(Pc, O/F)) solved inside the Newton
-            system; the product fluid&apos;s gas properties refresh from the
-            same lookup. Requires steady mode with kinetic energy enabled,
-            and every role above must be covered by at least one inlet.
+            The node&apos;s energy equation becomes the thermochemical closure h
+            = efficiency · h(T0(Pc, O/F)) solved inside the Newton system; the
+            product fluid&apos;s gas properties refresh from the same lookup.
+            Requires steady mode with kinetic energy enabled, and every role
+            above must be covered by at least one inlet.
           </div>
         </>
       )}
@@ -674,10 +671,39 @@ function KTableField({
     () => resolveSnapshot(config, result, liveResult, runStatus, timeIndex),
     [config, result, liveResult, runStatus, timeIndex],
   );
+  // An empty or malformed table (caught by solve-time validation, but this
+  // renders before that runs) must not reach CustomResistance or the range
+  // readout below — fall through to an inline note instead of crashing.
+  const validTable =
+    table.length > 0 &&
+    table.every(
+      (row) =>
+        Array.isArray(row) &&
+        row.length >= 2 &&
+        typeof row[0] === "number" &&
+        typeof row[1] === "number",
+    );
   const interpolator = React.useMemo(
-    () => new CustomResistance({ kTable: table }, 1),
-    [table],
+    () => (validTable ? new CustomResistance({ kTable: table }, 1) : null),
+    [table, validTable],
   );
+
+  if (!validTable || !interpolator) {
+    return (
+      <div className="field">
+        <div className="field__label">K factor — K(Re) table</div>
+        <div className="property-panel__readout" data-testid="ktable-summary">
+          <div className="kv">
+            <span className="kv__key">Table</span>
+            <span className="kv__value">empty or malformed</span>
+          </div>
+        </div>
+        <div className="field__hint">
+          The K(Re) table has no usable points — edit it in the model text view.
+        </div>
+      </div>
+    );
+  }
 
   const reMin = table[0][0];
   const reMax = table[table.length - 1][0];

@@ -877,12 +877,14 @@ export default function ModelTableView({
             ariaLabel={`Temperature for ${n.id} (${tUnit})`}
           />
         ),
-      csv: (n) =>
-        isParameterExpression(n.temperature)
-          ? `ƒ${n.temperature.expr}`
-          : String(
-              convertFromSI("temperature", siNumber(n.temperature)!, tUnitId),
-            ),
+      csv: (n) => {
+        if (isParameterExpression(n.temperature))
+          return `ƒ${n.temperature.expr}`;
+        const t = siNumber(n.temperature);
+        return t === undefined
+          ? ""
+          : String(convertFromSI("temperature", t, tUnitId));
+      },
     },
     {
       key: "mass",

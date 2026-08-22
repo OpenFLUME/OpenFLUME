@@ -1043,7 +1043,7 @@ export const lh2StorageTankNoVentFill: NetworkConfig = (() => {
   ];
 
   return {
-    meta: { name: "SINDA/FLUINT F: LH2 storage tank no-vent fill", version: 2 },
+    meta: { name: "LH2 tank no-vent fill", version: 2 },
     settings: {
       mode: "transient",
       dt: 2.5,
@@ -1144,8 +1144,9 @@ export const lh2StorageTankNoVentFill: NetworkConfig = (() => {
       {
         id: "overview",
         text:
-          "SINDA/FLUINT Sample Problem F: no-vent fill of an LH2 storage tank from a\n" +
-          "60 psia source, starting half full and saturated at 42.6 R.\n\n" +
+          "Reference: SINDA/FLUINT Sample Problem F (TVS).\n\n" +
+          "No-vent fill of an LH2 storage tank from a 60 psia source, starting half\n" +
+          "full and saturated at 42.6 R.\n\n" +
           "Twinned tanks and moveable ties are EMULATED with registers, logic rules and\n" +
           "register controllers -- see the module header.  The twins are boundary nodes\n" +
           "whose (P, T) are integrated in logic and imposed each step, with densities and\n" +

@@ -1062,7 +1062,7 @@ test.describe("OpenFLUME E2E", () => {
     // Load the realFluid example (model was modified above, so confirm the replace)
     await page
       .locator('[data-testid="toolbar-examples"]')
-      .selectOption("SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)");
+      .selectOption("Cryogenic line cooldown");
     await page.locator('[data-testid="confirm-dialog-accept"]').click();
     await page.waitForTimeout(300);
 
@@ -1740,7 +1740,7 @@ test.describe("OpenFLUME E2E", () => {
 
     await page
       .locator('[data-testid="toolbar-examples"]')
-      .selectOption("SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)");
+      .selectOption("Cryogenic line cooldown");
     await page.waitForTimeout(300);
 
     // Wait for CoolProp WASM to initialise (realFluid Hydrogen)

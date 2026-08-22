@@ -60,6 +60,28 @@ describe("scheduleParse", () => {
     expect(skipped).toBe(3);
   });
 
+  it("rejects cells with trailing garbage instead of truncating", () => {
+    const { rows, skipped } = parseScheduleText(
+      "10 ft\t100\n0\t1.5e3Pa\n1\t90\n",
+      "time",
+      "pressure",
+      "s",
+      "Pa",
+    );
+    expect(rows).toEqual([[1, 90]]);
+    expect(skipped).toBe(2);
+    // Plain scientific notation still parses.
+    const sci = cellsToSchedule(
+      [["1.5e3", "2"]],
+      "time",
+      "pressure",
+      "s",
+      "Pa",
+    );
+    expect(sci.rows).toEqual([[1500, 2]]);
+    expect(sci.skipped).toBe(0);
+  });
+
   it("firstMonotonicViolation finds the first out-of-order row", () => {
     expect(
       firstMonotonicViolation([

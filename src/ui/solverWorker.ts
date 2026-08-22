@@ -4,7 +4,6 @@
  * Protocol (typed messages via postMessage / onmessage):
  *   Main → Worker:
  *     { type: 'run', config: NetworkConfig, mode: 'steady' | 'transient' }
- *     { type: 'cancel' }
  *   Worker → Main:
  *     { type: 'ready' }
  *     { type: 'coolpropLoading' }
@@ -14,9 +13,10 @@
  *
  * Cancellation:
  *   The solve loops are synchronous and run to completion in a single event-loop
- *   turn, so a posted 'cancel' message cannot be observed mid-solve by a simple
- *   flag. We do NOT use SharedArrayBuffer (requires crossOriginIsolated headers).
- *   Instead, the client wrapper terminates the worker and respawns a fresh one.
+ *   turn, so a posted message cannot be observed mid-solve by a simple flag,
+ *   and we do NOT use SharedArrayBuffer (requires crossOriginIsolated headers).
+ *   There is deliberately no in-band cancel message: the client wrapper
+ *   (workerClient.ts) terminates the worker and respawns a fresh one.
  *   This is the simplest robust choice and avoids header configuration.
  *
  * Progress throttling:
@@ -37,8 +37,6 @@ import {
   initRealFluids,
   networkUsesRealFluid,
 } from "../core";
-
-let _cancelled = false;
 
 export interface PreparedWorkerRun {
   config: NetworkConfig;
@@ -86,17 +84,38 @@ export function prepareWorkerRun(
   };
 }
 
+/** Drop the exfiltration-capable globals from the worker scope before any
+ *  solve runs.  User componentLibrary code executes inside this worker
+ *  during a solve (usercode/sandbox.ts documents that `new Function` strict
+ *  mode is NOT a security boundary — the global object stays reachable), and
+ *  a solve needs no network or storage.  Called AFTER CoolProp WASM init,
+ *  which may legitimately fetch its assets.  Best-effort: a non-writable
+ *  global is skipped rather than failing the solve. */
+function hardenWorkerScope(): void {
+  const g = self as unknown as Record<string, unknown>;
+  for (const name of [
+    "fetch",
+    "XMLHttpRequest",
+    "WebSocket",
+    "EventSource",
+    "importScripts",
+    "indexedDB",
+    "caches",
+  ]) {
+    try {
+      g[name] = undefined;
+    } catch {
+      // non-configurable/non-writable global — leave it
+    }
+  }
+}
+
 function installWorkerHandlers(): void {
   self.onmessage = async (event: MessageEvent<unknown>) => {
     const msg =
       typeof event.data === "object" && event.data !== null
         ? (event.data as Record<string, unknown>)
         : null;
-
-    if (msg?.type === "cancel") {
-      _cancelled = true;
-      return;
-    }
 
     if (msg?.type !== "run") return;
 
@@ -106,7 +125,6 @@ function installWorkerHandlers(): void {
       return;
     }
     const { config, mode } = prepared.run;
-    _cancelled = false;
 
     try {
       if (networkUsesRealFluid(config)) {
@@ -121,6 +139,10 @@ function installWorkerHandlers(): void {
           return;
         }
       }
+
+      // After optional CoolProp init (which fetches WASM assets), before any
+      // user component code can run inside the solve.
+      hardenWorkerScope();
 
       if (mode === "transient") {
         let lastProgressTime = 0;
@@ -144,7 +166,6 @@ function installWorkerHandlers(): void {
               },
             });
           },
-          shouldAbort: () => _cancelled,
         });
         self.postMessage({ type: "done", result });
       } else {
@@ -164,10 +185,7 @@ function installWorkerHandlers(): void {
             },
           });
         };
-        const result = solveSteady(config, {
-          onProgress,
-          shouldAbort: () => _cancelled,
-        });
+        const result = solveSteady(config, { onProgress });
         self.postMessage({ type: "done", result });
       }
     } catch (err: any) {

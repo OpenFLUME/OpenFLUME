@@ -78,6 +78,40 @@ export default React.memo(function CustomNode({
   );
   const size = fluidNodeSize(node.type);
 
+  const unitPrefs = useStore((s) => s.unitPreferences);
+
+  // Result chip: P · T at 3 sig figs in the user's units.  (Hooks stay above
+  // the ghost early-return so the hook order is identical on every render.)
+  const resultChip = React.useMemo(() => {
+    if (resultPressure === undefined && resultTemperature === undefined)
+      return null;
+    const parts: string[] = [];
+    if (resultPressure !== undefined)
+      parts.push(formatWithUnit(resultPressure, "pressure", unitPrefs, 3));
+    if (resultTemperature !== undefined)
+      parts.push(
+        formatWithUnit(resultTemperature, "temperature", unitPrefs, 3),
+      );
+    return parts.join(" · ");
+  }, [resultPressure, resultTemperature, unitPrefs]);
+
+  // Boundary-condition chip: configured P/T visible BEFORE any run, styled
+  // hollow + "BC" so an unrun screenshot can't be mistaken for results.
+  const bcChip = React.useMemo(() => {
+    if (resultChip || !isBoundary) return null;
+    const parts: string[] = [];
+    if (typeof node.pressure === "number")
+      parts.push(formatWithUnit(node.pressure, "pressure", unitPrefs, 3));
+    if (typeof node.temperature === "number")
+      parts.push(formatWithUnit(node.temperature, "temperature", unitPrefs, 3));
+    if (
+      parts.length === 0 &&
+      (node.pressure !== undefined || node.temperature !== undefined)
+    )
+      return "BC ƒ";
+    return parts.length ? `BC ${parts.join(" · ")}` : null;
+  }, [resultChip, isBoundary, node.pressure, node.temperature, unitPrefs]);
+
   if (isGhost) {
     return (
       <div
@@ -159,39 +193,6 @@ export default React.memo(function CustomNode({
     zIndex: 20,
     cursor: connectionAffordanceActive ? "crosshair" : "default",
   };
-
-  const unitPrefs = useStore((s) => s.unitPreferences);
-
-  // Result chip: P · T at 3 sig figs in the user's units.
-  const resultChip = React.useMemo(() => {
-    if (resultPressure === undefined && resultTemperature === undefined)
-      return null;
-    const parts: string[] = [];
-    if (resultPressure !== undefined)
-      parts.push(formatWithUnit(resultPressure, "pressure", unitPrefs, 3));
-    if (resultTemperature !== undefined)
-      parts.push(
-        formatWithUnit(resultTemperature, "temperature", unitPrefs, 3),
-      );
-    return parts.join(" · ");
-  }, [resultPressure, resultTemperature, unitPrefs]);
-
-  // Boundary-condition chip: configured P/T visible BEFORE any run, styled
-  // hollow + "BC" so an unrun screenshot can't be mistaken for results.
-  const bcChip = React.useMemo(() => {
-    if (resultChip || !isBoundary) return null;
-    const parts: string[] = [];
-    if (typeof node.pressure === "number")
-      parts.push(formatWithUnit(node.pressure, "pressure", unitPrefs, 3));
-    if (typeof node.temperature === "number")
-      parts.push(formatWithUnit(node.temperature, "temperature", unitPrefs, 3));
-    if (
-      parts.length === 0 &&
-      (node.pressure !== undefined || node.temperature !== undefined)
-    )
-      return "BC ƒ";
-    return parts.length ? `BC ${parts.join(" · ")}` : null;
-  }, [resultChip, isBoundary, node.pressure, node.temperature, unitPrefs]);
 
   const showName = showsNodeName({
     tier,

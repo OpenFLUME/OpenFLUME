@@ -15,6 +15,7 @@ import { NetworkConfig, SteadyResult, TransientResult } from "./types";
 import { QuantityKind } from "./units";
 import { resolveFluidSpec } from "../core";
 import { siNumber } from "./format";
+import { arrayMin, arrayMax } from "./arrayMinMax";
 import {
   channelFieldInfo,
   listChannelFields,
@@ -304,10 +305,13 @@ function finalizeColorData(
   if (allValues.length === 0) {
     naturalDomain = [0, 0];
   } else if (FRACTION_FIELDS.has(colorBy)) {
-    naturalDomain = [Math.min(0, ...allValues), Math.max(1, ...allValues)];
+    naturalDomain = [
+      Math.min(0, arrayMin(allValues)),
+      Math.max(1, arrayMax(allValues)),
+    ];
   } else {
-    const min = Math.min(...allValues);
-    const max = Math.max(...allValues);
+    const min = arrayMin(allValues);
+    const max = arrayMax(allValues);
     naturalDomain = min === max ? [min - 1, max + 1] : [min, max];
   }
 

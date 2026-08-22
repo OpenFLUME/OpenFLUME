@@ -240,7 +240,7 @@ test.describe("Release hardening", () => {
     // plus 12 wall nodes on the middle row (38 canvas nodes total).
     await page
       .locator('[data-testid="toolbar-examples"]')
-      .selectOption("GFSSP Ex.5: Water-water counterflow HX (steady)");
+      .selectOption("Water-water counterflow heat exchanger");
     await page.waitForTimeout(400);
     const hx = await noOverlaps();
     expect(hx.count).toBeGreaterThanOrEqual(30); // 26 fluid + 12 wall nodes
@@ -253,7 +253,10 @@ test.describe("Release hardening", () => {
     // canvasLayout normalization). Not dirty → no confirm.
     await page
       .locator('[data-testid="toolbar-examples"]')
-      .selectOption("SINDA/FLUINT: Cryogenic line cooldown (NBS 9264, Fig. 2)");
+      .selectOption("Cryogenic line cooldown");
+    await expect(
+      page.locator('[data-testid="confirm-dialog-accept"]'),
+    ).toHaveCount(0);
     await page.waitForTimeout(400);
     const nbsCooldown = await noOverlaps();
     expect(nbsCooldown.count).toBeGreaterThanOrEqual(40); // 20 fluid + 20 wall nodes + boundaries

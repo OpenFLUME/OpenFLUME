@@ -26,6 +26,7 @@
  * and are reported as inferred.
  */
 import type { PhysicalPosition } from "../core";
+import { arrayMin, arrayMax } from "./arrayMinMax";
 import {
   fluidNodeCenter,
   solidNodeCenter,
@@ -89,7 +90,7 @@ function finite(value: unknown): number | undefined {
 
 function span(values: number[]): number {
   if (values.length < 2) return 0;
-  return Math.max(...values) - Math.min(...values);
+  return arrayMax(values) - arrayMin(values);
 }
 
 /**

@@ -507,21 +507,28 @@ function ResultsOverview({
 }) {
   const prefs = useStore((s) => s.unitPreferences);
   const labels = useLabelMap(config);
-  const nodes =
-    "times" in result
-      ? Object.values(result.nodes).flatMap((n) =>
-          n.pressure.map((pressure, i) => ({
-            pressure,
-            temperature: n.temperature[i],
-          })),
-        )
-      : Object.values(result.nodes);
-  const branches =
-    "times" in result
-      ? Object.values(result.branches).flatMap((b) => b.mdot)
-      : Object.values(result.branches).map((b) => b.mdot);
-  const pressures = nodes.map((n) => n.pressure);
-  const temperatures = nodes.map((n) => n.temperature);
+  const { pressures, temperatures, peakAbsFlow } = useMemo(() => {
+    const nodes =
+      "times" in result
+        ? Object.values(result.nodes).flatMap((n) =>
+            n.pressure.map((pressure, i) => ({
+              pressure,
+              temperature: n.temperature[i],
+            })),
+          )
+        : Object.values(result.nodes);
+    const branches =
+      "times" in result
+        ? Object.values(result.branches).flatMap((b) => b.mdot)
+        : Object.values(result.branches).map((b) => b.mdot);
+    return {
+      pressures: nodes.map((n) => n.pressure),
+      temperatures: nodes.map((n) => n.temperature),
+      peakAbsFlow: branches.length
+        ? branches.reduce((peak, mdot) => Math.max(peak, Math.abs(mdot)), 0)
+        : null,
+    };
+  }, [result]);
   const isTransient = "times" in result;
   const sigFigs = useStore((s) => s.resultSigFigs);
   const pressureRange = pressures.length
@@ -530,14 +537,10 @@ function ResultsOverview({
   const temperatureRange = temperatures.length
     ? formatRangeScaled(temperatures, "temperature", prefs.temperature, sigFigs)
     : "No nodes";
-  const peakFlow = branches.length
-    ? formatWithUnit(
-        Math.max(...branches.map(Math.abs)),
-        "massFlow",
-        prefs,
-        sigFigs,
-      )
-    : "No branches";
+  const peakFlow =
+    peakAbsFlow !== null
+      ? formatWithUnit(peakAbsFlow, "massFlow", prefs, sigFigs)
+      : "No branches";
   const cautious =
     ("stats" in result && !!result.stats?.dtAtMinCount) || !result.converged;
   const status = result.converged
