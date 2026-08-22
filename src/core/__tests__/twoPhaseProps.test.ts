@@ -260,13 +260,17 @@ describe("statePH performance", () => {
 
     // Warm-up (WASM/JIT, saturation caches).
     for (let i = 0; i < 10; i++) fluid.statePH(P, hf + 0.5 * (hg - hf));
+    fluid.statePH(P, hf - 5e3);
 
-    // Uncached path: a distinct exact h each call (offsets < 1 J/kg keep the
-    // state mid-dome) so every call misses the (fluid, P, h) value cache.
+    // Uncached SINGLE-PHASE path: a distinct exact h each call (subcooled
+    // liquid, offsets ≪ the 5 kJ/kg subcooling) so every call misses the
+    // (fluid, P, h) value cache AND pays a real HmassP flash.  (In-dome
+    // misses no longer flash at all once satProps is cached, so they are
+    // useless as a flash-latency probe.)
     const runs = 500;
     const t0 = performance.now();
     for (let i = 0; i < runs; i++) {
-      fluid.statePH(P, hf + 0.5 * (hg - hf) + i * 1e-3);
+      fluid.statePH(P, hf - 5e3 - i * 1e-3);
     }
     const t1 = performance.now();
     const missUs = ((t1 - t0) * 1000) / runs; // ms → µs

@@ -257,7 +257,10 @@ const Gamma = (g: number) =>
 /** Isentropic A/A*(M). */
 const areaRatioOfM = (M: number, g: number) =>
   (1 / M) *
-  Math.pow(((2 / (g + 1)) * (1 + ((g - 1) / 2) * M * M)), (g + 1) / (2 * (g - 1)));
+  Math.pow(
+    (2 / (g + 1)) * (1 + ((g - 1) / 2) * M * M),
+    (g + 1) / (2 * (g - 1)),
+  );
 
 /** Invert A/A* on the requested branch by bisection. */
 function machOfAreaRatio(ar: number, g: number, branch: "sub" | "sup"): number {
@@ -293,16 +296,12 @@ let cstarGapMax = 0;
 let cstarGapAt = { pc: 0, of: 0 };
 for (let i = 0; i < NPC; i++) {
   const pc =
-    bounds.pcMinPa *
-    Math.pow(bounds.pcMaxPa / bounds.pcMinPa, i / (NPC - 1));
+    bounds.pcMinPa * Math.pow(bounds.pcMaxPa / bounds.pcMinPa, i / (NPC - 1));
   for (let j = 0; j < NOF; j++) {
     const of = bounds.ofMin + ((bounds.ofMax - bounds.ofMin) * j) / (NOF - 1);
     const { state } = lookupCombustionGas(PROP, pc, of);
     const cpFromGamma = (state.gamma / (state.gamma - 1)) * state.R;
-    cpErrMax = Math.max(
-      cpErrMax,
-      Math.abs(state.cp - cpFromGamma) / state.cp,
-    );
+    cpErrMax = Math.max(cpErrMax, Math.abs(state.cp - cpFromGamma) / state.cp);
     // Tabulated c* is CEA's EQUILIBRIUM value; the frozen closed form from
     // the tabulated (T0, gamma_s, R) differs by the equilibrium/frozen gap.
     const cstarFrozen = Math.sqrt(state.R * state.T0) / Gamma(state.gamma);
@@ -348,10 +347,7 @@ writeFig(
 
 const gammaSeries: Series[] = pcLevels.map((pc, i) => ({
   label: `Pc = ${sig(pc / 1e5, 3)} bar`,
-  pts: ofSweep.map((of) => [
-    of,
-    lookupCombustionGas(PROP, pc, of).state.gamma,
-  ]),
+  pts: ofSweep.map((of) => [of, lookupCombustionGas(PROP, pc, of).state.gamma]),
   color: [C.blue, C.red, C.green][i],
   mode: "line" as const,
 }));
@@ -372,7 +368,8 @@ writeFig(
   3,
   "cea-cstar-of",
   lineChart({
-    title: "Characteristic velocity at Pc = 10 bar: table vs frozen closed form",
+    title:
+      "Characteristic velocity at Pc = 10 bar: table vs frozen closed form",
     xLabel: "Mixture ratio O/F",
     yLabel: "c* [m/s]",
     series: [
@@ -643,7 +640,9 @@ interface LegStat {
   maxT: number;
   maxM: number;
 }
-function legStats(leg: Map<string, { P: number; T: number; M: number }>): LegStat {
+function legStats(
+  leg: Map<string, { P: number; T: number; M: number }>,
+): LegStat {
   let maxP = 0;
   let maxT = 0;
   let maxM = 0;
@@ -704,7 +703,8 @@ function profileFig(
       marker: "triangle",
     },
     {
-      label: artifactIds.size > 0 ? "solver (clean stations)" : "solver stations",
+      label:
+        artifactIds.size > 0 ? "solver (clean stations)" : "solver stations",
       pts: stations
         .filter((st) => !artifactIds.has(st.id))
         .map((st) => [st.z, pick(solvedAt(st))]),
@@ -898,8 +898,7 @@ const coolantRise =
   mdotFuel *
   CP_RP1 *
   (res.nodes.chamberCoolant.temperature - res.nodes.fuelTank.temperature);
-const coolantBalanceErr =
-  Math.abs(coolantFilmQ - coolantRise) / coolantRise;
+const coolantBalanceErr = Math.abs(coolantFilmQ - coolantRise) / coolantRise;
 
 // Analytic fin efficiency at throat conditions vs the modeled constant.
 const H_COOL = 15000;

@@ -127,14 +127,14 @@ add model types without touching the solver.
 Converged junction solution of the shipped thruster example vs the
 formula-coupled twin (`basic-lox-rp1-thruster.fn`, fixed γ = 1.2 gas):
 
-| Quantity | Twin | Junction | Note |
-| --- | --- | --- | --- |
-| Pc | 986.6 kPa | 983.3 kPa | −0.3 % |
-| ṁ_ox | 0.5472 kg/s | 0.5622 kg/s | +2.7 % |
-| ṁ_fuel | 0.2105 kg/s | 0.2170 kg/s | +3.1 % |
-| O/F | 2.600 | 2.592 | — |
-| T_chamber | 3192.8 K | 3190.9 K | = η·T0 exactly |
-| emergent c* = Pc·At/ṁ | 1636 m/s | 1586 m/s | vs η_c*·c*_CEA = 1701 m/s |
+| Quantity              | Twin        | Junction    | Note                      |
+| --------------------- | ----------- | ----------- | ------------------------- |
+| Pc                    | 986.6 kPa   | 983.3 kPa   | −0.3 %                    |
+| ṁ_ox                  | 0.5472 kg/s | 0.5622 kg/s | +2.7 %                    |
+| ṁ_fuel                | 0.2105 kg/s | 0.2170 kg/s | +3.1 %                    |
+| O/F                   | 2.600       | 2.592       | —                         |
+| T_chamber             | 3192.8 K    | 3190.9 K    | = η·T0 exactly            |
+| emergent c* = Pc·At/ṁ | 1636 m/s    | 1586 m/s    | vs η_c*·c*_CEA = 1701 m/s |
 
 The few-percent shifts are physics, not error: the junction runs the CEA
 equilibrium gas (γ ≈ 1.127, cp ≈ 3236 J/kg·K) where the twin fixes γ = 1.2,
@@ -173,7 +173,7 @@ all** — Newton walks away even from an exact isentropic seed.
 The solver now closes this with **limited-upwind momentum faces**
 (`settings.momentumFluxScheme: "upwind"`, the default): each compressible
 branch (ideal gas; real fluid when `kineticEnergy` is on) carries one
-exit-face velocity built from its *upstream* node's
+exit-face velocity built from its _upstream_ node's
 density plus a MUSCL/van Albada slope-limited correction, and its momentum
 row advects the feeding branches' face velocities — the standard
 system-code discretization (GFSSP-style donor-cell advection with a

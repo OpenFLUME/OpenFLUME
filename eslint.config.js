@@ -14,6 +14,7 @@ export default tseslint.config(
       "playwright-report/**",
       "test-results/**",
       "validation/**",
+      ".venv*/**",
     ],
   },
   eslint.configs.recommended,
@@ -47,7 +48,7 @@ export default tseslint.config(
       "react-refresh": reactRefresh,
     },
     rules: {
-      "react-hooks/rules-of-hooks": "warn",
+      "react-hooks/rules-of-hooks": "error",
       "react-hooks/exhaustive-deps": "warn",
       "react-refresh/only-export-components": [
         "warn",

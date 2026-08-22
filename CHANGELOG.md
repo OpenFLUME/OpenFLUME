@@ -26,6 +26,71 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   gases. Validated with a nitrogen choked CD nozzle against an analytic
   ideal-gas twin (0.17 % mass-flow agreement, flat-cold-start robustness).
 
+### Fixed
+
+- **Reported branch ΔP under `momentumFlux`** — the reported pressure drop
+  now mirrors the converged momentum row exactly (`P_from − P_to` less the
+  fluid-inertia term) instead of re-deriving a legacy constant-area central
+  acceleration term that disagreed with the default upwind scheme, tapered
+  branches, and junction-inlet exclusions.
+- **Critical-point lookup fails loudly** — a failed CoolProp `PCRIT`/`TCRIT`
+  read now throws instead of silently caching a fabricated critical point
+  (`Pc = 1e7 Pa, Tc = 300 K`) that misrouted every downstream phase-region
+  decision for the process lifetime.
+- **Near-critical two-phase states** — the `h_g − h_f` gap is clamped in
+  `statePH`'s dome branch and `twoPhaseDerivs`, so pressures approaching
+  `Pc⁻` yield huge-but-finite qualities/derivatives instead of NaN/∞ in the
+  Newton Jacobian. PT- and PH-path property reads gained output finiteness
+  guards.
+- **Zero-flow NaNs** — `darcyFrictionFactor` guards a non-finite Reynolds
+  number (mdot = 0 with a zero-viscosity fluid) like its dual twin, fixing
+  `Pipe`/`Bend.pressureDrop`; `HeatedPipe.getBranchHeat` returns 0 at zero
+  flow instead of NaN when `ua = 0`.
+- **`solveDense` regularization keeps the pivot sign** — a near-singular
+  negative pivot no longer flips the Newton step direction.
+- **Convection dispatcher fails loudly on an unknown correlation model**
+  instead of silently evaluating it as Darr–Hartwig.
+- **Pump curve validation** now requires strictly increasing flow points
+  (the interpolator's assumption).
+- **Canvas subnetwork creation** — a selected solid node's position is
+  looked up by id (a truthiness bug could place the group container far
+  from its members).
+- **Schedule editor** — pasted multi-row blocks keep both columns; pending
+  cell edits are committed and cleared before row remove/sort (a stale
+  index could corrupt a reindexed row in Safari/Firefox); numeric cells
+  reject trailing garbage ("10 ft") instead of silently truncating.
+- **UI robustness** — `KTableField` no longer crashes on an empty K-table;
+  solid-node temperature CSV export emits an empty cell instead of "NaN";
+  store removal actions no longer materialize absent optional arrays;
+  large-array `Math.min/max` spreads replaced with loop helpers; chart PNG
+  export reports image-load failures; conditional React hooks in
+  `CustomNode`/`CustomSolidNode` hoisted above the ghost early-return;
+  connect-tool canvas rebuilds reuse one topology model (was O(N²)).
+- **Solver worker hardening** — exfiltration-capable globals (`fetch`,
+  `XMLHttpRequest`, `WebSocket`, `indexedDB`, `caches`, …) are stripped
+  from the worker scope before any solve, as defense in depth around
+  user-authored component code; the dead in-band cancel protocol was
+  removed (cancel is terminate+respawn).
+- **CI/config** — the scheduled/main job now runs the slow scientific
+  suite (`RUN_SLOW=1`) and the full Playwright e2e suite (previously never
+  run anywhere); `react-hooks/rules-of-hooks` is a lint error;
+  `scripts/**` is typechecked; deploy credentials are scoped to the deploy
+  job; stale example counts corrected.
+
+### Changed
+
+- **Example library** — dropped the standalone regenerative-cooling-channel
+  and choked-CD-nozzle examples. Regenerative cooling and the choked nozzle
+  now live only in the LOX/RP-1 thruster (combustor), which already couples
+  both to a CEA reacting junction. Twelve shipped examples remain.
+  Benchmark names no longer lead with GFSSP or SINDA/FLUINT; the citation
+  is on the canvas note (e.g. "Reference: GFSSP Figure 10").
+- **Real-fluid performance report** — re-measured on the current solver
+  (limited-upwind faces, real-fluid transonic `[P, ṁ, h]`). Analytic Jacobian
+  still dominates CoolProp cost; `statePH` memoization is documented as a
+  would-be cache, not an implemented one. Regenerable via
+  `npx tsx scripts/real-fluid-performance.ts`.
+
 ## [0.1.0] - 2026-08-20
 
 Initial public release of OpenFLUME (Open FLUid Model Environment).
