@@ -20,7 +20,7 @@
  *      x1.5) is asserted here.  Fully uniform P/T states are NOT asserted:
  *      even with the default upwind momentum faces removing the central
  *      scheme's expansion-shock roots (see docs/combustion.md), the coupled
- *      junction + 22-station transonic system keeps a stiff enough basin
+ *      junction + 42-station transonic system keeps a stiff enough basin
  *      that an arbitrarily uninformed start is not a supported contract.
  */
 import { describe, it, expect } from "vitest";
@@ -432,7 +432,8 @@ describe("LOX/RP-1 thruster with reacting junction", () => {
     // Emergent c* = Pc*At/mdot against the CEA reference with the c*
     // efficiency (eta_cstar = 0.97, efficiency = 0.97^2 on enthalpy).
     // The discretized nozzle with friction chokes slightly off the ideal
-    // 1-D value — 10 % is the chosen bar (observed ~7 %).
+    // 1-D value — 10 % is the chosen bar (observed ~4 % on the current
+    // nozzle grid; it was ~7 % on the coarser build that preceded it).
     const cstarEmergent = (jn.pc * THROAT_AREA) / jn.mdotTotal;
     const cstarRef = 0.97 * jn.gas.cstar;
     expect(Math.abs(cstarEmergent - cstarRef) / cstarRef).toBeLessThan(0.1);

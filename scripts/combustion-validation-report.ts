@@ -522,8 +522,188 @@ const cstarEmergent = (jn.pc * At) / mdotGas;
 const cstarRef = 0.97 * jn.gas.cstar; // η_c* = √efficiency = 0.97
 const cstarErr = (cstarEmergent - cstarRef) / cstarRef;
 
-// (d) Formula-coupled twin (basic-lox-rp1-thruster.fn, fixed γ = 1.2 gas).
-const TWIN = { pc: 986633, ox: 0.547247, fuel: 0.21048, gas: 0.757727 };
+// (d) Formula-coupled twin — same feed/nozzle/jacket plumbing as the
+// reacting-junction thruster above, rebuilt and re-solved live here (not a
+// historical hardcoded reference) with the chamber replaced by an ordinary
+// node fed by an imposed total mass flow (`flowSource`) instead of a
+// junction, and each propellant discharging through its unchanged orifice
+// formula into its own small boundary "manifold" node at the (iterated)
+// chamber pressure — unlike fluids cannot meet at a plain node, only at a
+// reacting-junction inlet (core/validate/branches.ts).  The
+// Pc <-> (ṁ_ox, ṁ_fuel, ṁ_gas) coupling the junction solves monolithically
+// is instead closed by an outer iteration around repeated solves (a 2-D
+// Newton root-find on [Pc, ṁ_gas] below, for speed — conceptually the same
+// externally-iterated, non-monolithic architecture as the fixed-point loop
+// that predated junctions; docs/combustion.md).  The gas is given the SAME
+// CEA-matched properties (γ, R, cp) and target chamber temperature
+// (η·T0) as the junction's own converged state, so any remaining
+// deviation isolates the coupling architecture and discretization, not a
+// mismatched gas assumption.
+console.log("Part 2(d) — formula-coupled twin (outer iteration)");
+
+const twinGasParams = {
+  R: jn.gas.R,
+  gamma: jn.gas.gamma,
+  mu: jn.gas.mu,
+  cp: jn.gas.cp,
+};
+const twinTChamberTarget = eff * jn.gas.T0;
+const chamberNode = config.nodes.find((n) => n.id === "chamber")!;
+const loxInjectorBase = config.branches.find((b) => b.id === "loxInjector")!;
+const fuelInjectorBase = config.branches.find((b) => b.id === "fuelInjector")!;
+const twinBaseNodes = config.nodes;
+const twinBaseBranches = config.branches.filter(
+  (b) => b.id !== "loxInjector" && b.id !== "fuelInjector",
+);
+
+function buildTwinConfig(
+  pc: number,
+  oxGuess: number,
+  fuelGuess: number,
+  gasGuess: number,
+): NetworkConfig {
+  return {
+    meta: { name: "LOX/RP-1 thruster (formula-coupled twin)", version: 2 },
+    settings: config.settings,
+    fluid: config.fluid,
+    fluids: {
+      ...config.fluids,
+      gas: { model: "idealGas", params: twinGasParams },
+    },
+    nodes: [
+      ...twinBaseNodes,
+      {
+        id: "loxManifoldTwin",
+        type: "boundary",
+        x: chamberNode.x - 40,
+        y: chamberNode.y - 40,
+        position: chamberNode.position,
+        pressure: pc,
+        temperature: 90,
+        fluid: "lox",
+        label: "LOX injector manifold (twin)",
+      },
+      {
+        id: "fuelManifoldTwin",
+        type: "boundary",
+        x: chamberNode.x - 40,
+        y: chamberNode.y + 40,
+        position: chamberNode.position,
+        pressure: pc,
+        temperature: 300,
+        fluid: "rp1",
+        label: "RP-1 injector manifold (twin)",
+      },
+      {
+        id: "gasSourceTwin",
+        type: "boundary",
+        x: chamberNode.x - 80,
+        y: chamberNode.y,
+        position: chamberNode.position,
+        pressure: pc,
+        temperature: twinTChamberTarget,
+        fluid: "gas",
+        label: "Combustion gas source (twin, fixed gas + target T)",
+      },
+    ],
+    branches: [
+      ...twinBaseBranches,
+      {
+        id: "loxInjector",
+        from: "loxTank",
+        to: "loxManifoldTwin",
+        initialMdot: oxGuess,
+        component: loxInjectorBase.component,
+        label: "LOX injector orifice (twin)",
+      },
+      {
+        id: "fuelInjector",
+        from: "chamberCoolant",
+        to: "fuelManifoldTwin",
+        initialMdot: fuelGuess,
+        component: fuelInjectorBase.component,
+        label: "RP-1 injector orifice (twin)",
+      },
+      {
+        id: "gasFeed",
+        from: "gasSourceTwin",
+        to: "chamber",
+        initialMdot: gasGuess,
+        component: { type: "flowSource", massFlow: gasGuess },
+        label: "Imposed total gas mass flow (twin static formula)",
+      },
+    ],
+    solidNodes: config.solidNodes,
+    conductors: config.conductors,
+  };
+}
+
+// Each solveSteady call is expensive, so the outer loop closing
+// Pc <-> (mdot_ox, mdot_fuel, mdot_gas) is a genuine 2-unknown Newton
+// iteration (finite-difference Jacobian on [Pc, mdot_gas], residual
+// F1 = PcSolved(Pc, G) - Pc, F2 = oxSolved(Pc,G) + fuelSolved(Pc,G) - G)
+// rather than a plain damped fixed-point sweep — the latter converges (the
+// old pre-junction architecture's own outer loop was marginally stable per
+// docs/combustion.md) but only linearly, needing far more expensive solves.
+function evalTwin(pc: number, gasGuess: number) {
+  const twinDecoded = decodeAndValidateNetwork(
+    JSON.parse(
+      JSON.stringify(
+        buildTwinConfig(pc, gasGuess * 0.72, gasGuess * 0.28, gasGuess),
+      ),
+    ) as NetworkConfig,
+  );
+  if (twinDecoded.errors.length)
+    throw new Error(
+      `invalid formula-coupled twin network:\n${twinDecoded.errors.join("\n")}`,
+    );
+  const twinRes = solveSteady(twinDecoded.config);
+  if (!twinRes.converged)
+    throw new Error("formula-coupled twin solve did not converge");
+  return {
+    pcSolved: twinRes.nodes.chamber.pressure,
+    ox: twinRes.branches.loxInjector.mdot,
+    fuel: twinRes.branches.fuelInjector.mdot,
+  };
+}
+
+let twinPc = jn.pc;
+let twinGas = jn.mdotTotal;
+let twinOx = jn.mdotByRole.oxidizer;
+let twinFuel = jn.mdotByRole.fuel;
+let twinConverged = false;
+for (let outer = 0; outer < 20; outer++) {
+  const base = evalTwin(twinPc, twinGas);
+  const f1 = base.pcSolved - twinPc;
+  const f2 = base.ox + base.fuel - twinGas;
+  twinOx = base.ox;
+  twinFuel = base.fuel;
+  if (Math.abs(f1) / twinPc < 1e-8 && Math.abs(f2) / twinGas < 1e-8) {
+    twinConverged = true;
+    break;
+  }
+  const dPc = Math.max(1e3, 1e-4 * twinPc);
+  const dGas = Math.max(1e-5, 1e-4 * twinGas);
+  const pertPc = evalTwin(twinPc + dPc, twinGas);
+  const pertGas = evalTwin(twinPc, twinGas + dGas);
+  // Jacobian of F = [pcSolved - Pc, ox+fuel - G] w.r.t. [Pc, G].
+  const j11 = (pertPc.pcSolved - dPc - base.pcSolved) / dPc; // d(f1)/dPc
+  const j12 = (pertGas.pcSolved - base.pcSolved) / dGas; // d(f1)/dG
+  const j21 = (pertPc.ox + pertPc.fuel - (base.ox + base.fuel)) / dPc; // d(f2)/dPc
+  const j22 = (pertGas.ox + pertGas.fuel - dGas - (base.ox + base.fuel)) / dGas; // d(f2)/dG
+  const det = j11 * j22 - j12 * j21;
+  if (!Number.isFinite(det) || Math.abs(det) < 1e-300)
+    throw new Error("formula-coupled twin Newton Jacobian is singular");
+  const dxPc = -(j22 * f1 - j12 * f2) / det;
+  const dxGas = -(-j21 * f1 + j11 * f2) / det;
+  const damp = 0.8;
+  twinPc += damp * dxPc;
+  twinGas += damp * dxGas;
+}
+if (!twinConverged)
+  throw new Error("formula-coupled twin Newton iteration did not converge");
+
+const TWIN = { pc: twinPc, ox: twinOx, fuel: twinFuel, gas: twinOx + twinFuel };
 
 /* ==========================================================================
  * Part 3 — nozzle profiles
@@ -628,11 +808,28 @@ function rk4Leg(iStart: number, iEnd: number) {
   return out;
 }
 
-const conv5Idx = stations.findIndex((s) => s.id === "conv5");
-const div2Idx = stations.findIndex((s) => s.id === "div2");
+// Leg boundaries by MACH, not by station name: the ODE is singular at M = 1,
+// so each leg must stop clear of the transonic cell, and the station that
+// sits at a given Mach moves whenever the nozzle is re-gridded.
+const SUB_LEG_MAX_M = 0.8;
+const SUP_LEG_MIN_M = 1.2;
+let subEndIdx = 0;
+for (let i = 0; i < throatIdx; i++) {
+  if (solvedAt(stations[i]).M <= SUB_LEG_MAX_M) subEndIdx = i;
+}
+let supStartIdx = throatIdx + 1;
+for (let i = throatIdx + 1; i < stations.length; i++) {
+  if (solvedAt(stations[i]).M >= SUP_LEG_MIN_M) {
+    supStartIdx = i;
+    break;
+  }
+}
 const lastIdx = stations.length - 1;
-const subLeg = rk4Leg(0, conv5Idx); // chamber -> conv5
-const supLeg = rk4Leg(div2Idx, lastIdx); // div2 -> div11
+const subLeg = rk4Leg(0, subEndIdx); // chamber -> last station below M = 0.8
+const supLeg = rk4Leg(supStartIdx, lastIdx); // first station above M = 1.2 -> exit
+const subEndId = stations[subEndIdx].id;
+const supStartId = stations[supStartIdx].id;
+const lastStationId = stations[lastIdx].id;
 
 interface LegStat {
   n: number;
@@ -1048,10 +1245,10 @@ OpenFLUME — a chamber node whose energy equation is the thermochemical
 closure h = η·h(T0(Pc, O/F)) with T0 from NASA CEA equilibrium tables,
 solved inside the monolithic Newton system — and validates the complete
 LOX/RP-1 thruster example (feed circuits, injectors, chamber, choked
-converging–diverging nozzle, and a 22-station three-layer regenerative
-cooling jacket) against closed-form analytical solutions. Four groups of
+converging–diverging nozzle, and a ${stations.length}-station three-layer
+regenerative cooling jacket) against closed-form analytical solutions. Four groups of
 checks are made: (1) thermodynamic self-consistency of the committed CEA
-tables (cp = γR/(γ−1) and the frozen c* closed form) across the entire
+tables (cp = γR/(γ−1) and the frozen c\\* closed form) across the entire
 tabulated (Pc, O/F) domain; (2) integral engine quantities against the
 choked-flow, orifice, and chamber-closure closed forms; (3) nozzle
 pressure/temperature/Mach profiles against a frozen-γ isentropic reference
@@ -1061,9 +1258,12 @@ stack against an exact series–parallel thermal-resistance network. The
 solver (default limited-upwind momentum faces,
 \`settings.momentumFluxScheme: "upwind"\`) tracks the analytical references
 to ${pct(Math.max(subStats.maxP, subStats.maxT, subStats.maxM))} on the
-subsonic leg; down the supersonic leg the scheme's first-order truncation
-accumulates to ${pct(supStats.maxP)} at the exit (see §3). Wall
-temperatures agree to ${wallTmaxK.toExponential(1)} K.
+subsonic leg and ${pct(supStats.maxP)} on the supersonic leg (§3). Each leg
+is anchored at a solved station, so those figures are *local* truncation.
+The dominant error is separate and integral: the sonic cell chokes at a
+slightly large effective throat state, biasing the mass flow by
+${pct(Math.abs(mdotExcess))} and offsetting the entire Mach profile by about
+as much (§2). Wall temperatures agree to ${wallTmaxK.toExponential(1)} K.
 
 ## The Model Under Test
 
@@ -1072,9 +1272,19 @@ circuits at a reacting junction:
 
 - **LOX feed** — tank → injector orifice → chamber;
 - **RP-1 feed** — tank → counterflow regenerative jacket (one coolant
-  node per gas station, 22 passes) → injector orifice → chamber;
-- **hot gas** — chamber → 22-station choked converging–diverging nozzle →
-  exhaust, with \`momentumFlux\` and \`kineticEnergy\` enabled.
+  node per gas station, ${stations.length} passes) → injector orifice → chamber;
+- **hot gas** — chamber → ${stations.length}-station choked converging–diverging
+  nozzle → exhaust, with \`momentumFlux\` and \`kineticEnergy\` enabled.
+
+The \`exhaust\` node is a supersonic outlet. Boundary nodes impose a static
+pressure, which over-specifies such an outlet — the imposed value
+back-propagates into the last interior station through that segment's
+momentum row — so the example authors it at the **matched-expansion**
+pressure, the value the quasi-1-D ODE produces when continued across the
+final segment from the converged interior. The nozzle is gridded with two
+stations per contour segment of the original coarse build; the convergent
+and divergent are refined together, because the sonic cell sets the choked
+mass flow while the divergent sets the downstream profile.
 
 The chamber is a junction (\`config.junctions\`): its energy row is the CEA
 closure with efficiency η = ${eff} (= 0.97² on enthalpy rise), and the
@@ -1097,7 +1307,7 @@ R = ${Rgas.toFixed(2)} J/kg·K.
 
 The committed tables (\`core/combustion/generated/ceaTables.ts\`, built
 offline by \`scripts/build-cea-tables.py\` from NASA CEA chamber
-equilibrium runs) store T0, molecular weight, γ_s, and c* on a (Pc, O/F)
+equilibrium runs) store T0, molecular weight, γ_s, and c\\* on a (Pc, O/F)
 grid. Sweeping a ${NPC}×${NOF} grid spanning the full tabulated domain
 (Pc ∈ [${sig(bounds.pcMinPa / 1e5, 3)}, ${sig(bounds.pcMaxPa / 1e5, 3)}] bar,
 O/F ∈ [${bounds.ofMin}, ${bounds.ofMax}]) checks two closed forms:
@@ -1108,20 +1318,20 @@ c^*_{frozen} = \\frac{\\sqrt{R\\,T_0}}{\\Gamma(\\gamma)}, \\quad
 
 The first is an exact identity of the constant-cp ideal-gas closure the
 solver derives from the table, and it holds to ${pct(cpErrMax)} at every
-point. The second is the frozen one-dimensional c* evaluated from the
-tabulated (T0, γ_s, R), compared against the tabulated c* — which is CEA's
+point. The second is the frozen one-dimensional c\\* evaluated from the
+tabulated (T0, γ_s, R), compared against the tabulated c\\* — which is CEA's
 **equilibrium** value, so the difference between them is the physical
 equilibrium-vs-frozen expansion gap, not an interpolation error:
 
 | Comparison | Result |
 | ---------- | ------ |
 | cp = γR/(γ−1) (identity) | max deviation ${pct(cpErrMax)} |
-| tabulated equilibrium c* vs frozen closed form | ≤ ${pct(cstarGapMax)} (at the Pc = ${sig(cstarGapAt.pc / 1e5, 3)} bar, O/F = ${cstarGapAt.of.toFixed(2)} corner of the table) |
+| tabulated equilibrium c\\* vs frozen closed form | ≤ ${pct(cstarGapMax)} (at the Pc = ${sig(cstarGapAt.pc / 1e5, 3)} bar, O/F = ${cstarGapAt.of.toFixed(2)} corner of the table) |
 | same gap at the thruster operating point | ${pct(cstarGapAtOp)} |
 
 The characteristics behave as LOX/RP-1 equilibrium chemistry should
 (Figures 1–3): T0 peaks at O/F = ${peakT0.of.toFixed(2)}
-(${peakT0.v.toFixed(0)} K at 10 bar) while c* peaks fuel-rich of the
+(${peakT0.v.toFixed(0)} K at 10 bar) while c\\* peaks fuel-rich of the
 temperature peak at O/F = ${peakCstar.of.toFixed(2)}
 (${peakCstar.v.toFixed(0)} m/s) — the classical offset caused by the lower
 molecular weight of fuel-rich products. T0 rises with chamber pressure as
@@ -1132,7 +1342,7 @@ ${fig(1, "Adiabatic chamber temperature vs mixture ratio at three chamber pressu
 
 ${fig(2, "Product isentropic exponent γ_s vs mixture ratio.")}
 
-${fig(3, "Characteristic velocity at 10 bar: tabulated c* (markers) against the frozen closed form √(R·T0)/Γ(γ) evaluated from the tabulated state (line).")}
+${fig(3, "Characteristic velocity at 10 bar: tabulated c\\* (markers) against the frozen closed form √(R·T0)/Γ(γ) evaluated from the tabulated state (line).")}
 
 ## 2. Thruster Integral Quantities
 
@@ -1156,34 +1366,61 @@ These verify the coupling, not merely the component formula: the chamber
 pressure both orifices discharge against is a solved unknown of the same
 Newton system that carries the CEA closure.
 
-**Choked mass flow and c*.** From the solved chamber stagnation state
+**Choked mass flow and c\\*.** From the solved chamber stagnation state
 (P0 = ${sig(P0 / 1e3, 5)} kPa, T0 = ${T0stag.toFixed(1)} K), the ideal 1-D
 choked flow through the geometric throat is
 ṁ = P0·At·Γ(γ)/√(R·T0) = ${mdotIdeal.toFixed(5)} kg/s. The solver passes
 ${mdotGas.toFixed(5)} kg/s — ${pct(Math.abs(mdotExcess))}
 ${mdotExcess > 0 ? "more" : "less"} than ideal. Equivalently the emergent
-c* = Pc·At/ṁ = ${cstarEmergent.toFixed(1)} m/s sits ${pct(Math.abs(cstarErr))}
+c\\* = Pc·At/ṁ = ${cstarEmergent.toFixed(1)} m/s sits ${pct(Math.abs(cstarErr))}
 ${cstarErr < 0 ? "below" : "above"} the CEA reference
-η_c*·c* = ${cstarRef.toFixed(1)} m/s. This ${pct(Math.abs(mdotExcess))}
+η_c\\*·c\\* = ${cstarRef.toFixed(1)} m/s. This ${pct(Math.abs(mdotExcess))}
 excess is the transonic discretization bias documented in
 [docs/combustion.md](../combustion.md): the default limited-upwind momentum
 faces (\`settings.momentumFluxScheme: "upwind"\`) are first-order at the
 sonic cell, so the discrete system chokes at a slightly larger effective
-throat state. (The upwind faces are what remove the nonphysical
-wrong-branch roots by construction — on this grid the central scheme has no
-admissible transonic root at all — and the bias shrinks with grid
-refinement.) It is a property of the quasi-1-D nozzle discretization
-(present with fixed gas properties too), not of the reacting junction.
+throat state.
 
-**Formula-coupled twin.** The same feed and nozzle plumbing driven by
-static injector formulas and a fixed γ = 1.2 gas
-(\`basic-lox-rp1-thruster.fn\`) solves to Pc = ${TWIN.pc} Pa,
-ṁ_ox = ${TWIN.ox} kg/s, ṁ_fuel = ${TWIN.fuel} kg/s. The junction
-formulation lands within ${pct(Math.abs(jn.pc - TWIN.pc) / TWIN.pc)} on Pc,
-${pct(Math.abs(jn.mdotByRole.oxidizer - TWIN.ox) / TWIN.ox)} on ṁ_ox, and
-${pct(Math.abs(jn.mdotByRole.fuel - TWIN.fuel) / TWIN.fuel)} on ṁ_fuel —
-the residual differences are physics (the CEA gas with γ = ${gamma.toFixed(3)}
-replaces the fixed γ = 1.2 gas), not error.
+This is the **dominant** error in the whole gas path, and it is set at the
+sonic cell alone — not accumulated along the nozzle. It shows up as a nearly
+uniform Mach offset everywhere, including the barrel stations at M ≈ 0.16
+where no cell is anywhere near sonic; §3's leg deviations sit on top of it.
+Refining the sonic cell is what moves it: the coarse build of this example
+(half as many stations) chokes ${pct(0.0571)} high, and on a frictionless
+replica of the same contour, splitting only the two segments either side of
+the throat four ways cuts the bias from ${pct(0.058)} to ${pct(0.0143)}
+without touching any other cell. Conversely, a scheme change that leaves the
+sonic cell on upwind cannot address it.
+
+The upwind faces are what remove the nonphysical wrong-branch roots by
+construction. Under the legacy \`central\` scheme this grid still converges,
+but onto a root the second-law audit certifies as **inadmissible** — a
+discrete expansion shock in the convergent, where a station jumps to the
+supersonic branch away from the area minimum — and an exact isentropic seed
+lands on the same pathology rather than on the physical root. That trade,
+not accuracy, is why upwind is the default. It is a property of the quasi-1-D
+nozzle discretization (present with fixed gas properties too), not of the
+reacting junction.
+
+**Formula-coupled twin.** The same feed, nozzle, and jacket plumbing, with
+the chamber replaced by an ordinary node fed by an imposed total mass flow
+and each propellant discharging into its own boundary "manifold" node
+through its unchanged orifice formula, closes the
+Pc ↔ (ṁ_ox, ṁ_fuel, ṁ_gas) loop with an outer iteration around repeated
+solves instead of the junction's monolithic Newton coupling — the
+architecture that predates junctions (see
+[docs/combustion.md](../combustion.md)). Given the SAME
+CEA-matched gas (γ = ${gamma.toFixed(4)}, R = ${Rgas.toFixed(2)} J/kg·K) and
+target chamber temperature (η·T0) as the junction's own converged state, it
+solves to Pc = ${sig(TWIN.pc / 1e3, 6)} kPa,
+ṁ_ox = ${TWIN.ox.toFixed(6)} kg/s, ṁ_fuel = ${TWIN.fuel.toFixed(6)} kg/s. The
+junction formulation lands within ${pct(Math.abs(jn.pc - TWIN.pc) / TWIN.pc, 3)} on Pc,
+${pct(Math.abs(jn.mdotByRole.oxidizer - TWIN.ox) / TWIN.ox, 3)} on ṁ_ox, and
+${pct(Math.abs(jn.mdotByRole.fuel - TWIN.fuel) / TWIN.fuel, 3)} on ṁ_fuel —
+with the gas properties matched, this residual is the effect of the
+coupling architecture and discretization alone (monolithic Newton feedback
+vs. an externally iterated, decoupled combustion temperature), not a
+mismatched gamma.
 
 ## 3. Nozzle Profiles
 
@@ -1203,34 +1440,46 @@ $$\\frac{dM}{dx} = \\frac{M\\left(1 + \\frac{\\gamma-1}{2}M^2\\right)}{1 - M^2}\
    each tapered segment, and dT0/dx from the solver's own per-station
    gas-film heat extraction spread over each station's tributary length
    (2000 RK4 sub-steps per segment). The ODE is singular at M = 1, so it is
-   integrated on the two legs that avoid the transonic segment — the
-   subsonic leg (chamber → conv5, initialized from the solved chamber
-   state) and the supersonic leg (div2 → div11, initialized from the solved
-   div2 state). Evaluating the reference at the solved ṁ isolates the
-   spatial discretization of momentum and energy from the choking-point
-   bias quantified in §2.
+   integrated on the two legs that avoid the transonic cell, selected by
+   Mach rather than by station name — the subsonic leg
+   (chamber → ${subEndId}, the last station below M = ${SUB_LEG_MAX_M},
+   initialized from the solved chamber state) and the supersonic leg
+   (${supStartId} → ${lastStationId}, from the first station above
+   M = ${SUP_LEG_MIN_M}, initialized from that station's solved state).
+   Anchoring each leg at a solved station and evaluating the reference at the
+   solved ṁ measures the *local* spatial discretization of momentum and
+   energy, with the choking-point bias of §2 removed by construction.
 
 | Leg | Stations | max ΔP/P | max ΔT/T | max ΔM/M |
 | --- | -------- | -------- | -------- | -------- |
 | Subsonic (barrel + convergent) | ${subStats.n} | ${pct(subStats.maxP)} | ${pct(subStats.maxT)} | ${pct(subStats.maxM)} |
 | Supersonic (divergent) | ${supStats.n} | ${pct(supStats.maxP)} | ${pct(supStats.maxT)} | ${pct(supStats.maxM)} |
 
-The subsonic leg tracks the ODE tightly. Down the divergent, the
-limited-upwind faces' first-order truncation acts like a small spurious
-entropy source per supersonic cell; on this coarsening 9-station grid it
-accumulates to ${pct(supStats.maxP)} in static pressure at the exit. This
-drift is monotone and grid-convergent — it is the documented cost of the
-scheme that removes the wrong-branch transonic roots (see
-[docs/combustion.md](../combustion.md); the \`central\` scheme has no
-admissible transonic root on this grid, so the trade is upwind's smooth
-first-order truncation versus no physical root at all).
+Both legs track the ODE closely. What remains on each is the
+limited-upwind faces' first-order truncation acting as a small spurious
+entropy source per cell, accumulating away from the station each leg is
+anchored at; the divergent carries more of it than the convergent because
+its cells coarsen downstream. These are *local* drifts: because each leg is
+anchored at a solved station, they exclude the choking bias of §2, which is
+the larger error and is not visible here. The drift is grid-convergent — it
+is the documented cost of the scheme that removes the wrong-branch
+transonic roots (see [docs/combustion.md](../combustion.md)).
+
+Note that both legs now run closer to the sonic cell than the fixed station
+names used before this revision did (M = ${SUB_LEG_MAX_M} and
+M = ${SUP_LEG_MIN_M}, against roughly 0.53 and 1.19), and each spans more of
+the nozzle, so the two rows are not directly comparable with the figures in
+earlier revisions of this report. The stiff \`1/(1 − M²)\` factor means a
+leg that reaches nearer M = 1 will report a larger deviation for the same
+underlying solution quality.
 
 Against the no-friction isentropic reference, the stations
 (${sonicSetProse}) agree within ${pct(isenMaxP)} on pressure (worst at
-${isenMaxPId}), the isentrope deviation being the friction and
-heat-extraction corrections it omits plus the same accumulated upwind
-drift. The profile through the throat is monotone — the sonic transition
-falls inside one near-throat segment and is smeared first-order across it
+${isenMaxPId}). That comparison is not anchored at a solved station, so
+unlike the table above it carries the §2 choking bias as well as the
+friction and heat-extraction corrections the isentrope omits. The profile
+through the throat is monotone — the sonic transition falls inside one
+near-throat segment and is smeared first-order across it
 ([docs/combustion.md](../combustion.md)), but no station is thrown off the
 isentrope branches, and every integral quantity remains solid.
 
@@ -1288,27 +1537,29 @@ The reacting-junction formulation and the thruster case reproduce their
 analytical references:
 
 - the committed CEA tables satisfy the cp = γR/(γ−1) identity exactly
-  across their entire domain, and their equilibrium c* sits within
+  across their entire domain, and their equilibrium c\\* sits within
   ${pct(cstarGapMax)} of the frozen closed form (the physical
   equilibrium-vs-frozen gap);
 - the chamber closure holds to ${pct(closureErr)}, and both injectors
   match the orifice closed form (with hydrostatic head) to
   ${pct(Math.max(oxCheck.err, fuelCheck.err))} while discharging against a
   solved chamber pressure;
-- subsonic nozzle profiles track the RK4 friction-and-heat ODE to
-  ${pct(subStats.maxP)} on pressure; down the supersonic leg the default
-  limited-upwind faces' first-order truncation accumulates to
-  ${pct(supStats.maxP)} at the exit (grid-convergent, and the cost of a
-  scheme with no wrong-branch transonic roots);
+- nozzle profiles track the RK4 friction-and-heat ODE to
+  ${pct(subStats.maxP)} on pressure on the subsonic leg and
+  ${pct(supStats.maxP)} on the supersonic leg, each anchored at a solved
+  station so the figures are local truncation, grid-convergent, and the cost
+  of a scheme with no wrong-branch transonic roots;
 - the three-layer regenerative wall stack matches the exact resistance
   network to ${wallTmaxK.toExponential(1)} K and closes the coolant energy
   balance to ${pct(coolantBalanceErr)}.
 
 The one systematic integral deviation — a ${pct(Math.abs(mdotExcess))}
-excess of choked mass flow (equivalently a ${pct(Math.abs(cstarErr))} c*
+excess of choked mass flow (equivalently a ${pct(Math.abs(cstarErr))} c\\*
 deficit) — is the documented first-order choking bias of the default
-limited-upwind momentum faces, independent of the combustion coupling and
-shrinking with grid refinement. Known model limitations
+limited-upwind momentum faces, independent of the combustion coupling. It is
+also the dominant error in the gas path: it is set at the sonic cell and
+then offsets the entire Mach profile, so it is the number to watch, and
+sonic-cell resolution is the lever that moves it. Known model limitations
 (steady + kineticEnergy only, frozen downstream composition, standard-state
 reactant injection, idealGas product fluid) are catalogued in
 [docs/combustion.md](../combustion.md).
@@ -1319,7 +1570,7 @@ reactant injection, idealGas product fluid) are catalogued in
    Complex Chemical Equilibrium Compositions and Applications*,
    NASA RP-1311, 1994 (CEA).
 2. Sutton, G. P., and Biblarz, O., *Rocket Propulsion Elements*, 9th ed.,
-   John Wiley & Sons, 2016 (c*, choked flow, injector hydraulics, regen
+   John Wiley & Sons, 2016 (c\\*, choked flow, injector hydraulics, regen
    cooling).
 3. Shapiro, A. H., *The Dynamics and Thermodynamics of Compressible Fluid
    Flow*, Vol. 1, Ronald Press, 1953 (generalized quasi-1-D ODE).
@@ -1334,7 +1585,7 @@ reactant injection, idealGas product fluid) are catalogued in
 | ------ | ------- |
 | A, At | local / throat flow area |
 | C_d | orifice discharge coefficient |
-| c* | characteristic velocity Pc·At/ṁ |
+| c\\* | characteristic velocity Pc·At/ṁ |
 | c_p | specific heat at constant pressure |
 | D, Dt | local / throat diameter |
 | f | Darcy friction factor |
@@ -1349,7 +1600,7 @@ reactant injection, idealGas product fluid) are catalogued in
 | T, T0 | static / stagnation (adiabatic chamber) temperature |
 | Γ(γ) | Vandenkerckhove function |
 | γ | isentropic exponent (CEA γ_s) |
-| η | combustion efficiency on enthalpy rise (= η_c*²) |
+| η | combustion efficiency on enthalpy rise (= η_c\\*²) |
 | η_fin | straight-fin efficiency tanh(mH)/(mH) |
 `;
 

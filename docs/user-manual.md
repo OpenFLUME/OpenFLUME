@@ -2009,10 +2009,13 @@ _solved_, not prescribed.
 see [`combustion.md`](combustion.md)):
 
 - **LOX feed** — tank → injector orifice → chamber;
-- **RP-1 feed** — tank → 22-station counterflow regenerative jacket → injector
+- **RP-1 feed** — tank → 42-station counterflow regenerative jacket → injector
   orifice → chamber;
-- **hot gas** — chamber → 22-station choked CD nozzle → exhaust, with
-  `momentumFlux` and `kineticEnergy` on.
+- **hot gas** — chamber → 42-station choked CD nozzle → exhaust, with
+  `momentumFlux` and `kineticEnergy` on. The `exhaust` boundary is authored
+  at the matched-expansion pressure, not an ambient pressure: a boundary node
+  imposes a static pressure, and at a supersonic outlet any other value
+  back-propagates into the last interior station.
 
 The chamber energy row is the CEA closure $h = \eta\cdot h(T_0(P_c, O/F))$
 with $\eta = 0.9409$. Every gas station carries a three-layer wall stack
@@ -2026,10 +2029,15 @@ pressure. The nozzle chokes and the profile is monotone through the throat
 (the default limited-upwind faces, section 4.1.2). The three-layer wall
 stack matches the series–parallel resistance network. Full numbers and
 figures are in [`docs/validation/combustion-report.md`](validation/combustion-report.md).
-The formula-coupled twin `basic-lox-rp1-thruster.fn` (static injector
-formulas, fixed $\gamma = 1.2$ gas) lands within a few percent on $P_c$ and
-the feed flows — residual differences are physics (CEA $\gamma \approx 1.13$
-replaces $\gamma = 1.2$), not error.
+The formula-coupled twin (same feed/nozzle/jacket plumbing, but the chamber
+is an ordinary node fed by an imposed total mass flow instead of a
+reacting junction, and the coupling closes through an outer iteration
+instead of the monolithic Newton system) lands within about 1–2% on $P_c$
+and the feed flows even when given the identical CEA-matched gas
+properties — the residual isolates the coupling architecture and
+discretization, not a mismatched gas assumption. See
+[`docs/validation/combustion-report.md`](validation/combustion-report.md)
+for current numbers.
 
 **Scope.** Steady + `kineticEnergy` only; frozen composition downstream of
 the chamber; standard-state reactant injection. The nozzle is perfectly

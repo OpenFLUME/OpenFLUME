@@ -124,23 +124,22 @@ add model types without touching the solver.
 
 ## Validation snapshot
 
-Converged junction solution of the shipped thruster example vs the
-formula-coupled twin (`basic-lox-rp1-thruster.fn`, fixed γ = 1.2 gas):
-
-| Quantity              | Twin        | Junction    | Note                      |
-| --------------------- | ----------- | ----------- | ------------------------- |
-| Pc                    | 986.6 kPa   | 983.3 kPa   | −0.3 %                    |
-| ṁ_ox                  | 0.5472 kg/s | 0.5622 kg/s | +2.7 %                    |
-| ṁ_fuel                | 0.2105 kg/s | 0.2170 kg/s | +3.1 %                    |
-| O/F                   | 2.600       | 2.592       | —                         |
-| T_chamber             | 3192.8 K    | 3190.9 K    | = η·T0 exactly            |
-| emergent c* = Pc·At/ṁ | 1636 m/s    | 1586 m/s    | vs η_c*·c*_CEA = 1701 m/s |
-
-The few-percent shifts are physics, not error: the junction runs the CEA
-equilibrium gas (γ ≈ 1.127, cp ≈ 3236 J/kg·K) where the twin fixes γ = 1.2,
-cp ≈ 2169. The emergent c* sits ~6.7 % below the ideal 1-D CEA reference —
-the discretized nozzle with friction passes slightly more flow than the
-ideal choking relation (see the transonic discretization note below).
+Converged junction solution of the shipped thruster example vs. the
+formula-coupled twin: same feed/nozzle/jacket plumbing, but the chamber is
+an ordinary node fed by an imposed total mass flow instead of a reacting
+junction, and each propellant discharges through its unchanged orifice
+formula into a boundary "manifold" node — the coupling closes through an
+outer iteration around repeated solves instead of the junction's
+monolithic Newton system (the architecture that predates junctions). The
+twin is given the SAME CEA-matched gas properties (γ, R, cp) and target
+chamber temperature (η·T0) as the junction's own converged state, so the
+comparison isolates the coupling architecture and nozzle discretization
+rather than conflating it with a different gas assumption. Pc and the
+feed flows land within about 1–2 %; the emergent c\* sits below the ideal
+1-D CEA reference in both formulations, since the discretized nozzle with
+friction passes slightly more flow than the ideal choking relation (see
+the transonic discretization note below). Live numbers and full
+methodology: [docs/validation/combustion-report.md](validation/combustion-report.md#2-thruster-integral-quantities).
 
 ## Known limitations (v1)
 
@@ -167,8 +166,14 @@ entropy-violating combinations (discrete "expansion shocks" — a subsonic
 donor jumping to a supersonic downwind state away from the area minimum),
 and older builds could converge onto one, with 1–2 stations sitting far off
 the smooth curve on the wrong branch. On this example's grid the central
-system is worse than multi-rooted: it has **no admissible transonic root at
-all** — Newton walks away even from an exact isentropic seed.
+system converges readily — but **onto an inadmissible root**: from the
+authored warm start, from a converged upwind solution, and from an exact
+isentropic seed alike, Newton lands on a state carrying a discrete expansion
+shock in the convergent, which the second-law audit certifies as
+entropy-violating. The problem is not that the physical root is unreachable
+in principle; it is that the central system's basin of attraction here
+belongs to the nonphysical root, so a converged, residual-clean answer is
+silently wrong unless the audit is switched on.
 
 The solver now closes this with **limited-upwind momentum faces**
 (`settings.momentumFluxScheme: "upwind"`, the default): each compressible
@@ -188,11 +193,33 @@ the exact central form bit-identically. The legacy `"central"` scheme
 remains available and is certified post-hoc by a second-law audit
 (`settings.transonicAdmissibility`; see `core/solver/admissibility.ts`).
 
-What remains is first-order behavior at the sonic cell: the crossing
-is smeared across the conv7/throat segment, and the discretized nozzle
-passes a few percent more flow than the ideal choking relation (a
-truncation bias that shrinks with grid refinement; the GFSSP verification
-cases measure 2–6 %). Integral quantities are robust — chamber pressure
-varies by ~1 % and O/F by < 0.1 % across formulations — and the profile is
-monotone and physical through the throat. Cold starts and heavily perturbed
-states converge reliably.
+What remains is first-order behavior at the sonic cell: the crossing is
+smeared across the segment bounding the throat, and the discretized nozzle
+passes a few percent more flow than the ideal choking relation (the GFSSP
+verification cases measure 2–6 %).
+
+That choking bias is the **dominant** error in the gas path, and it is worth
+being precise about where it lives, because it is easy to misread. It is set
+at the sonic cell and nowhere else, but it then offsets the _entire_ Mach
+profile — including deep-subsonic barrel stations at M ≈ 0.16, which sit
+high by very nearly the mass-flow error. So a large Mach deviation at the
+nozzle exit is mostly this single throat-side bias showing through, not
+error accumulated cell by cell down the divergent. Two consequences:
+
+- **Grid resolution at the sonic cell is the lever.** On a frictionless
+  replica of the thruster contour, splitting only the two segments either
+  side of the throat four ways cuts the bias from 5.8 % to 1.4 % without
+  touching any other cell. But refining _only_ there is not a shortcut: the
+  downstream Mach profile is governed by the divergent's own truncation and
+  gets worse if the divergent is left coarse, so refine both together.
+- **Mach-gating the scheme does not help.** Blending toward `central` away
+  from M ≈ 1 has to keep upwind at the sonic cell — that is the only place
+  the twin roots live, and the whole reason upwind is the default — so it
+  cannot touch the term that dominates the budget. The same holds for the
+  choked duct cases in the compressible-flow report, which are subsonic
+  throughout and choke at the exit cell.
+
+Integral quantities are robust — chamber pressure varies by ~1 % and O/F by
+< 0.1 % across formulations — and the profile is monotone and physical
+through the throat. Cold starts and heavily perturbed states converge
+reliably.

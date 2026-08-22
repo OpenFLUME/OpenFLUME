@@ -13,7 +13,7 @@
  * limited-upwind truncation legitimately drifts a few 0.01·R per
  * supersonic cell — auditing it would flag ordinary discretization error.)
  * What distinguishes an expansion-shock root is the SECOND LAW: the jump
- * destroys entropy.  Measured on the LOX/RP-1 thruster's 22-station grid,
+ * destroys entropy.  Measured on the LOX/RP-1 thruster's nozzle grid,
  * the artifact's expansion leg destroys ≈ 0.11·R per branch while every
  * admissible branch sits within a few 0.001·R of its cooling allowance —
  * except the cell(s) straddling the physical sonic point, whose

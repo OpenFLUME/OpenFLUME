@@ -258,7 +258,7 @@ This case has a closed-form expected value embedded as a canvas label so you can
 - **Water distribution network** – steady pump-and-pipe distribution tree with three demand legs and elevation changes.
 - **Heated pipe with radiating wall (conjugate HT)** – steady water pipe with wall solid nodes, convection to fluid, conduction between wall segments, and radiation to a 300 K ambient.
 - **Spacecraft radiator panel (ammonia loop heat pipe)** – steady ammonia LHP rejecting 400 W of avionics heat: a wicked evaporator (capillary pumping modelled as a fixed pump curve) feeds a four-pass flat radiator panel with genuine 2-D in-plane face-sheet conduction, radiating to deep space; laid out in the x-y plane for the 3D view.
-- **LOX/RP-1 thruster (combustor)** – reacting junction (NASA CEA tables inside the Newton system) feeding a choked converging–diverging nozzle with a 22-station three-layer regenerative RP-1 jacket. Chamber pressure, O/F, and product-gas properties are solved, not prescribed; see [`docs/combustion.md`](docs/combustion.md).
+- **LOX/RP-1 thruster (combustor)** – reacting junction (NASA CEA tables inside the Newton system) feeding a choked converging–diverging nozzle with a 42-station three-layer regenerative RP-1 jacket. Chamber pressure, O/F, and product-gas properties are solved, not prescribed; see [`docs/combustion.md`](docs/combustion.md).
 
 #### Benchmarks
 

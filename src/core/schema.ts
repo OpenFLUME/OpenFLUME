@@ -574,10 +574,13 @@ export interface NetworkConfig {
      *     density included).  Second-order on smooth profiles and the more
      *     accurate choice when it converges to the physical root (the
      *     second-law audit certifies that; see transonicAdmissibility), but
-     *     it admits the nonphysical roots above and, on some transonic
-     *     grids, has NO admissible root at all (measured: the LOX/RP-1
-     *     thruster example walks away from an exact isentropic seed).
-     *     Bit-identical to pre-scheme builds.
+     *     it admits the nonphysical roots above, and on some transonic grids
+     *     they own the basin of attraction: the LOX/RP-1 thruster example
+     *     converges cleanly under "central" from every seed tried —
+     *     including an exact isentropic profile and a converged upwind
+     *     solution — and every time onto an INADMISSIBLE root.  A clean
+     *     residual is therefore not evidence of a physical answer here;
+     *     leave the audit on.  Bit-identical to pre-scheme builds.
      */
     momentumFluxScheme?: "upwind" | "central";
     /**
