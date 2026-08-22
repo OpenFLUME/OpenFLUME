@@ -358,4 +358,122 @@ describe("Species transport (no reactions)", () => {
     const rhoHe = resHe.nodes.A.density;
     expect(rhoN2 / rhoHe).toBeCloseTo(0.028 / 0.004, 2);
   });
+
+  it("mixing junction energy balance uses MIXTURE cp, not the carrier's", () => {
+    // The outer T-update solves Σ_in ṁ·h = ṁ_out·h(T_out) and inverts h → T.
+    // With species present both sides must use the MIXTURE h/cp: reading the
+    // carrier continuum's cp (air, 1005 J/kg·K) on both sides cancels it out
+    // and collapses the balance to a MASS-weighted mean of the inlet
+    // temperatures, which is only correct when every species shares one cp.
+    //
+    // Here the two inlets carry pure species with cp differing 3× at
+    // temperatures differing 100 K, so the two answers are ~24 K apart:
+    //   mixture-correct  T = Σ ṁᵢ·cpᵢ·Tᵢ / Σ ṁᵢ·cpᵢ   (enthalpy-weighted)
+    //   carrier-cp bug   T = Σ ṁᵢ·Tᵢ / Σ ṁᵢ            (mass-weighted)
+    // Equal molecular weights keep R_mix — hence ρ at fixed (P,T) — identical
+    // for both streams, so the flow split is set purely by the inlet
+    // temperatures and the assertion isolates the energy closure.
+    const P = 2e5;
+    const dP = 10000;
+    const A = 0.001;
+    const Cd = 0.6;
+    const T_HOT = 400;
+    const T_COLD = 300;
+    const CP_HOT = 800;
+    const CP_COLD = 2400;
+
+    const config = makeConfig({
+      species: {
+        names: ["HOT", "COLD"],
+        molecularWeights: [0.028, 0.028],
+        cp: [CP_HOT, CP_COLD],
+      },
+      nodes: [
+        {
+          id: "in1",
+          type: "boundary",
+          x: 0,
+          y: 1,
+          pressure: P + dP,
+          temperature: T_HOT,
+          massFractions: { HOT: 1.0, COLD: 0.0 },
+        },
+        {
+          id: "in2",
+          type: "boundary",
+          x: 0,
+          y: -1,
+          pressure: P + dP,
+          temperature: T_COLD,
+          massFractions: { HOT: 0.0, COLD: 1.0 },
+        },
+        {
+          id: "mix",
+          type: "internal",
+          x: 1,
+          y: 0,
+          pressure: P,
+          temperature: T_COLD,
+        },
+        {
+          id: "out",
+          type: "boundary",
+          x: 2,
+          y: 0,
+          pressure: P - dP,
+          temperature: T_COLD,
+          massFractions: { HOT: 0.5, COLD: 0.5 },
+        },
+      ],
+      branches: [
+        {
+          id: "b1",
+          from: "in1",
+          to: "mix",
+          component: { type: "orifice", area: A, cd: Cd },
+        },
+        {
+          id: "b2",
+          from: "in2",
+          to: "mix",
+          component: { type: "orifice", area: A, cd: Cd },
+        },
+        {
+          id: "b3",
+          from: "mix",
+          to: "out",
+          component: { type: "orifice", area: A * 2, cd: Cd },
+        },
+      ],
+    });
+
+    expect(validateNetwork(config)).toHaveLength(0);
+    const res = solveSteady(config);
+    expect(res.converged).toBe(true);
+
+    const mdot1 = res.branches.b1.mdot;
+    const mdot2 = res.branches.b2.mdot;
+    expect(mdot1).toBeGreaterThan(0);
+    expect(mdot2).toBeGreaterThan(0);
+
+    const Tmix = res.nodes.mix.temperature;
+    const enthalpyWeighted =
+      (mdot1 * CP_HOT * T_HOT + mdot2 * CP_COLD * T_COLD) /
+      (mdot1 * CP_HOT + mdot2 * CP_COLD);
+    const massWeighted = (mdot1 * T_HOT + mdot2 * T_COLD) / (mdot1 + mdot2);
+
+    expect(Math.abs(Tmix - enthalpyWeighted)).toBeLessThan(0.05);
+    // The two candidates are far apart, so this is a real discrimination and
+    // not a tolerance accident.
+    expect(Math.abs(enthalpyWeighted - massWeighted)).toBeGreaterThan(10);
+    expect(Math.abs(Tmix - massWeighted)).toBeGreaterThan(10);
+
+    // The invariant behind the number: mixture enthalpy in = mixture enthalpy
+    // out, with the outlet composition the solver actually converged on.
+    const Ymix = res.nodes.mix.massFractions!;
+    const cpMix = Ymix.HOT * CP_HOT + Ymix.COLD * CP_COLD;
+    const hIn = mdot1 * CP_HOT * T_HOT + mdot2 * CP_COLD * T_COLD;
+    const hOut = res.branches.b3.mdot * cpMix * Tmix;
+    expect(Math.abs(hIn - hOut) / Math.abs(hIn)).toBeLessThan(1e-6);
+  });
 });

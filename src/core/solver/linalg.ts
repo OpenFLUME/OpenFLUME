@@ -2,6 +2,17 @@
  * Dense linear-algebra helpers for the solver's small Newton systems
  * (network sizes are tens of unknowns, so O(n³) Gaussian elimination is
  * the right tool — no sparse machinery needed).
+ *
+ * That premise is the thing to check before optimising here.  A network's
+ * Jacobian is structurally sparse (a row couples only its own node's
+ * neighbours), so the dense factorisation is what would set the cost ceiling
+ * on a large model — but only after the Jacobian BUILD stops dominating: the
+ * build costs O(n) residual evaluations, each of which is O(edges) plus its
+ * property calls.  Measured on the shipped models the solve is a low
+ * single-digit percentage of step time (src/core/perf.ts reports
+ * denseSolveMs/denseSolveCalls next to jacobianBuilds, which is how to
+ * re-check).  Replacing this with a banded/sparse factorisation is worth it
+ * only once that ratio inverts.
  */
 
 import { enterDenseSolve, leaveDenseSolve, perfEnabled } from "../perf";

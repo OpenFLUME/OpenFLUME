@@ -58,6 +58,65 @@ import { FALLBACK_H_FLOOR } from "../correlations";
  */
 const JUNCTION_PARAM_SETTLE_REL = 1e-6;
 
+// ──────────────────────────────────────────────────────────────────────────
+// Calibrated thresholds of the step solver.
+//
+// These used to sit as bare literals at their use sites, which hid the two
+// things that actually matter about them: which ones are the SAME quantity
+// (the certifying row floors are reused by the Newton row scaling; the
+// two-phase, real and analytic settling bars are one family separated by
+// cp-magnitude) and which ones are independent knobs.  The measured
+// calibration rationale stays at the use site — only the numbers and their
+// relationships live here.
+// ──────────────────────────────────────────────────────────────────────────
+
+/** Row floors of the CERTIFYING scaled residual: mass rows in kg/s, every
+ *  other row (momentum in Pa, energy in W) on the coarse power floor. */
+const CERTIFY_FLOOR_MASS = 0.1;
+const CERTIFY_FLOOR_POWER = 1e4;
+/** Certifying scaled-norm bar for a transient real-fluid step, as a multiple
+ *  of `tol`.  Converged steps sit at ~1e-5…1e-4, stalled ones at ~0.1…10, so
+ *  the bar sits inside a ~1000× separation. */
+const CERTIFY_SCALED_BAR_FACTOR = 1e3;
+/** Outer state-settling bars, as multiples of `tol`: Δh [J/kg] with any node
+ *  in the dome, Δh in a real-fluid network, ΔT [K] in an analytic one. */
+const SETTLE_FACTOR_TWO_PHASE = 1e6;
+const SETTLE_FACTOR_REAL = 1e7;
+const SETTLE_FACTOR_ANALYTIC = 1e3;
+/** cp-magnitude [J·kg⁻¹·K⁻¹] mapping a ΔT bar onto the Δh bar, which is what
+ *  lets one fluidTol judge both energy deltas of a mixed-EOS network. */
+const T_TO_H_SCALE = 1e4;
+/** "Still far from the bar" gate shared by the inner-loop bail-outs, as a
+ *  multiple of `tol`: a near-converged grind is left to finish. */
+const INNER_BAIL_BAR_FACTOR = 100;
+/** Inner-loop no-progress bail: this many consecutive iterations whose
+ *  relative improvement stayed below the bar. */
+const INNER_REL_IMPROVE_BAR = 1e-4;
+const INNER_NO_PROGRESS_LIMIT = 10;
+/** Hopeless inner grind: from `HOPELESS_INNER_MIN_ITER` on, an improvement of
+ *  less than 10 % over the last `HOPELESS_INNER_WINDOW` iterations. */
+const HOPELESS_INNER_WINDOW = 20;
+const HOPELESS_INNER_MIN_ITER = 35;
+const HOPELESS_INNER_IMPROVE_FACTOR = 0.9;
+/**
+ * No-progress patience (outer iterations without a > 2 % improvement of the
+ * best certifying scaled residual) before an above-bar extended-system step
+ * is declared hopeless.  Measured calibration
+ * (docs/solver-convergence.md): the subcooled-chilldown t=90 s step descends
+ * to ~668 W, pauses through a 12-outer +4 % regime-flip bump, then plunges
+ * 40× and certifies (15.9 W) — so the patience must exceed 12; 14 gives
+ * ~20 % margin over that measurement.  A limit cycle trips the SAME test ~14
+ * outers after its envelope minimum stops improving (a period-p cycle's
+ * minimum is visited once and never improved afterwards — envelope stagnation
+ * IS the cycle signature; a separate amplitude-based fast bail was prototyped
+ * and rejected: it false-fired on the t=120 regime-flip bounce, 246 W →
+ * 2.1 kW → converged 3 outers later).
+ */
+const OUTER_PROGRESS_PATIENCE = 14;
+/** Relative improvement of the certifying scaled residual that counts as
+ *  outer progress. */
+const OUTER_PROGRESS_IMPROVE_FACTOR = 0.98;
+
 export interface SolveStepOptions {
   dt?: number;
   t?: number;
@@ -238,7 +297,7 @@ function updateSegregatedRealFluidNode(
 ): number {
   const { nodeMap, branches, nInt } = ctx;
   const node = nodeMap.get(nodeId)!;
-  const nBranch = ctx.nBranch;
+  const incident = ctx.incidentBranches.get(nodeId) ?? [];
   const hcurr = state.nodeH!.get(nodeId)!;
   const phCurr = safeStatePH(
     rfOf(ctx, nodeId),
@@ -250,9 +309,8 @@ function updateSegregatedRealFluidNode(
 
   // Convection heat rate (W) into the fluid node
   let Qconv = 0;
-  for (const cond of ctx.conductors) {
+  for (const cond of ctx.convectionConductors.get(nodeId) ?? []) {
     if (cond.type.kind !== "convection") continue;
-    if (cond.from !== nodeId && cond.to !== nodeId) continue;
     const otherId = cond.from === nodeId ? cond.to : cond.from;
     const hEff = hMap.get(cond.id) ?? cond.type.h ?? FALLBACK_H_FLOOR;
     const G = hEff * cond.type.area;
@@ -264,7 +322,7 @@ function updateSegregatedRealFluidNode(
   // Branch enthalpy flows
   let hSum = 0;
   let sumOut = 0;
-  for (let j = 0; j < nBranch; j++) {
+  for (const j of incident) {
     const b = branches[j];
     const mdot = X[nInt + j];
     if (b.to === nodeId && mdot > 0) {
@@ -281,7 +339,7 @@ function updateSegregatedRealFluidNode(
   }
 
   // HeatedPipe branch heat
-  for (let j = 0; j < nBranch; j++) {
+  for (const j of incident) {
     const b = branches[j];
     const mdot = X[nInt + j];
     if (b.component.getBranchHeat) {
@@ -492,9 +550,38 @@ function updateLegacyNode(
 ): number {
   const { nodeMap, branches, nInt } = ctx;
   const node = nodeMap.get(nodeId)!;
-  const nBranch = ctx.nBranch;
+  const incident = ctx.incidentBranches.get(nodeId) ?? [];
   const fluidOf = (id: string) => ctx.fluidAssignment.node(id);
   const Tcurr = state.nodeT.get(nodeId)!;
+  // Mixture-aware property access.  In a species network a node's assigned
+  // fluid is the CARRIER continuum, whose cp/cv/h/u/ρ are NOT the mixture's:
+  // reading them mixes substances inside one energy balance (transported
+  // enthalpy from the carrier, stored internal energy from the carrier, but
+  // the balance's own denominators and the residual kernel's densities from
+  // the mixture).  Route every property through the mixture rules when a
+  // composition exists.  With no species each accessor is exactly the carrier
+  // call it replaces, so non-species solves are bit-identical.
+  const mix =
+    ctx.hasSpecies && ctx.mixtureFluid && state.nodeY
+      ? ctx.mixtureFluid
+      : undefined;
+  const Yof = (id: string) => state.nodeY!.get(id)!;
+  const cpAt = (id: string, P: number, T: number) =>
+    mix ? mix.cpMix(P, T, Yof(id)) : fluidOf(id).cp(P, T);
+  const cvAt = (id: string, P: number, T: number) =>
+    mix ? mix.cvMix(P, T, Yof(id)) : fluidOf(id).cv(P, T);
+  const enthalpyAt = (id: string, P: number, T: number) =>
+    mix ? mix.enthalpyMix(P, T, Yof(id)) : fluidOf(id).enthalpy(P, T);
+  const internalEnergyAt = (id: string, P: number, T: number) =>
+    mix
+      ? mix.internalEnergyMix(P, T, Yof(id))
+      : fluidOf(id).internalEnergy(P, T);
+  const densityAt = (id: string, P: number, T: number) =>
+    mix ? mix.densityMix(P, T, Yof(id)) : fluidOf(id).density(P, T);
+  const temperatureFromEnthalpyAt = (id: string, P: number, h: number) =>
+    mix
+      ? mix.temperatureFromEnthalpyMix(P, h, Yof(id))
+      : fluidOf(id).temperatureFromEnthalpy(P, h);
   // settings.kineticEnergy: specific kinetic energy V²/2 carried by branch j
   // at a node's state, with V = ṁ/(ρA) and the branch's own flow area —
   // stagnation-enthalpy transport for the quasi-1-D compressible
@@ -514,22 +601,13 @@ function updateLegacyNode(
     const v = mdot / (rho * A);
     return 0.5 * v * v;
   };
-  let cp: number;
-  let rhoCurr: number;
-  if (ctx.hasSpecies && ctx.mixtureFluid && state.nodeY) {
-    const Y = state.nodeY.get(nodeId)!;
-    cp = ctx.mixtureFluid.cpMix(Pcurr, Tcurr, Y);
-    rhoCurr = ctx.mixtureFluid.densityMix(Pcurr, Tcurr, Y);
-  } else {
-    cp = fluidOf(nodeId).cp(Pcurr, Tcurr);
-    rhoCurr = fluidOf(nodeId).density(Pcurr, Tcurr);
-  }
+  const cp = cpAt(nodeId, Pcurr, Tcurr);
+  const rhoCurr = densityAt(nodeId, Pcurr, Tcurr);
 
   let convCoeff = 0;
   let convRhs = 0;
-  for (const cond of ctx.conductors) {
+  for (const cond of ctx.convectionConductors.get(nodeId) ?? []) {
     if (cond.type.kind !== "convection") continue;
-    if (cond.from !== nodeId && cond.to !== nodeId) continue;
     const otherId = cond.from === nodeId ? cond.to : cond.from;
     const hEff = hMap.get(cond.id) ?? cond.type.h ?? FALLBACK_H_FLOOR;
     const G = hEff * cond.type.area;
@@ -560,37 +638,36 @@ function updateLegacyNode(
       mPrev = rhoPrev * V;
     }
     const Tn = TnStart;
-    const cpNode = fluidOf(nodeId).cp(Pcurr, Tcurr);
-    const cv = fluidOf(nodeId).cv(Pcurr, Tcurr);
+    const cv = cvAt(nodeId, Pcurr, Tcurr);
     const coeffStorage = (mCurr * cv) / dt;
     let coeffOut = 0;
     let outflowH = 0;
     let rhs =
-      (mPrev / dt) * fluidOf(nodeId).internalEnergy(Pcurr, Tn) +
+      (mPrev / dt) * internalEnergyAt(nodeId, Pcurr, Tn) +
       heatInputOf(ctx, node);
-    for (let j = 0; j < nBranch; j++) {
+    for (const j of incident) {
       const b = branches[j];
       const mdot = X[nInt + j];
       if (b.to === nodeId && mdot > 0) {
         const Tup = state.nodeT.get(b.from)!;
-        rhs += mdot * fluidOf(b.from).enthalpy(state.nodeP.get(b.from)!, Tup);
+        rhs += mdot * enthalpyAt(b.from, state.nodeP.get(b.from)!, Tup);
         rhs +=
           mdot * kineticEnergyAt(j, "from", mdot, state.nodeRho.get(b.from)!);
       } else if (b.from === nodeId && mdot < 0) {
         const Tup = state.nodeT.get(b.to)!;
-        rhs += -mdot * fluidOf(b.to).enthalpy(state.nodeP.get(b.to)!, Tup);
+        rhs += -mdot * enthalpyAt(b.to, state.nodeP.get(b.to)!, Tup);
         rhs += -mdot * kineticEnergyAt(j, "to", mdot, state.nodeRho.get(b.to)!);
       } else if (b.from === nodeId && mdot > 0) {
-        coeffOut += mdot * cpNode;
-        outflowH += mdot * fluidOf(nodeId).enthalpy(Pcurr, Tcurr);
+        coeffOut += mdot * cp;
+        outflowH += mdot * enthalpyAt(nodeId, Pcurr, Tcurr);
         outflowH += mdot * kineticEnergyAt(j, "from", mdot, rhoCurr);
       } else if (b.to === nodeId && mdot < 0) {
-        coeffOut += -mdot * cpNode;
-        outflowH += -mdot * fluidOf(nodeId).enthalpy(Pcurr, Tcurr);
+        coeffOut += -mdot * cp;
+        outflowH += -mdot * enthalpyAt(nodeId, Pcurr, Tcurr);
         outflowH += -mdot * kineticEnergyAt(j, "to", mdot, rhoCurr);
       }
     }
-    for (let j = 0; j < nBranch; j++) {
+    for (const j of incident) {
       const b = branches[j];
       const mdot = X[nInt + j];
       if (b.component.getBranchHeat) {
@@ -610,7 +687,7 @@ function updateLegacyNode(
     }
     const denom = coeffStorage + coeffOut + convCoeff;
     if (denom > 1e-12) {
-      const u_k = fluidOf(nodeId).internalEnergy(Pcurr, Tcurr);
+      const u_k = internalEnergyAt(nodeId, Pcurr, Tcurr);
       const rhs_adj =
         rhs -
         (mCurr / dt) * u_k -
@@ -630,17 +707,17 @@ function updateLegacyNode(
   // node's state — subtracted from the enthalpy balance so the solved h is
   // the STATIC enthalpy while ṁ·(h + V²/2) is what each branch conserves.
   let keOut = 0;
-  for (let j = 0; j < nBranch; j++) {
+  for (const j of incident) {
     const b = branches[j];
     const mdot = X[nInt + j];
     if (b.to === nodeId && mdot > 0) {
       const Tup = state.nodeT.get(b.from)!;
-      hSum += mdot * fluidOf(b.from).enthalpy(state.nodeP.get(b.from)!, Tup);
+      hSum += mdot * enthalpyAt(b.from, state.nodeP.get(b.from)!, Tup);
       hSum +=
         mdot * kineticEnergyAt(j, "from", mdot, state.nodeRho.get(b.from)!);
     } else if (b.from === nodeId && mdot < 0) {
       const Tup = state.nodeT.get(b.to)!;
-      hSum += -mdot * fluidOf(b.to).enthalpy(state.nodeP.get(b.to)!, Tup);
+      hSum += -mdot * enthalpyAt(b.to, state.nodeP.get(b.to)!, Tup);
       hSum += -mdot * kineticEnergyAt(j, "to", mdot, state.nodeRho.get(b.to)!);
     } else if (b.from === nodeId && mdot > 0) {
       sumOut += mdot;
@@ -650,7 +727,7 @@ function updateLegacyNode(
       keOut += -mdot * kineticEnergyAt(j, "to", mdot, rhoCurr);
     }
   }
-  for (let j = 0; j < nBranch; j++) {
+  for (const j of incident) {
     const b = branches[j];
     const mdot = X[nInt + j];
     if (b.component.getBranchHeat) {
@@ -680,10 +757,10 @@ function updateLegacyNode(
       // contractive for subsonic flow (|d(KE)/dh| = (γ−1)M² < 1 for an
       // ideal gas), so a few iterations settle it.
       for (let ke = 0; ke < 60; ke++) {
-        const Ttry = fluidOf(nodeId).temperatureFromEnthalpy(Pcurr, hNode);
-        const rhoTry = fluidOf(nodeId).density(Pcurr, Ttry);
+        const Ttry = temperatureFromEnthalpyAt(nodeId, Pcurr, hNode);
+        const rhoTry = densityAt(nodeId, Pcurr, Ttry);
         let keOutTry = 0;
-        for (let j = 0; j < nBranch; j++) {
+        for (const j of incident) {
           const b = branches[j];
           const mdot = X[nInt + j];
           if (b.from === nodeId && mdot > 0) {
@@ -700,7 +777,7 @@ function updateLegacyNode(
         if (settled) break;
       }
     }
-    let newT = fluidOf(nodeId).temperatureFromEnthalpy(Pcurr, hNode);
+    let newT = temperatureFromEnthalpyAt(nodeId, Pcurr, hNode);
     if (ctx.kineticEnergy) {
       // Damp the outer T-Picard.  The stagnation-enthalpy coupling closes a
       // T → ρ → V → T feedback loop through the momentum solve which
@@ -741,7 +818,7 @@ function updateSpeciesTransport(
   prevState: StepState | undefined,
 ): void {
   if (!ctx.hasSpecies || !state.nodeY) return;
-  const { nodeMap, internalIds, branches, nInt, nBranch } = ctx;
+  const { nodeMap, internalIds, branches, nInt } = ctx;
   for (let i = 0; i < nInt; i++) {
     const nodeId = internalIds[i];
     const node = nodeMap.get(nodeId)!;
@@ -751,7 +828,7 @@ function updateSpeciesTransport(
     const sumInY: Record<string, number> = {};
     for (const sp of spNames) sumInY[sp] = 0;
     let sumOut = 0;
-    for (let j = 0; j < nBranch; j++) {
+    for (const j of ctx.incidentBranches.get(nodeId) ?? []) {
       const b = branches[j];
       const mdot = X[nInt + j];
       if (b.to === nodeId && mdot > 0) {
@@ -818,21 +895,33 @@ function refreshNodeProperties(ctx: SolverContext, state: StepState): void {
     const T = state.nodeT.get(nodeId)!;
     const fluid = fluidOf(nodeId);
     if (fluid instanceof RealFluid) {
-      let h = state.nodeH!.get(nodeId)!;
-      const [, clampedH] = clampToValidPH(fluid.fluidName, P, h);
-      h = clampedH;
-      state.nodeH!.set(nodeId, h);
       try {
-        const ph = safeStatePH(fluid, P, h, `node ${nodeId} post-step update`);
+        // The guard covers the LIMIT-TABLE lookup inside clampToValidPH,
+        // which is the call here that can actually throw (an unavailable
+        // CoolProp backend): safeStatePH is the no-throw wrapper — it
+        // degrades through its own counted fallback cascade instead.  On a
+        // failure the node keeps its previous h/rho/mu/T/quality so the
+        // solver can continue; the inner-loop residual was already converged,
+        // and skipping the post-update sync is safer than crashing.
+        const [, clampedH] = clampToValidPH(
+          fluid.fluidName,
+          P,
+          state.nodeH!.get(nodeId)!,
+        );
+        state.nodeH!.set(nodeId, clampedH);
+        const ph = safeStatePH(
+          fluid,
+          P,
+          clampedH,
+          `node ${nodeId} post-step update`,
+        );
         state.nodeRho.set(nodeId, ph.rho);
         state.nodeMu.set(nodeId, ph.mu);
         state.nodeT.set(nodeId, ph.T);
         state.nodeQuality!.set(nodeId, ph.quality);
         state.nodePhase!.set(nodeId, ph.phase);
       } catch {
-        // CoolProp abort or property failure: keep previous rho/mu/T/quality
-        // so the solver can continue. The inner-loop residual was already
-        // converged; skipping the post-update sync is safer than crashing.
+        // See above: previous values stand.
       }
     } else {
       if (ctx.hasSpecies && ctx.mixtureFluid && state.nodeY) {
@@ -1077,7 +1166,7 @@ function solveStateStepAttempt(
   // that exists to condition the linear solve and leaves the exact step
   // invariant, whereas this judges whether a step may be called converged.
   const certifyingRowFloor = (row: number): number =>
-    dof.kindOf(row) === "P" ? 0.1 : 1e4;
+    dof.kindOf(row) === "P" ? CERTIFY_FLOOR_MASS : CERTIFY_FLOOR_POWER;
 
   let outerConverged = false;
   let finalResidual = 1e99;
@@ -1097,20 +1186,6 @@ function solveStateStepAttempt(
   // system uses the residual-trend detector at the bottom of the outer
   // loop).  Used to break out instead of grinding to maxOuter.
   let stalledOuters = 0;
-  // No-progress patience (outer iterations without a > 2 % improvement of
-  // the best certifying scaled residual) before an above-bar
-  // extended-system step is declared hopeless.  Measured calibration
-  // (docs/solver-convergence.md): the subcooled-chilldown t=90 s step
-  // descends to ~668 W, pauses through a 12-outer +4 % regime-flip bump,
-  // then plunges 40× and certifies (15.9 W) — so the patience must exceed
-  // 12; 14 gives ~20 % margin over that measurement.  A limit
-  // cycle trips the SAME test ~14 outers after its envelope minimum stops
-  // improving (a period-p cycle's minimum is visited once and never
-  // improved afterwards — envelope stagnation IS the cycle signature; a
-  // separate amplitude-based fast bail was prototyped and rejected: it
-  // false-fired on the t=120 regime-flip bounce, 246 W → 2.1 kW →
-  // converged 3 outers later).
-  const OUTER_PROGRESS_PATIENCE = 14;
   // Hopeless-step detection: best scaled residual seen so far and the outer
   // index it was last improved on (by > 2 %).  A step that cannot converge
   // (e.g. the emergent-venturi no-root discretisation) crawls at < 2 % per
@@ -1175,6 +1250,340 @@ function solveStateStepAttempt(
     ? new Map<string, { lastDelta: number; relax: number }>()
     : undefined;
 
+  // ── Linearisation state of the inner iteration in flight ─────────────────
+  //
+  // These are per-inner-iteration values, but they live at attempt scope so
+  // the step-trial closures below can too: declared inside the iteration, the
+  // five of them are re-created on every one of (outer × maxIterations)
+  // iterations purely because they capture these variables.  Each is
+  // (re)assigned at the top of the iteration that owns it.
+  /** Column scales by DOF kind, row scales by conservation law. */
+  let sX: number[] = [];
+  let sR: number[] = [];
+  /** R(X), its row-scaled form, and ‖R(X)‖ at the current iterate. */
+  let R: number[] = [];
+  let Rscaled: number[] = [];
+  let resNorm = 0;
+  /** The iteration's row/column-scaled Jacobian WITHOUT any PTC diagonal
+   *  shift — that differs per retry and is applied in scaleAndSolve. */
+  let Jscaled: number[][] = [];
+  /** Trial published by whichever globalization accepted a step. */
+  let trialNorm = 1e99;
+  let Xtrial: number[] = [];
+  let stepAccepted = false;
+  /** Residual at the accepted trial point.  The trial evaluation already
+   *  computed R(Xtrial) and X then BECOMES Xtrial, so this is the next
+   *  iteration's base residual; recomputing it would spend a full residual
+   *  evaluation (and, for a real fluid, a round of property flashes) per
+   *  inner iteration on a bit-identical result.  Left undefined whenever X
+   *  moves by any route that did not evaluate its residual. */
+  let pendingR: number[] | undefined;
+
+  /** Solve the scaled Newton system for the step dX.  Returns the unscaled
+   *  step, the scaled step (dY), and the scaled Jacobian that was actually
+   *  solved — including the PTC shift, since the shift is part of this step's
+   *  linear model and the dogleg must measure its predicted reduction against
+   *  the same model. */
+  function scaleAndSolve(ptcTau?: number): {
+    dX: number[];
+    dY: number[];
+    Jsc: number[][];
+  } {
+    // Genuine PTC: add 1/deltaTau to scaled diagonals that are
+    // structurally small or zero (pressure mass-balance rows and any
+    // stiff momentum rows).  Well-conditioned rows (|diag| >= 1) are
+    // left untouched so easy problems keep their fast Newton path.
+    // The shift goes into a COPY: `Jscaled` is reused by the next retry, and
+    // the threshold is judged on the UNSHIFTED diagonal.
+    let Jsc = Jscaled;
+    if (ptcTau !== undefined && ptcTau > 0) {
+      Jsc = Jscaled.map((row) => [...row]);
+      for (let i = 0; i < nVar; i++) {
+        if (Math.abs(Jscaled[i][i]) < 1.0) {
+          Jsc[i][i] += 1.0 / ptcTau;
+        }
+      }
+    }
+    const dXscaled = solveDense(
+      Jsc,
+      Rscaled.map((v) => -v),
+    );
+    const dY = dXscaled;
+    const dX = dXscaled.map((v, k) => v * sX[k]);
+    return { dX, dY, Jsc };
+  }
+
+  // Project a trial iterate back into the physically admissible box:
+  // positive pressures, bounded mass flows, and — for nodes whose energy
+  // unknown is an enthalpy — a state inside the fluid's valid P–h
+  // envelope.  Shared by the backtracking line search and the
+  // trust-region trial so both enforce identical bounds.
+  function clampTrialToBounds(Xt: number[]): void {
+    for (const id of internalIds) {
+      const c = dof.pressureCol(id)!;
+      Xt[c] = Math.max(1.0, Math.min(1e9, Xt[c]));
+    }
+    for (let j = 0; j < nBranch; j++) {
+      const c = dof.mdotCol(j);
+      Xt[c] = Math.max(-1e3, Math.min(1e3, Xt[c]));
+    }
+    for (const id of dof.energyNodes) {
+      if (dof.energyKind(id) !== "h") continue;
+      const hCol = dof.energyCol(id)!;
+      const [, clampedH] = clampToValidPHFor(
+        ctx.fluidAssignment.node(id),
+        Xt[dof.pressureCol(id)!],
+        Xt[hCol],
+      );
+      Xt[hCol] = clampedH;
+    }
+  }
+
+  /** Result of a trial step.  `Rtrial` is the residual AT `Xtrial` and is
+   *  present exactly when it was successfully evaluated there — `threw`
+   *  marks the case where it was not, which is not a step the caller may
+   *  accept (its norm is unknown). */
+  interface TrialResult {
+    trialNorm: number;
+    Xtrial: number[];
+    reduced: boolean;
+    Rtrial?: number[];
+    threw?: boolean;
+  }
+
+  // Helper: try a step from current X with a given dX and return the best trial.
+  function tryStep(dXtry: number[]): TrialResult {
+    if (!ctx.isRealFluid) {
+      const Xt = [...X];
+      for (let k = 0; k < X.length; k++) {
+        let step = 1.0 * relax * dXtry[k];
+        if (ctx.kineticEnergy) {
+          // Compressible mode: the discrete equations of a near-choked
+          // duct admit spurious mixed subsonic/supersonic roots.  An
+          // unclamped Newton step can throw an interior node's pressure
+          // across the sonic transition into the wrong root's basin (and
+          // the residual there is just as small, so it certifies).  Limit
+          // each iteration to a 20 % pressure move, a bounded ṁ move and
+          // a 20 % temperature move — pure damping, the converged
+          // solution is unchanged.
+          const kind = dof.kindOf(k);
+          if (kind === "P") {
+            const maxStep = 0.2 * Math.max(Math.abs(X[k]), 1e3);
+            step = Math.max(-maxStep, Math.min(maxStep, step));
+          } else if (kind === "mdot") {
+            const maxStep = Math.max(Math.abs(X[k]), 0.1) * 0.5;
+            step = Math.max(-maxStep, Math.min(maxStep, step));
+          } else {
+            const maxStep = 0.2 * Math.max(Math.abs(X[k]), 50);
+            step = Math.max(-maxStep, Math.min(maxStep, step));
+          }
+        }
+        Xt[k] += step;
+      }
+      for (const id of internalIds) {
+        const c = dof.pressureCol(id)!;
+        Xt[c] = Math.max(1.0, Math.min(1e9, Xt[c]));
+      }
+      for (const id of dof.energyNodes) {
+        // Keep the energy unknown physical: T in [1, 1e5] K directly;
+        // an h column gets the SAME temperature box mapped through the
+        // node fluid's own h(P, T) (monotone in T), or the tabulated
+        // valid P–h envelope for a real fluid.
+        const c = dof.energyCol(id)!;
+        if (dof.energyKind(id) === "T") {
+          Xt[c] = Math.max(1.0, Math.min(1e5, Xt[c]));
+        } else {
+          const f = ctx.fluidAssignment.node(id);
+          const Ptrial = Xt[dof.pressureCol(id)!];
+          if (f instanceof RealFluid) {
+            const [, clampedH] = clampToValidPHFor(f, Ptrial, Xt[c]);
+            Xt[c] = clampedH;
+          } else {
+            const hMin = f.enthalpyPT(Ptrial, 1.0);
+            const hMax = f.enthalpyPT(Ptrial, 1e5);
+            Xt[c] = Math.max(hMin, Math.min(hMax, Xt[c]));
+          }
+        }
+      }
+      let Rtrial: number[];
+      try {
+        Rtrial = computeResidual(Xt);
+      } catch {
+        // The trial point has no residual, so it has no norm either: report
+        // the failure instead of standing in the current R (which would make
+        // the trial look exactly as good as where we already are).
+        return {
+          trialNorm: resNorm,
+          Xtrial: Xt,
+          reduced: false,
+          threw: true,
+        };
+      }
+      const tn = norm2(Rtrial);
+      return { trialNorm: tn, Xtrial: Xt, reduced: tn < resNorm, Rtrial };
+    } else {
+      let alpha = 1.0;
+      let bestTrialNorm = 1e99;
+      let bestXtrial = [...X];
+      let bestRtrial: number[] | undefined;
+      for (let backtrack = 0; backtrack < 8; backtrack++) {
+        const Xt = [...X];
+        for (let k = 0; k < X.length; k++) {
+          let step = alpha * relax * dXtry[k];
+          const kind = dof.kindOf(k);
+          if (kind === "P") {
+            // No clamp for P — let the line search control the step size
+          } else if (kind === "mdot") {
+            const maxStep = Math.min(Math.max(Math.abs(X[k]), 0.1) * 0.5, 10.0);
+            step = Math.max(-maxStep, Math.min(maxStep, step));
+          } else {
+            // For extended-system h variables, allow the backtracking line search
+            // to control the step size rather than clamping to a small fixed bound.
+            // The h equation can be stiff (dh ~1e5 J/kg needed); clamping to 5e3
+            // forces hundreds of iterations.  The bounds check below and the line
+            // search backtrack provide the necessary safeguards.
+            if (!useExtendedSystem) {
+              const maxStep = Math.min(Math.abs(X[k]) * 0.05, 5000.0);
+              step = Math.max(-maxStep, Math.min(maxStep, step));
+            } else {
+              // Extended system: clamp h-step to avoid overshooting across
+              // the dome, but allow larger steps than the segregated path.
+              // Use a floor so that when h is near zero the solver can still
+              // escape the clamped region (e.g. crossing from positive h to
+              // negative h in the two-phase dome).
+              const maxStep = Math.min(
+                Math.max(Math.abs(X[k]), 1000.0) * 0.5,
+                50000.0,
+              );
+              step = Math.max(-maxStep, Math.min(maxStep, step));
+            }
+          }
+          Xt[k] += step;
+        }
+        clampTrialToBounds(Xt);
+        let Rtrial: number[];
+        try {
+          Rtrial = computeResidual(Xt);
+        } catch {
+          alpha *= 0.5;
+          continue;
+        }
+        const tn = norm2(Rtrial);
+        if (tn < bestTrialNorm) {
+          bestTrialNorm = tn;
+          bestXtrial = [...Xt];
+          bestRtrial = Rtrial;
+        }
+        if (tn < resNorm) {
+          return { trialNorm: tn, Xtrial: Xt, reduced: true, Rtrial };
+        }
+        alpha *= 0.5;
+      }
+      if (bestTrialNorm < 1e99) {
+        return {
+          trialNorm: bestTrialNorm,
+          Xtrial: bestXtrial,
+          reduced: bestTrialNorm < resNorm,
+          Rtrial: bestRtrial,
+        };
+      }
+      return { trialNorm: 1e99, Xtrial: [...X], reduced: false };
+    }
+  }
+
+  // Helper: evaluate a single trial step (no backtracking).  Used by trust-region.
+  function evaluateTrial(dXtry: number[]): {
+    trialNorm: number;
+    Xtrial: number[];
+    Rtrial: number[];
+    threw?: boolean;
+  } {
+    const Xt = [...X];
+    for (let k = 0; k < X.length; k++) {
+      Xt[k] += dXtry[k];
+    }
+    clampTrialToBounds(Xt);
+    let Rtrial: number[];
+    try {
+      Rtrial = computeResidual(Xt);
+    } catch {
+      // Rtrial stands in for the model comparison only (it makes the actual
+      // reduction exactly zero, so the step is rejected); it is NOT the
+      // residual at Xt, hence `threw`.
+      return { trialNorm: 1e99, Xtrial: Xt, Rtrial: R, threw: true };
+    }
+    return { trialNorm: norm2(Rtrial), Xtrial: Xt, Rtrial };
+  }
+
+  // Trust-region dogleg trial (scaled space): given the Newton step dY
+  // and the scaled Jacobian, walk the dogleg path within the current
+  // radius, accept on actual/predicted reduction ρ ≥ 0.1 (growing the
+  // radius on a strong full-length step), shrink the radius otherwise.
+  // On acceptance, publishes trialNorm/Xtrial/pendingR/stepAccepted.
+  function doglegTrial(dY: number[], Jsc: number[][]): boolean {
+    const g = matVecTrans(Jsc, Rscaled);
+    const normG = norm2(g);
+    const Jg = normG > 0 ? matVec(Jsc, g) : [];
+    const normJg = norm2(Jg);
+    const alpha =
+      normG > 0 && normJg > 0 ? (normG * normG) / (normJg * normJg) : 0;
+    const dY_C = g.map((v) => -alpha * v);
+    const normDY_N = norm2(dY);
+    const normDY_C = norm2(dY_C);
+    const normR2 = norm2(Rscaled) * norm2(Rscaled);
+    for (let trRetry = 0; trRetry < trMaxRetries; trRetry++) {
+      let dYtry: number[];
+      if (normDY_N <= trustRegionDelta) {
+        dYtry = dY;
+      } else if (normDY_C >= trustRegionDelta) {
+        dYtry = dY_C.map((v) => v * (trustRegionDelta / normDY_C));
+      } else {
+        const a = dY.map((v, i) => v - dY_C[i]);
+        const b = dY_C;
+        const aDotB = dot(a, b);
+        const aNorm2 = dot(a, a);
+        const bNorm2 = dot(b, b);
+        const c = bNorm2 - trustRegionDelta * trustRegionDelta;
+        const disc = 4 * aDotB * aDotB - 4 * aNorm2 * c;
+        let tau = 0;
+        if (disc >= 0 && aNorm2 > 0) {
+          tau = (-2 * aDotB + Math.sqrt(disc)) / (2 * aNorm2);
+          if (tau < 0) tau = 0;
+          if (tau > 1) tau = 1;
+        }
+        dYtry = a.map((v, i) => b[i] + tau * v);
+      }
+      const dXtry = dYtry.map((v, k) => v * sX[k]);
+      const { trialNorm: tn, Xtrial: Xt, Rtrial, threw } = evaluateTrial(dXtry);
+      const RtrialScaled = Rtrial.map((v, i) => v / sR[i]);
+      const modelRes = matVec(Jsc, dYtry);
+      let modelNorm2 = 0;
+      for (let i = 0; i < nVar; i++) {
+        const v = Rscaled[i] + modelRes[i];
+        modelNorm2 += v * v;
+      }
+      const predVal = 0.5 * (normR2 - modelNorm2);
+      const aredVal =
+        0.5 * (normR2 - norm2(RtrialScaled) * norm2(RtrialScaled));
+      let rho = predVal > 0 ? aredVal / predVal : -1;
+      if (!isFinite(rho)) rho = -1;
+      if (rho >= 0.1 && !threw) {
+        trialNorm = tn;
+        Xtrial = Xt;
+        pendingR = Rtrial;
+        stepAccepted = true;
+        if (rho > 0.75 && norm2(dYtry) >= 0.9 * trustRegionDelta) {
+          trustRegionDelta = Math.min(trustRegionDelta * 2, trMaxDelta);
+        }
+        return true;
+      } else {
+        trustRegionDelta *= 0.25;
+        if (trustRegionDelta < trMinDelta) break;
+      }
+    }
+    return false;
+  }
+
   for (let outer = 0; outer < maxOuter; outer++) {
     // The compressible stagnation-T memo is valid only while the frozen
     // state maps are unchanged — drop it at each outer (the previous
@@ -1188,22 +1597,40 @@ function solveStateStepAttempt(
     }
 
     // ── Inner Newton loop over x = [P, ṁ (, h)] ─────────────────────────
+    //
+    // `bestResNorm` is the RAW ‖R‖₂, which sums rows in different units
+    // (mass kg/s, momentum Pa, energy W).  It is therefore not a physically
+    // meaningful measure of convergence — the momentum and energy rows
+    // dominate it by their own magnitudes — and `bestResNorm < tol` is used
+    // only as an inner-loop STOPPING rule, where a value that small means
+    // every row is small in every unit and stopping is certainly safe.  What
+    // certifies a step is the row-floor-scaled norm computed below
+    // (`lastInnerBestResScaled`, floors from certifyingRowFloor); the raw tol
+    // is unreachable for stiff real-fluid steps, which is exactly why the
+    // scaled bar exists.
     let bestResNorm = 1e99;
     let bestX = [...X];
     let consecutiveNoProgress = 0;
-    let bestAtMark = 1e99;
+    /** Best residual norm at the END of each inner iteration, indexed by
+     *  iteration — the reference for the sliding-window grind test below. */
+    const bestHistory: number[] = [];
+    pendingR = undefined;
     for (let iter = 0; iter < maxIterations; iter++) {
-      let R: number[];
-      try {
-        R = computeResidual(X);
-      } catch {
-        // Property failure during NR: revert to best known state
-        if (bestResNorm < 1e99) {
-          for (let k = 0; k < X.length; k++) X[k] = bestX[k];
+      if (pendingR !== undefined) {
+        R = pendingR;
+        pendingR = undefined;
+      } else {
+        try {
+          R = computeResidual(X);
+        } catch {
+          // Property failure during NR: revert to best known state
+          if (bestResNorm < 1e99) {
+            for (let k = 0; k < X.length; k++) X[k] = bestX[k];
+          }
+          break;
         }
-        break;
       }
-      const resNorm = norm2(R);
+      resNorm = norm2(R);
       if (resNorm < bestResNorm) {
         bestResNorm = resNorm;
         bestX = [...X];
@@ -1216,7 +1643,7 @@ function solveStateStepAttempt(
         break;
       }
       const useHybrid = (options.jacobian ?? "hybrid") === "hybrid";
-      const J = useHybrid ? hybridJacobian(X) : numericalJacobian(X);
+      const J = useHybrid ? hybridJacobian(X, R) : numericalJacobian(X, R);
 
       // Scaling factors depend on X and R, which are fixed during a single
       // inner-loop iteration.  Compute them once so the PTC retry loop can
@@ -1225,8 +1652,8 @@ function solveStateStepAttempt(
       // conservation law the row expresses — rows share the column layout
       // (mass rows sit opposite P columns, momentum rows opposite ṁ, energy
       // rows opposite the energy block), so one kind lookup serves both.
-      const sX: number[] = new Array(nVar).fill(1);
-      const sR: number[] = new Array(nVar).fill(1);
+      sX = new Array(nVar).fill(1);
+      sR = new Array(nVar).fill(1);
       for (let k = 0; k < nVar; k++) {
         switch (dof.kindOf(k)) {
           case "P":
@@ -1250,7 +1677,7 @@ function solveStateStepAttempt(
         switch (dof.kindOf(i)) {
           case "P":
             // Mass rows [kg/s].
-            sR[i] = Math.max(1e-6, Math.abs(R[i]), 0.1);
+            sR[i] = Math.max(1e-6, Math.abs(R[i]), CERTIFY_FLOOR_MASS);
             break;
           case "T":
             // Coupled-compressible energy rows are already divided by the
@@ -1262,319 +1689,43 @@ function solveStateStepAttempt(
           case "h":
             // Coupled-h energy rows arrive dimensionless (per-node hPowerRef
             // in the kernel) — same convention as the T rows above.  The
-            // extended system's h rows are raw Watts and keep the 1e4 floor.
+            // extended system's h rows are raw Watts and keep the power floor.
             sR[i] = useCoupledH
               ? Math.max(1.0, Math.abs(R[i]))
-              : Math.max(1.0, Math.abs(R[i]), 1e4);
+              : Math.max(1.0, Math.abs(R[i]), CERTIFY_FLOOR_POWER);
             break;
           default:
             // Momentum rows [Pa].
-            sR[i] = Math.max(1.0, Math.abs(R[i]), 1e4);
+            sR[i] = Math.max(1.0, Math.abs(R[i]), CERTIFY_FLOOR_POWER);
             break;
         }
       }
 
-      const Rscaled = R.map((v, i) => v / sR[i]);
+      Rscaled = R.map((v, i) => v / sR[i]);
+      // Row/column scaling is applied ONCE per iteration: the PTC retries
+      // below differ only by a diagonal shift, so re-scaling every entry per
+      // retry was pure repetition of identical arithmetic.
+      Jscaled = J.map((row, i) => {
+        const out = new Array<number>(nVar);
+        for (let k = 0; k < nVar; k++) out[k] = (row[k] * sX[k]) / sR[i];
+        return out;
+      });
 
-      // Scale an unscaled Jacobian and solve for the Newton step dX.
-      // Returns both the unscaled step, the scaled step (dY), and the scaled
-      // Jacobian so trust-region/dogleg logic can reuse them.
-      function scaleAndSolve(
-        Junscaled: number[][],
-        ptcTau?: number,
-      ): { dX: number[]; dY: number[]; Jsc: number[][] } {
-        const Jsc: number[][] = Junscaled.map((row) => [...row]);
-        for (let i = 0; i < nVar; i++) {
-          for (let k = 0; k < nVar; k++) {
-            Jsc[i][k] = (Junscaled[i][k] * sX[k]) / sR[i];
-          }
-        }
-        // Genuine PTC: add 1/deltaTau to scaled diagonals that are
-        // structurally small or zero (pressure mass-balance rows and any
-        // stiff momentum rows).  Well-conditioned rows (|diag| >= 1) are
-        // left untouched so easy problems keep their fast Newton path.
-        if (ptcTau !== undefined && ptcTau > 0) {
-          for (let i = 0; i < nVar; i++) {
-            if (Math.abs(Jsc[i][i]) < 1.0) {
-              Jsc[i][i] += 1.0 / ptcTau;
-            }
-          }
-        }
-        const dXscaled = solveDense(
-          Jsc,
-          Rscaled.map((v) => -v),
-        );
-        const dY = dXscaled;
-        const dX = dXscaled.map((v, k) => v * sX[k]);
-        return { dX, dY, Jsc };
-      }
-
-      // Project a trial iterate back into the physically admissible box:
-      // positive pressures, bounded mass flows, and — for nodes whose energy
-      // unknown is an enthalpy — a state inside the fluid's valid P–h
-      // envelope.  Shared by the backtracking line search and the
-      // trust-region trial so both enforce identical bounds.
-      function clampTrialToBounds(Xtrial: number[]): void {
-        for (const id of internalIds) {
-          const c = dof.pressureCol(id)!;
-          Xtrial[c] = Math.max(1.0, Math.min(1e9, Xtrial[c]));
-        }
-        for (let j = 0; j < nBranch; j++) {
-          const c = dof.mdotCol(j);
-          Xtrial[c] = Math.max(-1e3, Math.min(1e3, Xtrial[c]));
-        }
-        for (const id of dof.energyNodes) {
-          if (dof.energyKind(id) !== "h") continue;
-          const hCol = dof.energyCol(id)!;
-          const [, clampedH] = clampToValidPHFor(
-            ctx.fluidAssignment.node(id),
-            Xtrial[dof.pressureCol(id)!],
-            Xtrial[hCol],
-          );
-          Xtrial[hCol] = clampedH;
-        }
-      }
-
-      // Helper: try a step from current X with a given dX and return the best trial.
-      function tryStep(dXtry: number[]): {
-        trialNorm: number;
-        Xtrial: number[];
-        reduced: boolean;
-      } {
-        if (!ctx.isRealFluid) {
-          const Xtrial = [...X];
-          for (let k = 0; k < X.length; k++) {
-            let step = 1.0 * relax * dXtry[k];
-            if (ctx.kineticEnergy) {
-              // Compressible mode: the discrete equations of a near-choked
-              // duct admit spurious mixed subsonic/supersonic roots.  An
-              // unclamped Newton step can throw an interior node's pressure
-              // across the sonic transition into the wrong root's basin (and
-              // the residual there is just as small, so it certifies).  Limit
-              // each iteration to a 20 % pressure move, a bounded ṁ move and
-              // a 20 % temperature move — pure damping, the converged
-              // solution is unchanged.
-              const kind = dof.kindOf(k);
-              if (kind === "P") {
-                const maxStep = 0.2 * Math.max(Math.abs(X[k]), 1e3);
-                step = Math.max(-maxStep, Math.min(maxStep, step));
-              } else if (kind === "mdot") {
-                const maxStep = Math.max(Math.abs(X[k]), 0.1) * 0.5;
-                step = Math.max(-maxStep, Math.min(maxStep, step));
-              } else {
-                const maxStep = 0.2 * Math.max(Math.abs(X[k]), 50);
-                step = Math.max(-maxStep, Math.min(maxStep, step));
-              }
-            }
-            Xtrial[k] += step;
-          }
-          for (const id of internalIds) {
-            const c = dof.pressureCol(id)!;
-            Xtrial[c] = Math.max(1.0, Math.min(1e9, Xtrial[c]));
-          }
-          for (const id of dof.energyNodes) {
-            // Keep the energy unknown physical: T in [1, 1e5] K directly;
-            // an h column gets the SAME temperature box mapped through the
-            // node fluid's own h(P, T) (monotone in T), or the tabulated
-            // valid P–h envelope for a real fluid.
-            const c = dof.energyCol(id)!;
-            if (dof.energyKind(id) === "T") {
-              Xtrial[c] = Math.max(1.0, Math.min(1e5, Xtrial[c]));
-            } else {
-              const f = ctx.fluidAssignment.node(id);
-              const Ptrial = Xtrial[dof.pressureCol(id)!];
-              if (f instanceof RealFluid) {
-                const [, clampedH] = clampToValidPHFor(f, Ptrial, Xtrial[c]);
-                Xtrial[c] = clampedH;
-              } else {
-                const hMin = f.enthalpyPT(Ptrial, 1.0);
-                const hMax = f.enthalpyPT(Ptrial, 1e5);
-                Xtrial[c] = Math.max(hMin, Math.min(hMax, Xtrial[c]));
-              }
-            }
-          }
-          let Rtrial: number[];
-          try {
-            Rtrial = computeResidual(Xtrial);
-          } catch {
-            Rtrial = R;
-          }
-          const trialNorm = norm2(Rtrial);
-          return { trialNorm, Xtrial, reduced: trialNorm < resNorm };
-        } else {
-          let alpha = 1.0;
-          let bestTrialNorm = 1e99;
-          let bestXtrial = [...X];
-          for (let backtrack = 0; backtrack < 8; backtrack++) {
-            const Xtrial = [...X];
-            for (let k = 0; k < X.length; k++) {
-              let step = alpha * relax * dXtry[k];
-              const kind = dof.kindOf(k);
-              if (kind === "P") {
-                // No clamp for P — let the line search control the step size
-              } else if (kind === "mdot") {
-                const maxStep = Math.min(
-                  Math.max(Math.abs(X[k]), 0.1) * 0.5,
-                  10.0,
-                );
-                step = Math.max(-maxStep, Math.min(maxStep, step));
-              } else {
-                // For extended-system h variables, allow the backtracking line search
-                // to control the step size rather than clamping to a small fixed bound.
-                // The h equation can be stiff (dh ~1e5 J/kg needed); clamping to 5e3
-                // forces hundreds of iterations.  The bounds check below and the line
-                // search backtrack provide the necessary safeguards.
-                if (!useExtendedSystem) {
-                  const maxStep = Math.min(Math.abs(X[k]) * 0.05, 5000.0);
-                  step = Math.max(-maxStep, Math.min(maxStep, step));
-                } else {
-                  // Extended system: clamp h-step to avoid overshooting across
-                  // the dome, but allow larger steps than the segregated path.
-                  // Use a floor so that when h is near zero the solver can still
-                  // escape the clamped region (e.g. crossing from positive h to
-                  // negative h in the two-phase dome).
-                  const maxStep = Math.min(
-                    Math.max(Math.abs(X[k]), 1000.0) * 0.5,
-                    50000.0,
-                  );
-                  step = Math.max(-maxStep, Math.min(maxStep, step));
-                }
-              }
-              Xtrial[k] += step;
-            }
-            clampTrialToBounds(Xtrial);
-            let Rtrial: number[];
-            try {
-              Rtrial = computeResidual(Xtrial);
-            } catch {
-              alpha *= 0.5;
-              continue;
-            }
-            const trialNorm = norm2(Rtrial);
-            if (trialNorm < bestTrialNorm) {
-              bestTrialNorm = trialNorm;
-              bestXtrial = [...Xtrial];
-            }
-            if (trialNorm < resNorm) {
-              return { trialNorm, Xtrial, reduced: true };
-            }
-            alpha *= 0.5;
-          }
-          if (bestTrialNorm < 1e99) {
-            return {
-              trialNorm: bestTrialNorm,
-              Xtrial: bestXtrial,
-              reduced: bestTrialNorm < resNorm,
-            };
-          }
-          return { trialNorm: 1e99, Xtrial: [...X], reduced: false };
-        }
-      }
-
-      // Helper: evaluate a single trial step (no backtracking).  Used by trust-region.
-      function evaluateTrial(dXtry: number[]): {
-        trialNorm: number;
-        Xtrial: number[];
-        Rtrial: number[];
-      } {
-        const Xtrial = [...X];
-        for (let k = 0; k < X.length; k++) {
-          Xtrial[k] += dXtry[k];
-        }
-        clampTrialToBounds(Xtrial);
-        let Rtrial: number[];
-        try {
-          Rtrial = computeResidual(Xtrial);
-        } catch {
-          return { trialNorm: 1e99, Xtrial, Rtrial: R };
-        }
-        return { trialNorm: norm2(Rtrial), Xtrial, Rtrial };
-      }
-
-      let stepAccepted = false;
-      let trialNorm = 1e99;
-      let Xtrial: number[] = [...X];
-
-      // Trust-region dogleg trial (scaled space): given the Newton step dY
-      // and the scaled Jacobian, walk the dogleg path within the current
-      // radius, accept on actual/predicted reduction ρ ≥ 0.1 (growing the
-      // radius on a strong full-length step), shrink the radius otherwise.
-      // On acceptance, publishes trialNorm/Xtrial/stepAccepted.
-      function doglegTrial(dY: number[], Jsc: number[][]): boolean {
-        const g = matVecTrans(Jsc, Rscaled);
-        const normG = norm2(g);
-        const Jg = normG > 0 ? matVec(Jsc, g) : [];
-        const normJg = norm2(Jg);
-        const alpha =
-          normG > 0 && normJg > 0 ? (normG * normG) / (normJg * normJg) : 0;
-        const dY_C = g.map((v) => -alpha * v);
-        const normDY_N = norm2(dY);
-        const normDY_C = norm2(dY_C);
-        const normR2 = norm2(Rscaled) * norm2(Rscaled);
-        for (let trRetry = 0; trRetry < trMaxRetries; trRetry++) {
-          let dYtry: number[];
-          if (normDY_N <= trustRegionDelta) {
-            dYtry = dY;
-          } else if (normDY_C >= trustRegionDelta) {
-            dYtry = dY_C.map((v) => v * (trustRegionDelta / normDY_C));
-          } else {
-            const a = dY.map((v, i) => v - dY_C[i]);
-            const b = dY_C;
-            const aDotB = dot(a, b);
-            const aNorm2 = dot(a, a);
-            const bNorm2 = dot(b, b);
-            const c = bNorm2 - trustRegionDelta * trustRegionDelta;
-            const disc = 4 * aDotB * aDotB - 4 * aNorm2 * c;
-            let tau = 0;
-            if (disc >= 0 && aNorm2 > 0) {
-              tau = (-2 * aDotB + Math.sqrt(disc)) / (2 * aNorm2);
-              if (tau < 0) tau = 0;
-              if (tau > 1) tau = 1;
-            }
-            dYtry = a.map((v, i) => b[i] + tau * v);
-          }
-          const dXtry = dYtry.map((v, k) => v * sX[k]);
-          const { trialNorm: tn, Xtrial: Xt, Rtrial } = evaluateTrial(dXtry);
-          const RtrialScaled = Rtrial.map((v, i) => v / sR[i]);
-          const modelRes = matVec(Jsc, dYtry);
-          let modelNorm2 = 0;
-          for (let i = 0; i < nVar; i++) {
-            const v = Rscaled[i] + modelRes[i];
-            modelNorm2 += v * v;
-          }
-          const predVal = 0.5 * (normR2 - modelNorm2);
-          const aredVal =
-            0.5 * (normR2 - norm2(RtrialScaled) * norm2(RtrialScaled));
-          let rho = predVal > 0 ? aredVal / predVal : -1;
-          if (!isFinite(rho)) rho = -1;
-          if (rho >= 0.1) {
-            trialNorm = tn;
-            Xtrial = Xt;
-            stepAccepted = true;
-            if (rho > 0.75 && norm2(dYtry) >= 0.9 * trustRegionDelta) {
-              trustRegionDelta = Math.min(trustRegionDelta * 2, trMaxDelta);
-            }
-            return true;
-          } else {
-            trustRegionDelta *= 0.25;
-            if (trustRegionDelta < trMinDelta) break;
-          }
-        }
-        return false;
-      }
+      stepAccepted = false;
+      trialNorm = 1e99;
+      Xtrial = [...X];
 
       if (!ctx.isRealFluid || !useTrustRegion) {
         // Legacy line-search / direct-step path.
         if (ptcActive) {
           for (let ptcRetry = 0; ptcRetry <= ptcMaxRetries; ptcRetry++) {
             const usePtc = ptcRetry > 0;
-            const { dX } = usePtc
-              ? scaleAndSolve(J, deltaTau)
-              : scaleAndSolve(J);
+            const { dX } = usePtc ? scaleAndSolve(deltaTau) : scaleAndSolve();
             const result = tryStep(dX);
             if (result.reduced) {
               trialNorm = result.trialNorm;
               Xtrial = result.Xtrial;
+              pendingR = result.Rtrial;
               stepAccepted = true;
               ptcGrow(resNorm / result.trialNorm);
               break;
@@ -1583,11 +1734,22 @@ function solveStateStepAttempt(
             }
           }
         } else {
-          const { dX } = scaleAndSolve(J);
+          const { dX } = scaleAndSolve();
           const result = tryStep(dX);
-          trialNorm = result.trialNorm;
-          Xtrial = result.Xtrial;
-          stepAccepted = true;
+          if (result.threw) {
+            // The trial's residual could not be evaluated, so its norm is
+            // unknown.  Accepting it would move X to a point nothing has
+            // measured and record the CURRENT norm as that point's — the
+            // iteration then either grinds on a worse iterate or fails at the
+            // top of the next one and reverts to bestX anyway.  Rejecting
+            // lands on that same bestX one iteration earlier.
+            stepAccepted = false;
+          } else {
+            trialNorm = result.trialNorm;
+            Xtrial = result.Xtrial;
+            pendingR = result.Rtrial;
+            stepAccepted = true;
+          }
         }
       } else {
         // Trust-region dogleg path (scaled space).
@@ -1595,8 +1757,8 @@ function solveStateStepAttempt(
           for (let ptcRetry = 0; ptcRetry <= ptcMaxRetries; ptcRetry++) {
             const usePtc = ptcRetry > 0;
             const { dY, Jsc } = usePtc
-              ? scaleAndSolve(J, deltaTau)
-              : scaleAndSolve(J);
+              ? scaleAndSolve(deltaTau)
+              : scaleAndSolve();
             if (doglegTrial(dY, Jsc)) {
               ptcGrow(resNorm / trialNorm);
               break;
@@ -1606,12 +1768,13 @@ function solveStateStepAttempt(
           }
         } else {
           // Non-PTC real-fluid path with trust region.
-          const { dX, dY, Jsc } = scaleAndSolve(J);
+          const { dX, dY, Jsc } = scaleAndSolve();
           if (!doglegTrial(dY, Jsc)) {
             // Fallback to legacy line search if dogleg fails completely.
             const result = tryStep(dX);
             trialNorm = result.trialNorm;
             Xtrial = result.Xtrial;
+            pendingR = result.Rtrial;
             stepAccepted = true; // preserve legacy unconditional acceptance for non-PTC path
           }
         }
@@ -1624,22 +1787,22 @@ function solveStateStepAttempt(
           // iteration can otherwise reset the no-progress counter forever
           // with ~1e-5-relative crawl steps (the emergent-venturi no-root
           // grind: 100+ iterations of 7e-5-relative improvements after the
-          // descent is done).  The 1e-4 threshold is far below what a
-          // converging Newton iteration produces (orders of magnitude),
-          // and the tol*100 gate below protects near-converged grinds,
+          // descent is done).  The threshold is far below what a converging
+          // Newton iteration produces (orders of magnitude), and the
+          // still-far-from-the-bar gate below protects near-converged grinds,
           // so convergence paths are unaffected.
           const relImprove =
             (bestResNorm - trialNorm) / Math.max(bestResNorm, 1e-300);
           bestResNorm = trialNorm;
           bestX = [...X];
-          if (relImprove > 1e-4) {
+          if (relImprove > INNER_REL_IMPROVE_BAR) {
             consecutiveNoProgress = 0;
           } else {
             consecutiveNoProgress++;
             if (
               ctx.isRealFluid &&
-              consecutiveNoProgress >= 10 &&
-              bestResNorm > tol * 100
+              consecutiveNoProgress >= INNER_NO_PROGRESS_LIMIT &&
+              bestResNorm > tol * INNER_BAIL_BAR_FACTOR
             ) {
               break;
             }
@@ -1648,8 +1811,8 @@ function solveStateStepAttempt(
           consecutiveNoProgress++;
           if (
             ctx.isRealFluid &&
-            consecutiveNoProgress >= 10 &&
-            bestResNorm > tol * 100
+            consecutiveNoProgress >= INNER_NO_PROGRESS_LIMIT &&
+            bestResNorm > tol * INNER_BAIL_BAR_FACTOR
           ) {
             break;
           }
@@ -1667,20 +1830,30 @@ function solveStateStepAttempt(
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
-      if (iter === 15) bestAtMark = bestResNorm;
-      // Hopeless inner grind: far from convergence (> tol*100) and not
-      // improving (< 10 % over the last 20 iterations).  Converging Newton
+      // Hopeless inner grind: far from convergence and not improving (< 10 %
+      // over the last HOPELESS_INNER_WINDOW iterations).  Converging Newton
       // sequences descend many orders of magnitude faster than this once
       // they engage, so the break can only fire on steps that are not
       // going to converge this outer — stopping the grind just makes the
       // retry cascade cheaper (it bounds the emergent-venturi no-root
       // case, which otherwise burns the full maxIterations budget per
       // outer).
+      //
+      // The reference is the best norm from HOPELESS_INNER_WINDOW iterations
+      // ago, so the window SLIDES.  A single anchored mark (the earlier form,
+      // captured once at iteration 15) is a 20-iteration window only on its
+      // first evaluation: by iteration 100 it compares against 85 iterations
+      // of history, and any early descent it recorded keeps excusing an
+      // arbitrarily long flat grind afterwards.  At the first evaluation the
+      // two forms agree exactly.
+      bestHistory[iter] = bestResNorm;
       if (
         useExtendedSystem &&
-        iter >= 35 &&
-        bestResNorm > tol * 100 &&
-        bestResNorm > 0.9 * bestAtMark
+        iter >= HOPELESS_INNER_MIN_ITER &&
+        bestResNorm > tol * INNER_BAIL_BAR_FACTOR &&
+        bestResNorm >
+          HOPELESS_INNER_IMPROVE_FACTOR *
+            bestHistory[iter - HOPELESS_INNER_WINDOW]
       ) {
         break;
       }
@@ -1717,7 +1890,10 @@ function solveStateStepAttempt(
       lastInnerBestResScaled = bestResNorm;
     }
     if (!checkAfterCoupling) {
-      if (lastInnerBestResScaled < scaledBestEver * 0.98) {
+      if (
+        lastInnerBestResScaled <
+        scaledBestEver * OUTER_PROGRESS_IMPROVE_FACTOR
+      ) {
         scaledBestEver = lastInnerBestResScaled;
         scaledBestOuter = outer;
       }
@@ -1934,7 +2110,10 @@ function solveStateStepAttempt(
         lastInnerBestResScaled = 1e99;
         returnResidual = 1e99;
       }
-      if (lastInnerBestResScaled < scaledBestEver * 0.98) {
+      if (
+        lastInnerBestResScaled <
+        scaledBestEver * OUTER_PROGRESS_IMPROVE_FACTOR
+      ) {
         scaledBestEver = lastInnerBestResScaled;
         scaledBestOuter = outer;
       }
@@ -1959,7 +2138,7 @@ function solveStateStepAttempt(
     // see one term and the identical test, mixed networks require each
     // class to meet its own bar.
     const maxDeltaFluid = ctx.isRealFluid
-      ? Math.max(maxDeltaFluidH, maxDeltaFluidT * 1e4)
+      ? Math.max(maxDeltaFluidH, maxDeltaFluidT * T_TO_H_SCALE)
       : maxDeltaFluidT;
     const maxDeltaT = Math.max(maxDeltaFluid, maxDeltaSolidT);
 
@@ -1988,10 +2167,10 @@ function solveStateStepAttempt(
     }
 
     const fluidTol = anyNodeTwoPhase
-      ? tol * 1e6
+      ? tol * SETTLE_FACTOR_TWO_PHASE
       : ctx.isRealFluid
-        ? tol * 1e7
-        : tol * 1e3;
+        ? tol * SETTLE_FACTOR_REAL
+        : tol * SETTLE_FACTOR_ANALYTIC;
     // For transient non-real-fluid we accept outer convergence even if the
     // inner loop is not fully converged: the small time step means the state
     // is close to the previous solution, and the temperature update is
@@ -2018,7 +2197,7 @@ function solveStateStepAttempt(
     const innerConverged =
       dt !== undefined
         ? ctx.isRealFluid
-          ? lastInnerBestResScaled < tol * 1e3
+          ? lastInnerBestResScaled < tol * CERTIFY_SCALED_BAR_FACTOR
           : true
         : ctx.isRealFluid
           ? finalResidual < tol
@@ -2060,7 +2239,7 @@ function solveStateStepAttempt(
     // Non-extended paths keep the legacy state-motion stall test.
     if (useExtendedSystem) {
       if (
-        lastInnerBestResScaled > tol * 1e3 &&
+        lastInnerBestResScaled > tol * CERTIFY_SCALED_BAR_FACTOR &&
         outer - scaledBestOuter >= OUTER_PROGRESS_PATIENCE
       ) {
         outerConverged = false;
@@ -2110,7 +2289,7 @@ function solveStateStepAttempt(
     returnResidual = bestOuterRaw;
     lastInnerBestResScaled = bestOuterScaled;
     if (useExtendedSystem && dt !== undefined) {
-      outerConverged = bestOuterScaled < tol * 1e3;
+      outerConverged = bestOuterScaled < tol * CERTIFY_SCALED_BAR_FACTOR;
     }
   }
 

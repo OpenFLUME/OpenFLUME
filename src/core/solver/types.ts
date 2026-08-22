@@ -142,6 +142,27 @@ export interface SolverContext {
   }>;
   nInt: number;
   nBranch: number;
+  /**
+   * Static branch incidence: per node id, the indices of the branches that
+   * touch it at either endpoint, in ascending branch order.  A branch whose
+   * two endpoints are the same node appears ONCE.
+   *
+   * Every nodal balance (mass, energy, species) used to scan all `nBranch`
+   * branches and test `b.from === nodeId || b.to === nodeId`, which makes a
+   * residual evaluation O(nInt × nBranch) on topology alone — the dominant
+   * cost once a network has a few hundred branches, even though each node
+   * touches only a handful of them.  Walking this list instead is O(edges).
+   * Ascending branch order is part of the contract: it preserves the
+   * accumulation order of the scans it replaces, so the sums are unchanged
+   * bit-for-bit.
+   */
+  incidentBranches: Map<string, number[]>;
+  /**
+   * Static convection incidence: per node id (fluid or solid), the
+   * convection conductors that touch it, in `conductors` order.  Same
+   * rationale and same order guarantee as `incidentBranches`.
+   */
+  convectionConductors: Map<string, ConductorEntry[]>;
   // Thermal subsystem
   solidNodeMap: Map<string, NonNullable<NetworkConfig["solidNodes"]>[number]>;
   ambientIds: Set<string>;
@@ -281,15 +302,46 @@ export function cloneStepState(state: StepState): StepState {
   };
 }
 
+/** Overwrite `dst`'s contents with `src`'s, REUSING dst's containers.
+ *
+ *  The name says "into", and callers rely on it: the retry cascade restores
+ *  the entry state into the live `state` object between tiers, so anything
+ *  holding a reference to one of its maps (the Newton kernel captures the
+ *  state object and reads `state.nodeP` on every residual evaluation) must
+ *  keep seeing the restored values.  Refilling in place also drops one
+ *  allocation per map per restore, which on a transient run happens once per
+ *  cascade tier per step. */
 export function copyStepStateInto(dst: StepState, src: StepState): void {
-  dst.nodeP = new Map(src.nodeP);
-  dst.nodeT = new Map(src.nodeT);
-  dst.nodeRho = new Map(src.nodeRho);
-  dst.nodeMu = new Map(src.nodeMu);
-  dst.nodeH = src.nodeH ? new Map(src.nodeH) : undefined;
-  dst.nodeQuality = src.nodeQuality ? new Map(src.nodeQuality) : undefined;
-  dst.nodePhase = src.nodePhase ? new Map(src.nodePhase) : undefined;
-  dst.nodeY = src.nodeY ? new Map(src.nodeY) : undefined;
-  dst.mdots = [...src.mdots];
-  dst.solidT = new Map(src.solidT);
+  if (dst === src) return;
+  copyMapInto(dst.nodeP, src.nodeP);
+  copyMapInto(dst.nodeT, src.nodeT);
+  copyMapInto(dst.nodeRho, src.nodeRho);
+  copyMapInto(dst.nodeMu, src.nodeMu);
+  dst.nodeH = copyOptionalMap(dst.nodeH, src.nodeH);
+  dst.nodeQuality = copyOptionalMap(dst.nodeQuality, src.nodeQuality);
+  dst.nodePhase = copyOptionalMap(dst.nodePhase, src.nodePhase);
+  // Composition records are shared by reference, as cloneStepState does: the
+  // outer loop replaces a node's whole record rather than mutating it.
+  dst.nodeY = copyOptionalMap(dst.nodeY, src.nodeY);
+  if (dst.mdots.length === src.mdots.length) {
+    for (let j = 0; j < src.mdots.length; j++) dst.mdots[j] = src.mdots[j];
+  } else {
+    dst.mdots = [...src.mdots];
+  }
+  copyMapInto(dst.solidT, src.solidT);
+}
+
+function copyMapInto<K, V>(dst: Map<K, V>, src: Map<K, V>): void {
+  dst.clear();
+  for (const [k, v] of src) dst.set(k, v);
+}
+
+function copyOptionalMap<K, V>(
+  dst: Map<K, V> | undefined,
+  src: Map<K, V> | undefined,
+): Map<K, V> | undefined {
+  if (src === undefined) return undefined;
+  if (dst === undefined) return new Map(src);
+  copyMapInto(dst, src);
+  return dst;
 }

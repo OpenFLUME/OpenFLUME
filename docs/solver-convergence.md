@@ -33,7 +33,15 @@ These factors explain why the envelope distinguishes descent from stalling:
 - A limit cycle visits its envelope minimum once and never improves it afterwards, so it trips the detector ~14 outers after the minimum is first reached. Envelope stagnation represents the cycle signature, meaning no period detection is needed. Transient regime-flip bounces can span >3× in amplitude before plunging, so only patience separates them from true cycles.
 - A flat no-root grind (emergent-venturi class) trips it after 14 outers. This provides a bounded, acceptable cost.
 
-Scope: extended system only. Non-extended paths (incompressible / ideal-gas / steady) keep the legacy state-motion 3-strike stall test bit-for-bit. Inner-loop no-progress guards, the iteration caps (maxOuter=1000, 200 inner), and the retry-cascade tier budgets are unchanged, as are all convergence-accept paths.
+Scope: extended system only. Non-extended paths (incompressible / ideal-gas / steady) keep the legacy state-motion 3-strike stall test bit-for-bit. The iteration caps (maxOuter=1000, 200 inner), the retry-cascade tier budgets and all convergence-accept paths are unchanged.
+
+### 3.1 Inner-loop hopeless-grind window
+
+The inner Newton loop has its own bail for the same no-root class: from iteration 35 on, an above-bar iterate whose best residual norm has improved by less than 10 % over the **preceding 20 iterations** stops the inner loop and hands control back to the outer Picard (and, in turn, to the retry cascade).
+
+The reference norm is read from a per-iteration history of the best norm, so the 20-iteration window **slides**. The earlier form anchored a single mark captured once at iteration 15, which is a 20-iteration window only on its first evaluation: by iteration 100 it compared against 85 iterations of history, and any early descent recorded at the mark kept excusing an arbitrarily long flat grind afterwards. Both forms agree exactly at the first evaluation, so the calibration above (which was measured there) carries over.
+
+Scope: extended system only, and it is a stopping rule, never an accept path — the outer loop still restores the best-known iterate before continuing.
 
 ## 4. Limitations
 

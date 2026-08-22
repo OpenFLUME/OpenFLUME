@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { NetworkConfig } from "../schema";
-import { solveSteady } from "../solver";
+import {
+  buildSolverContext,
+  createInitialState,
+  probeJacobians,
+  solveSteady,
+} from "../solver";
 import {
   Pipe,
   Orifice,
@@ -532,5 +537,156 @@ describe("Network solve consistency: hybrid vs pure-FD", () => {
     expect(
       Math.abs(hybrid.branches.v1.mdot - fd.branches.v1.mdot),
     ).toBeLessThan(1e-9);
+  });
+});
+
+describe("OrificeCompressible momentum row carries its enthalpy coupling", () => {
+  /** Ideal-gas duct with an orificeCompressible between two INTERNAL nodes,
+   *  under settings.kineticEnergy so every internal node owns an h unknown
+   *  and the momentum/energy rows are solved as one coupled system. */
+  function buildConfig(): NetworkConfig {
+    return {
+      meta: { name: "orificeCompressible h-coupling", version: 2 },
+      settings: {
+        mode: "steady",
+        tolerance: 1e-8,
+        maxIterations: 200,
+        relaxation: 1.0,
+        kineticEnergy: true,
+      },
+      fluid: {
+        model: "idealGas",
+        params: { R: 296.8, gamma: 1.4, mu: 1.78e-5, cp: 1038.8 },
+      },
+      nodes: [
+        {
+          id: "up",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 5e5,
+          temperature: 400,
+        },
+        {
+          id: "m1",
+          type: "internal",
+          x: 1,
+          y: 0,
+          pressure: 4.5e5,
+          temperature: 400,
+        },
+        {
+          id: "m2",
+          type: "internal",
+          x: 2,
+          y: 0,
+          pressure: 2.5e5,
+          temperature: 380,
+        },
+        {
+          id: "down",
+          type: "boundary",
+          x: 3,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        {
+          id: "pIn",
+          from: "up",
+          to: "m1",
+          component: {
+            type: "pipe",
+            length: 1,
+            diameter: 0.02,
+            roughness: 1e-5,
+          },
+        },
+        {
+          id: "oc",
+          from: "m1",
+          to: "m2",
+          component: { type: "orificeCompressible", area: 1e-4, cd: 0.6 },
+        },
+        {
+          id: "pOut",
+          from: "m2",
+          to: "down",
+          component: {
+            type: "pipe",
+            length: 1,
+            diameter: 0.02,
+            roughness: 1e-5,
+          },
+        },
+      ],
+    };
+  }
+
+  it("the h columns of both endpoints are FD-patched, not left at zero", () => {
+    // The choked-flow closure is value-only in the dual path (it reads the
+    // UPSTREAM temperature through a non-differentiable branch), so the row's
+    // touching columns are handed to the per-column FD patch.  The h columns
+    // used to be omitted from that list: their dual value was the derivative
+    // of a constant (exactly 0) and nothing patched it afterwards, so the
+    // coupled h-system saw NO ṁ–h coupling for this component at all.
+    const config = buildConfig();
+    const ctx = buildSolverContext(config);
+    const state = createInitialState(ctx, config);
+    state.mdots.fill(0.02);
+    const { x, hybrid, fd } = probeJacobians(ctx, state, {});
+
+    // Sanity: this network really is in the coupled-h layout (P | ṁ | h).
+    expect(x.length).toBe(2 * ctx.nInt + ctx.nBranch);
+
+    const ocRow = ctx.nInt + 1; // momentum row of branch "oc"
+    const hCol = (id: string) =>
+      ctx.nInt + ctx.nBranch + ctx.internalIndex.get(id)!;
+
+    for (const id of ["m1", "m2"]) {
+      const k = hCol(id);
+      const a = hybrid[ocRow][k];
+      const b = fd[ocRow][k];
+      // Patched entries come from the same fdJacobianColumn on the same base
+      // residual in both builders, so they agree to round-off.
+      const scale = Math.max(1e-12, Math.abs(a), Math.abs(b));
+      expect(
+        Math.abs(a - b) / scale,
+        `mom:oc / h:${id}: hybrid=${a} fd=${b}`,
+      ).toBeLessThan(1e-6);
+    }
+
+    // The upstream enthalpy genuinely moves the row (ṁ_choked ∝ P/√T and
+    // T = T(h)), so the fixed entry is nonzero — before the fix the hybrid
+    // side reported exactly 0 here while FD did not.
+    expect(Math.abs(fd[ocRow][hCol("m1")])).toBeGreaterThan(1e-12);
+    expect(hybrid[ocRow][hCol("m1")]).not.toBe(0);
+  });
+
+  it("hybrid and pure-FD solves land on the same state", () => {
+    const config = buildConfig();
+    const hybrid = solveSteady({
+      ...config,
+      settings: { ...config.settings, jacobian: "hybrid" },
+    });
+    const fd = solveSteady({
+      ...config,
+      settings: { ...config.settings, jacobian: "fd" },
+    });
+    expect(hybrid.converged).toBe(true);
+    expect(fd.converged).toBe(true);
+    expect(
+      Math.abs(hybrid.branches.oc.mdot - fd.branches.oc.mdot),
+    ).toBeLessThan(1e-9);
+    for (const id of ["m1", "m2"]) {
+      expect(
+        Math.abs(hybrid.nodes[id].pressure - fd.nodes[id].pressure),
+      ).toBeLessThan(1e-4);
+      expect(
+        Math.abs(hybrid.nodes[id].temperature - fd.nodes[id].temperature),
+      ).toBeLessThan(1e-6);
+    }
   });
 });

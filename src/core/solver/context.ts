@@ -363,6 +363,30 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
     };
   }
 
+  // Static incidence tables (see SolverContext.incidentBranches): built once
+  // per solve so the nodal balances never rescan the whole branch/conductor
+  // list.  Branch order within each list is the contract that keeps the
+  // replaced scans' summation order — and their rounding — intact.
+  const incidentBranches = new Map<string, number[]>();
+  branches.forEach((b, j) => {
+    for (const id of b.from === b.to ? [b.from] : [b.from, b.to]) {
+      const list = incidentBranches.get(id);
+      if (list) list.push(j);
+      else incidentBranches.set(id, [j]);
+    }
+  });
+  const convectionConductors = new Map<string, ConductorEntry[]>();
+  for (const cond of conductors) {
+    if (cond.type.kind !== "convection") continue;
+    for (const id of cond.from === cond.to
+      ? [cond.from]
+      : [cond.from, cond.to]) {
+      const list = convectionConductors.get(id);
+      if (list) list.push(cond);
+      else convectionConductors.set(id, [cond]);
+    }
+  }
+
   return {
     fluid,
     fluidAssignment,
@@ -381,6 +405,8 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
     branches,
     nInt: internalIds.length,
     nBranch: branches.length,
+    incidentBranches,
+    convectionConductors,
     solidNodeMap,
     ambientIds,
     solidIds,

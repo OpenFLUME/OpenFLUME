@@ -28,7 +28,7 @@
  * Both builders are exposed through `probeJacobians` so tests can compare
  * them entry by entry at an arbitrary state.
  */
-import type { SolverContext, StepState } from "./types";
+import type { ConductorEntry, SolverContext, StepState } from "./types";
 import { heatInputOf } from "./types";
 import {
   safeStatePH,
@@ -107,8 +107,10 @@ export function useCoupledHMode(
 export interface NewtonKernel {
   computeResidual(x: number[]): number[];
   fdJacobianColumn(x: number[], k: number, R0: number[], J: number[][]): void;
-  numericalJacobian(x: number[]): number[][];
-  hybridJacobian(x: number[]): number[][];
+  /** `R0`, when supplied, must be `computeResidual(x)` — the builders use it
+   *  instead of re-evaluating the base residual themselves. */
+  numericalJacobian(x: number[], R0?: number[]): number[][];
+  hybridJacobian(x: number[], R0?: number[]): number[][];
   /** Drop the memoized per-node stagnation temperatures of the compressible
    *  (settings.kineticEnergy) closure.  Must be called whenever the frozen
    *  state maps (nodeT/nodeRho/mdots) change — i.e. once per outer Picard
@@ -138,9 +140,19 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  T).  In a single-EOS network this is constant across nodes and matches
    *  the retired global `usePH` flag exactly; it only genuinely varies in a
    *  mixed-EOS network, where analytic nodes solved segregatedly must keep
-   *  their frozen-T property path (their state.nodeH lags the T update). */
-  const usePHFor = (id: string): boolean =>
+   *  their frozen-T property path (their state.nodeH lags the T update).
+   *
+   *  Tabulated at build: the answer is a static property of the node
+   *  (`hPrimary` is fixed for the attempt, and a node's EOS CLASS cannot
+   *  change during a solve — the outer loop may swap a junction's product-gas
+   *  model, but only ever for another IdealGas), while the query sits in the
+   *  innermost residual loops. */
+  const computeUsePH = (id: string): boolean =>
     hPrimary || fluidOf(id) instanceof RealFluid;
+  const usePHByNode = new Map<string, boolean>();
+  for (const id of nodeMap.keys()) usePHByNode.set(id, computeUsePH(id));
+  const usePHFor = (id: string): boolean =>
+    usePHByNode.get(id) ?? computeUsePH(id);
   /** Whether ANY node reads properties through statePH — gates building the
    *  per-Jacobian-build property cache. */
   const anyPH = ctx.isRealFluid || useCoupledH;
@@ -223,14 +235,16 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  integral balance (e.g. it resolves area steps between adjacent
    *  branches within the branch that owns them) with no upwind truncation
    *  error. */
-  const upwindEligible = (k: number): boolean => {
-    const bb = branches[k];
+  //  Every input is fixed for the attempt, so the predicate is tabulated per
+  //  branch once instead of re-deciding it inside each momentum row.
+  const upwindEligibleTable = branches.map((bb, k): boolean => {
     if (bb.component.area === undefined) return false;
     if (junctionInletBranches.has(k)) return false;
     const f = ctx.fluidAssignment.branch(bb.id);
     if (f.R !== undefined && f.gamma !== undefined) return true;
     return ctx.kineticEnergy && f instanceof RealFluid;
-  };
+  });
+  const upwindEligible = (k: number): boolean => upwindEligibleTable[k];
   /** Static incidence for the upwind momentum-flux stencil: per node, the
    *  eligible branches that can advect momentum through it. */
   const arealIncident = (() => {
@@ -246,15 +260,42 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     return m;
   })();
 
+  // ── Junction per-role inlet mass flows: scalar/dual twin pair ────────────
+  //
+  // Both closures must sum the SAME branches in the SAME order, or the dual
+  // path's derivative belongs to a different function than the scalar path's
+  // value; keeping them adjacent is what makes that checkable.  The scalar
+  // map is reused across evaluations (one per junction, allocated here):
+  // CombustionModel.evaluate reads it synchronously and never retains it.
+  const junctionRoleScratch = new Map<string, Map<string, number>>();
+  for (const jn of ctx.junctions) {
+    junctionRoleScratch.set(jn.nodeId, new Map<string, number>());
+  }
+
   /** Per-role Σ|ṁ| of a junction's inlet branches at the iterate x. */
   function junctionMdotByRole(
     jn: SolverJunctionEntry,
     x: number[],
   ): Map<string, number> {
-    const out = new Map<string, number>();
+    const out = junctionRoleScratch.get(jn.nodeId)!;
     for (const [role, idxs] of jn.roleBranches) {
       let sum = 0;
       for (const idx of idxs) sum += Math.abs(x[nInt + idx]);
+      out.set(role, sum);
+    }
+    return out;
+  }
+
+  /** Dual twin of `junctionMdotByRole` — same branches, same order, so the
+   *  chained derivative matches the scalar value term for term. */
+  function junctionMdotByRoleDual(
+    jn: SolverJunctionEntry,
+    branchMdot: Dual[],
+  ): Map<string, Dual> {
+    const out = new Map<string, Dual>();
+    for (const [role, idxs] of jn.roleBranches) {
+      let sum = constant(0);
+      for (const idx of idxs) sum = add(sum, abs(branchMdot[idx]));
       out.set(role, sum);
     }
     return out;
@@ -341,6 +382,16 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     return T;
   }
 
+  /** Nodal pressure at the iterate: the node's own column when it is
+   *  internal, its frozen boundary value otherwise.  `internalIndex` answers
+   *  both questions at once — a node has a pressure column exactly when it is
+   *  internal — so this replaces a nodeMap lookup plus a string compare plus a
+   *  second lookup with a single lookup at every branch endpoint. */
+  const pressureAt = (id: string, intP: number[]): number => {
+    const col = internalIndex.get(id);
+    return col === undefined ? state.nodeP.get(id)! : intP[col];
+  };
+
   function nodeHFromX(nodeId: string, x: number[]): number {
     const col = energyColOf(nodeId, "h");
     if (col !== undefined) return x[col];
@@ -361,16 +412,57 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  ~tol relative to the node's enthalpy throughput.  (The extended
    *  transient system keeps raw Watts instead: its convergence bars were
    *  tuned for that.) */
+  // ── Static per-internal-node incidence for the nodal balances ────────────
+  //
+  // A nodal row only ever touches the branches and conductors attached to its
+  // node, so the balances walk these lists rather than filtering the whole
+  // network per node (see SolverContext.incidentBranches for why that matters
+  // and for the branch-order contract that keeps the sums bit-identical).
+  /** Branches attached to internal node i, ascending branch index. */
+  const incidentOf: number[][] = [];
+  /** Signed mass-row incidence: the (branch, sign) pairs that node i's Σṁ row
+   *  sums.  A branch whose two endpoints are the SAME node contributes both
+   *  its −1 and its +1 entry, in that order — exactly the order the
+   *  full-branch scan visited them in. */
+  const massIncidentIdx: number[][] = [];
+  const massIncidentSign: number[][] = [];
+  /** Attached branches carrying a getBranchHeat closure (usually none). */
+  const branchHeatIncidentOf: number[][] = [];
+  /** Convection conductors attached to internal node i, in `conductors`
+   *  order. */
+  const convectionIncidentOf: ConductorEntry[][] = [];
+  for (let i = 0; i < nInt; i++) {
+    const nodeId = internalIds[i];
+    const incident = ctx.incidentBranches.get(nodeId) ?? [];
+    incidentOf[i] = incident;
+    const idx: number[] = [];
+    const sign: number[] = [];
+    for (const j of incident) {
+      const b = branches[j];
+      if (b.from === nodeId) {
+        idx.push(j);
+        sign.push(-1);
+      }
+      if (b.to === nodeId) {
+        idx.push(j);
+        sign.push(1);
+      }
+    }
+    massIncidentIdx[i] = idx;
+    massIncidentSign[i] = sign;
+    branchHeatIncidentOf[i] = incident.filter(
+      (j) => branches[j].component.getBranchHeat !== undefined,
+    );
+    convectionIncidentOf[i] = ctx.convectionConductors.get(nodeId) ?? [];
+  }
+
   const hPowerRef: number[] = [];
   if (useCoupledH) {
     for (let i = 0; i < nInt; i++) {
       const nodeId = internalIds[i];
       let mRef = 0.1;
-      for (let j = 0; j < nBranch; j++) {
-        const b = branches[j];
-        if (b.from === nodeId || b.to === nodeId) {
-          mRef = Math.max(mRef, Math.abs(state.mdots[j]));
-        }
+      for (const j of incidentOf[i]) {
+        mRef = Math.max(mRef, Math.abs(state.mdots[j]));
       }
       const hRef =
         state.nodeH?.get(nodeId) ??
@@ -400,10 +492,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     for (let i = 0; i < nInt; i++) {
       const nodeId = internalIds[i];
       let sum = 0;
-      for (let j = 0; j < nBranch; j++) {
-        const b = branches[j];
-        if (b.from === nodeId) sum -= branchMdot[j];
-        if (b.to === nodeId) sum += branchMdot[j];
+      const massIdx = massIncidentIdx[i];
+      const massSign = massIncidentSign[i];
+      for (let k = 0; k < massIdx.length; k++) {
+        sum += massSign[k] * branchMdot[massIdx[k]];
       }
       if (dt !== undefined && prevState !== undefined) {
         const node = nodeMap.get(nodeId)!;
@@ -479,10 +571,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     let uFaceArr: number[] | undefined;
     let feedersArr: number[][] | undefined;
     if (ctx.momentumFlux && upwindFlux) {
-      const nodePx = (id: string): number =>
-        nodeMap.get(id)!.type === "boundary"
-          ? state.nodeP.get(id)!
-          : intP[internalIndex.get(id)!];
+      const nodePx = (id: string): number => pressureAt(id, intP);
       const rhoAtNode = (
         nodeId: string,
         Aend: number,
@@ -572,14 +661,8 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     for (let j = 0; j < nBranch; j++) {
       const b = branches[j];
       const mdot = branchMdot[j];
-      const pFrom =
-        nodeMap.get(b.from)!.type === "boundary"
-          ? state.nodeP.get(b.from)!
-          : intP[internalIndex.get(b.from)!];
-      const pTo =
-        nodeMap.get(b.to)!.type === "boundary"
-          ? state.nodeP.get(b.to)!
-          : intP[internalIndex.get(b.to)!];
+      const pFrom = pressureAt(b.from, intP);
+      const pTo = pressureAt(b.to, intP);
 
       if (b.component instanceof FlowSource) {
         R[nInt + j] = mdot - b.component.getMdot(t);
@@ -587,10 +670,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       }
 
       const upNode = mdot >= 0 ? b.from : b.to;
-      const upP =
-        nodeMap.get(upNode)!.type === "boundary"
-          ? state.nodeP.get(upNode)!
-          : intP[internalIndex.get(upNode)!];
+      const upP = pressureAt(upNode, intP);
       let rho: number;
       let mu: number;
       let upT: number;
@@ -613,10 +693,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
           // compressible-T mode.  Junction inlet branches keep the pure
           // upstream (reactant) density — see the junction block above.
           const downNode = mdot >= 0 ? b.to : b.from;
-          const downP =
-            nodeMap.get(downNode)!.type === "boundary"
-              ? state.nodeP.get(downNode)!
-              : intP[internalIndex.get(downNode)!];
+          const downP = pressureAt(downNode, intP);
           const rhoDown = safeStatePH(
             fluidOf(downNode),
             downP,
@@ -639,10 +716,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
               : (b.component.areaOut ?? b.component.area);
           const downNode = mdot >= 0 ? b.to : b.from;
           const df = fluidOf(downNode);
-          const downP =
-            nodeMap.get(downNode)!.type === "boundary"
-              ? state.nodeP.get(downNode)!
-              : intP[internalIndex.get(downNode)!];
+          const downP = pressureAt(downNode, intP);
           if (
             compressibleKE &&
             bf.R !== undefined &&
@@ -694,10 +768,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         !junctionInletBranches.has(j)
       ) {
         const downNode = mdot >= 0 ? b.to : b.from;
-        const downP =
-          nodeMap.get(downNode)!.type === "boundary"
-            ? state.nodeP.get(downNode)!
-            : intP[internalIndex.get(downNode)!];
+        const downP = pressureAt(downNode, intP);
         if (usePHFor(downNode)) {
           const downH = nodeHFromX(downNode, x);
           const phDown = safeStatePH(
@@ -948,9 +1019,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
           hUp: number,
         ): number => {
           if (!ctx.kineticEnergy) return 0;
-          const Pup = internalIndex.has(upId)
-            ? x[internalIndex.get(upId)!]
-            : state.nodeP.get(upId)!;
+          const Pup = pressureAt(upId, x);
           const rhoUp = safeStatePH(
             fluidOf(upId),
             Pup,
@@ -971,7 +1040,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         let sumOut = 0;
         let keOut = 0;
         let hasEnergyCoupling = false;
-        for (let j = 0; j < nBranch; j++) {
+        for (const j of incidentOf[i]) {
           const b = branches[j];
           const mdot = x[nInt + j];
           if (b.to === nodeId && mdot > 0) {
@@ -992,48 +1061,43 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         }
 
         // HeatedPipe branch heat
-        for (let j = 0; j < nBranch; j++) {
+        for (const j of branchHeatIncidentOf[i]) {
           const b = branches[j];
           const mdot = x[nInt + j];
-          if (b.component.getBranchHeat) {
-            const dnNode = mdot >= 0 ? b.to : b.from;
-            if (dnNode === nodeId) {
-              const upNode = mdot >= 0 ? b.from : b.to;
-              const Pup =
-                nodeMap.get(upNode)!.type === "boundary"
-                  ? state.nodeP.get(upNode)!
-                  : x[internalIndex.get(upNode)!];
-              const hUp = nodeHFromX(upNode, x);
-              const phUp = safeStatePH(
-                fluidOf(upNode),
-                Pup,
-                hUp,
-                `node ${nodeId} branch heat`,
-              );
-              hSum += b.component.getBranchHeat(
-                mdot,
-                phUp.T,
-                phUp.cp ?? 0,
-                ctx.fluidAssignment.branch(b.id),
-                Pup,
-                hUp,
-              );
-            }
-          }
+          const dnNode = mdot >= 0 ? b.to : b.from;
+          if (dnNode !== nodeId) continue;
+          const upNode = mdot >= 0 ? b.from : b.to;
+          const Pup = pressureAt(upNode, x);
+          const hUp = nodeHFromX(upNode, x);
+          const phUp = safeStatePH(
+            fluidOf(upNode),
+            Pup,
+            hUp,
+            `node ${nodeId} branch heat`,
+          );
+          hSum += b.component.getBranchHeat!(
+            mdot,
+            phUp.T,
+            phUp.cp ?? 0,
+            ctx.fluidAssignment.branch(b.id),
+            Pup,
+            hUp,
+          );
         }
 
         // Convection heat rate
         let Qconv = 0;
-        for (const cond of ctx.conductors) {
+        for (const cond of convectionIncidentOf[i]) {
+          // Always true (that is what the list holds) — kept to narrow the
+          // conductor-type union for `h`/`area`.
           if (cond.type.kind !== "convection") continue;
-          if (cond.from !== nodeId && cond.to !== nodeId) continue;
           const otherId = cond.from === nodeId ? cond.to : cond.from;
           const hEff =
             env.conductorHMap.get(cond.id) ?? cond.type.h ?? FALLBACK_H_FLOOR;
           const G = hEff * cond.type.area;
           let T_other: number;
           if (internalIndex.has(otherId)) {
-            const P_other = x[internalIndex.get(otherId)!];
+            const P_other = pressureAt(otherId, x);
             const h_other = nodeHFromX(otherId, x);
             const ph_other = safeStatePH(
               fluidOf(otherId),
@@ -1212,6 +1276,35 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     return uPrevByNode.get(nodeId)!;
   }
 
+  /** Wholesale, configuration-level reasons the dual path cannot run at all.
+   *  None of them depend on the iterate, so they are decided ONCE per kernel
+   *  rather than re-scanning every node on each of the n dual passes that make
+   *  up a Jacobian build. */
+  let dualUnsupported: boolean | undefined;
+  function dualPathUnsupported(): boolean {
+    if (dualUnsupported !== undefined) return dualUnsupported;
+    dualUnsupported = true;
+    if (ctx.hasSpecies) return dualUnsupported;
+    // Gas-cushion nodes evaluate density from (P, T) — a PT flash with no
+    // dual counterpart — keep the whole Jacobian on FD for that combo
+    // (transient only: steady solves never touch the cushion storage).
+    if (anyPH && dt !== undefined) {
+      for (const id of internalIds) {
+        if (nodeMap.get(id)!.gasCushion) return dualUnsupported;
+      }
+    }
+    // Every node on the frozen-T property path needs the fluid duals; in a
+    // single-EOS analytic network this is the historical whole-network check
+    // on the one fluid, in a mixed network only the analytic nodes matter.
+    for (const id of nodeMap.keys()) {
+      if (usePHFor(id)) continue;
+      const nf = fluidOf(id);
+      if (!nf.densityDual || !nf.viscosityDual) return dualUnsupported;
+    }
+    dualUnsupported = false;
+    return dualUnsupported;
+  }
+
   /** Dual-number residual evaluator.  Covers non-real-fluid networks with
    *  dual-capable components AND real-fluid networks (via the per-build
    *  property cache — the blanket real-fluid FD fallback is gone).
@@ -1223,26 +1316,8 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     x: Dual[],
     propCache?: Map<string, DualPropEntry>,
   ): DualResidual | "FD_FALLBACK" {
-    if (ctx.hasSpecies) return "FD_FALLBACK";
-    if (anyPH) {
-      if (!propCache) return "FD_FALLBACK";
-      // Gas-cushion nodes evaluate density from (P, T) — a PT flash with no
-      // dual counterpart — keep the whole Jacobian on FD for that combo
-      // (transient only: steady solves never touch the cushion storage).
-      if (dt !== undefined) {
-        for (const id of internalIds) {
-          if (nodeMap.get(id)!.gasCushion) return "FD_FALLBACK";
-        }
-      }
-    }
-    // Every node on the frozen-T property path needs the fluid duals; in a
-    // single-EOS analytic network this is the historical whole-network check
-    // on the one fluid, in a mixed network only the analytic nodes matter.
-    for (const id of nodeMap.keys()) {
-      if (usePHFor(id)) continue;
-      const nf = fluidOf(id);
-      if (!nf.densityDual || !nf.viscosityDual) return "FD_FALLBACK";
-    }
+    if (dualPathUnsupported()) return "FD_FALLBACK";
+    if (anyPH && !propCache) return "FD_FALLBACK";
 
     const fdRows = new Map<number, Set<number>>();
     const markFd = (row: number, cols: number[]) => {
@@ -1257,10 +1332,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     const colsForNode = (id: string, withH: boolean): number[] =>
       dof.colsForNode(id, withH);
 
-    const nodePDual = (id: string): Dual =>
-      internalIndex.has(id)
-        ? x[internalIndex.get(id)!]
-        : constant(state.nodeP.get(id)!);
+    const nodePDual = (id: string): Dual => {
+      const col = internalIndex.get(id);
+      return col === undefined ? constant(state.nodeP.get(id)!) : x[col];
+    };
     const nodeHDual = (id: string): Dual => {
       const col = energyColOf(id, "h");
       // Same frozen-state fallback (incl. h(P, T) for analytic nodes with no
@@ -1309,10 +1384,11 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     for (let i = 0; i < nInt; i++) {
       const nodeId = internalIds[i];
       let sum = constant(0);
-      for (let j = 0; j < nBranch; j++) {
-        const b = branches[j];
-        if (b.from === nodeId) sum = sub(sum, branchMdot[j]);
-        if (b.to === nodeId) sum = add(sum, branchMdot[j]);
+      const massIdx = massIncidentIdx[i];
+      const massSign = massIncidentSign[i];
+      for (let k = 0; k < massIdx.length; k++) {
+        const m = branchMdot[massIdx[k]];
+        sum = massSign[k] < 0 ? sub(sum, m) : add(sum, m);
       }
       if (dt !== undefined && prevState !== undefined) {
         const node = nodeMap.get(nodeId)!;
@@ -1601,10 +1677,15 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
             bf.gamma,
           );
           R[nInt + j] = sub(mdot, constant(expectedMdot));
+          // The closure reads the UPSTREAM temperature, so whenever the
+          // endpoint's properties come from (P, h) the row depends on that
+          // node's h column too — omitting it left ∂R/∂h at the dual value of
+          // a constant (zero) with nothing to patch it, and the coupled
+          // h-system then had no ṁ–h coupling for this component at all.
           markFd(nInt + j, [
             nInt + j,
-            ...colsForNode(b.from, false),
-            ...colsForNode(b.to, false),
+            ...colsForNode(b.from, usePHFor(b.from)),
+            ...colsForNode(b.to, usePHFor(b.to)),
           ]);
         }
         continue;
@@ -1792,12 +1873,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         // value bit-for-bit with the exact derivative.
         const jnDual = junctionByNode.get(nodeId);
         if (jnDual !== undefined) {
-          const mdotByRole = new Map<string, Dual>();
-          for (const [role, idxs] of jnDual.roleBranches) {
-            let sum = constant(0);
-            for (const idx of idxs) sum = add(sum, abs(branchMdot[idx]));
-            mdotByRole.set(role, sum);
-          }
+          const mdotByRole = junctionMdotByRoleDual(jnDual, branchMdot);
           const T0 = jnDual.model.chamberT0Dual(Pcurr, mdotByRole);
           const Teff = mul(constant(jnDual.efficiency), T0);
           const hTargetV = fluidOf(nodeId).enthalpyPT(Pcurr.v, Teff.v);
@@ -1837,7 +1913,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         let sumOut = constant(0);
         let keOut = constant(0);
         let hasEnergyCoupling = false;
-        for (let j = 0; j < nBranch; j++) {
+        for (const j of incidentOf[i]) {
           const b = branches[j];
           const mdot = branchMdot[j];
           if (b.to === nodeId && mdot.v > 0) {
@@ -1869,35 +1945,33 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         // HeatedPipe branch heat: the closure (incl. Miropolskii film boiling)
         // is not dual-computable — add its VALUE (bitwise the scalar term) and
         // patch the columns it depends on with FD.
-        for (let j = 0; j < nBranch; j++) {
+        for (const j of branchHeatIncidentOf[i]) {
           const b = branches[j];
           const mdot = branchMdot[j];
-          if (b.component.getBranchHeat) {
-            const dnNode = mdot.v >= 0 ? b.to : b.from;
-            if (dnNode === nodeId) {
-              const upNodeB = mdot.v >= 0 ? b.from : b.to;
-              const upSt = nodeStateDual(upNodeB);
-              const heat = b.component.getBranchHeat(
-                mdot.v,
-                upSt.T.v,
-                upSt.cp?.v ?? 0,
-                ctx.fluidAssignment.branch(b.id),
-                nodePDual(upNodeB).v,
-                nodeHDual(upNodeB).v,
-              );
-              hSum = add(hSum, constant(heat));
-              markFd(energyIdx, [nInt + j, ...colsForNode(upNodeB, true)]);
-            }
-          }
+          const dnNode = mdot.v >= 0 ? b.to : b.from;
+          if (dnNode !== nodeId) continue;
+          const upNodeB = mdot.v >= 0 ? b.from : b.to;
+          const upSt = nodeStateDual(upNodeB);
+          const heat = b.component.getBranchHeat!(
+            mdot.v,
+            upSt.T.v,
+            upSt.cp?.v ?? 0,
+            ctx.fluidAssignment.branch(b.id),
+            nodePDual(upNodeB).v,
+            nodeHDual(upNodeB).v,
+          );
+          hSum = add(hSum, constant(heat));
+          markFd(energyIdx, [nInt + j, ...colsForNode(upNodeB, true)]);
         }
 
         // Convection heat rate.  hEff comes from the per-outer-iteration map
         // and is frozen within a Jacobian build — exactly as the scalar FD
         // Jacobian treats it — so the dual derivative through it is exact.
         let Qconv = constant(0);
-        for (const cond of ctx.conductors) {
+        for (const cond of convectionIncidentOf[i]) {
+          // Always true (that is what the list holds) — kept to narrow the
+          // conductor-type union for `h`/`area`.
           if (cond.type.kind !== "convection") continue;
-          if (cond.from !== nodeId && cond.to !== nodeId) continue;
           const otherId = cond.from === nodeId ? cond.to : cond.from;
           const hEff =
             env.conductorHMap.get(cond.id) ?? cond.type.h ?? FALLBACK_H_FLOOR;
@@ -2042,6 +2116,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     const xPert = [...x];
     xPert[k] = x[k] + h * stepDir;
     let R1: number[] | undefined;
+    let shrunk = false;
     try {
       R1 = computeResidual(xPert);
     } catch {
@@ -2054,6 +2129,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
             ? 0.1
             : 1e-4;
       xPert[k] = x[k] + h * shrink * stepDir;
+      shrunk = true;
       try {
         R1 = computeResidual(xPert);
       } catch {
@@ -2061,8 +2137,12 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         return;
       }
     }
-    // Use central differences for real-fluid pressure columns (more accurate near dome)
-    if (ctx.isRealFluid && k < nInt) {
+    // Use central differences for real-fluid pressure columns (more accurate
+    // near dome) — but only when the forward evaluation actually sits at +h.
+    // After a shrink the two samples are h·shrink ahead and h behind, so the
+    // 2h denominator matches neither; the forward fallback below divides by
+    // the step that was really taken and stays first-order correct.
+    if (ctx.isRealFluid && k < nInt && !shrunk) {
       const xMinus = [...x];
       xMinus[k] -= h;
       let Rminus: number[] | undefined;
@@ -2083,26 +2163,33 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     }
   }
 
-  /** Finite-difference Jacobian builder (legacy, always works). */
-  function numericalJacobian(x: number[]): number[][] {
+  /** Finite-difference Jacobian builder (legacy, always works).  `R0` is the
+   *  base residual at `x` when the caller already has it — the Newton loop
+   *  always does, and re-deriving it here costs a full residual evaluation
+   *  (plus, for real fluids, a round of property flashes). */
+  function numericalJacobian(x: number[], R0?: number[]): number[][] {
     const track = perfEnabled;
     if (track) enterJacobian("fd");
     try {
-      return numericalJacobianBody(x);
+      return numericalJacobianBody(x, R0);
     } finally {
       if (track) leaveJacobian();
     }
   }
 
-  function numericalJacobianBody(x: number[]): number[][] {
+  function numericalJacobianBody(x: number[], R0in?: number[]): number[][] {
     const n = x.length;
     const J: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
     let R0: number[];
-    try {
-      R0 = computeResidual(x);
-    } catch {
-      // If base residual fails, return zero Jacobian (solver will backtrack via outer loop)
-      return J;
+    if (R0in !== undefined) {
+      R0 = R0in;
+    } else {
+      try {
+        R0 = computeResidual(x);
+      } catch {
+        // If base residual fails, return zero Jacobian (solver will backtrack via outer loop)
+        return J;
+      }
     }
     for (let k = 0; k < n; k++) {
       fdJacobianColumn(x, k, R0, J);
@@ -2121,40 +2208,50 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  per build) and every column chains its seed through the table in pure
    *  arithmetic — this is what turns the dual path from "exact but just as
    *  many property calls as FD" into the measured O(nodes)-calls speedup. */
-  function hybridJacobian(x: number[]): number[][] {
+  function hybridJacobian(x: number[], R0?: number[]): number[][] {
     const track = perfEnabled;
     if (track) enterJacobian("hybrid");
     try {
-      return hybridJacobianBody(x);
+      return hybridJacobianBody(x, R0);
     } finally {
       if (track) leaveJacobian();
     }
   }
 
-  function hybridJacobianBody(x: number[]): number[][] {
+  function hybridJacobianBody(x: number[], R0in?: number[]): number[][] {
     const n = x.length;
     const J: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
 
     let propCache: Map<string, DualPropEntry> | undefined;
     if (anyPH) {
       const c = buildDualPropCache(x);
-      if (c === "FD_FALLBACK") return numericalJacobian(x);
+      if (c === "FD_FALLBACK") return numericalJacobian(x, R0in);
       propCache = c;
     }
 
+    // One seed vector for the whole build: each pass sets exactly one
+    // component's derivative to 1 and clears it once the column has been read
+    // out.  The dual residual reads the seeds within the pass and never
+    // retains them across passes, so reusing the objects saves n × nVar
+    // allocations per build without changing a number.  The clear must come
+    // AFTER the read-out: a degenerate row can BE its seed (`R[ṁ] = mdot`),
+    // and clearing first would report a derivative of 0 for it.
+    const xDual: Dual[] = x.map((v) => ({ v, d: 0 }));
     let fdRows: Map<number, Set<number>> | undefined;
     for (let k = 0; k < n; k++) {
-      const xDual = x.map((v, i) => (i === k ? { v, d: 1 } : { v, d: 0 }));
+      xDual[k].d = 1;
       const RDual = computeResidualDual(xDual, propCache);
       if (RDual === "FD_FALLBACK") {
         // Wholesale-unsupported configuration (species, missing fluid duals,
         // real-fluid gas cushion): legacy whole-matrix FD.
-        return numericalJacobian(x);
+        xDual[k].d = 0;
+        return numericalJacobian(x, R0in);
       }
       fdRows = RDual.fdRows;
       for (let i = 0; i < n; i++) {
         J[i][k] = RDual.R[i].d;
       }
+      xDual[k].d = 0;
     }
 
     // Per-column FD patch for the non-differentiable pieces, via the shared
@@ -2163,11 +2260,13 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     if (fdRows && fdRows.size > 0) {
       const fdCols = new Set<number>();
       for (const cols of fdRows.values()) for (const c of cols) fdCols.add(c);
-      let R0: number[] | undefined;
-      try {
-        R0 = computeResidual(x);
-      } catch {
-        R0 = undefined;
+      let R0: number[] | undefined = R0in;
+      if (R0 === undefined) {
+        try {
+          R0 = computeResidual(x);
+        } catch {
+          R0 = undefined;
+        }
       }
       if (R0 !== undefined) {
         const Jfd: number[][] = Array.from({ length: n }, () =>
@@ -2261,8 +2360,8 @@ export function probeJacobians(
   }
   return {
     x,
-    hybrid: kernel.hybridJacobian(x),
-    fd: kernel.numericalJacobian(x),
+    hybrid: kernel.hybridJacobian(x, R0),
+    fd: kernel.numericalJacobian(x, R0),
     R0,
   };
 }
