@@ -72,11 +72,92 @@ function presetParams(
   return [];
 }
 
+const FLUID_MODEL_OPTIONS: { value: FluidSpec["model"]; label: string }[] = [
+  { value: "incompressible", label: "Incompressible" },
+  { value: "idealGas", label: "Ideal Gas" },
+  { value: "expandableLiquid", label: "Expandable Liquid" },
+  { value: "realFluid", label: "Real fluid (CoolProp)" },
+];
+
+/** The one built-in preset each analytic model offers; realFluid has none
+ *  because its substance comes from the CoolProp catalogue instead. */
+const MODEL_PRESET: Record<
+  FluidSpec["model"],
+  { value: NonNullable<FluidSpec["preset"]>; label: string } | undefined
+> = {
+  incompressible: { value: "water", label: "Water" },
+  idealGas: { value: "air", label: "Air" },
+  expandableLiquid: { value: "waterExpandable", label: "Water Expandable" },
+  realFluid: undefined,
+};
+
 function specForModel(model: FluidSpec["model"]): FluidSpec {
-  if (model === "incompressible") return { model, preset: "water" };
-  if (model === "idealGas") return { model, preset: "air" };
-  if (model === "expandableLiquid") return { model, preset: "waterExpandable" };
-  return { model, params: { fluidName: "Nitrogen" } };
+  const preset = MODEL_PRESET[model];
+  return preset
+    ? { model, preset: preset.value }
+    : { model, params: { fluidName: "Nitrogen" } };
+}
+
+/** Editable numeric parameters for an analytic model, in `createFluidModel`
+ *  order so the form matches the constructor. */
+function fluidParamDefs(
+  model: FluidSpec["model"],
+): { key: string; label: string; step: number }[] {
+  if (model === "expandableLiquid") {
+    return [
+      { key: "rho0", label: "Ref density rho0", step: 0.1 },
+      { key: "beta", label: "Thermal expansion beta", step: 1e-6 },
+      { key: "T0", label: "Ref temperature T0", step: 1 },
+      { key: "mu", label: "Viscosity mu", step: 1e-5 },
+      { key: "cp", label: "Specific heat cp", step: 1 },
+    ];
+  }
+  if (model === "idealGas") {
+    return [
+      { key: "R", label: "Gas constant R", step: 0.1 },
+      { key: "gamma", label: "Heat ratio gamma", step: 0.01 },
+      { key: "mu", label: "Viscosity mu", step: 1e-6 },
+      { key: "cp", label: "Specific heat cp", step: 1 },
+    ];
+  }
+  return [
+    { key: "rho", label: "Density rho", step: 0.1 },
+    { key: "mu", label: "Viscosity mu", step: 1e-5 },
+    { key: "cp", label: "Specific heat cp", step: 1 },
+  ];
+}
+
+/** Element ids (also used as data-testids) for one fluid editor instance, so
+ *  the default fluid keeps its historical ids and each named card gets its
+ *  own unique set. */
+interface FluidEditorIds {
+  model: string;
+  preset: string;
+  search: string;
+  fluidName: string;
+  presetProps: string;
+  /** Prefix for the per-parameter number fields. */
+  param: string;
+}
+
+const DEFAULT_FLUID_IDS: FluidEditorIds = {
+  model: "settings-fluid-model",
+  preset: "settings-fluid-preset",
+  search: "settings-real-fluid-search",
+  fluidName: "settings-real-fluid-name",
+  presetProps: "fluid-preset-props",
+  param: "settings-fluid-param",
+};
+
+function namedFluidIds(name: string): FluidEditorIds {
+  return {
+    model: `named-fluid-model-${name}`,
+    preset: `named-fluid-preset-${name}`,
+    search: `named-fluid-search-${name}`,
+    fluidName: `named-fluid-heos-${name}`,
+    presetProps: `named-fluid-preset-props-${name}`,
+    param: `named-fluid-param-${name}`,
+  };
 }
 
 /** The whole fluid roster in ONE column: the default fluid as the first
@@ -135,8 +216,7 @@ function FluidsSection({
 }
 
 /** One named continuum as a compact card: editable name and a × delete in
- *  the header, model + spec on the row below, and the searchable CoolProp
- *  picker only when the model needs it. */
+ *  the header, then the same full spec editor the default fluid gets. */
 function NamedFluidCard({
   name,
   spec,
@@ -165,6 +245,9 @@ function NamedFluidCard({
             else e.target.value = name;
           }}
         />
+        <span className="named-fluid-card__summary">
+          {fluidSpecLabel(spec)}
+        </span>
         <button
           type="button"
           className="btn btn--ghost btn--sm named-fluid-card__delete"
@@ -176,139 +259,177 @@ function NamedFluidCard({
           ×
         </button>
       </div>
-      <div className="named-fluid-card__row">
-        <select
-          id={`named-fluid-model-${name}`}
-          data-testid={`named-fluid-model-${name}`}
-          className="select"
-          aria-label={`Model for ${name}`}
-          value={spec.model}
-          onChange={(e) => {
-            const model = e.target.value as FluidSpec["model"];
-            setNamedFluid(name, specForModel(model));
-          }}
-        >
-          <option value="incompressible">Incompressible</option>
-          <option value="idealGas">Ideal Gas</option>
-          <option value="expandableLiquid">Expandable Liquid</option>
-          <option value="realFluid">Real fluid (CoolProp)</option>
-        </select>
-        {spec.model !== "realFluid" && (
-          <span className="named-fluid-card__summary">
-            {fluidSpecLabel(spec)}
-          </span>
-        )}
+      <div className="named-fluid-card__body">
+        <FluidSpecEditor
+          spec={spec}
+          onChange={(next) => setNamedFluid(name, next)}
+          ids={namedFluidIds(name)}
+          compact
+          ariaContext={`for ${name}`}
+        />
       </div>
-      {spec.model === "realFluid" && (
-        <div className="named-fluid-card__picker">
-          <CataloguePickerFields
-            searchId={`named-fluid-search-${name}`}
-            selectId={`named-fluid-heos-${name}`}
-            searchTestId={`named-fluid-search-${name}`}
-            selectTestId={`named-fluid-heos-${name}`}
-            rawName={(spec.params?.fluidName as string) || ""}
-            onSelect={(fluidName) =>
-              setNamedFluid(name, { ...spec, params: { fluidName } })
-            }
-            compact
-            ariaContext={`for ${name}`}
-          />
-        </div>
-      )}
-      {spec.model !== "realFluid" && spec.preset === undefined && (
-        <div className="field__hint">
-          Custom params — edit as JSON in the text view, or match the default
-          fluid then customize there.
-        </div>
-      )}
     </div>
   );
 }
 
-/** The default fluid's full editor (model, preset/CoolProp picker, params),
- *  rendered inside the roster's Default card. */
+/** The default fluid's editor, rendered inside the roster's Default card. */
 function DefaultFluidEditor() {
   const fluid = useStore((s) => s.config.fluid);
   const updateFluid = useStore((s) => s.updateFluid);
-  const fluidModel = fluid.model;
-  const namedPresetProps = presetParams(fluidModel, fluid.preset);
+  return (
+    <FluidSpecEditor
+      spec={fluid}
+      // Spell every key out: updateFluid merges, so an omitted `preset` or
+      // `params` would survive a model change instead of being cleared.
+      onChange={(next) =>
+        updateFluid({
+          model: next.model,
+          preset: next.preset,
+          params: next.params,
+        })
+      }
+      ids={DEFAULT_FLUID_IDS}
+    />
+  );
+}
+
+/**
+ * Model + preset/CoolProp picker + parameters for one fluid spec, shared by
+ * the default fluid and every named continuum.  `compact` drops the field
+ * labels and lays the two selects out on one row for the narrower cards.
+ */
+function FluidSpecEditor({
+  spec,
+  onChange,
+  ids,
+  compact = false,
+  ariaContext = "",
+}: {
+  spec: FluidSpec;
+  onChange: (next: FluidSpec) => void;
+  ids: FluidEditorIds;
+  compact?: boolean;
+  ariaContext?: string;
+}) {
+  const presetOption = MODEL_PRESET[spec.model];
+  const presetProps = presetParams(spec.model, spec.preset);
+
+  const modelSelect = (
+    <select
+      id={ids.model}
+      data-testid={ids.model}
+      className="select"
+      aria-label={compact ? `Model ${ariaContext}`.trim() : undefined}
+      value={spec.model}
+      onChange={(e) =>
+        onChange(specForModel(e.target.value as FluidSpec["model"]))
+      }
+    >
+      {FLUID_MODEL_OPTIONS.map(({ value, label }) => (
+        <option key={value} value={value}>
+          {label}
+        </option>
+      ))}
+    </select>
+  );
+
+  const presetSelect = presetOption && (
+    <select
+      id={ids.preset}
+      data-testid={ids.preset}
+      className="select"
+      aria-label={compact ? `Preset ${ariaContext}`.trim() : undefined}
+      value={spec.preset || ""}
+      onChange={(e) => {
+        if (e.target.value) {
+          onChange({ model: spec.model, preset: presetOption.value });
+          return;
+        }
+        // Seed Custom from the preset's constants so the fields open on a
+        // working fluid rather than blank.
+        const seeded: Record<string, number | string> = {};
+        for (const row of presetProps) seeded[row.key] = row.value;
+        onChange({
+          model: spec.model,
+          preset: undefined,
+          params: { ...seeded, ...(spec.params ?? {}) },
+        });
+      }}
+    >
+      <option value="">Custom</option>
+      <option value={presetOption.value}>{presetOption.label}</option>
+    </select>
+  );
+
   return (
     <>
-      <div className="field">
-        <label className="field__label" htmlFor="settings-fluid-model">
-          Model
-        </label>
-        <select
-          id="settings-fluid-model"
-          data-testid="settings-fluid-model"
-          className="select"
-          value={fluid.model}
-          onChange={(e) => {
-            const model = e.target.value as
-              "incompressible" | "idealGas" | "expandableLiquid" | "realFluid";
-            let preset: "water" | "air" | "waterExpandable" | undefined;
-            let params: Record<string, number | string> | undefined;
-            if (model === "incompressible") preset = "water";
-            else if (model === "idealGas") preset = "air";
-            else if (model === "expandableLiquid") preset = "waterExpandable";
-            else if (model === "realFluid") params = { fluidName: "Nitrogen" };
-            updateFluid({ model, preset, params });
-          }}
-        >
-          <option value="incompressible">Incompressible</option>
-          <option value="idealGas">Ideal Gas</option>
-          <option value="expandableLiquid">Expandable Liquid</option>
-          <option value="realFluid">Real fluid (CoolProp)</option>
-        </select>
-      </div>
-      {fluidModel === "realFluid" ? (
-        <RealFluidPicker />
+      {compact ? (
+        // Full-width stacked rows: the card is too narrow to show both
+        // "Expandable Liquid" and "Water Expandable" side by side.
+        <>
+          <div className="field">{modelSelect}</div>
+          {presetSelect && <div className="field">{presetSelect}</div>}
+        </>
       ) : (
         <>
           <div className="field">
-            <label className="field__label" htmlFor="settings-fluid-preset">
-              Preset
+            <label className="field__label" htmlFor={ids.model}>
+              Model
             </label>
-            <select
-              id="settings-fluid-preset"
-              data-testid="settings-fluid-preset"
-              className="select"
-              value={fluid.preset || ""}
-              onChange={(e) => {
-                const val = e.target.value;
-                let preset: "water" | "air" | "waterExpandable" | undefined;
-                if (val === "water") preset = "water";
-                else if (val === "air") preset = "air";
-                else if (val === "waterExpandable") preset = "waterExpandable";
-                updateFluid({ preset });
-              }}
-            >
-              <option value="">Custom</option>
-              {fluidModel === "incompressible" && (
-                <option value="water">Water</option>
-              )}
-              {fluidModel === "idealGas" && <option value="air">Air</option>}
-              {fluidModel === "expandableLiquid" && (
-                <option value="waterExpandable">Water Expandable</option>
-              )}
-            </select>
+            {modelSelect}
           </div>
-          {namedPresetProps.length > 0 ? (
-            <>
-              <div className="field__label">
-                Preset properties{" "}
-                <span className="field__unit">
-                  (read-only — choose Custom to edit)
-                </span>
-              </div>
-              <FluidParamsReadOnly rows={namedPresetProps} />
-            </>
-          ) : (
-            <>
-              <div className="field__label">Custom Parameters</div>
-              <FluidParamsEditor />
-            </>
+          {presetSelect && (
+            <div className="field">
+              <label className="field__label" htmlFor={ids.preset}>
+                Preset
+              </label>
+              {presetSelect}
+            </div>
           )}
+        </>
+      )}
+      {spec.model === "realFluid" ? (
+        <CataloguePickerFields
+          searchId={ids.search}
+          selectId={ids.fluidName}
+          searchTestId={ids.search}
+          selectTestId={ids.fluidName}
+          rawName={(spec.params?.fluidName as string) || ""}
+          onSelect={(fluidName) =>
+            onChange({ model: "realFluid", params: { fluidName } })
+          }
+          compact={compact}
+          ariaContext={ariaContext}
+        />
+      ) : presetProps.length > 0 ? (
+        <>
+          {!compact && (
+            <div className="field__label">
+              Preset properties{" "}
+              <span className="field__unit">
+                (read-only — choose Custom to edit)
+              </span>
+            </div>
+          )}
+          <FluidParamsReadOnly
+            rows={presetProps}
+            testId={ids.presetProps}
+            ariaContext={ariaContext}
+          />
+        </>
+      ) : (
+        <>
+          {!compact && <div className="field__label">Custom Parameters</div>}
+          <FluidParamsEditor
+            model={spec.model}
+            params={spec.params}
+            onChange={(params) =>
+              onChange({ model: spec.model, preset: undefined, params })
+            }
+            idPrefix={ids.param}
+            ariaContext={ariaContext}
+            allowExtraParams={!compact}
+          />
         </>
       )}
     </>
@@ -918,32 +1039,18 @@ function CataloguePickerFields({
   );
 }
 
-/** The default fluid's picker, bound to the store. */
-function RealFluidPicker() {
-  const rawName = useStore(
-    (s) => (s.config.fluid.params?.fluidName as string) || "",
-  );
-  const updateFluid = useStore((s) => s.updateFluid);
-  return (
-    <CataloguePickerFields
-      searchId="settings-real-fluid-search"
-      selectId="settings-real-fluid-name"
-      searchTestId="settings-real-fluid-search"
-      selectTestId="settings-real-fluid-name"
-      rawName={rawName}
-      onSelect={(fluidName) => updateFluid({ params: { fluidName } })}
-    />
-  );
-}
-
 /** Read-only display of a named fluid preset's properties. */
 function FluidParamsReadOnly({
   rows,
+  testId,
+  ariaContext = "",
 }: {
   rows: { key: string; label: string; value: number }[];
+  testId: string;
+  ariaContext?: string;
 }) {
   return (
-    <div data-testid="fluid-preset-props">
+    <div data-testid={testId}>
       {rows.map(({ key, label, value }) => (
         <div
           key={key}
@@ -966,7 +1073,7 @@ function FluidParamsReadOnly({
             value={formatSig(value, 4)}
             readOnly
             disabled
-            aria-label={label}
+            aria-label={`${label} ${ariaContext}`.trim()}
           />
         </div>
       ))}
@@ -1012,10 +1119,23 @@ function InlineNumberEditor({
   );
 }
 
-function FluidParamsEditor() {
-  const params = useStore((s) => s.config.fluid.params);
-  const model = useStore((s) => s.config.fluid.model);
-  const updateFluid = useStore((s) => s.updateFluid);
+function FluidParamsEditor({
+  model,
+  params,
+  onChange,
+  idPrefix,
+  ariaContext = "",
+  allowExtraParams = true,
+}: {
+  model: FluidSpec["model"];
+  params: FluidSpec["params"];
+  onChange: (params: Record<string, number | string>) => void;
+  idPrefix: string;
+  ariaContext?: string;
+  /** Show the free-form key/value adder. `createFluidModel` ignores keys
+   *  outside the model's own set, so the cards leave it off. */
+  allowExtraParams?: boolean;
+}) {
   const [newKey, setNewKey] = React.useState("");
   const [newVal, setNewVal] = React.useState("");
 
@@ -1024,33 +1144,11 @@ function FluidParamsEditor() {
     const next = { ...(params || {}) };
     if (value === undefined) delete next[key];
     else next[key] = value;
-    updateFluid({ params: next });
+    onChange(next);
   };
 
-  const paramDefs = React.useMemo(() => {
-    if (model === "expandableLiquid") {
-      return [
-        { key: "rho0", label: "Ref density rho0", step: 0.1 },
-        { key: "beta", label: "Thermal expansion beta", step: 1e-6 },
-        { key: "T0", label: "Ref temperature T0", step: 1 },
-        { key: "mu", label: "Viscosity mu", step: 1e-5 },
-        { key: "cp", label: "Specific heat cp", step: 1 },
-      ];
-    }
-    if (model === "idealGas") {
-      return [
-        { key: "R", label: "Gas constant R", step: 0.1 },
-        { key: "gamma", label: "Heat ratio gamma", step: 0.01 },
-        { key: "mu", label: "Viscosity mu", step: 1e-6 },
-        { key: "cp", label: "Specific heat cp", step: 1 },
-      ];
-    }
-    return [
-      { key: "rho", label: "Density rho", step: 0.1 },
-      { key: "mu", label: "Viscosity mu", step: 1e-5 },
-      { key: "cp", label: "Specific heat cp", step: 1 },
-    ];
-  }, [model]);
+  const paramDefs = React.useMemo(() => fluidParamDefs(model), [model]);
+  const suffix = ariaContext ? ` ${ariaContext}` : "";
 
   return (
     <div>
@@ -1058,6 +1156,8 @@ function FluidParamsEditor() {
         <NumberField
           key={key}
           label={label}
+          ariaLabel={suffix ? `${label}${suffix}` : undefined}
+          dataTestId={`${idPrefix}-${key}`}
           step={step}
           value={
             typeof params?.[key] === "number"
@@ -1076,56 +1176,59 @@ function FluidParamsEditor() {
               style={{ flex: 1 }}
               value={k}
               readOnly
-              aria-label={`Parameter ${k}`}
+              aria-label={`Parameter ${k}${suffix}`}
             />
             <InlineNumberEditor
               value={v}
-              label={`Value for ${k}`}
+              label={`Value for ${k}${suffix}`}
               onCommit={(value) => update(k, value)}
             />
             <button
               className="btn btn--ghost btn--sm"
               onClick={() => update(k, undefined)}
-              aria-label={`Remove ${k}`}
+              aria-label={`Remove ${k}${suffix}`}
             >
               ×
             </button>
           </div>
         ))}
-      <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
-        <input
-          className="input"
-          style={{ flex: 1 }}
-          placeholder="key"
-          value={newKey}
-          onChange={(e) => setNewKey(e.target.value)}
-          aria-label="New parameter key"
-        />
-        <input
-          className="input"
-          style={{ flex: 1 }}
-          type="number"
-          step={0.1}
-          placeholder="value"
-          value={newVal}
-          onChange={(e) => setNewVal(e.target.value)}
-          aria-label="New parameter value"
-        />
-        <button
-          className="btn btn--sm"
-          disabled={!newKey.trim() || !Number.isFinite(Number(newVal))}
-          onClick={() => {
-            const value = Number(newVal);
-            if (newKey.trim() && Number.isFinite(value)) {
-              update(newKey.trim(), value);
-              setNewKey("");
-              setNewVal("");
-            }
-          }}
-        >
-          Add
-        </button>
-      </div>
+      {allowExtraParams && (
+        <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+          <input
+            className="input"
+            style={{ flex: 1 }}
+            placeholder="key"
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            aria-label={`New parameter key${suffix}`}
+          />
+          <input
+            className="input"
+            style={{ flex: 1 }}
+            type="number"
+            step={0.1}
+            placeholder="value"
+            value={newVal}
+            onChange={(e) => setNewVal(e.target.value)}
+            aria-label={`New parameter value${suffix}`}
+          />
+          <button
+            className="btn btn--sm"
+            disabled={!newKey.trim() || !Number.isFinite(Number(newVal))}
+            aria-label={`Add parameter${suffix}`}
+            onClick={() => {
+              const value = Number(newVal);
+              if (newKey.trim() && Number.isFinite(value)) {
+                update(newKey.trim(), value);
+                setNewKey("");
+                setNewVal("");
+              }
+            }}
+          >
+            Add
+          </button>
+        </div>
+      )}
     </div>
   );
 }

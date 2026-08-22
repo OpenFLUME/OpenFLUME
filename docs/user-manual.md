@@ -1710,11 +1710,15 @@ mode it adds the time-stepping choice of **Fixed dt** or **Adaptive**, with
 **Time Step** and **End Time** for fixed stepping and **Min dt**, **Max dt**,
 **Initial dt**, **Relative tolerance**, and **Safety factor** for adaptive.
 **Fluids** is a single roster: the default fluid is the first card, and **+ Add
-fluid** appends named isolated continua. Each card chooses **Incompressible**,
-**Ideal Gas**, **Expandable Liquid**, or **Real fluid (CoolProp)** with presets
-(**Water**, **Air**, **Water Expandable**) or, for real fluids, a searchable
-124-fluid catalogue (favorites first, then search by name, alias, or CAS, with
-warnings for no-transport and unknown names). **Units** selects the display
+fluid** appends named isolated continua. Every card — default and named alike —
+offers the same editor: a model of **Incompressible**, **Ideal Gas**,
+**Expandable Liquid**, or **Real fluid (CoolProp)**, then either a preset
+(**Water**, **Air**, **Water Expandable**, shown read-only) or **Custom**, which
+seeds the preset's constants into editable fields (`rho`, `mu`, `cp` and the
+model's other parameters, plus arbitrary extra keys). Real fluids replace the
+preset with a searchable 124-fluid catalogue (favorites first, then search by
+name, alias, or CAS, with warnings for no-transport and unknown names).
+**Units** selects the display
 preset and per-quantity preferences. **Advanced Extensibility** holds the
 registers, logic-rules, and controllers JSON editors.
 

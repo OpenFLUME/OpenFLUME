@@ -1877,28 +1877,31 @@ button.pill:hover {
   flex: none;
   line-height: 1;
 }
-.named-fluid-card__row {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-.named-fluid-card__row .select {
-  flex: 1 1 auto;
-  min-width: 0;
-}
 .named-fluid-card__summary {
   flex: none;
   font-size: var(--fs-cap);
   color: var(--text-3);
 }
-.named-fluid-card__picker {
-  margin-top: var(--sp-1);
-}
-.named-fluid-card__picker .field {
+/* Inside a card, lay every field out as one compact label + control row so
+   editable parameters match the read-only preset rows. */
+.named-fluid-card__body .field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
   margin-bottom: var(--sp-1);
 }
-.named-fluid-card__picker .field:last-child {
+.named-fluid-card__body .field:last-child {
   margin-bottom: 0;
+}
+.named-fluid-card__body .field__label {
+  flex: none;
+  width: 110px;
+  margin-bottom: 0;
+}
+.named-fluid-card__body .field .input,
+.named-fluid-card__body .field .select {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 /* Property panel */

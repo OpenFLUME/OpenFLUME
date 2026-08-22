@@ -11,6 +11,9 @@ interface NumberFieldProps {
   disabled?: boolean;
   /** Optional suffix shown after the label, e.g. a unit note. */
   unitNote?: string;
+  /** Accessible name when the visible label is ambiguous — e.g. the same
+   *  parameter rendered once per fluid card. */
+  ariaLabel?: string;
   dataTestId?: string;
 }
 
@@ -29,6 +32,7 @@ export default function NumberField({
   max,
   disabled,
   unitNote,
+  ariaLabel,
   dataTestId,
 }: NumberFieldProps) {
   const id = React.useId();
@@ -114,6 +118,7 @@ export default function NumberField({
         className="input"
         type="text"
         inputMode="decimal"
+        aria-label={ariaLabel}
         disabled={disabled}
         step={step}
         min={min}

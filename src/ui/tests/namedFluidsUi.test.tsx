@@ -181,6 +181,77 @@ describe("Settings named-fluids manager (SSR)", () => {
     expect(html).toContain('data-testid="named-fluid-model-oil"');
     expect(html).toContain('data-testid="named-fluid-delete-oil"');
   });
+
+  it("gives a custom-params named fluid the same editable fields as the default", () => {
+    const html = renderSettings({
+      ...baseConfig(),
+      fluids: { oil: oilSpec },
+    });
+    // Preset selector is no longer real-fluid-only.
+    expect(html).toContain('data-testid="named-fluid-preset-oil"');
+    // Editable rho/mu/cp fields carrying the spec's values.
+    expect(html).toContain('data-testid="named-fluid-param-oil-rho"');
+    expect(html).toContain('data-testid="named-fluid-param-oil-mu"');
+    expect(html).toContain('data-testid="named-fluid-param-oil-cp"');
+    expect(html).toContain('value="850"');
+    expect(html).toContain('value="2000"');
+    // The old "edit as JSON" escape hatch is gone.
+    expect(html).not.toContain("edit as JSON in the text view");
+  });
+
+  it("shows a preset named fluid's properties read-only", () => {
+    const html = renderSettings({
+      ...baseConfig(),
+      fluids: { coolant: { model: "idealGas", preset: "air" } },
+    });
+    expect(html).toContain('data-testid="named-fluid-preset-props-coolant"');
+    expect(html).toContain('aria-label="Gas constant R for coolant"');
+    expect(html).not.toContain('data-testid="named-fluid-param-coolant-R"');
+  });
+
+  it("keeps the CoolProp picker for real-fluid named continua", () => {
+    const html = renderSettings({
+      ...baseConfig(),
+      fluids: {
+        lox: { model: "realFluid", params: { fluidName: "Oxygen" } },
+      },
+    });
+    expect(html).toContain('data-testid="named-fluid-heos-lox"');
+    expect(html).toContain('data-testid="named-fluid-search-lox"');
+    // No preset dropdown: realFluid picks its substance from the catalogue.
+    expect(html).not.toContain('data-testid="named-fluid-preset-lox"');
+  });
+});
+
+describe("named-fluid spec editing", () => {
+  beforeEach(() => resetStore());
+
+  it("switching a named fluid to Custom seeds params from the preset", () => {
+    const s = () => useStore.getState();
+    s().setNamedFluid("coolant", { model: "idealGas", preset: "air" });
+    // What the Preset -> Custom handler writes.
+    s().setNamedFluid("coolant", {
+      model: "idealGas",
+      preset: undefined,
+      params: { R: 287, gamma: 1.4, mu: 1.8e-5, cp: 1005 },
+    });
+    expect(s().config.fluids?.coolant.preset).toBeUndefined();
+    expect(s().config.fluids?.coolant.params?.R).toBe(287);
+  });
+
+  it("editing one named fluid's params leaves the default fluid alone", () => {
+    const s = () => useStore.getState();
+    s().setNamedFluid("oil", oilSpec);
+    s().setNamedFluid("oil", {
+      ...oilSpec,
+      params: { ...oilSpec.params, rho: 900 },
+    });
+    expect(s().config.fluids?.oil.params?.rho).toBe(900);
+    expect(s().config.fluid).toEqual({
+      model: "incompressible",
+      preset: "water",
+    });
+  });
 });
 
 describe("node fluid picker (SSR)", () => {
