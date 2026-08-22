@@ -82,6 +82,9 @@ user-authored JavaScript components. Conjugate heat transfer is available throug
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a sourced temperature-dependent material catalogue and five
 convection heat-transfer models including two cryogenic chilldown correlations.
+Steady CEA-coupled reacting junctions support LOX/RP-1 and LOX/methane
+combustors, while the separate species-transport path supports transient
+ideal-gas chemistry.
 
 The steady solver is a coupled Newton–Raphson method on the simultaneous
 mass and momentum residuals, with an analytic (forward-mode dual number)
@@ -93,7 +96,7 @@ cushions, multi-species advective transport with stiff Arrhenius chemistry,
 declarative logic rules with registers, transient PID controllers, and
 session-only parameter sweeps.
 
-Thirteen example problems ship with the program, spanning hand-checkable sanity
+Twelve example problems ship with the program, spanning hand-checkable sanity
 cases, engineering applications, and published benchmarks from the GFSSP manual,
 the Lee & Martin entrapped-air problem, NBS Report 9264 cryogenic chilldown
 experiments, and two SINDA/FLUINT sample problems.
@@ -335,6 +338,7 @@ convective heat arriving from a wall is positive.
 | Solid properties        | Constant, sourced material catalogue, table, equation, time table                                                       |
 | Transient momentum      | Optional lumped fluid inertia; trapped-gas cushions                                                                     |
 | Species                 | Multi-species advective transport with Arrhenius chemistry (transient, ideal gas)                                       |
+| Combustion              | CEA-coupled reacting junctions (steady + `kineticEnergy`; LOX/RP-1 and LOX/CH₄)                                         |
 | Control and logic       | Registers, declarative logic rules, stop rules, transient PID controllers                                               |
 | Multi-fluid             | Named isolated fluid continua, mixed EOS classes allowed (wall-coupled only)                                            |
 | Extensibility           | Tabulated $\Delta P$, $K(\mathrm{Re})$ resistances, user-authored JavaScript components                                 |
@@ -414,18 +418,25 @@ cavitation-inception check on pumps, valves, or low-pressure liquid nodes.
 compressor or turbine maps, and no shaft-work term in the energy equation, so
 pump heating of the fluid is not captured.
 
-**No junction mixing.** Unlike fluids may not meet at a node; couple them
-thermally through a solid wall instead. Different EOS classes may coexist in
-one network (e.g. an ideal-gas hot side with a real-fluid coolant) precisely
-because the wall is the only coupling — property access dispatches per node.
+**No general junction mixing.** Outside an explicitly declared reacting
+junction, unlike fluids may not meet at a node; couple them thermally through a
+solid wall instead. A reacting junction is the narrow exception: declared
+oxidizer and fuel inlet branches terminate at a chamber node and produce one
+named ideal-gas stream under the CEA closure. Different EOS classes may
+otherwise coexist in one network (e.g. an ideal-gas hot side with a real-fluid
+coolant) precisely because the wall is the only coupling — property access
+dispatches per node.
 
 **Two-phase flow is homogeneous-equilibrium.** The HEM assumption suits
 dispersed, high-mixing, or low-quality flows. At high void fraction it
 under-predicts pressure drop relative to separated-flow correlations such as
 Lockhart–Martinelli, which are not implemented.
 
-**Steady reacting flow is not supported.** Species transport with chemistry is
-transient-only and ideal-gas-only.
+**Reacting-flow support is split between two models.** Species transport with
+Arrhenius chemistry is transient-only and ideal-gas-only. CEA-coupled reacting
+junctions are steady-only, require `kineticEnergy`, freeze product composition
+downstream, and support only the committed LOX/RP-1 and LOX/CH₄ tables; see
+[`combustion.md`](combustion.md).
 
 **User code is trusted, not sandboxed.** Embedded and local components execute
 JavaScript through `new Function`. This is not a security boundary; treat
@@ -572,6 +583,7 @@ enforced by [`src/core/validate.ts`](../src/core/validate.ts) before any solve.
 | `solidNodes`       | no       | Solid lumped masses and ambient reservoirs                      |
 | `conductors`       | no       | Thermal links                                                   |
 | `species`          | no       | Species list and Arrhenius reactions (ideal gas, transient)     |
+| `junctions`        | no       | Steady CEA-coupled reacting junctions                           |
 | `registers`        | no       | Named numeric state for logic and expressions                   |
 | `logic`            | no       | Declarative event rules and stop rules                          |
 | `controllers`      | no       | Transient PID controllers                                       |
@@ -743,6 +755,24 @@ chemistry. It requires the `idealGas` model and transient mode, and is rejected
 when named fluids are present. Chemistry is integrated node-locally with a
 first-order backward-difference method and adaptive sub-stepping; see section
 4.1.6.
+
+### 3.9.1 Reacting Junctions
+
+`junctions` declares steady combustion at an internal chamber node. Each entry
+names the chamber `node`, one or more inlet branches with roles `oxidizer` or
+`fuel`, a `model` of type `ceaTable`, and a named `productFluid`. The committed
+tables support `propellants: "lox-rp1"` and `"lox-ch4"` over chamber pressure
+0.2–30 MPa and O/F 1–5; out-of-range requests clamp to the table edge.
+`model.efficiency` must lie in (0, 1].
+
+The product fluid and chamber node must use the same named `idealGas` entry.
+Every inlet branch must end at the chamber, and at least one non-inlet branch
+must carry products away. Junctions require steady mode plus
+`settings.kineticEnergy` and cannot be combined with `species`. The chamber
+closure is solved inside the coupled Newton system; product-gas properties are
+updated between outer iterations. Composition is frozen downstream and the CEA
+tables assume standard-state reactant injection. See
+[`combustion.md`](combustion.md) for the complete contract.
 
 ## 3.10 Formula-Bound Fields
 
@@ -971,11 +1001,13 @@ chemistry sub-step integrates the Arrhenius source terms with a first-order
 backward-difference method, dense Newton, and adaptive sub-stepping, updating
 each internal node's composition and temperature.
 
-Reacting flow is transient-only and ideal-gas-only; `realFluid` and
-`incompressible` combinations with species are rejected by validation. The
-first-order integrator is robust for small reaction sets but requires many small
-sub-steps at tight tolerances; large detailed mechanisms would want a
-higher-order stiff method.
+This species-transport reacting-flow path is transient-only and ideal-gas-only;
+`realFluid` and `incompressible` combinations with species are rejected by
+validation. It is distinct from the steady CEA-coupled reacting-junction model
+described in section 3.9.1 and [`combustion.md`](combustion.md). The first-order
+integrator is robust for small reaction sets but requires many small sub-steps
+at tight tolerances; large detailed mechanisms would want a higher-order stiff
+method.
 
 ## 4.2 Equations of State
 
@@ -1672,6 +1704,11 @@ conditions: **Pressure**, **Temperature**, **Volume** for internal nodes,
 **Temperature Schedule** tables. Diagram **X**/**Y** are separate from physical
 **Position (m)**.
 
+An internal node also exposes **Reacting junction (combustor)**. Enabling it
+selects the CEA propellant pair and efficiency, the named ideal-gas product
+fluid, and the oxidizer/fuel role of each inbound branch. Validation enforces
+the steady + `kineticEnergy` restrictions described in section 3.9.1.
+
 **Solid node.** **Label**, **Type** (Solid / Ambient), **Subnetwork**,
 **Position (m)**, **Temperature**, **Mass** and **cp** for solids, and **Heat
 Input**. Ambient nodes add **Temperature Schedule**. The **cp** field exposes all
@@ -1721,6 +1758,11 @@ name, alias, or CAS, with warnings for no-transport and unknown names).
 **Units** selects the display
 preset and per-quantity preferences. **Advanced Extensibility** holds the
 registers, logic-rules, and controllers JSON editors.
+
+Advanced compressible settings — `momentumFlux`, `kineticEnergy`,
+`momentumFluxScheme`, and `transonicAdmissibility` — are edited in **Model
+Text** or in a scripted `NetworkConfig`; the Settings dialog does not currently
+expose them.
 
 ![The Global Settings dialog showing solver, fluid, units, and advanced extensibility sections](figures/user-manual/settings-dialog.png)
 
@@ -1840,9 +1882,9 @@ history entry; invalid text is kept with line-level diagnostics in a **Text
 problems** region and never reaches the model. Selection syncs with the diagram
 in both directions.
 
-![The Model Text dialog showing the lossless text projection of the regenerative cooling channel model](figures/user-manual/model-text-view.png)
+![The Model Text dialog showing the lossless text projection of the spacecraft radiator panel model](figures/user-manual/model-text-view.png)
 
-_Figure 6-3. Model Text over the regenerative cooling channel example: the
+_Figure 6-3. Model Text over the spacecraft radiator panel example: the
 same lossless text projection used by `.fn` files, with **Apply** and
 **Revert** in the header and an up-to-date status pill._
 
@@ -1880,7 +1922,7 @@ problem rather than a model defect.
 
 # 7. Example Problems
 
-Thirteen models ship with the program, reachable from **Examples ▾**. They are
+Twelve models ship with the program, reachable from **Examples ▾**. They are
 grouped by intent: _Verify-by-inspection_ cases whose answers can be checked by
 hand, _Applications_ showing engineering use, _Benchmarks_ reproducing published
 results, and _Extensibility_ cases exercising logic, registers, and controllers.
@@ -2189,25 +2231,26 @@ agreement figure.
 
 ## 8.2 Analytic Verification
 
-| Case                                  | Reference                                                                                                                                                                                                                                               | Tolerance                                                                                                                       |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| Hydrostatic column                    | $P = P_\text{top} + \rho g h$                                                                                                                                                                                                                           | 10 Pa; zero flow                                                                                                                |
-| 50/50 flow split                      | Half the source rate in each leg                                                                                                                                                                                                                        | 0.001 kg/s                                                                                                                      |
-| Orifice hand-calc                     | $C_d A\sqrt{2\rho\Delta P}$                                                                                                                                                                                                                             | 0.5 %                                                                                                                           |
-| Equal-temperature mixing              | Flow-weighted mean temperature                                                                                                                                                                                                                          | 0.05 K                                                                                                                          |
-| Tank equalization                     | Volume-weighted mean pressure; mass conservation                                                                                                                                                                                                        | 300 Pa; 0.1 % mass                                                                                                              |
-| Conduction ladder and lumped cooldown | Linear profile; $\exp(-t/\tau)$                                                                                                                                                                                                                         | 0.01 K; $\tau$ within 1 %                                                                                                       |
-| Multi-loop water network              | Independent nodal Newton solution                                                                                                                                                                                                                       | 0.5 % on branch flows                                                                                                           |
-| Pump-valve operating point            | Bisection on the intersection                                                                                                                                                                                                                           | 0.5 %                                                                                                                           |
-| Coupled tank equalization             | Runge–Kutta mass and energy integration                                                                                                                                                                                                                 | 0.5 % pressure; 2 % trajectory                                                                                                  |
-| Heated-pipe temperature rise          | Analytical cumulative heating                                                                                                                                                                                                                           | 0.2 %                                                                                                                           |
-| Tank blowdown                         | Runge–Kutta reference                                                                                                                                                                                                                                   | 2 % final pressure; 0.5 % discharged mass                                                                                       |
-| Isentropic blowdown                   | $T/T_0 = (m/m_0)^{\gamma-1}$                                                                                                                                                                                                                            | 1 %                                                                                                                             |
-| Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                                                                           |
-| Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                                                                             |
-| Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                                                                             |
-| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band) |
-| Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start                          |
+| Case                                  | Reference                                                                                                                                                                                                                                               | Tolerance                                                                                                                                |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Hydrostatic column                    | $P = P_\text{top} + \rho g h$                                                                                                                                                                                                                           | 10 Pa; zero flow                                                                                                                         |
+| 50/50 flow split                      | Half the source rate in each leg                                                                                                                                                                                                                        | 0.001 kg/s                                                                                                                               |
+| Orifice hand-calc                     | $C_d A\sqrt{2\rho\Delta P}$                                                                                                                                                                                                                             | 0.5 %                                                                                                                                    |
+| Equal-temperature mixing              | Flow-weighted mean temperature                                                                                                                                                                                                                          | 0.05 K                                                                                                                                   |
+| Tank equalization                     | Volume-weighted mean pressure; mass conservation                                                                                                                                                                                                        | 300 Pa; 0.1 % mass                                                                                                                       |
+| Conduction ladder and lumped cooldown | Linear profile; $\exp(-t/\tau)$                                                                                                                                                                                                                         | 0.01 K; $\tau$ within 1 %                                                                                                                |
+| Multi-loop water network              | Independent nodal Newton solution                                                                                                                                                                                                                       | 0.5 % on branch flows                                                                                                                    |
+| Pump-valve operating point            | Bisection on the intersection                                                                                                                                                                                                                           | 0.5 %                                                                                                                                    |
+| Coupled tank equalization             | Runge–Kutta mass and energy integration                                                                                                                                                                                                                 | 0.5 % pressure; 2 % trajectory                                                                                                           |
+| Heated-pipe temperature rise          | Analytical cumulative heating                                                                                                                                                                                                                           | 0.2 %                                                                                                                                    |
+| Tank blowdown                         | Runge–Kutta reference                                                                                                                                                                                                                                   | 2 % final pressure; 0.5 % discharged mass                                                                                                |
+| Isentropic blowdown                   | $T/T_0 = (m/m_0)^{\gamma-1}$                                                                                                                                                                                                                            | 1 %                                                                                                                                      |
+| Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                                                                                    |
+| Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                                                                                      |
+| Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                                                                                      |
+| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band)          |
+| Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start                                   |
+| Reacting-junction LOX/RP-1 thruster   | CEA identities; chamber and injector closed forms; quasi-1-D RK4 nozzle ODE; exact wall resistance network. Full report: [`docs/validation/combustion-report.md`](validation/combustion-report.md)                                                      | Chamber closure to machine precision; injector error ≤0.18 %; local nozzle profile error ≤4.87 %; wall temperatures to machine precision |
 
 ![Mach number along the converging-diverging nozzle, friction-only and friction-plus-heat cases against the analytical reference](validation/figures/compressible/fig14-nozzle-mach.svg)
 
@@ -2222,8 +2265,10 @@ transient tanks
 ([`docs/validation/tank-transient-report.md`](validation/tank-transient-report.md)),
 conjugate thermal networks
 ([`docs/validation/thermal-network-report.md`](validation/thermal-network-report.md)),
-and rigid-column fluid transients
-([`docs/validation/fluid-transient-report.md`](validation/fluid-transient-report.md)).
+rigid-column fluid transients
+([`docs/validation/fluid-transient-report.md`](validation/fluid-transient-report.md)),
+and reacting-junction combustion
+([`docs/validation/combustion-report.md`](validation/combustion-report.md)).
 
 ## 8.3 Code-to-Code Benchmarks
 
@@ -2477,8 +2522,10 @@ the sign of the mass flow.
 | [`Fluid catalogue`](fluid-catalogue.md)                                                  | 124-fluid CoolProp catalogue                                                                                   |
 | [`Solid properties`](solid-properties-results.md)                                        | Material catalogue sources and validation                                                                      |
 | [`Fluid-front transport`](fluid-front-transport.md)                                      | Front transport model and verification                                                                         |
+| [`Combustion`](combustion.md)                                                            | CEA-coupled reacting junctions, table generation, and model limitations                                        |
 | [`Testing tiers`](testing-slow.md)                                                       | Fast, all-files, and slow validation commands                                                                  |
 | [`Compressible duct-flow validation`](validation/compressible-report.md)                 | NASA GFSSP TFAWS-2007 recreation: five cases, sixteen figures                                                  |
+| [`Combustion validation`](validation/combustion-report.md)                               | CEA identities, chamber/injector closure, nozzle profiles, and regenerative wall stack                         |
 | [`Incompressible hydraulics validation`](validation/incompressible-hydraulics-report.md) | Closed-form pipe hydraulics: Hagen–Poiseuille, Darcy–Weisbach, Hardy-Cross, hydrostatics, pump operating point |
 | [`Transient tank validation`](validation/tank-transient-report.md)                       | Lumped tank gas dynamics: blowdown, equalization, fill heating                                                 |
 | [`Thermal network validation`](validation/thermal-network-report.md)                     | Composite wall, radiation–convection equilibrium, lumped cooldown, heated pipe, ε–NTU HX                       |

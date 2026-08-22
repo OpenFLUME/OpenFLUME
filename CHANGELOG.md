@@ -11,6 +11,15 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Added
 
+- **CEA-coupled reacting junctions** (`config.junctions`) — steady
+  `kineticEnergy` solves can now join unlike oxidizer and fuel streams at a
+  chamber node and close chamber pressure, O/F, temperature, and product-gas
+  properties inside the monolithic Newton system. Offline NASA CEA tables
+  cover LOX/RP-1 and LOX/CH₄ over 0.2–30 MPa and O/F 1–5. The shipped
+  LOX/RP-1 thruster combines this closure with a choked nozzle and a
+  42-station three-layer regenerative jacket; the combustion validation
+  report checks CEA identities, chamber/injector balances, nozzle profiles,
+  and the wall resistance network.
 - **Limited-upwind momentum faces** (`settings.momentumFluxScheme`, default
   `"upwind"`) — GFSSP-style donor-cell momentum advection with MUSCL/van
   Albada limited face densities on compressible branches. Removes the
@@ -25,6 +34,11 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   emergently through the same coupled `[P, ṁ, h]` Mach coupling as ideal
   gases. Validated with a nitrogen choked CD nozzle against an analytic
   ideal-gas twin (0.17 % mass-flow agreement, flat-cold-start robustness).
+- **Bounded fused real-fluid value caches** — one 8192-entry exact-key
+  `(fluid, P, h)` cache now serves `statePH`, `internalEnergyPH`, and
+  `derivativesPH` together, while bounded generation caches cover supporting
+  property lookups. This removes repeated flashes without the unbounded heap
+  growth previously seen in long transients.
 
 ### Fixed
 
@@ -87,8 +101,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   is on the canvas note (e.g. "Reference: GFSSP Figure 10").
 - **Real-fluid performance report** — re-measured on the current solver
   (limited-upwind faces, real-fluid transonic `[P, ṁ, h]`). Analytic Jacobian
-  still dominates CoolProp cost; `statePH` memoization is documented as a
-  would-be cache, not an implemented one. Regenerable via
+  still dominates CoolProp cost; the report now measures and documents the
+  implemented bounded fused value caches. Regenerable via
   `npx tsx scripts/real-fluid-performance.ts`.
 
 ## [0.1.0] - 2026-08-20
