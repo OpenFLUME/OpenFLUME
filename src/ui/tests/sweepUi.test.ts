@@ -433,7 +433,7 @@ describe("formatVariantRow", () => {
     expect(row.error).toBe("solver exploded");
   });
 
-  it("marks pending and running rows honestly", () => {
+  it("marks pending and running rows", () => {
     const pending: SweepVariantRecord = {
       index: 0,
       value: 1,

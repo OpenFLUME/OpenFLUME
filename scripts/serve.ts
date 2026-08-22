@@ -641,7 +641,7 @@ interface CreateComponentBody {
 
 /**
  * POST /api/library/components — create one component file for a trusted
- * local caller. Failures are JSON { error } bodies with honest status codes:
+ * local caller. Failures are JSON { error } bodies with matching HTTP status codes:
  * 400 malformed JSON / invalid fileName or source, 408 body read timed out,
  * 409 already exists, 413 body over the 256 KiB cap, 415 wrong Content-Type.
  * Unexpected filesystem failures are logged server-side and answered with a

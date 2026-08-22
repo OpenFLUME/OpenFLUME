@@ -4714,7 +4714,7 @@ export const exampleGroups: Record<string, string[]> = {
  *   → P_throat,liquid ≈ 1.20 MPa < Pv (1.365 MPa)
  * Therefore the cavitating state is thermodynamically required.
  *
- * INITIALIZATION (honest-convergence note): the throat node is seeded at
+ * INITIALIZATION: the throat node is seeded at
  * the vapor dome (P = Pv(244.26 K) = 1.365 235 MPa, quality 0.001).  The
  * cavitating state is thermodynamically required (loss budget above), so
  * seeding the throat in the flashing regime is the physically-correct
@@ -4723,11 +4723,11 @@ export const exampleGroups: Record<string, string[]> = {
  * discrete root (the c3 node's energy residual has a ~1.6 kW floor —
  * storage in the tiny volume cannot balance the advective enthalpy excess
  * of a full 4.0→1.37 MPa depressurisation in one step), the solver
- * honestly reported converged = false with a robust compromise state, and
+ * reported converged = false with a robust compromise state, and
  * the UI showed a red "Not converged" badge for a shipped example.
  * Refining dt (0.001, 0.0005 s) did NOT produce a root either (the
  * flashing/choking floor is structural, not a step-size artifact —
- * verified).  With the dome seed the shipped dt converges genuinely
+ * verified).  With the dome seed the shipped dt meets residual tolerance
  * (scaled residual ~6e-11) in ~9 s, with physics unchanged vs the old
  * compromise state (throat P within ~0.2 % of Pv, choked mdot 0.385 kg/s,
  * effective Cd ≈ 0.84, downstream mdot spread < 4 %).  The all-liquid-init

@@ -596,7 +596,7 @@ describe("degenerate inputs", () => {
     expect(find(d, "runFinish")!.message).not.toContain("NaN");
   });
 
-  it("empty transient result: no NaN/Infinity, honest stopped-short", () => {
+  it("empty transient result: no NaN/Infinity, stopped-short outcome", () => {
     const d = createDiaryCollector(config("transient")).finalizeFromResult(
       transientResult({ converged: false, times: [], nodes: {}, branches: {} }),
     );

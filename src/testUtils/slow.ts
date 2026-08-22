@@ -3,7 +3,7 @@ import { describe } from "vitest";
 /**
  * Opt-in slow tests.
  *
- * The honest-convergence cascade (d4fb22c) does genuine Newton work where
+ * The retry cascade (d4fb22c) runs Newton retries where
  * the solver previously false-converged, so full parameter sweeps and
  * high-N studies now cost minutes each.  Those live behind this gate so
  * the default `npm test` stays within the CI budget (~3 min), while

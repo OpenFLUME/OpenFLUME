@@ -46,11 +46,11 @@
  *                                        resampleSeries onto the current
  *                                        (resolved) grid.
  *   - entityExists / groupOfEntity     — live-config lookups driving the
- *                                        "Show on Diagram" honesty rule (a
+ *                                        "Show on Diagram" rule (a
  *                                        captured historical entity that no
  *                                        longer exists disables the action).
  *   - formatChannelValue /
- *     formatChannelDelta               — unit-honest scalar formatting:
+ *     formatChannelDelta               — unit-aware scalar formatting:
  *                                        rawUnit channels (specific enthalpy)
  *                                        are never converted; deltas use
  *                                        clampDisplayDelta so FP noise
@@ -253,7 +253,7 @@ export function clampTimeIndex(
 /**
  * True when two channels can share one chart axis: same QuantityKind AND the
  * same rawUnit situation (both plain or the identical rawUnit).  Every
- * registered field currently has an honest QuantityKind, so the rawUnit half
+ * registered field currently has a convertible QuantityKind, so the rawUnit half
  * is the guard that keeps a future raw-SI channel off a plain axis of the
  * same nominal kind.
  */
@@ -418,13 +418,13 @@ export function groupOfEntity(
 }
 
 /* ------------------------------------------------------------------ */
-/* Unit-honest value formatting                                        */
+/* Value formatting                                                    */
 /* ------------------------------------------------------------------ */
 
 /**
  * Format a resolved channel value.  Channels with a `rawUnit` (specific
  * enthalpy, J/kg) are NEVER unit-converted — the raw SI value is shown with
- * the rawUnit suffix, per the channels.ts unit-honesty contract.
+ * the rawUnit suffix, per the channels.ts unit-conversion contract.
  */
 export function formatChannelValue(
   value: number,

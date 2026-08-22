@@ -70,7 +70,7 @@ const sweepOn = (
  * Valid network with a wall and a correlation-driven convection conductor:
  * carries the categorical axes (cp material, heat-transfer model) and, by
  * omitting axialPosition, makes some correlation models legal and others
- * not — the mixed case option sweeps have to report honestly.
+ * not — mixed-case option sweeps must report which models applied.
  */
 function thermalConfig(): NetworkConfig {
   return {

@@ -3,7 +3,7 @@
  *
  * Channel views (policy core: ui/channelViews.ts): the explorer opens on a
  * full-width AGGREGATE preset (default: `defaultPreset`, normally all node
- * pressures) — one chart per honest quantity/rawUnit axis for transient
+ * pressures) — one chart per quantity/rawUnit axis for transient
  * results, an accessible bar/value list for steady results.  The view
  * dropdown (`channel-explorer-view`) offers every preset applicable to the
  * inventory plus "Custom channels"; switching to Custom reveals the
@@ -160,8 +160,8 @@ const AXIS_LABEL_OVERRIDES: Partial<Record<QuantityKind, string>> = {
 
 /** Human-readable axis name; the rawUnit itself is passed as yUnitLabel. */
 function axisLabel(quantity: QuantityKind, rawUnit?: string): string {
-  // rawUnit channels have no honest QuantityKind (channels.ts unit-honesty
-  // contract); the rawUnit symbol is the most specific name available.
+  // rawUnit channels have no convertible QuantityKind (channels.ts
+  // unit-conversion contract); the rawUnit symbol is the most specific name available.
   if (typeof rawUnit === "string" && rawUnit.length > 0) return rawUnit;
   return (
     AXIS_LABEL_OVERRIDES[quantity] ?? QUANTITY_LABELS[quantity] ?? quantity
@@ -321,7 +321,7 @@ export default function ChannelExplorer({
     [activePreset, transient, displaySet, result, baselineResult],
   );
 
-  // Resampling honesty: the aggregate chart reconciles ragged channels onto
+  // Resampling: the aggregate chart reconciles ragged channels onto
   // the first resolved channel's grid; report when grids actually differed.
   const aggregateResampled = useMemo(() => {
     if (!aggChart || !result) return false;
@@ -1170,7 +1170,7 @@ function TransientFocus({
   displayConfig: NetworkConfig;
 }) {
   // Pinned same-quantity overlays on the primary's resolved grid only
-  // (channels with a ragged grid are skipped honestly rather than misaligned).
+  // (channels with a ragged grid are skipped rather than misaligned).
   const overlays = useMemo(() => {
     const out: Array<{ key: string; label: string; values: number[] }> = [];
     for (const key of pinned) {

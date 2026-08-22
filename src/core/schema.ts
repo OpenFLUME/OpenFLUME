@@ -540,16 +540,85 @@ export interface NetworkConfig {
      * no kinetic energy.
      */
     kineticEnergy?: boolean;
+    /**
+     * Spatial scheme for the momentum-flux (longitudinal inertia) term
+     * (default "upwind"; no effect unless `momentumFlux` is on).
+     *
+     *   "upwind"  — limited-upwind momentum advection (GFSSP-style faces
+     *     with a MUSCL/van Albada limited reconstruction).  Each COMPRESSIBLE
+     *     areal branch (ideal gas always; real fluid when `kineticEnergy` is
+     *     on, since that is when its ρ(P, h) carries the Mach coupling)
+     *     carries ONE exit-face velocity u_j = |ṁ_j|/(ρ_face·A_exit),
+     *     with ρ_face the donor (upstream-node) density plus half a
+     *     van Albada-limited slope, clamped between the endpoint densities;
+     *     branch j's flux difference is ṁ_j·(u_j − ū_up) with ū_up the
+     *     mass-flow-weighted exit-face velocity of the branches feeding its
+     *     donor node.  The limiter clips a large downwind density jump to
+     *     the upstream slope, so a momentum row's sensitivity to its
+     *     downwind density stays bounded by grid-smooth increments — the
+     *     central form's discrete "expansion shock" roots (entropy-violating
+     *     subsonic→supersonic branch jumps that satisfy the exact integral
+     *     balance) cease to exist BY CONSTRUCTION, and transonic solves
+     *     become seed-robust.  Second-order on smooth profiles; first-order
+     *     at the sonic cell, where the choked mass flow lands a few percent
+     *     above the isentrope value (GFSSP-class; measured 2–6% on the
+     *     validation grids, vs <1% for "central" where central converges).
+     *     Branches whose donor node has no feeding areal branch (chain
+     *     entrances, plenums, junction nodes, single-branch networks) and
+     *     all incompressible-path branches (liquids; real fluids without
+     *     `kineticEnergy` — no Mach coupling, hence no expansion-shock
+     *     pathology) keep the central form, bit-identical.
+     *
+     *   "central" — the legacy exact integral form ΔP_accel =
+     *     (ṁ/Ā)(u_dwn − u_up) with u at the ENDPOINT states (downwind
+     *     density included).  Second-order on smooth profiles and the more
+     *     accurate choice when it converges to the physical root (the
+     *     second-law audit certifies that; see transonicAdmissibility), but
+     *     it admits the nonphysical roots above and, on some transonic
+     *     grids, has NO admissible root at all (measured: the LOX/RP-1
+     *     thruster example walks away from an exact isentropic seed).
+     *     Bit-identical to pre-scheme builds.
+     */
+    momentumFluxScheme?: "upwind" | "central";
+    /**
+     * Second-law admissibility audit for transonic solutions (default ON).
+     * The central momentum-flux discretization is an exact integral
+     * balance, so it also admits discrete "expansion shock" roots: a
+     * branch jumping from a subsonic donor endpoint to a supersonic
+     * downwind endpoint away from an area minimum — forbidden by the
+     * second law but algebraically valid (the same Rankine–Hugoniot
+     * ambiguity that upwind CFD schemes resolve with numerical
+     * dissipation).  Newton can land on such roots in throat-clustered
+     * quasi-1-D nozzles.  When on, steady solves audit every converged
+     * ideal-gas branch post-hoc: the flow entropy change
+     * Δs = cp·ln(T_dwn/T_don) − R·ln(P_dwn/P_don) must not fall below the
+     * heat-extraction allowance (Q̇_in<0 at the downwind node permits
+     * Δs ≥ Q̇/(ṁ·T)); adiabatic frictional flow can only generate entropy.
+     * A violating branch marks an inadmissible root: the solver re-seeds
+     * the downwind node onto the donor's (subsonic) state and re-solves,
+     * selecting the physical root of the SAME unmodified equations — the
+     * residuals are never altered, so an admissible solve is bit-identical
+     * with the flag on or off.  If re-solving fails to produce an
+     * admissible root, the original converged result is returned with a
+     * `warnings` entry naming the violating branches.  No effect unless
+     * `momentumFlux` is on with momentumFluxScheme "central" and an
+     * ideal-gas (γ-carrying) branch exists (the default "upwind" scheme has
+     * no expansion-shock roots to select between, and its limited-upwind
+     * truncation legitimately drifts a few J/(kg·K) per supersonic cell —
+     * auditing it would flag ordinary discretization error); steady mode
+     * only.  Set false to skip the audit.
+     */
+    transonicAdmissibility?: boolean;
     timeStepping?: "fixed" | "adaptive";
     steadySolver?: "ptc" | "direct";
     globalization?: "trustRegion" | "lineSearch";
     jacobian?: "hybrid" | "fd";
-    /** EXPERIMENTAL, opt-in (default off): coupled-honesty gate.  Re-verify
-     *  the scaled residual at the post-wall-solve / post-h-map state before
-     *  certifying a transient real-fluid step (the energy-certification
-     *  finding).  Investigation flag only — do NOT
-     *  enable by default until the dome-edge stall question is resolved. */
-    coupledHonestyGate?: boolean;
+    /** EXPERIMENTAL, opt-in (default off): after each outer Picard
+     *  iteration, re-measure the scaled residual at the post-wall-solve /
+     *  post-h-map state and use that value to certify a transient real-fluid
+     *  step.  Investigation flag only — do NOT enable by default until the
+     *  dome-edge stall question is resolved. */
+    certifyAfterCoupling?: boolean;
     adaptive?: {
       dtInitial?: number;
       dtMin: number;
@@ -916,6 +985,13 @@ export interface SteadyResult {
   /** Final register values — present whenever the network configures
    *  registers and/or logic rules. */
   finalRegisters?: Record<string, number>;
+  /** Solver advisories that do not invalidate the result — currently only
+   *  the transonic second-law audit (settings.transonicAdmissibility):
+   *  present when the converged root violates the entropy condition on
+   *  some branch and re-seeded re-solves could not reach an admissible
+   *  root.  The result is then the original converged (but likely
+   *  nonphysical near the named branches) solution. */
+  warnings?: string[];
 }
 
 /**
@@ -1012,8 +1088,8 @@ export interface TransientResult {
   /**
    * Per-step inner-Newton residual norms (raw mixed-unit and row-floor
    * scaled).  Present for fixed-stepping solves.  The scaled series is the
-   * honest per-step convergence measure for stiff real-fluid steps: it is
-   * ~1e-6…1e-4 on genuinely converged steps and ≥ 0.01 on stalled ones
+   * per-step convergence measure for stiff real-fluid steps: it is
+   * ~1e-6…1e-4 on steps that met tolerance and ≥ 0.01 on stalled ones
    * (see solver.ts convergence-flag comment).  `converged` is the AND of
    * the per-step flags; these series localise WHICH step failed and by how
    * much, which the aggregate flag cannot.

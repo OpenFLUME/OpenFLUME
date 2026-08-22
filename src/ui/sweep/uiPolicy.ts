@@ -13,7 +13,7 @@
  * per-option labels.  Option values are never formatted as numbers and
  * never carry a unit — an option names itself.
  *
- * Unit honesty policy:
+ * Unit conversion policy:
  *   - The definition form and the variant VALUE column use the descriptor's
  *     `unit` verbatim.  That unit is the config-native unit by construction
  *     (base SI for real quantity kinds, 'deg' for angles, and the truthful

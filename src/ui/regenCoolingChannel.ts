@@ -494,7 +494,7 @@ const DEFAULT_JACKET_INLET_PRESSURE = 16.44e6;
  * physics is ever taken from canvas coordinates.
  *
  * The four rows are a second, unavoidable distortion: liner and channel
- * occupy millimetres of a 133 mm throat radius, so at any honest radial
+ * occupy millimetres of a 133 mm throat radius, so at any true radial
  * scale they would collapse onto the contour line.  They are stacked at a
  * fixed `CANVAS_LAYER_GAP` instead, ordered outward from the axis exactly
  * as the hardware is — the hot-gas T_aw reservoir inside the contour, then

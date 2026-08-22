@@ -224,7 +224,7 @@ describe("diaryMetaText / diaryAccountingText", () => {
     const d = buildDiaryFromResult(steadyConfig(), steadyResult());
     expect(diaryAccountingText(d)).toBeNull();
   });
-  it("accounting reports cap drops honestly", () => {
+  it("accounting reports cap drops without inventing events", () => {
     const c = createDiaryCollector(steadyConfig(), { cap: 5 });
     c.onProgress({ kind: "steady", iteration: 0, residual: 1 });
     for (let k = 1; k <= 10; k++)

@@ -595,7 +595,7 @@ describe("summarizeContextGraph", () => {
     const g = buildContextGraph(cfg, { kind: "branch", id: "b1" });
     expect(summarizeContextGraph(g)).toContain('branch "b1"');
   });
-  it("is honest about empty graphs", () => {
+  it("summarizes empty graphs", () => {
     expect(
       summarizeContextGraph(
         buildContextGraph(cfg, { kind: "node", id: "ghost" }),

@@ -178,7 +178,7 @@ describe("cancel path (cancelRequestedRef semantics)", () => {
     expect(fin.outcome).toBe("cancelled");
   });
 
-  it("cancel with zero progress still produces an honest partial diary", () => {
+  it("cancel with zero progress still produces a partial diary", () => {
     const s = createRunDiarySession(config("steady"));
     s.requestCancel();
     const fin = s.finalizeRejection(new Error("Cancelled"));

@@ -429,10 +429,25 @@ describe("GFSSP TFAWS-2007 case 1 — Fanno flow", () => {
   });
   const res = solveDuct(config);
 
-  it("mass flow matches the analytical choked flow rate", () => {
+  it("mass flow matches the analytical choked flow rate (upwind: scheme accuracy; central: <1%)", () => {
+    // Default limited-upwind momentum faces are first-order at the choking
+    // cell — GFSSP-class accuracy (the TFAWS-2007 paper reports 1.7–5% on
+    // these cases).  Measured here: 2.1%.
     const mdot = res.branches["b0"].mdot;
     expect(
       Math.abs(mdot - analyticMdot(duct)) / analyticMdot(duct),
+    ).toBeLessThan(0.04);
+    // The central endpoint scheme is the exact integral balance and holds
+    // the historical sub-1% figure (its transonic root-multiplicity issue
+    // does not arise in this monotone subsonic-to-choked duct, and the
+    // second-law audit certifies the root).
+    const central = solveDuct({
+      ...config,
+      settings: { ...config.settings, momentumFluxScheme: "central" },
+    });
+    const mdotC = central.branches["b0"].mdot;
+    expect(
+      Math.abs(mdotC - analyticMdot(duct)) / analyticMdot(duct),
     ).toBeLessThan(0.01);
   });
 
@@ -519,9 +534,19 @@ describe("GFSSP TFAWS-2007 case 2 — Rayleigh flow", () => {
   });
   const res = solveDuct(config);
 
-  it("mass flow matches the analytical value", () => {
+  it("mass flow matches the analytical value (upwind: scheme accuracy; central: <1%)", () => {
+    // Measured 3.5% under the default limited-upwind faces (first-order at
+    // the choking cell; heat addition steepens the near-choke gradients);
+    // the central endpoint scheme keeps the historical sub-1% figure.
     const mdot = res.branches["b0"].mdot;
-    expect(Math.abs(mdot - mdotAn) / mdotAn).toBeLessThan(0.01);
+    expect(Math.abs(mdot - mdotAn) / mdotAn).toBeLessThan(0.05);
+    const central = solveDuct({
+      ...config,
+      settings: { ...config.settings, momentumFluxScheme: "central" },
+    });
+    expect(
+      Math.abs(central.branches["b0"].mdot - mdotAn) / mdotAn,
+    ).toBeLessThan(0.01);
   });
 
   it("static P, T and Mach profiles match the analytical Rayleigh solution (within the paper's 5%)", () => {
@@ -596,10 +621,21 @@ describe("GFSSP TFAWS-2007 case 3 — combined friction and heat", () => {
   });
   const res = solveDuct(config);
 
-  it("mass flow matches the analytical value", () => {
+  it("mass flow matches the analytical value (upwind: scheme accuracy; central: <1%)", () => {
+    // Measured 2.2% under the default limited-upwind faces (first-order at
+    // the choking cell); the central endpoint scheme keeps the historical
+    // sub-1% figure.
     const mdot = res.branches["b0"].mdot;
     expect(
       Math.abs(mdot - analyticMdot(duct)) / analyticMdot(duct),
+    ).toBeLessThan(0.04);
+    const central = solveDuct({
+      ...config,
+      settings: { ...config.settings, momentumFluxScheme: "central" },
+    });
+    expect(
+      Math.abs(central.branches["b0"].mdot - analyticMdot(duct)) /
+        analyticMdot(duct),
     ).toBeLessThan(0.01);
   });
 

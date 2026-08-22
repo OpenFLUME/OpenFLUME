@@ -5,7 +5,8 @@
  *
  * Same plumbing as the "Basic LOX/RP-1 thruster" reference (basic-lox-rp1-
  * thruster.fn): a LOX feed through an injector orifice, an RP-1 feed through
- * a five-cell regenerative jacket then its own injector orifice, and a hot
+ * a station-by-station regenerative jacket (one coolant node per wall
+ * section, 22 counterflow passes) then its own injector orifice, and a hot
  * gas circuit through a choked converging-diverging nozzle.  What is
  * DIFFERENT is how the two feed circuits couple to the gas: instead of a
  * static formula (mdot_gas = CdA_ox*sqrt(...) + CdA_fuel*sqrt(...)) and
@@ -24,8 +25,8 @@
  *   - the gas's R/gamma/mu/cp refresh from the CEA lookup between outer
  *     Picard iterations (core/solver/step.ts property lag).
  *
- * REGEN WALL STACK (buildWallStack below): every gas station carries a
- * thermal conductor chain into its jacket cell — gas film (Bartz-order h,
+ * REGEN WALL STACK (buildRegenSystem below): every gas station carries a
+ * thermal conductor chain into its OWN RP-1 jacket node — gas film (Bartz-order h,
  * scaled (Dt/D)^1.8) -> INNER LINER -> fin-root conduction -> FINS ->
  * fin-tip conduction -> OUTER SHELL (closeout), with coolant films on the
  * channel base (liner), the fin sides (fin efficiency folded into the
@@ -49,14 +50,19 @@
  * also converges from far cruder guesses (see the robustness test in
  * src/core/__tests__/reactingJunction.test.ts).
  *
- * KNOWN DISCRETIZATION ARTIFACT (predates the junction work): with the
- * throat-clustered stations and CEA gas (gamma ~ 1.127), the exact discrete
- * roots of the quasi-1D transonic nozzle place the sonic transition inside
- * one of the tiny near-throat segments, and the local P/T at 1-2 stations
- * around it (conv6..div1) sit off the smooth curve.  The smooth textbook
- * profile is NOT an exact root of the discrete equations here — Newton
- * stalls ~500 Pa from it — while integral quantities (Pc, mdots, O/F,
- * thrust-relevant states) are solid; see docs/combustion.md.
+ * TRANSONIC DISCRETIZATION (settings.momentumFluxScheme in core/schema.ts):
+ * the default limited-upwind momentum faces have no nonphysical "expansion
+ * shock" roots by construction — older central-scheme builds could land on
+ * one (a station dipping to the supersonic branch mid-convergent), and for
+ * THIS grid the central system has no admissible transonic root at all
+ * (Newton walks away from an exact isentropic seed).  Under the upwind
+ * faces the solve is seed-robust: the same physical root is reached from
+ * the authored warm start, from an exact isentropic profile, and even from
+ * the historical artifact root.  The cost is first-order accuracy at the
+ * sonic cell — the choked mass flow sits a few percent above the isentrope
+ * value (GFSSP-class), and the crossing is smeared across the conv7/throat
+ * cell — while integral quantities (Pc, O/F, thrust-relevant states) are
+ * solid; see docs/combustion.md.
  */
 import type { Conductor, NetworkConfig, SolidNode } from "../core/schema";
 
@@ -72,8 +78,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 469,
     y: 454,
     position: metres(0.04, 0, 0),
-    pressure: 980579,
-    temperature: 3190.69,
+    pressure: 983339,
+    temperature: 3190.87,
     fluid: "gas",
     label: "Chamber (reacting junction)",
   },
@@ -83,8 +89,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 634,
     y: 454,
     position: metres(0.04, 0, 0.05),
-    pressure: 980447,
-    temperature: 3184.93,
+    pressure: 983210,
+    temperature: 3185.05,
     fluid: "gas",
     label: "Chamber",
   },
@@ -94,8 +100,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 784,
     y: 454,
     position: metres(0.04, 0, 0.1),
-    pressure: 980294,
-    temperature: 3181.59,
+    pressure: 983048,
+    temperature: 3181.63,
     fluid: "gas",
     label: "Chamber",
   },
@@ -105,8 +111,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 829,
     y: 529,
     position: metres(0.0353125, 0, 0.108119),
-    pressure: 970812,
-    temperature: 3177.09,
+    pressure: 974021,
+    temperature: 3177.18,
     fluid: "gas",
     label: "Convergent",
   },
@@ -116,8 +122,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 874,
     y: 589,
     position: metres(0.03125, 0, 0.115155),
-    pressure: 955031,
-    temperature: 3170.25,
+    pressure: 958658,
+    temperature: 3170.43,
     fluid: "gas",
     label: "Convergent",
   },
@@ -127,8 +133,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 919,
     y: 649,
     position: metres(0.0278125, 0, 0.121109),
-    pressure: 929250,
-    temperature: 3159.57,
+    pressure: 934155,
+    temperature: 3159.96,
     fluid: "gas",
     label: "Convergent",
   },
@@ -138,8 +144,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 964,
     y: 694,
     position: metres(0.025, 0, 0.125981),
-    pressure: 888297,
-    temperature: 3142.73,
+    pressure: 896425,
+    temperature: 3143.69,
     fluid: "gas",
     label: "Convergent",
   },
@@ -149,8 +155,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1009,
     y: 724,
     position: metres(0.0228125, 0, 0.12977),
-    pressure: 825303,
-    temperature: 3116.06,
+    pressure: 841591,
+    temperature: 3118.93,
     fluid: "gas",
     label: "Convergent",
   },
@@ -160,8 +166,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1054,
     y: 754,
     position: metres(0.02125, 0, 0.132476),
-    pressure: 358915,
-    temperature: 2803.32,
+    pressure: 767992,
+    temperature: 3082.93,
     fluid: "gas",
     label: "Convergent",
   },
@@ -171,8 +177,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1099,
     y: 769,
     position: metres(0.0203125, 0, 0.1341),
-    pressure: 737663,
-    temperature: 3054.56,
+    pressure: 679085,
+    temperature: 3034.61,
     fluid: "gas",
     label: "Convergent",
   },
@@ -182,8 +188,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1144,
     y: 769,
     position: metres(0.02, 0, 0.134641),
-    pressure: 662848,
-    temperature: 3017.92,
+    pressure: 587053,
+    temperature: 2979.56,
     fluid: "gas",
     label: "Throat",
   },
@@ -193,8 +199,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1189,
     y: 769,
     position: metres(0.0201389, 0, 0.135159),
-    pressure: 705130,
-    temperature: 3038.82,
+    pressure: 501442,
+    temperature: 2922.22,
     fluid: "gas",
     label: "Divergent",
   },
@@ -204,8 +210,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1234,
     y: 754,
     position: metres(0.0205556, 0, 0.136714),
-    pressure: 439244,
-    temperature: 2877.04,
+    pressure: 422472,
+    temperature: 2858.94,
     fluid: "gas",
     label: "Divergent",
   },
@@ -215,8 +221,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1279,
     y: 754,
     position: metres(0.02125, 0, 0.139306),
-    pressure: 372701,
-    temperature: 2824.19,
+    pressure: 350977,
+    temperature: 2791.01,
     fluid: "gas",
     label: "Divergent",
   },
@@ -226,8 +232,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1324,
     y: 739,
     position: metres(0.0222222, 0, 0.142934),
-    pressure: 309658,
-    temperature: 2765.83,
+    pressure: 287819,
+    temperature: 2719.87,
     fluid: "gas",
     label: "Divergent",
   },
@@ -237,8 +243,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1369,
     y: 709,
     position: metres(0.0234722, 0, 0.1476),
-    pressure: 253385,
-    temperature: 2704.14,
+    pressure: 233474,
+    temperature: 2647.07,
     fluid: "gas",
     label: "Divergent",
   },
@@ -248,8 +254,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1414,
     y: 694,
     position: metres(0.025, 0, 0.153301),
-    pressure: 205040,
-    temperature: 2640.69,
+    pressure: 187832,
+    temperature: 2574.16,
     fluid: "gas",
     label: "Divergent",
   },
@@ -259,8 +265,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1459,
     y: 664,
     position: metres(0.0268056, 0, 0.16004),
-    pressure: 164644,
-    temperature: 2576.69,
+    pressure: 150275,
+    temperature: 2502.47,
     fluid: "gas",
     label: "Divergent",
   },
@@ -270,8 +276,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1504,
     y: 634,
     position: metres(0.0288889, 0, 0.167815),
-    pressure: 131576,
-    temperature: 2513.13,
+    pressure: 119865,
+    temperature: 2433.07,
     fluid: "gas",
     label: "Divergent",
   },
@@ -281,8 +287,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1549,
     y: 589,
     position: metres(0.03125, 0, 0.176627),
-    pressure: 104912,
-    temperature: 2450.76,
+    pressure: 95517.3,
+    temperature: 2366.56,
     fluid: "gas",
     label: "Divergent",
   },
@@ -292,8 +298,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1594,
     y: 544,
     position: metres(0.0338889, 0, 0.186475),
-    pressure: 83633.9,
-    temperature: 2390.15,
+    pressure: 76367.2,
+    temperature: 2305.82,
     fluid: "gas",
     label: "Divergent",
   },
@@ -303,8 +309,8 @@ const nodes: NetworkConfig["nodes"] = [
     x: 1639,
     y: 499,
     position: metres(0.0368056, 0, 0.19736),
-    pressure: 66768.2,
-    temperature: 2331.67,
+    pressure: 56951.4,
+    temperature: 2174.8,
     fluid: "gas",
     label: "Divergent",
   },
@@ -330,61 +336,8 @@ const nodes: NetworkConfig["nodes"] = [
     fluid: "lox",
     label: "LOX tank",
   },
-  {
-    id: "coolant1",
-    type: "internal",
-    x: 634,
-    y: 244,
-    position: metres(0.046, 0, 0.05),
-    pressure: 1301662,
-    temperature: 445.88,
-    fluid: "rp1",
-    label: "RP-1 jacket 1",
-  },
-  {
-    id: "coolant2",
-    type: "internal",
-    x: 964,
-    y: 484,
-    position: metres(0.031, 0, 0.125981),
-    pressure: 1301059,
-    temperature: 376.06,
-    fluid: "rp1",
-    label: "RP-1 jacket 2",
-  },
-  {
-    id: "coolant3",
-    type: "internal",
-    x: 1144,
-    y: 559,
-    position: metres(0.026, 0, 0.134641),
-    pressure: 1300990,
-    temperature: 352.52,
-    fluid: "rp1",
-    label: "RP-1 jacket 3",
-  },
-  {
-    id: "coolant4",
-    type: "internal",
-    x: 1414,
-    y: 484,
-    position: metres(0.031, 0, 0.153301),
-    pressure: 1300842,
-    temperature: 345.36,
-    fluid: "rp1",
-    label: "RP-1 jacket 4",
-  },
-  {
-    id: "coolant5",
-    type: "internal",
-    x: 1594,
-    y: 334,
-    position: metres(0.0398889, 0, 0.186475),
-    pressure: 1300578,
-    temperature: 323.56,
-    fluid: "rp1",
-    label: "RP-1 jacket 5",
-  },
+  // (RP-1 jacket nodes — one per gas station — are generated by
+  // buildRegenSystem below.)
   {
     id: "fuelTank",
     type: "boundary",
@@ -403,7 +356,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg1",
     from: "chamber",
     to: "barrel1",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.05,
@@ -417,7 +370,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg2",
     from: "barrel1",
     to: "barrel2",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.05,
@@ -431,7 +384,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg3",
     from: "barrel2",
     to: "conv1",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00811899,
@@ -446,7 +399,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg4",
     from: "conv1",
     to: "conv2",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00703646,
@@ -461,7 +414,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg5",
     from: "conv2",
     to: "conv3",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00595392,
@@ -476,7 +429,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg6",
     from: "conv3",
     to: "conv4",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00487139,
@@ -491,7 +444,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg7",
     from: "conv4",
     to: "conv5",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00378886,
@@ -506,7 +459,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg8",
     from: "conv5",
     to: "conv6",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00270633,
@@ -521,7 +474,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg9",
     from: "conv6",
     to: "conv7",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.0016238,
@@ -536,7 +489,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg10",
     from: "conv7",
     to: "throat",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.000541266,
@@ -551,7 +504,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg11",
     from: "throat",
     to: "div1",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00051834,
@@ -566,7 +519,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg12",
     from: "div1",
     to: "div2",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00155502,
@@ -581,7 +534,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg13",
     from: "div2",
     to: "div3",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.0025917,
@@ -596,7 +549,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg14",
     from: "div3",
     to: "div4",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00362838,
@@ -611,7 +564,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg15",
     from: "div4",
     to: "div5",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00466506,
@@ -626,7 +579,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg16",
     from: "div5",
     to: "div6",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00570174,
@@ -641,7 +594,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg17",
     from: "div6",
     to: "div7",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00673843,
@@ -656,7 +609,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg18",
     from: "div7",
     to: "div8",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00777511,
@@ -671,7 +624,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg19",
     from: "div8",
     to: "div9",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00881179,
@@ -686,7 +639,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg20",
     from: "div9",
     to: "div10",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.00984847,
@@ -701,7 +654,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg21",
     from: "div10",
     to: "div11",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.0108851,
@@ -716,7 +669,7 @@ const branches: NetworkConfig["branches"] = [
     id: "seg22",
     from: "div11",
     to: "exhaust",
-    initialMdot: 0.782432,
+    initialMdot: 0.779184,
     component: {
       type: "pipe",
       length: 0.0119218,
@@ -731,85 +684,17 @@ const branches: NetworkConfig["branches"] = [
     id: "loxInjector",
     from: "loxTank",
     to: "chamber",
-    initialMdot: 0.564682,
+    initialMdot: 0.562237,
     component: { type: "orifice", area: 0.0000321774, cd: 0.65 },
     label: "LOX injector orifice (junction inlet)",
   },
-  {
-    id: "jacketIn",
-    from: "fuelTank",
-    to: "coolant5",
-    initialMdot: 0.21775,
-    component: {
-      type: "pipe",
-      length: 0.05,
-      diameter: 0.015,
-      roughness: 0,
-      frictionFactor: 0,
-    },
-    label: "Tank -> jacket inlet",
-  },
-  {
-    id: "jacket5to4",
-    from: "coolant5",
-    to: "coolant4",
-    initialMdot: 0.21775,
-    component: {
-      type: "pipe",
-      length: 0.033174,
-      diameter: 0.015,
-      roughness: 0,
-      frictionFactor: 0,
-    },
-    label: "Jacket pass 5 -> 4",
-  },
-  {
-    id: "jacket4to3",
-    from: "coolant4",
-    to: "coolant3",
-    initialMdot: 0.21775,
-    component: {
-      type: "pipe",
-      length: 0.01866,
-      diameter: 0.015,
-      roughness: 0,
-      frictionFactor: 0,
-    },
-    label: "Jacket pass 4 -> 3",
-  },
-  {
-    id: "jacket3to2",
-    from: "coolant3",
-    to: "coolant2",
-    initialMdot: 0.21775,
-    component: {
-      type: "pipe",
-      length: 0.0086603,
-      diameter: 0.015,
-      roughness: 0,
-      frictionFactor: 0,
-    },
-    label: "Jacket pass 3 -> 2",
-  },
-  {
-    id: "jacket2to1",
-    from: "coolant2",
-    to: "coolant1",
-    initialMdot: 0.21775,
-    component: {
-      type: "pipe",
-      length: 0.075981,
-      diameter: 0.015,
-      roughness: 0,
-      frictionFactor: 0,
-    },
-    label: "Jacket pass 2 -> 1",
-  },
+  // (Jacket branches — tank -> div11 coolant -> ... -> chamber coolant,
+  // one counterflow pass per station — are generated by buildRegenSystem.)
   {
     id: "fuelInjector",
-    from: "coolant1",
+    from: "chamberCoolant",
     to: "chamber",
-    initialMdot: 0.21775,
+    initialMdot: 0.216947,
     component: { type: "orifice", area: 0.0000146885, cd: 0.65 },
     label: "RP-1 injector orifice (junction inlet)",
   },
@@ -850,39 +735,46 @@ const THROAT_D = 0.04; // throat diameter [m]
 const CU_RHO = 8940; // OFHC copper density [kg/m^3]
 const COPPER = { material: "ofhc-copper" } as const;
 
-/** Gas stations in flow order.  `cell` is the jacket cell the station's
- *  coolant films connect to; `T` = [liner, fin, shell] authored warm-start
- *  temperatures [K] (re-authored from the converged solve). */
+/** Gas stations in flow order.  Each station owns one RP-1 jacket node
+ *  (`<id>Coolant`); coolant flows counterflow, div11 -> chamber.
+ *  `T` = [liner, fin, shell, coolant] authored warm-start temperatures [K]
+ *  and `pCool` the coolant warm-start pressure [Pa] (re-authored from the
+ *  converged solve). */
 const GAS_STATIONS: Array<{
   id: string;
-  cell: 1 | 2 | 3 | 4 | 5;
-  T: [number, number, number];
+  T: [number, number, number, number];
+  pCool: number;
 }> = [
-  { id: "chamber", cell: 1, T: [483.3, 469.47, 465.56] },
-  { id: "barrel1", cell: 1, T: [483.22, 469.42, 465.52] },
-  { id: "barrel2", cell: 1, T: [483.18, 469.39, 465.49] },
-  { id: "conv1", cell: 2, T: [423.42, 405.88, 400.94] },
-  { id: "conv2", cell: 2, T: [434.32, 412.71, 406.63] },
-  { id: "conv3", cell: 2, T: [446.82, 420.52, 413.15] },
-  { id: "conv4", cell: 2, T: [460.24, 428.89, 420.14] },
-  { id: "conv5", cell: 2, T: [473.22, 436.97, 426.88] },
-  { id: "conv6", cell: 3, T: [450.26, 413.75, 403.6] },
-  { id: "conv7", cell: 3, T: [468.6, 425.19, 413.14] },
-  { id: "throat", cell: 3, T: [469.98, 426.04, 413.85] },
-  { id: "div1", cell: 3, T: [469.56, 425.78, 413.64] },
-  { id: "div2", cell: 3, T: [458.87, 419.11, 408.07] },
-  { id: "div3", cell: 4, T: [444.23, 407.3, 397.03] },
-  { id: "div4", cell: 4, T: [435.01, 401.55, 392.24] },
-  { id: "div5", cell: 4, T: [425.12, 395.39, 387.1] },
-  { id: "div6", cell: 4, T: [415.2, 389.2, 381.93] },
-  { id: "div7", cell: 4, T: [405.74, 383.28, 377.0] },
-  { id: "div8", cell: 5, T: [375.75, 356.37, 350.93] },
-  { id: "div9", cell: 5, T: [367.91, 351.46, 346.84] },
-  { id: "div10", cell: 5, T: [361.07, 347.17, 343.26] },
-  { id: "div11", cell: 5, T: [355.18, 343.48, 340.18] },
+  { id: "chamber", T: [483.184, 469.347, 465.436, 445.754], pCool: 1302060 },
+  { id: "barrel1", T: [466.526, 452.634, 448.707, 428.947], pCool: 1301662 },
+  { id: "barrel2", T: [433.027, 418.98, 415.01, 395.031], pCool: 1301265 },
+  { id: "conv1", T: [422.481, 404.937, 399.991, 375.102], pCool: 1301201 },
+  { id: "conv2", T: [427.75, 406.085, 399.995, 369.347], pCool: 1301145 },
+  { id: "conv3", T: [435.008, 408.592, 401.189, 363.932], pCool: 1301098 },
+  { id: "conv4", T: [443.738, 412.188, 403.373, 359.01], pCool: 1301059 },
+  { id: "conv5", T: [452.774, 416.212, 406.026, 354.762], pCool: 1301029 },
+  { id: "conv6", T: [460.321, 419.621, 408.309, 351.376], pCool: 1301007 },
+  { id: "conv7", T: [464.402, 421.257, 409.284, 349.026], pCool: 1300994 },
+  { id: "throat", T: [463.809, 420.424, 408.391, 347.832], pCool: 1300990 },
+  { id: "div1", T: [459.448, 417.484, 405.843, 347.253], pCool: 1300986 },
+  { id: "div2", T: [452.013, 412.436, 401.448, 346.15], pCool: 1300974 },
+  { id: "div3", T: [441.625, 405.165, 395.031, 344.029], pCool: 1300953 },
+  { id: "div4", T: [429.111, 396.227, 387.074, 341.005], pCool: 1300924 },
+  { id: "div5", T: [415.316, 386.197, 378.077, 337.212], pCool: 1300887 },
+  { id: "div6", T: [400.988, 375.593, 368.498, 332.791], pCool: 1300842 },
+  { id: "div7", T: [386.714, 364.833, 358.708, 327.878], pCool: 1300788 },
+  { id: "div8", T: [372.904, 354.221, 348.98, 322.601], pCool: 1300727 },
+  { id: "div9", T: [359.802, 343.951, 339.495, 317.071], pCool: 1300657 },
+  { id: "div10", T: [347.573, 334.163, 330.386, 311.379], pCool: 1300578 },
+  { id: "div11", T: [335.025, 324.133, 321.06, 305.595], pCool: 1300492 },
 ];
 
-function buildWallStack(): {
+const JACKET_D = 0.015; // jacket pass hydraulic diameter [m]
+const JACKET_MDOT = 0.216947; // fuel-side warm-start mass flow [kg/s]
+
+function buildRegenSystem(): {
+  coolantNodes: NetworkConfig["nodes"];
+  jacketBranches: NetworkConfig["branches"];
   solidNodes: SolidNode[];
   conductors: Conductor[];
 } {
@@ -894,12 +786,13 @@ function buildWallStack(): {
     return c;
   };
 
+  const coolantNodes: NetworkConfig["nodes"] = [];
+  const jacketBranches: NetworkConfig["branches"] = [];
   const solidNodes: SolidNode[] = [];
   const conductors: Conductor[] = [];
 
   GAS_STATIONS.forEach((st, i) => {
     const gas = nodeById.get(st.id)!;
-    const cool = nodeById.get(`coolant${st.cell}`)!;
     // Local diameter = inlet diameter of the outgoing segment; tributary
     // length = half of each adjacent segment.
     const out = pipeOf(`seg${i + 1}`);
@@ -909,6 +802,22 @@ function buildWallStack(): {
         (out.length as number)) /
       2;
     const z = (gas.position?.z as number) ?? 0;
+
+    // This station's own RP-1 jacket node, placed at the channel top
+    // (r = D/2 + liner + channel + shell) and directly above the gas node
+    // on the canvas.
+    const cool = {
+      id: `${st.id}Coolant`,
+      type: "internal" as const,
+      x: gas.x,
+      y: gas.y - 210,
+      position: metres(D / 2 + LINER_T + CHANNEL_H + SHELL_T, 0, z),
+      pressure: st.pCool,
+      temperature: st.T[3],
+      fluid: "rp1",
+      label: `RP-1 jacket @ ${st.id}`,
+    };
+    coolantNodes.push(cool);
 
     const D1 = D + 2 * LINER_T; // fin-root (channel base) circle
     const D2 = D1 + 2 * CHANNEL_H; // fin-tip (channel top) circle
@@ -1011,31 +920,72 @@ function buildWallStack(): {
       {
         id: `${st.id}BaseFilm`,
         from: `${st.id}Liner`,
-        to: `coolant${st.cell}`,
+        to: cool.id,
         type: { kind: "convection", h: H_COOLANT, area: areaBase },
         label: `Coolant film, channel base @ ${st.id}`,
       },
       {
         id: `${st.id}FinFilm`,
         from: `${st.id}Fin`,
-        to: `coolant${st.cell}`,
+        to: cool.id,
         type: { kind: "convection", h: H_COOLANT, area: areaFinSides },
         label: `Coolant film, fin sides @ ${st.id}`,
       },
       {
         id: `${st.id}ShellFilm`,
         from: `${st.id}Shell`,
-        to: `coolant${st.cell}`,
+        to: cool.id,
         type: { kind: "convection", h: H_COOLANT, area: areaTop },
         label: `Coolant film, channel top @ ${st.id}`,
       },
     );
   });
 
-  return { solidNodes, conductors };
+  // Counterflow jacket: tank -> nozzle-exit coolant node, then one pass
+  // per station back toward the chamber (the fuelInjector branch, declared
+  // statically above, carries chamberCoolant -> chamber).
+  const exit = coolantNodes[coolantNodes.length - 1];
+  jacketBranches.push({
+    id: "jacketIn",
+    from: "fuelTank",
+    to: exit.id,
+    initialMdot: JACKET_MDOT,
+    component: {
+      type: "pipe",
+      length: 0.05,
+      diameter: JACKET_D,
+      roughness: 0,
+      frictionFactor: 0,
+    },
+    label: "Tank -> jacket inlet",
+  });
+  for (let i = coolantNodes.length - 1; i > 0; i--) {
+    const from = coolantNodes[i];
+    const to = coolantNodes[i - 1];
+    // Pass length = distance along the wall between adjacent stations
+    // (axial + radial contour change).
+    const dz = (from.position!.z as number) - (to.position!.z as number);
+    const dr = (from.position!.x as number) - (to.position!.x as number);
+    jacketBranches.push({
+      id: `jacket${coolantNodes.length - i}`,
+      from: from.id,
+      to: to.id,
+      initialMdot: JACKET_MDOT,
+      component: {
+        type: "pipe",
+        length: Math.max(Math.hypot(dz, dr), 1e-4),
+        diameter: JACKET_D,
+        roughness: 0,
+        frictionFactor: 0,
+      },
+      label: `Jacket pass ${from.id.replace("Coolant", "")} -> ${to.id.replace("Coolant", "")}`,
+    });
+  }
+
+  return { coolantNodes, jacketBranches, solidNodes, conductors };
 }
 
-const wallStack = buildWallStack();
+const regen = buildRegenSystem();
 
 export const thrusterCombustor: NetworkConfig = {
   meta: { name: "LOX/RP-1 thruster (combustor)", version: 2 },
@@ -1058,11 +1008,11 @@ export const thrusterCombustor: NetworkConfig = {
     // CEA lookup at the solved (Pc, O/F) every outer iteration.  Authored
     // at the CEA values for the converged (Pc, O/F) so the first refresh is
     // a no-op: a far-off guess (e.g. frozen-flow gamma = 1.2) makes the
-    // first property swap a large mid-solve perturbation that can push
-    // Newton into a different root basin of the transonic nozzle.
+    // first property swap a large mid-solve perturbation that costs extra
+    // outer iterations.
     gas: {
       model: "idealGas",
-      params: { R: 363.5917, gamma: 1.126585, mu: 0.000106118, cp: 3235.902 },
+      params: { R: 363.671, gamma: 1.126622, mu: 0.00010611, cp: 3235.774 },
     },
     lox: { model: "incompressible", params: { rho: 1141, mu: 0.000195, cp: 1700 } },
     rp1: { model: "incompressible", params: { rho: 810, mu: 0.0017, cp: 2000 } },
@@ -1085,10 +1035,10 @@ export const thrusterCombustor: NetworkConfig = {
       productFluid: "gas",
     },
   ],
-  nodes,
-  solidNodes: wallStack.solidNodes,
-  branches,
-  conductors: wallStack.conductors,
+  nodes: [...nodes, ...regen.coolantNodes],
+  solidNodes: regen.solidNodes,
+  branches: [...branches, ...regen.jacketBranches],
+  conductors: regen.conductors,
   notes: [
     {
       id: "noteOverview",
@@ -1124,7 +1074,7 @@ export const thrusterCombustor: NetworkConfig = {
       id: "noteRegen",
       text:
         "REGEN COOLING — every gas station has its own wall section: gas film (Bartz-order h, scaled (Dt/D)^1.8) -> INNER LINER -> fin conduction -> FINS -> OUTER SHELL, with coolant films on the channel base, fin sides (fin efficiency 0.8), and channel top.  All three copper layers are separate solid nodes, so the liner-to-shell radial gradient is resolved at all 22 stations.\n" +
-        "The full fuel flow runs nozzle-exit -> injector through 5 jacket cells before its orifice; each station's coolant films connect to the cell spanning it. Watch the liner and RP-1 temperatures after Run.",
+        "The full fuel flow runs nozzle-exit -> injector counterflow through 22 jacket nodes — ONE RP-1 NODE PER STATION — so the coolant temperature profile is resolved station by station too. Watch the liner and RP-1 temperatures after Run.",
       x: 1485,
       y: 75,
       width: 430,

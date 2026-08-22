@@ -31,10 +31,10 @@
  *                             (time, value) pair with a non-finite member is
  *                             dropped; a non-finite scalar resolves to null.
  *
- * Unit honesty: `quantity` is always a real QuantityKind from ui/units.ts,
+ * Unit conversion: `quantity` is always a real QuantityKind from ui/units.ts,
  * so every channel is unit-convertible under the user's unit preferences.
- * `rawUnit` remains as the escape hatch for a future quantity with no honest
- * kind — a channel that sets it reports quantity 'dimensionless' and
+ * `rawUnit` remains as the escape hatch for a future quantity with no
+ * convertible kind — a channel that sets it reports quantity 'dimensionless' and
  * consumers must display the raw SI value with that suffix rather than
  * converting it.  No field currently needs it.
  *
@@ -130,7 +130,7 @@ interface FieldMeta {
   /** Short quantity name; the full label is `${elementLabel} · ${label}`. */
   label: string;
   quantity: QuantityKind;
-  /** Raw SI unit symbol when no honest QuantityKind exists. */
+  /** Raw SI unit symbol when no convertible QuantityKind exists. */
   rawUnit?: string;
   availability: ChannelAvailability;
   /** Sign-convention quantity (flow / heat direction). */
@@ -486,7 +486,7 @@ export interface ChannelDescriptor {
   /** Element label from the config snapshot, falling back to the id. */
   elementLabel: string;
   quantity: QuantityKind;
-  /** Raw SI unit symbol for quantities without an honest QuantityKind. */
+  /** Raw SI unit symbol for quantities without a convertible QuantityKind. */
   rawUnit?: string;
   availability: ChannelAvailability;
   /** True for sign-convention quantities (mdot, dP, heatRate). */
@@ -633,7 +633,7 @@ function descriptor(
  * per-element field order.
  *
  * Absent optional fields are skipped, which is what keeps the inventory
- * honest as the published property set grows: entropy and conductivity only
+ * accurate as the published property set grows: entropy and conductivity only
  * appear for real fluids, Mach only where the fluid model has a speed of
  * sound, mass flux and dynamic pressure only for components with a flow
  * area, heat flux only where the conductor area is positive.  Also skipped

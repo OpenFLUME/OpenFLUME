@@ -9,6 +9,23 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Limited-upwind momentum faces** (`settings.momentumFluxScheme`, default
+  `"upwind"`) — GFSSP-style donor-cell momentum advection with MUSCL/van
+  Albada limited face densities on compressible branches. Removes the
+  central form's discrete expansion-shock roots by construction, making
+  transonic solves seed-robust (choked flow lands 2–6 % high, first-order
+  at the sonic cell). The legacy exact-integral `"central"` scheme remains
+  available and is certified post-hoc by a second-law admissibility audit
+  (`settings.transonicAdmissibility`) with re-seeding and
+  `SteadyResult.warnings`.
+- **Real-fluid transonic flow** — real-fluid (CoolProp) branches are
+  upwind-eligible whenever `kineticEnergy` is on, so real fluids choke
+  emergently through the same coupled `[P, ṁ, h]` Mach coupling as ideal
+  gases. Validated with a nitrogen choked CD nozzle against an analytic
+  ideal-gas twin (0.17 % mass-flow agreement, flat-cold-start robustness).
+
 ## [0.1.0] - 2026-08-20
 
 Initial public release of OpenFLUME (Open FLUid Model Environment).
@@ -23,8 +40,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   backward-Euler transient analysis with fixed or adaptive stepping, hybrid
   automatic/finite-difference Jacobians, scaling, line search and trust-region
   globalization, real-fluid PTC regularization, fluid inertia, trapped-gas
-  cushions, schedules, event alignment, cancellation, and honest convergence
-  reporting.
+  cushions, schedules, event alignment, cancellation, and residual-based
+  convergence reporting.
 - **Fluid and energy models** — incompressible and thermally expandable
   liquids, ideal gases, and 124 CoolProp HEOS real fluids with two-phase
   properties. The enthalpy-primary `[P, ṁ, h]` system supports kinetic energy

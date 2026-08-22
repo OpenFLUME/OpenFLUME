@@ -7,7 +7,7 @@
  * end-reached, pressure/temperature envelopes across nodes (and times),
  * and the peak absolute branch mass flow.
  *
- * Empty results stay honest: envelope/peak fields are undefined (never
+ * Empty results omit envelope/peak fields (never
  * NaN/Infinity) when the result carries no data for them.
  */
 import type { SteadyResult, TransientResult } from "../../core";

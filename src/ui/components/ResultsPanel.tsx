@@ -172,7 +172,7 @@ export default function ResultsView() {
 
   // The solver-diary section: rendered whenever a diary exists — including
   // cancelled/error states whose partial diary has no final result.  A
-  // selected legacy record (no diary captured) gets a one-line honest note
+  // selected legacy record (no diary captured) gets a one-line note
   // instead; a fresh pre-run Analysis renders nothing at all.
   const selectedRecord = selectedRunId
     ? (runHistory.find((r) => r.id === selectedRunId) ?? null)

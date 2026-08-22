@@ -27,10 +27,13 @@ choked-flow, orifice, and chamber-closure closed forms; (3) nozzle
 pressure/temperature/Mach profiles against a frozen-γ isentropic reference
 and an RK4 integration of the generalized quasi-1-D compressible ODE with
 friction and wall-heat extraction; and (4) the per-station three-layer wall
-stack against an exact series–parallel thermal-resistance network. Away
-from the previously documented transonic discretization artifact, the
-solver agrees with the analytical references at the sub-percent level on
-profiles and to 3.4e-13 K on wall temperatures.
+stack against an exact series–parallel thermal-resistance network. The
+solver (default limited-upwind momentum faces,
+`settings.momentumFluxScheme: "upwind"`) tracks the analytical references
+to 1.69 % on the
+subsonic leg; down the supersonic leg the scheme's first-order truncation
+accumulates to 13.94 % at the exit (see §3). Wall
+temperatures agree to 4.5e-13 K.
 
 ## The Model Under Test
 
@@ -38,8 +41,8 @@ The thruster example (`src/ui/thrusterCombustor.ts`) couples three
 circuits at a reacting junction:
 
 - **LOX feed** — tank → injector orifice → chamber;
-- **RP-1 feed** — tank → five-cell counterflow regenerative jacket →
-  injector orifice → chamber;
+- **RP-1 feed** — tank → counterflow regenerative jacket (one coolant
+  node per gas station, 22 passes) → injector orifice → chamber;
 - **hot gas** — chamber → 22-station choked converging–diverging nozzle →
   exhaust, with `momentumFlux` and `kineticEnergy` enabled.
 
@@ -54,11 +57,11 @@ area), and the channel top. All copper conduction uses the temperature-
 dependent OFHC-copper conductivity evaluated at the endpoint mean
 temperature.
 
-The solved operating point: Pc = 980.58 kPa,
-O/F = 2.5933, ṁ_ox = 0.56468 kg/s,
-ṁ_fuel = 0.21775 kg/s,
-T0 = 3391.1 K, γ = 1.1266,
-R = 363.59 J/kg·K.
+The solved operating point: Pc = 983.34 kPa,
+O/F = 2.5916, ṁ_ox = 0.56224 kg/s,
+ṁ_fuel = 0.21695 kg/s,
+T0 = 3391.3 K, γ = 1.1266,
+R = 363.67 J/kg·K.
 
 ## 1. CEA Table Thermodynamic Consistency
 
@@ -111,8 +114,8 @@ dissociation buffers the mixture.
 
 **Chamber closure.** The junction's contract is
 T_chamber = η·T0(Pc, O/F) exactly (constant-cp ideal gas). The solved
-chamber temperature is 3190.69 K
-against η·T0 = 3190.69 K — a deviation of
+chamber temperature is 3190.87 K
+against η·T0 = 3190.87 K — a deviation of
 0.0e+0 %.
 
 **Injector orifices.** Both injectors must obey
@@ -122,37 +125,39 @@ standard gravity):
 
 | Injector | ṁ analytic [kg/s] | ṁ solver [kg/s] | deviation |
 | -------- | ----------------- | --------------- | --------- |
-| LOX | 0.563692 | 0.564682 | 0.18 % |
-| RP-1 | 0.217884 | 0.217750 | 0.06 % |
+| LOX | 0.561243 | 0.562237 | 0.18 % |
+| RP-1 | 0.216947 | 0.216947 | 1.3e-14 % |
 
 These verify the coupling, not merely the component formula: the chamber
 pressure both orifices discharge against is a solved unknown of the same
 Newton system that carries the CEA closure.
 
 **Choked mass flow and c*.** From the solved chamber stagnation state
-(P0 = 995.01 kPa, T0 = 3195.9 K), the ideal 1-D
+(P0 = 997.61 kPa, T0 = 3196.0 K), the ideal 1-D
 choked flow through the geometric throat is
-ṁ = P0·At·Γ(γ)/√(R·T0) = 0.73525 kg/s. The solver passes
-0.78243 kg/s — 6.42 %
+ṁ = P0·At·Γ(γ)/√(R·T0) = 0.73709 kg/s. The solver passes
+0.77918 kg/s — 5.71 %
 more than ideal. Equivalently the emergent
-c* = Pc·At/ṁ = 1574.9 m/s sits 7.38 %
+c* = Pc·At/ṁ = 1585.9 m/s sits 6.74 %
 below the CEA reference
-η_c*·c* = 1700.4 m/s. This 6.42 %
-excess is the transonic discretization artifact documented in
-[docs/combustion.md](../combustion.md): the discrete momentum equations
-place the sonic transition inside one of the millimetre-scale near-throat
-segments rather than exactly at the geometric throat, so the discrete
-system chokes at a slightly larger effective throat area. It is a property
-of the quasi-1-D nozzle discretization (present with fixed gas properties
-too), not of the reacting junction.
+η_c*·c* = 1700.6 m/s. This 5.71 %
+excess is the transonic discretization bias documented in
+[docs/combustion.md](../combustion.md): the default limited-upwind momentum
+faces (`settings.momentumFluxScheme: "upwind"`) are first-order at the
+sonic cell, so the discrete system chokes at a slightly larger effective
+throat state. (The upwind faces are what remove the nonphysical
+wrong-branch roots by construction — on this grid the central scheme has no
+admissible transonic root at all — and the bias shrinks with grid
+refinement.) It is a property of the quasi-1-D nozzle discretization
+(present with fixed gas properties too), not of the reacting junction.
 
 **Formula-coupled twin.** The same feed and nozzle plumbing driven by
 static injector formulas and a fixed γ = 1.2 gas
 (`basic-lox-rp1-thruster.fn`) solves to Pc = 986633 Pa,
 ṁ_ox = 0.547247 kg/s, ṁ_fuel = 0.21048 kg/s. The junction
-formulation lands within 0.61 % on Pc,
-3.19 % on ṁ_ox, and
-3.45 % on ṁ_fuel —
+formulation lands within 0.33 % on Pc,
+2.74 % on ṁ_ox, and
+3.07 % on ṁ_fuel —
 the residual differences are physics (the CEA gas with γ = 1.127
 replaces the fixed γ = 1.2 gas), not error.
 
@@ -179,29 +184,39 @@ $$\frac{dM}{dx} = \frac{M\left(1 + \frac{\gamma-1}{2}M^2\right)}{1 - M^2}\left[\
    state) and the supersonic leg (div2 → div11, initialized from the solved
    div2 state). Evaluating the reference at the solved ṁ isolates the
    spatial discretization of momentum and energy from the choking-point
-   artifact quantified in §2.
+   bias quantified in §2.
 
 | Leg | Stations | max ΔP/P | max ΔT/T | max ΔM/M |
 | --- | -------- | -------- | -------- | -------- |
-| Subsonic (barrel + convergent) | 7 | 0.37 % | 0.09 % | 0.37 % |
-| Supersonic (divergent) | 9 | 0.24 % | 0.11 % | 0.19 % |
+| Subsonic (barrel + convergent) | 7 | 1.69 % | 0.09 % | 1.64 % |
+| Supersonic (divergent) | 9 | 13.94 % | 6.54 % | 12.33 % |
 
-Against the no-friction isentropic reference, the clean stations (all but
-the transonic set conv6, throat, div1) agree within 7.94 % on
-pressure (worst at conv7), the expected magnitude and sign of the
-friction and heat-extraction corrections the isentrope omits. The
-transonic-artifact stations are plotted separately in Figures 4–6: the
-discrete equations admit no exact root on the smooth curve there
-([docs/combustion.md](../combustion.md)), and the affected stations sit off
-both references while every integral quantity remains solid.
+The subsonic leg tracks the ODE tightly. Down the divergent, the
+limited-upwind faces' first-order truncation acts like a small spurious
+entropy source per supersonic cell; on this coarsening 9-station grid it
+accumulates to 13.94 % in static pressure at the exit. This
+drift is monotone and grid-convergent — it is the documented cost of the
+scheme that removes the wrong-branch transonic roots (see
+[docs/combustion.md](../combustion.md); the `central` scheme has no
+admissible transonic root on this grid, so the trade is upwind's smooth
+first-order truncation versus no physical root at all).
+
+Against the no-friction isentropic reference, the stations
+(all of them — no station is smeared off the isentrope branches on this grid) agree within 9.24 % on pressure (worst at
+div11), the isentrope deviation being the friction and
+heat-extraction corrections it omits plus the same accumulated upwind
+drift. The profile through the throat is monotone — the sonic transition
+falls inside one near-throat segment and is smeared first-order across it
+([docs/combustion.md](../combustion.md)), but no station is thrown off the
+isentrope branches, and every integral quantity remains solid.
 
 ![Figure 4](figures/combustion/fig04-nozzle-pressure.svg)
 
-*Figure 4. Static pressure along the nozzle: frozen-γ isentrope (line), RK4 ODE with friction and wall heat (triangles), solver stations (circles; artifact stations as red squares).*
+*Figure 4. Static pressure along the nozzle: frozen-γ isentrope (line), RK4 ODE with friction and wall heat (triangles), solver stations (circles).*
 
 ![Figure 5](figures/combustion/fig05-nozzle-mach.svg)
 
-*Figure 5. Mach number along the nozzle (derived from solved ṁ, P, T). The sonic transition sits inside a near-throat segment — the documented discretization artifact.*
+*Figure 5. Mach number along the nozzle (derived from solved ṁ, P, T). The sonic transition falls inside a near-throat segment and is smeared first-order across it; the profile stays monotone through the throat.*
 
 ![Figure 6](figures/combustion/fig06-nozzle-temperature.svg)
 
@@ -219,15 +234,15 @@ linear system per station, iterating the OFHC-copper conductivity at the
 endpoint-mean temperatures exactly as the solver's thermal subsystem does.
 
 Across all 22 stations the solver matches the network to
-**3.4e-13 K** worst-case on the three layer
+**4.5e-13 K** worst-case on the three layer
 temperatures and **2.5e-14 %** on the gas-side heat rate —
 machine-level agreement, confirming the solid Newton subsystem solves the
 conduction/convection network exactly (Figures 7–8, table below).
 
 **Global energy closure.** The coolant picks up
-63.57 kW through the 66
+63.28 kW through the 66
 coolant-side films, against ṁ_fuel·cp·ΔT =
-63.53 kW of enthalpy rise from tank to
+63.24 kW of enthalpy rise from tank to
 injector — closure to 0.06 %. (The chamber station's
 7.33 kW gas film
 is computed from the adiabatic-flame chamber state but does not cool the
@@ -243,32 +258,32 @@ approximates.
 
 | Station | T_liner an. | T_liner num. | T_fin an. | T_fin num. | T_shell an. | T_shell num. | Q̇_gas an. [kW] | Q̇_gas num. [kW] |
 | ------- | ----------- | ------------ | --------- | ---------- | ----------- | ------------ | --------------- | ---------------- |
-| chamber | 483.3 | 483.3 | 469.5 | 469.5 | 465.6 | 465.6 | 7.33 | 7.33 |
-| barrel1 | 483.2 | 483.2 | 469.4 | 469.4 | 465.5 | 465.5 | 14.62 | 14.62 |
-| barrel2 | 483.2 | 483.2 | 469.4 | 469.4 | 465.5 | 465.5 | 8.49 | 8.49 |
-| conv1 | 423.4 | 423.4 | 405.9 | 405.9 | 400.9 | 400.9 | 2.50 | 2.50 |
-| conv2 | 434.3 | 434.3 | 412.7 | 412.7 | 406.6 | 406.6 | 2.34 | 2.34 |
-| conv3 | 446.8 | 446.8 | 420.5 | 420.5 | 413.2 | 413.2 | 2.13 | 2.13 |
-| conv4 | 460.2 | 460.2 | 428.9 | 428.9 | 420.1 | 420.1 | 1.83 | 1.83 |
-| conv5 | 473.2 | 473.2 | 437.0 | 437.0 | 426.9 | 426.9 | 1.46 | 1.46 |
-| conv6 | 450.3 | 450.3 | 413.7 | 413.7 | 403.6 | 403.6 | 0.91 | 0.91 |
-| conv7 | 468.6 | 468.6 | 425.2 | 425.2 | 413.1 | 413.1 | 0.52 | 0.52 |
-| throat | 470.0 | 470.0 | 426.0 | 426.0 | 413.8 | 413.8 | 0.25 | 0.25 |
-| div1 | 469.6 | 469.6 | 425.8 | 425.8 | 413.6 | 413.6 | 0.50 | 0.50 |
-| div2 | 458.9 | 458.9 | 419.1 | 419.1 | 408.1 | 408.1 | 0.92 | 0.92 |
-| div3 | 444.2 | 444.2 | 407.3 | 407.3 | 397.0 | 397.0 | 1.33 | 1.33 |
-| div4 | 435.0 | 435.0 | 401.6 | 401.6 | 392.2 | 392.2 | 1.67 | 1.67 |
-| div5 | 425.1 | 425.1 | 395.4 | 395.4 | 387.1 | 387.1 | 1.96 | 1.96 |
-| div6 | 415.2 | 415.2 | 389.2 | 389.2 | 381.9 | 381.9 | 2.18 | 2.18 |
-| div7 | 405.7 | 405.7 | 383.3 | 383.3 | 377.0 | 377.0 | 2.35 | 2.35 |
-| div8 | 375.8 | 375.8 | 356.4 | 356.4 | 350.9 | 350.9 | 2.49 | 2.49 |
-| div9 | 367.9 | 367.9 | 351.5 | 351.5 | 346.8 | 346.8 | 2.56 | 2.56 |
-| div10 | 361.1 | 361.1 | 347.2 | 347.2 | 343.3 | 343.3 | 2.60 | 2.60 |
-| div11 | 355.2 | 355.2 | 343.5 | 343.5 | 340.2 | 340.2 | 2.61 | 2.61 |
+| chamber | 483.2 | 483.2 | 469.3 | 469.3 | 465.4 | 465.4 | 7.33 | 7.33 |
+| barrel1 | 466.5 | 466.5 | 452.6 | 452.6 | 448.7 | 448.7 | 14.72 | 14.72 |
+| barrel2 | 433.0 | 433.0 | 419.0 | 419.0 | 415.0 | 415.0 | 8.65 | 8.65 |
+| conv1 | 422.5 | 422.5 | 404.9 | 404.9 | 400.0 | 400.0 | 2.50 | 2.50 |
+| conv2 | 427.7 | 427.7 | 406.1 | 406.1 | 400.0 | 400.0 | 2.35 | 2.35 |
+| conv3 | 435.0 | 435.0 | 408.6 | 408.6 | 401.2 | 401.2 | 2.14 | 2.14 |
+| conv4 | 443.7 | 443.7 | 412.2 | 412.2 | 403.4 | 403.4 | 1.84 | 1.84 |
+| conv5 | 452.8 | 452.8 | 416.2 | 416.2 | 406.0 | 406.0 | 1.47 | 1.47 |
+| conv6 | 460.3 | 460.3 | 419.6 | 419.6 | 408.3 | 408.3 | 1.02 | 1.02 |
+| conv7 | 464.4 | 464.4 | 421.3 | 421.3 | 409.3 | 409.3 | 0.52 | 0.52 |
+| throat | 463.8 | 463.8 | 420.4 | 420.4 | 408.4 | 408.4 | 0.25 | 0.25 |
+| div1 | 459.4 | 459.4 | 417.5 | 417.5 | 405.8 | 405.8 | 0.48 | 0.48 |
+| div2 | 452.0 | 452.0 | 412.4 | 412.4 | 401.4 | 401.4 | 0.92 | 0.92 |
+| div3 | 441.6 | 441.6 | 405.2 | 405.2 | 395.0 | 395.0 | 1.31 | 1.31 |
+| div4 | 429.1 | 429.1 | 396.2 | 396.2 | 387.1 | 387.1 | 1.65 | 1.65 |
+| div5 | 415.3 | 415.3 | 386.2 | 386.2 | 378.1 | 378.1 | 1.92 | 1.92 |
+| div6 | 401.0 | 401.0 | 375.6 | 375.6 | 368.5 | 368.5 | 2.13 | 2.13 |
+| div7 | 386.7 | 386.7 | 364.8 | 364.8 | 358.7 | 358.7 | 2.29 | 2.29 |
+| div8 | 372.9 | 372.9 | 354.2 | 354.2 | 349.0 | 349.0 | 2.40 | 2.40 |
+| div9 | 359.8 | 359.8 | 344.0 | 344.0 | 339.5 | 339.5 | 2.47 | 2.47 |
+| div10 | 347.6 | 347.6 | 334.2 | 334.2 | 330.4 | 330.4 | 2.51 | 2.51 |
+| div11 | 335.0 | 335.0 | 324.1 | 324.1 | 321.1 | 321.1 | 2.43 | 2.43 |
 
 ![Figure 7](figures/combustion/fig07-wall-temps.svg)
 
-*Figure 7. Wall stack temperatures along the engine: analytic resistance network (lines) vs solver solid nodes (markers); dashed line is the coolant cell temperature.*
+*Figure 7. Wall stack temperatures along the engine: analytic resistance network (lines) vs solver solid nodes (markers); dashed line is the per-station coolant temperature.*
 
 ![Figure 8](figures/combustion/fig08-heat-flux.svg)
 
@@ -287,17 +302,20 @@ analytical references:
   match the orifice closed form (with hydrostatic head) to
   0.18 % while discharging against a
   solved chamber pressure;
-- away from the transonic segment, nozzle profiles track the RK4
-  friction-and-heat ODE to 0.37 %
-  worst-case on pressure, and the isentrope explains the remainder;
+- subsonic nozzle profiles track the RK4 friction-and-heat ODE to
+  1.69 % on pressure; down the supersonic leg the default
+  limited-upwind faces' first-order truncation accumulates to
+  13.94 % at the exit (grid-convergent, and the cost of a
+  scheme with no wrong-branch transonic roots);
 - the three-layer regenerative wall stack matches the exact resistance
-  network to 3.4e-13 K and closes the coolant energy
+  network to 4.5e-13 K and closes the coolant energy
   balance to 0.06 %.
 
-The one systematic deviation — a 6.42 % excess of
-choked mass flow (equivalently a 7.38 % c* deficit)
-— is the documented transonic discretization artifact of the quasi-1-D
-nozzle, independent of the combustion coupling. Known model limitations
+The one systematic integral deviation — a 5.71 %
+excess of choked mass flow (equivalently a 6.74 % c*
+deficit) — is the documented first-order choking bias of the default
+limited-upwind momentum faces, independent of the combustion coupling and
+shrinking with grid refinement. Known model limitations
 (steady + kineticEnergy only, frozen downstream composition, standard-state
 reactant injection, idealGas product fluid) are catalogued in
 [docs/combustion.md](../combustion.md).

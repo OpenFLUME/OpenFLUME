@@ -8,8 +8,8 @@
  * by channelExplorer.ts).  This module is the single source of truth for:
  *
  *   - CHANNEL_VIEW_PRESETS / channelViewPreset — the fixed preset registry in
- *     canonical UI order.  Presets only ever group channels that are honestly
- *     comparable: every single-axis preset is quantity+rawUnit homogeneous,
+ *     canonical UI order.  Presets only ever group channels that are
+ *     unit-comparable: every single-axis preset is quantity+rawUnit homogeneous,
  *     and the dimensionless fraction group (quality / fluidFront / fWet)
  *     defensively excludes rawUnit channels, so specific enthalpy ('dimensionless'
  *     but rawUnit 'J/kg') can NEVER share a fractions axis.  The two
@@ -81,7 +81,7 @@ export interface ChannelViewPreset {
   /** Inventory filter (AND-combined criteria, OR within each). */
   match: ChannelFilter;
   /**
-   * True when every matched channel is guaranteed to share ONE honest axis
+   * True when every matched channel is guaranteed to share ONE unit axis
    * (identical quantity AND rawUnit).  False for the deliberately mixed
    * presets (steady branch flow; transient gas/enthalpy) which are consumed
    * as rows / multi-axis charts.
@@ -157,7 +157,7 @@ export const CHANNEL_VIEW_PRESETS: readonly ChannelViewPreset[] = [
     id: "node-energy",
     label: "Node enthalpy & internal energy",
     mode: "both",
-    // Both are specificEnergy, so they share one honest J/kg axis.
+    // Both are specificEnergy, so they share one J/kg axis.
     match: { entity: "node", field: ["enthalpy", "internalEnergy"] },
     singleAxis: true,
   },
@@ -398,7 +398,7 @@ export interface AggregateSeriesSpec {
   matchColorOf?: string;
 }
 
-/** One honest axis of an aggregate chart: identical quantity AND rawUnit. */
+/** One unit axis of an aggregate chart: identical quantity AND rawUnit. */
 export interface AggregateChartAxis {
   quantity: QuantityKind;
   rawUnit?: string;
@@ -417,7 +417,7 @@ export interface AggregateChart {
   included: number;
   /** Number of baseline overlay series appended. */
   baselineOverlays: number;
-  /** Channels honestly skipped, with the reason. */
+  /** Channels skipped, with the reason. */
   skipped: Array<{
     descriptor: ChannelDescriptor;
     reason: AggregateSkipReason;

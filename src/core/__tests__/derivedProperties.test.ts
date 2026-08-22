@@ -1,6 +1,6 @@
 /**
  * Reporting-only derived properties (solver/derivedProperties.ts) as they
- * reach the published result: the arithmetic, the honesty rule that an
+ * reach the published result: the arithmetic, the rule that an
  * unavailable quantity is omitted rather than defaulted, and the requirement
  * that a steady solve and a transient run publish the SAME set.
  */

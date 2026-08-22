@@ -370,6 +370,7 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
     isRealFluid,
     hasSpecies,
     momentumFlux: config.settings.momentumFlux === true,
+    momentumFluxScheme: config.settings.momentumFluxScheme ?? "upwind",
     kineticEnergy: config.settings.kineticEnergy === true,
     speciesNames,
     reactions: config.species?.reactions,

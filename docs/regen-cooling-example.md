@@ -201,7 +201,7 @@ Radius is exaggerated 2.5× against the axial scale. A true-scale section of
 this chamber is 3:1 long and thin and the throat pinch barely shows. Since
 no physics is ever read from canvas coordinates, the stretch costs nothing. The
 four rows are a second, unavoidable distortion. Liner and channel occupy
-millimetres of a 133 mm throat radius, so at any honest radial scale they
+millimetres of a 133 mm throat radius, so at any true radial scale they
 would collapse onto the contour line. They sit at a fixed 105 px pitch
 instead.
 

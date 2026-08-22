@@ -56,7 +56,7 @@ export const EXTERNAL_MESSAGE_CAP = 120;
  * when the best residual has not improved by at least STALL_IMPROVEMENT_FACTOR
  * over STALL_SAMPLE_THRESHOLD consecutive progress samples.  Progress samples
  * are the throttled ~10 Hz worker callbacks, NOT solver iterations — messages
- * say "progress samples" to stay honest.
+ * say "progress samples" rather than "iterations".
  */
 export const STALL_SAMPLE_THRESHOLD = 10;
 export const STALL_IMPROVEMENT_FACTOR = 0.5;
@@ -69,8 +69,8 @@ export const DT_LARGE_CHANGE_FACTOR = 4;
 
 /**
  * Fixed-stepping per-step scaled-residual warning bar.  Reference: the
- * schema comment on TransientResult.stepResidualsScaled — genuinely
- * converged steps sit at ~1e-6…1e-4, stalled steps at ≥ 1e-2 (see also the
+ * schema comment on TransientResult.stepResidualsScaled — steps that
+ * met tolerance sit at ~1e-6…1e-4, stalled steps at ≥ 1e-2 (see also the
  * solver.ts convergence-flag comment: ~1000× separation between the two
  * regimes, so the bar is robust to exact placement).
  */
@@ -859,7 +859,7 @@ export function createDiaryCollector(
         data: { dtAtMinCount: finiteOrNull(dtAtMinCount) },
       });
     }
-    // Fixed-stepping per-step honesty: stepResidualsScaled is present only
+    // Fixed-stepping residual check: stepResidualsScaled is present only
     // for fixed stepping; values above STEP_RESIDUAL_SCALED_WARN mark steps
     // whose inner Newton iteration stalled (schema.ts comment).
     const scaled = Array.isArray(result.stepResidualsScaled)
@@ -883,7 +883,7 @@ export function createDiaryCollector(
           category: "convergence",
           severity: "warning",
           at,
-          message: `${high} of ${total} steps ended with scaled residual above ${STEP_RESIDUAL_SCALED_WARN} (max ${fmtExp(worst!)}) — step not genuinely converged`,
+          message: `${high} of ${total} steps ended with scaled residual above ${STEP_RESIDUAL_SCALED_WARN} (max ${fmtExp(worst!)}) — step did not meet residual tolerance`,
           data: {
             count: high,
             total,

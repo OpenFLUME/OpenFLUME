@@ -8,7 +8,7 @@ contributors.
 - [User extensibility](usercode.md) covers user-defined components, registers, logic, expressions, PID controllers, and the trust model.
 - [Parameter bindings](parameter-bindings.md) explains formula-bound geometry fields, convection heat-transfer models, and solid property models.
 - [Testing tiers](testing-slow.md) details fast, all-files, and opt-in slow scientific validation commands.
-- [Solver convergence](solver-convergence.md) documents known convergence behavior, including coupled residual honesty and dome-edge limit cycles.
+- [Solver convergence](solver-convergence.md) documents known convergence behavior, including coupled residual certification and dome-edge limit cycles.
 - [Real-fluid performance](real-fluid-performance.md) discusses CoolProp backend rationale, derivative semantics, and performance guidance.
 - [Fluid catalogue](fluid-catalogue.md) describes the generated 124-fluid CoolProp HEOS catalogue, including picker contents, alias canonicalization, and no-transport validation semantics.
 - [Solid properties](solid-properties-results.md) outlines the solid material catalogue (sources, temperature ranges, caveats) along with temperature-dependent property design and validation results.

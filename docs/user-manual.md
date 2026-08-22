@@ -356,10 +356,10 @@ develops this in detail.
 
 ## 1.7 Scope Boundaries
 
-The following limitations are structural. They follow from the lumped-parameter,
-subsonic formulation and cannot be worked around by refining the mesh or
-tightening tolerances. Read this list before using a result to support a
-decision.
+The following limitations are structural. They follow from the lumped-parameter
+formulation (quasi-1-D at most, with no shock capture) and cannot be worked
+around by refining the mesh or tightening tolerances. Read this list before
+using a result to support a decision.
 
 **No shocks.** With `settings.momentumFlux` and `settings.kineticEnergy` both
 enabled, the solver handles quasi-1-D compressible duct flow:
@@ -367,12 +367,16 @@ Fanno friction choking, Rayleigh thermal choking, and converging–diverging
 nozzles built from tapered pipes, validated against the NASA GFSSP
 compressible-flow verification paper (section 4.1.4). A **smoothly expanding
 supersonic branch is reachable** — the shipped choked-nozzle example (section
-7.8) crosses $M = 1$ at the throat and runs to $M \approx 2.6$ at the exit — but
-it must be seeded onto that branch with `initialMdot` near the choked value and
-a monotonically falling nodal $P$/$T$ guess (the shipped example ramps
-linearly, station by station, from the injector to the exit boundary state),
-because the transonic solution is a saddle and a flat or default guess lands
-elsewhere, sometimes reporting convergence on a nonsense state.
+7.8) crosses $M = 1$ at the throat and runs to $M \approx 2.6$ at the exit.
+Under the default limited-upwind momentum faces
+(`settings.momentumFluxScheme: "upwind"`, section 4.1.2) the transonic solve
+is **seed-robust**: entropy-violating roots such as a station dipping onto
+the supersonic branch mid-convergent do not satisfy the discrete equations
+at all, so even a flat cold start converges to the physical branch. The
+legacy `"central"` scheme is a couple of percent more accurate at the choke
+but must be seeded onto the physical branch (`initialMdot` near the choked
+value and a monotonically falling nodal $P$/$T$ guess); its converged root
+is certified by the second-law audit (`settings.transonicAdmissibility`).
 
 What remains structurally out of scope is **shock capture**. There is no
 Rankine–Hugoniot jump condition and no mechanism for locating a normal shock, so
@@ -784,8 +788,10 @@ specified in [`docs/parameter-bindings.md`](parameter-bindings.md).
 | `jacobian`                | `hybrid` / `fd`              | no              | `hybrid`                    | Analytic/FD or pure finite difference                                                                                                |
 | `momentumFlux`            | boolean                      | no              | `false`                     | Include convective acceleration term                                                                                                 |
 | `kineticEnergy`           | boolean                      | no              | `false`                     | Stagnation-enthalpy transport (any fluid model; see section 4.1.4)                                                                   |
+| `momentumFluxScheme`      | `upwind` / `central`         | no              | `upwind`                    | Momentum-flux face scheme for compressible branches: limited-upwind (seed-robust transonic) or exact endpoint form (section 4.1.2)   |
+| `transonicAdmissibility`  | boolean                      | no              | `true`                      | Second-law audit + re-seed for central-scheme transonic roots, ideal-gas branches only (section 4.1.2; no effect unless `momentumFlux` is on with `central`)  |
 | `gravity`                 | `{x,y,z}`                    | no              | `{0,0,−9.80665}`            | Gravity vector (see section 1.4)                                                                                                     |
-| `coupledHonestyGate`      | boolean                      | no              | `false`                     | Experimental: certify transient real-fluid steps on the post-coupling residual ([`solver-convergence.md`](solver-convergence.md) §1) |
+| `certifyAfterCoupling`    | boolean                      | no              | `false`                     | Experimental: certify transient real-fluid steps on the post-coupling residual ([`solver-convergence.md`](solver-convergence.md) §1) |
 
 ---
 
@@ -826,9 +832,42 @@ expands along a branch through heating, decompression, or area change. It is
 off by default so that published-benchmark baselines are unchanged, and
 branches whose component carries no flow area contribute no term.
 
+The endpoint (central) form above is an exact integral balance, so it also
+admits nonphysical discrete roots near a sonic transition — "expansion
+shocks" (a subsonic upstream state jumping to a supersonic downstream state
+away from an area minimum), forbidden by the second law but algebraically
+valid — and on some throat-clustered transonic grids it has no admissible
+root at all. `settings.momentumFluxScheme` selects how compressible
+branches (ideal gas always; real fluid when `kineticEnergy` is on, which is
+when its density carries the Mach coupling) evaluate the term:
+
+- `"upwind"` (default) — **limited-upwind faces** (GFSSP-style donor-cell
+  momentum advection with a MUSCL/van Albada limited face density). Each
+  compressible branch carries one exit-face velocity built from its
+  *upstream* node's density plus a slope-limited correction, and its
+  momentum row advects the feeding branches' face velocities. A momentum
+  row's sensitivity to its downwind density is bounded by grid-smooth
+  increments, so the expansion-shock roots cease to exist and transonic
+  solves converge from cold starts. Accuracy is second-order on smooth
+  profiles and first-order at the sonic cell: choked mass flow lands within
+  2–6% of the analytic value on the validation grids. Liquids, real fluids
+  without `kineticEnergy`, species mixtures, junction-inlet branches, and
+  chain entrances keep the central form bit-identically (with no Mach
+  coupling there is no expansion-shock pathology, and for them the central
+  form is exact).
+- `"central"` — the endpoint form everywhere. Sub-1% choked-flow accuracy
+  when it converges to the physical root, which requires a warm start on
+  the physical branch; the second-law audit
+  (`settings.transonicAdmissibility`, on by default) checks every converged
+  ideal-gas branch against the entropy condition, re-seeds and re-solves on
+  a violation, and reports unresolved violations in `SteadyResult.warnings`.
+
+See [combustion.md](combustion.md) and the derivations in
+`core/solver/kernel.ts` and `core/solver/admissibility.ts`.
+
 > **Validity.** Without `kineticEnergy` these relations assume low-Mach flow;
-> with it they extend to subsonic compressible duct flow (section 4.1.4). See
-> section 1.7.
+> with it they extend to compressible duct flow up to and through choking,
+> including seeded supersonic bells (section 4.1.4). See section 1.7.
 
 ### 4.1.3 Fluid Energy
 
@@ -878,24 +917,31 @@ and, for nozzles, linear taper via `diameterOut` — then reproduces:
   duct, choking at $M = 1$ at the critical length;
 - **Rayleigh flow** — thermal choking in a frictionless heated duct (node
   `heatInput` supplies the wall heat);
-- **combined friction and heat**, and **subsonic converging–diverging
-  nozzles** with friction and heat transfer.
+- **combined friction and heat**, and **converging–diverging nozzles** with
+  friction and heat transfer — subsonic venturis through fully choked
+  transonic operation with a supersonic bell (sections 1.7 and 7.8).
 
 In steady mode the solver detects this configuration and couples node
 enthalpies into the Newton system alongside pressures and mass flows (the
 coupled `[P, ṁ, h]` system), which is what lets it hold near-sonic exit
 states that a segregated energy update cannot. Solved branches report a Mach
 number in the
-results. As in GFSSP, near-choked cases require reasonable initial guesses —
-`branches[].initialMdot` plus node pressure/temperature seeds — and grids
-clustered near the choke point.
+results. Near-choked cases benefit from grids clustered near the choke point.
+Under the default `momentumFluxScheme: "upwind"` they converge from cold
+starts; the `"central"` scheme requires reasonable initial guesses —
+`branches[].initialMdot` plus node pressure/temperature seeds on the physical
+branch — as GFSSP itself does (section 4.1.2).
 
 The capability is validated against the NASA GFSSP compressible-flow
 verification paper (Bandyopadhyay & Majumdar, TFAWS 2007, NTRS 20070036728) in
 `src/core/__tests__/compressibleDuctFlow.test.ts`: all five cases (Fanno,
 Rayleigh, combined, adiabatic nozzle, heated nozzle) match an RK4 integration
 of the generalized 1-D compressible-flow ODE within the paper's own 5 %
-agreement band.
+agreement band. Real-fluid transonic flow is validated in
+`src/core/__tests__/realFluidTransonic.test.ts`: a CoolProp nitrogen choked
+CD nozzle matches an analytic ideal-gas twin (same grid, same scheme, N₂'s
+R and γ) on mass flow to 0.17 %, chokes within the upwind scheme's
+documented margin, and reaches the same root from a flat cold start.
 
 ### 4.1.5 Solid Energy and Conjugate Coupling
 
@@ -1197,7 +1243,7 @@ the `heatTransferCoeff` channel (and the `heatRate` derived from it) is
 recomputed after the solve **without** that under-relaxation, so it can sit a
 few percent above the coupling the Newton actually converged on. Solid
 temperatures, node states, and branch flows remain consistent with the
-converged coupling. The honest post-hoc coefficient is
+converged coupling. The reconstructed coefficient is
 $\dot Q_\text{series}/(A\Delta T_\text{solved})$ along a conduction path that
 shares the same $\Delta T$, not the reported $h$. See
 [`docs/solver-convergence.md`](solver-convergence.md) §4.
@@ -1312,7 +1358,7 @@ $$\Delta t_\text{new} = \Delta t\cdot\text{clamp}\left(0.9\text{err}^{-1/2},0.2,
 
 clamped to `[dtMin, dtMax]`. A rejected step is retried smaller; if `dtMin` is
 reached the step is force-accepted and counted in `stats.dtAtMinCount`, which is
-the honest signal that the tolerance was not met. Event alignment truncates the
+the record that the tolerance was not met. Event alignment truncates the
 step so that every accepted step lands exactly on schedule breakpoints and on
 `endTime`. Adaptive runs report `stats: { steps, rejectedSteps, minDt, maxDt, dtAtMinCount }`.
 
@@ -1327,7 +1373,7 @@ synthesized from a bare final result is labeled `finalEvidenceOnly` rather than
 inventing progress milestones. Stall warnings are phrased in progress _samples_,
 not solver iterations, since that is what the evidence actually contains.
 
-Known convergence behaviors, including coupled-residual honesty and dome-edge
+Known convergence behaviors, including coupled-residual certification and dome-edge
 limit cycles in real-fluid problems, are catalogued in
 [`docs/solver-convergence.md`](solver-convergence.md). Practical measures for a
 difficult case, in the order worth trying: supply better initial pressures and
@@ -1750,7 +1796,7 @@ temperature envelope, peak absolute mass flow, numerical evidence, and for stead
 runs a mass-balance card — plus, for transients, **Download complete time series
 (CSV)**. Fixed-step transients also publish per-step residual series
 (`stepResiduals` / `stepResidualsScaled`) on the result object; they are the
-honest record of steps that did not meet tolerance. **Result tables** (or **Final-state tables** for a transient) gives
+record of steps that did not meet tolerance. **Result tables** (or **Final-state tables** for a transient) gives
 sortable **Nodes**, **Branches**, **Solid Nodes**, and **Conductors** tables with
 per-section **Copy CSV** and **Download CSV**, including delta columns against a
 pinned baseline. **Solver diary** shows the event timeline with **Download JSON**
@@ -1998,25 +2044,29 @@ isentropic static state and the exit plane at the perfectly-expanded
 $43.5$ kPa — so the solver _finds_ the choked mass flow rather than being told
 it. The canvas is a meridional half-section of the contour.
 
-Two construction details are load-bearing. Stations are **clustered toward the
+Two construction details matter. Stations are **clustered toward the
 throat**, because the sonic point is crossed inside a single cell and that cell
 must be small. Every duct branch carries an **`initialMdot` warm start** at the
-analytic choked flow; the transonic solution is a saddle, and from the solver's
-default guess a mesh × relaxation sweep reached the correct root in only 5 of 30
-combinations, reporting `converged` on a physically absurd state in 5 more. With
-the warm start all 30 converged. GFSSP requires the same warm start for
-near-choked ducts.
+analytic choked flow. Under the default limited-upwind faces
+(`settings.momentumFluxScheme: "upwind"`) the warm start is a convenience, not
+a requirement — the physical root is reached even from a flat cold start,
+because the spurious roots do not exist for that scheme. It IS load-bearing
+for the `"central"` scheme: there the transonic solution is a saddle, and from
+the solver's default guess a mesh × relaxation sweep reached the correct root
+in only 5 of 30 combinations, reporting `converged` on a physically absurd
+state in 5 more; with the warm start all 30 converged. GFSSP requires the same
+warm start for near-choked ducts.
 
-**Check.** After **Run**, mass flow settles within $1\%$ of the analytic choked
-value
+**Check.** After **Run**, mass flow settles within $6\%$ of the analytic
+choked value
 $\dot m^{*} = A^{*}P_0\sqrt{\gamma/(RT_0)}\,(2/(\gamma+1))^{(\gamma+1)/2(\gamma-1)}
-= 0.758$ kg/s (the solver returns $0.753$ kg/s; friction accounts for the
-difference). Static pressure falls monotonically $987 \to 43.5$ kPa, Mach rises
-monotonically $0.15 \to 2.60$, and static temperature falls $3193 \to 1898$ K.
-Away from the transonic cell every station matches the isentropic area–Mach
-solution within $5\%$. The throat _station_ reads $M \approx 0.91$ rather than
-exactly 1 because the crossing is resolved inside the adjacent cell — the branch
-through the throat reports $M = 1.02$.
+= 0.758$ kg/s under the default scheme (the limited-upwind faces are
+first-order at the sonic cell and bias the choked flow a few percent high;
+re-running with `momentumFluxScheme: "central"` lands within $1\%$, at
+$0.753$ kg/s). Static pressure falls monotonically to $43.5$ kPa, Mach rises
+monotonically through the throat to the supersonic exit, and static
+temperature falls with it. Away from the transonic cell every station matches
+the isentropic area–Mach solution to within the mass-flow bias.
 
 **Scope.** The nozzle is perfectly expanded by construction. There is no shock
 capture, so raising the back pressure to drive a normal shock into the bell —
@@ -2181,7 +2231,8 @@ agreement figure.
 | Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                             |
 | Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                               |
 | Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                               |
-| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 %; P, T, Mach profiles within 2–6 % (the paper's own 5 % band) |
+| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band) |
+| Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start |
 
 ![Mach number along the converging-diverging nozzle, friction-only and friction-plus-heat cases against the analytical reference](validation/figures/compressible/fig14-nozzle-mach.svg)
 
@@ -2337,8 +2388,9 @@ written explicitly so that a round trip is byte-stable.
 
 A record's `data` object carries every field not already on the record line. For
 a branch that is `{ label?, initialMdot?, ...component fields except type }`, so
-the Newton mass-flow warm start that near-choked compressible ducts require
-survives a save/load cycle along with the model geometry.
+the Newton mass-flow warm start that central-scheme near-choked compressible
+ducts require (and that remains a useful convenience under the default upwind
+scheme) survives a save/load cycle along with the model geometry.
 
 Parsing never throws. It returns diagnostics with line numbers, and a file that
 fails to parse never replaces the current network. After parsing, the result goes

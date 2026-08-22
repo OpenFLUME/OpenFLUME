@@ -101,7 +101,7 @@ export function createCombustionModel(
       const mdotOx = mdotByRole.get("oxidizer") ?? constant(0);
       const mdotFuel = mdotByRole.get("fuel") ?? constant(0);
       // Same floors as the scalar path (dual max: derivative 0 while the
-      // floor is active — the honest derivative of the clamped function).
+      // floor is active — the derivative of the clamped function).
       const of = max(
         div(abs(mdotOx), max(abs(mdotFuel), constant(MDOT_FLOOR_KG_S))),
         constant(OF_FLOOR),

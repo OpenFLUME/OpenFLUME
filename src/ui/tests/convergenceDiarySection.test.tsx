@@ -167,7 +167,7 @@ describe("ConvergenceDiarySection (SSR)", () => {
     expect(html).toContain(">info</span>");
     // The dtObservation coalesces 3 occurrences into one folded entry.
     expect(html).toContain(">×3</span>");
-    expect(html).toContain("folded into ×counts"); // accounting honesty
+    expect(html).toContain("folded into ×counts"); // retention accounting
     expect(html).toContain('role="list"'); // ordered-list semantics kept
   });
 

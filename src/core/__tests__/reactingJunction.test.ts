@@ -5,7 +5,7 @@
  *      mapping, CEA lookup plausibility, clamp flags, and the dual-number
  *      chamber-T0 path (primal identical to the scalar lookup; derivatives
  *      match central finite differences strictly inside a table cell, and
- *      honestly zero when clamped off the table).
+ *      zero when clamped off the table).
  *   2. Validation rules — validate/junctions.ts, including the unlike-fluid
  *      exception for declared junction inlets (validate/branches.ts).
  *   3. Integration — the LOX/RP-1 thruster example solves with the junction
@@ -18,9 +18,10 @@
  *      from strongly perturbed warm starts (mass flows x3 with the tiny
  *      solver default 0.1 kg/s per branch as a variant, feed/gas pressures
  *      x1.5) is asserted here.  Fully uniform P/T states are NOT asserted:
- *      the quasi-1D transonic nozzle discretization has multiple exact
- *      roots and a smooth pseudo-root near M = 1 (see docs/combustion.md);
- *      from far enough away Newton can land where no exact root exists.
+ *      even with the default upwind momentum faces removing the central
+ *      scheme's expansion-shock roots (see docs/combustion.md), the coupled
+ *      junction + 22-station transonic system keeps a stiff enough basin
+ *      that an arbitrarily uninformed start is not a supported contract.
  */
 import { describe, it, expect } from "vitest";
 import type { NetworkConfig } from "../schema";
@@ -435,7 +436,7 @@ describe("LOX/RP-1 thruster with reacting junction", () => {
     // Emergent c* = Pc*At/mdot against the CEA reference with the c*
     // efficiency (eta_cstar = 0.97, efficiency = 0.97^2 on enthalpy).
     // The discretized nozzle with friction chokes slightly off the ideal
-    // 1-D value — 10 % is the honest bar (observed ~7 %).
+    // 1-D value — 10 % is the chosen bar (observed ~7 %).
     const cstarEmergent = (jn.pc * THROAT_AREA) / jn.mdotTotal;
     const cstarRef = 0.97 * jn.gas.cstar;
     expect(Math.abs(cstarEmergent - cstarRef) / cstarRef).toBeLessThan(0.1);

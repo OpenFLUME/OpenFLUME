@@ -25,6 +25,11 @@ import {
 } from "./derivedProperties";
 import { computeConductorHMap } from "./conductorH";
 import { computeConductorHeatRate } from "./thermal";
+import {
+  auditSecondLaw,
+  reseedInadmissible,
+  violationScore,
+} from "./admissibility";
 
 /**
  * Solve a steady-state thermal-fluid network to convergence.
@@ -32,7 +37,7 @@ import { computeConductorHeatRate } from "./thermal";
  * Uses Picard iteration with an inner Newton–Raphson solver. Supports
  * hybrid analytic/finite-difference Jacobians, pseudo-transient-continuation
  * (PTC) for real fluids, trust-region or line-search globalization, and
- * optional coupled-honesty gating.
+ * optional post-coupling residual certification (`certifyAfterCoupling`).
  *
  * @param config - Validated network configuration (call {@link validateNetwork} first)
  * @param options - Progress callback and abort signal
@@ -95,7 +100,7 @@ export function solveSteady(
       ? () => (options?.shouldAbort?.() ?? false) || logic.userTerminated
       : options?.shouldAbort;
 
-  const res = solveStateStep(ctx, state, {
+  const stepOptions = {
     tol: config.settings.tolerance,
     maxIterations: config.settings.maxIterations,
     relaxation: relax,
@@ -104,7 +109,66 @@ export function solveSteady(
     steadySolver: config.settings.steadySolver ?? "ptc",
     globalization: config.settings.globalization ?? "trustRegion",
     jacobian: config.settings.jacobian ?? "hybrid",
-  });
+  };
+
+  let res = solveStateStep(ctx, state, stepOptions);
+
+  // Transonic second-law audit (settings.transonicAdmissibility, default
+  // on; core/solver/admissibility.ts): the central momentum discretization
+  // admits entropy-violating "expansion shock" roots in transonic gas
+  // paths, and Newton can converge onto one from a poor warm start.  The
+  // audit checks the CONVERGED root per ideal-gas branch and, on a
+  // violation, re-seeds the offending downwind nodes onto their donors'
+  // (subsonic) states and re-solves the SAME unmodified system — root
+  // selection, never residual modification, so an admissible solve is
+  // bit-identical with the audit on or off.  A retry is accepted only if
+  // it converges and strictly shrinks the total entropy defect; otherwise
+  // the original root stands and the violations surface as `warnings`.
+  // Only meaningful where the inadmissible roots live: steady momentum-flux
+  // solves with a γ-carrying (ideal-gas) branch under the CENTRAL scheme.
+  // The default "upwind" scheme has no expansion-shock roots by
+  // construction (see settings.momentumFluxScheme in schema.ts), and its
+  // limited-upwind truncation legitimately drifts a few J/(kg·K) per cell
+  // off the isentrope in supersonic legs — auditing it would flag ordinary
+  // discretization error, not root pathology.
+  let warnings: string[] | undefined;
+  const auditOn =
+    config.settings.transonicAdmissibility !== false &&
+    ctx.momentumFlux &&
+    ctx.momentumFluxScheme === "central" &&
+    ctx.branches.some(
+      (b) => ctx.fluidAssignment.branch(b.id).gamma !== undefined,
+    );
+  if (auditOn && res.converged && !res.aborted) {
+    let violations = auditSecondLaw(ctx, res.state);
+    for (let attempt = 0; violations.length > 0 && attempt < 2; attempt++) {
+      const seeded = reseedInadmissible(ctx, res.state, violations);
+      const retry = solveStateStep(ctx, seeded, {
+        ...stepOptions,
+        onProgress: undefined,
+      });
+      if (!retry.converged) break;
+      const retryViolations = auditSecondLaw(ctx, retry.state);
+      if (
+        retryViolations.length > 0 &&
+        violationScore(retryViolations) >= 0.9 * violationScore(violations)
+      ) {
+        break; // no meaningful progress — keep the current root
+      }
+      res = retry;
+      violations = retryViolations;
+    }
+    if (violations.length > 0) {
+      warnings = violations.map(
+        (v) =>
+          `second-law violation on branch ${v.branchId} (${v.donor} \u2192 ${v.downwind}): ` +
+          `\u0394s = ${v.deltaS.toFixed(1)} J/(kg\u00b7K) vs allowance ${v.allowance.toFixed(1)} ` +
+          `\u2212 tolerance ${v.tolerance.toFixed(1)} \u2014 the converged root is likely a ` +
+          `nonphysical transonic branch jump near these nodes (re-seeded re-solves did not ` +
+          `find an admissible root; try a warm start on the subsonic branch)`,
+      );
+    }
+  }
 
   if (logic) {
     if (res.converged) {
@@ -226,6 +290,7 @@ export function solveSteady(
     aborted: res.aborted,
     ptcDeltaTau: res.ptcDeltaTau,
     ptcShrinks: res.ptcShrinks,
+    ...(warnings !== undefined ? { warnings } : {}),
     ...logicResultFields(logic),
   };
 }

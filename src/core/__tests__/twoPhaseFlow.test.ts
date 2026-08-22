@@ -13,7 +13,7 @@ beforeAll(async () => {
 }, 30000);
 
 // SLOW (RUN_SLOW=1): the full boiling-pot staircase costs ~160 s with the
-// honest-convergence cascade — see docs/testing-slow.md.
+// retry cascade — see docs/testing-slow.md.
 describeSlow("Two-phase boiling pot (water) — staircase", () => {
   const fluid = () => new RealFluid("Water");
   const P = 101325;

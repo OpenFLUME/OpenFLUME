@@ -9,7 +9,7 @@
  * The hashed view excludes canvas annotations (see hashableConfig): the hash
  * identifies what produced the numbers, not the prose written beside it.
  *
- * Hashing honesty: when the Web Crypto API is available (always on
+ * Hash labels: when the Web Crypto API is available (always on
  * localhost / https) we compute a real SHA-256 and label it
  * `config_sha256`. The synchronous fallback is 64-bit FNV-1a — clearly
  * labeled `config_hash`, never "SHA". Run records use the sync FNV hash

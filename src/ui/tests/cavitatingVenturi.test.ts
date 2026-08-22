@@ -209,8 +209,8 @@ describe("N₂O cavitating venturi", () => {
       // The shipped example seeds the throat at the vapor dome (the
       // cavitating state is thermodynamically required by the loss budget),
       // so the single shipped step HAS an exact discrete root and the
-      // solver converges genuinely (scaled residual ~6e-11).  The previous
-      // all-liquid-init version of this example honestly reported
+      // solver meets residual tolerance (scaled residual ~6e-11).  The previous
+      // all-liquid-init version of this example reported
       // converged = false (no-root single giant step — exercised and
       // documented in the next test); the physics here is unchanged vs
       // that compromise state (throat within ~0.2 % of Pv, same choked
@@ -274,8 +274,8 @@ describe("N₂O cavitating venturi", () => {
           // solver therefore reports converged = false and returns its
           // least-residual compromise state, which is physically excellent
           // (throat pinned within ~1 % of Pv, same choked mdot as the
-          // genuinely-converged seeded example within 0.3 %).  This pins the
-          // honest-convergence behaviour on a proven-no-root step; a future
+          // meets residual tolerance within 0.3 %).  This pins
+          // no-root reporting on a proven-no-root step; a future
           // discretisation/solver improvement that converges the step should
           // flip the flag and update this comment.
           const config = buildVenturiConfig(P_OUT / 1e6, false);
@@ -324,8 +324,8 @@ describe("N₂O cavitating venturi", () => {
         for (const o of outlets) {
           const config = buildVenturiConfig(o.mpa, true);
           const res = solveTransient(config);
-          // Honest-convergence accounting: the 500 psia step converges
-          // genuinely (scaled residual ~6e-11).  The 400/300 psia steps are
+          // Residual accounting: the 500 psia step meets residual tolerance
+          // (scaled residual ~6e-11).  The 400/300 psia steps are
           // the same proven-no-root single-giant-step discretisation as the
           // all-liquid-init solver-finding test above (stronger choking →
           // larger flashing imbalance: best-outer scaled residuals ≈ 0.8 /
@@ -507,9 +507,9 @@ describe("N₂O cavitating venturi (choked-flow closure, steady)", () => {
     { timeout: 180000 },
     () => {
       // Emergent transient model (shipped example: dome-seeded throat,
-      // single 0.01 s step).  It now converges genuinely (scaled residual
+      // single 0.01 s step).  It now meets residual tolerance (scaled residual
       // ~6e-11); its mdot is the choked-flow quantity compared here.  (The
-      // previous all-liquid-init version honestly reported converged =
+      // previous all-liquid-init version reported converged =
       // false — proven no-root — and used the compromise state; the choked
       // mdot was identical to within 0.3 %, see the solver-finding test
       // above.)

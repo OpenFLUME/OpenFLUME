@@ -551,11 +551,14 @@ const isentropic = stations.map((st, i) => {
   };
 });
 
-// Transonic-artifact stations (docs/combustion.md): the discrete sonic
-// transition sits inside one near-throat segment, so a few stations around
-// it land far off the smooth curve (locally on the "wrong" branch).
-// Flag them by their deviation from the isentrope — friction/heat
-// corrections are a few percent, the artifact is tens of percent.
+// Sonic-point stations (docs/combustion.md): the discrete sonic transition
+// falls inside one near-throat segment, so the station(s) bounding it sit
+// BETWEEN the subsonic and supersonic isentrope branches —
+// first-order smearing of the limited-upwind faces
+// (settings.momentumFluxScheme "upwind", which eliminates the wrong-branch
+// roots older central-scheme builds could land on).  Flag them by their
+// deviation from the isentrope — friction/heat corrections are a few
+// percent, the smearing is tens.
 const artifactIds = new Set(
   stations
     .filter((st, i) => {
@@ -701,23 +704,27 @@ function profileFig(
       marker: "triangle",
     },
     {
-      label: "solver (clean stations)",
+      label: artifactIds.size > 0 ? "solver (clean stations)" : "solver stations",
       pts: stations
         .filter((st) => !artifactIds.has(st.id))
         .map((st) => [st.z, pick(solvedAt(st))]),
       color: C.blue,
-      mode: "markers",
-      marker: "circle",
+      mode: "markers" as const,
+      marker: "circle" as const,
     },
-    {
-      label: "solver (transonic-artifact stations)",
-      pts: stations
-        .filter((st) => artifactIds.has(st.id))
-        .map((st) => [st.z, pick(solvedAt(st))]),
-      color: C.red,
-      mode: "markers",
-      marker: "square",
-    },
+    ...(artifactIds.size > 0
+      ? [
+          {
+            label: "solver (transonic-artifact stations)",
+            pts: stations
+              .filter((st) => artifactIds.has(st.id))
+              .map((st) => [st.z, pick(solvedAt(st))] as [number, number]),
+            color: C.red,
+            mode: "markers" as const,
+            marker: "square" as const,
+          },
+        ]
+      : []),
   ];
   writeFig(
     n,
@@ -890,7 +897,7 @@ const mdotFuel = res.branches.fuelInjector.mdot;
 const coolantRise =
   mdotFuel *
   CP_RP1 *
-  (res.nodes.coolant1.temperature - res.nodes.fuelTank.temperature);
+  (res.nodes.chamberCoolant.temperature - res.nodes.fuelTank.temperature);
 const coolantBalanceErr =
   Math.abs(coolantFilmQ - coolantRise) / coolantRise;
 
@@ -952,7 +959,7 @@ writeFig(
         marker: "square",
       },
       {
-        label: "RP-1 coolant cell",
+        label: "RP-1 coolant (per station)",
         pts: wallRows.map((r) => [r.z, r.an.Tc]),
         color: C.green,
         mode: "line",
@@ -1008,6 +1015,12 @@ const artifactList = stations
   .filter((s) => artifactIds.has(s.id))
   .map((s) => s.id)
   .join(", ");
+/** Prose fragment for the sonic-point station set (empty under the default
+ *  limited-upwind faces — the crossing resolves without an outlier). */
+const sonicSetProse =
+  artifactIds.size > 0
+    ? `all but the sonic-point set ${artifactList}`
+    : "all of them — no station is smeared off the isentrope branches on this grid";
 
 const wallTableRows = wallRows
   .map(
@@ -1045,10 +1058,13 @@ choked-flow, orifice, and chamber-closure closed forms; (3) nozzle
 pressure/temperature/Mach profiles against a frozen-γ isentropic reference
 and an RK4 integration of the generalized quasi-1-D compressible ODE with
 friction and wall-heat extraction; and (4) the per-station three-layer wall
-stack against an exact series–parallel thermal-resistance network. Away
-from the previously documented transonic discretization artifact, the
-solver agrees with the analytical references at the sub-percent level on
-profiles and to ${wallTmaxK.toExponential(1)} K on wall temperatures.
+stack against an exact series–parallel thermal-resistance network. The
+solver (default limited-upwind momentum faces,
+\`settings.momentumFluxScheme: "upwind"\`) tracks the analytical references
+to ${pct(Math.max(subStats.maxP, subStats.maxT, subStats.maxM))} on the
+subsonic leg; down the supersonic leg the scheme's first-order truncation
+accumulates to ${pct(supStats.maxP)} at the exit (see §3). Wall
+temperatures agree to ${wallTmaxK.toExponential(1)} K.
 
 ## The Model Under Test
 
@@ -1056,8 +1072,8 @@ The thruster example (\`src/ui/thrusterCombustor.ts\`) couples three
 circuits at a reacting junction:
 
 - **LOX feed** — tank → injector orifice → chamber;
-- **RP-1 feed** — tank → five-cell counterflow regenerative jacket →
-  injector orifice → chamber;
+- **RP-1 feed** — tank → counterflow regenerative jacket (one coolant
+  node per gas station, 22 passes) → injector orifice → chamber;
 - **hot gas** — chamber → 22-station choked converging–diverging nozzle →
   exhaust, with \`momentumFlux\` and \`kineticEnergy\` enabled.
 
@@ -1150,13 +1166,15 @@ ${mdotExcess > 0 ? "more" : "less"} than ideal. Equivalently the emergent
 c* = Pc·At/ṁ = ${cstarEmergent.toFixed(1)} m/s sits ${pct(Math.abs(cstarErr))}
 ${cstarErr < 0 ? "below" : "above"} the CEA reference
 η_c*·c* = ${cstarRef.toFixed(1)} m/s. This ${pct(Math.abs(mdotExcess))}
-excess is the transonic discretization artifact documented in
-[docs/combustion.md](../combustion.md): the discrete momentum equations
-place the sonic transition inside one of the millimetre-scale near-throat
-segments rather than exactly at the geometric throat, so the discrete
-system chokes at a slightly larger effective throat area. It is a property
-of the quasi-1-D nozzle discretization (present with fixed gas properties
-too), not of the reacting junction.
+excess is the transonic discretization bias documented in
+[docs/combustion.md](../combustion.md): the default limited-upwind momentum
+faces (\`settings.momentumFluxScheme: "upwind"\`) are first-order at the
+sonic cell, so the discrete system chokes at a slightly larger effective
+throat state. (The upwind faces are what remove the nonphysical
+wrong-branch roots by construction — on this grid the central scheme has no
+admissible transonic root at all — and the bias shrinks with grid
+refinement.) It is a property of the quasi-1-D nozzle discretization
+(present with fixed gas properties too), not of the reacting junction.
 
 **Formula-coupled twin.** The same feed and nozzle plumbing driven by
 static injector formulas and a fixed γ = 1.2 gas
@@ -1191,25 +1209,35 @@ $$\\frac{dM}{dx} = \\frac{M\\left(1 + \\frac{\\gamma-1}{2}M^2\\right)}{1 - M^2}\
    state) and the supersonic leg (div2 → div11, initialized from the solved
    div2 state). Evaluating the reference at the solved ṁ isolates the
    spatial discretization of momentum and energy from the choking-point
-   artifact quantified in §2.
+   bias quantified in §2.
 
 | Leg | Stations | max ΔP/P | max ΔT/T | max ΔM/M |
 | --- | -------- | -------- | -------- | -------- |
 | Subsonic (barrel + convergent) | ${subStats.n} | ${pct(subStats.maxP)} | ${pct(subStats.maxT)} | ${pct(subStats.maxM)} |
 | Supersonic (divergent) | ${supStats.n} | ${pct(supStats.maxP)} | ${pct(supStats.maxT)} | ${pct(supStats.maxM)} |
 
-Against the no-friction isentropic reference, the clean stations (all but
-the transonic set ${artifactList}) agree within ${pct(isenMaxP)} on
-pressure (worst at ${isenMaxPId}), the expected magnitude and sign of the
-friction and heat-extraction corrections the isentrope omits. The
-transonic-artifact stations are plotted separately in Figures 4–6: the
-discrete equations admit no exact root on the smooth curve there
-([docs/combustion.md](../combustion.md)), and the affected stations sit off
-both references while every integral quantity remains solid.
+The subsonic leg tracks the ODE tightly. Down the divergent, the
+limited-upwind faces' first-order truncation acts like a small spurious
+entropy source per supersonic cell; on this coarsening 9-station grid it
+accumulates to ${pct(supStats.maxP)} in static pressure at the exit. This
+drift is monotone and grid-convergent — it is the documented cost of the
+scheme that removes the wrong-branch transonic roots (see
+[docs/combustion.md](../combustion.md); the \`central\` scheme has no
+admissible transonic root on this grid, so the trade is upwind's smooth
+first-order truncation versus no physical root at all).
 
-${fig(4, "Static pressure along the nozzle: frozen-γ isentrope (line), RK4 ODE with friction and wall heat (triangles), solver stations (circles; artifact stations as red squares).")}
+Against the no-friction isentropic reference, the stations
+(${sonicSetProse}) agree within ${pct(isenMaxP)} on pressure (worst at
+${isenMaxPId}), the isentrope deviation being the friction and
+heat-extraction corrections it omits plus the same accumulated upwind
+drift. The profile through the throat is monotone — the sonic transition
+falls inside one near-throat segment and is smeared first-order across it
+([docs/combustion.md](../combustion.md)), but no station is thrown off the
+isentrope branches, and every integral quantity remains solid.
 
-${fig(5, "Mach number along the nozzle (derived from solved ṁ, P, T). The sonic transition sits inside a near-throat segment — the documented discretization artifact.")}
+${fig(4, `Static pressure along the nozzle: frozen-γ isentrope (line), RK4 ODE with friction and wall heat (triangles), solver stations (circles${artifactIds.size > 0 ? "; sonic-point stations as red squares" : ""}).`)}
+
+${fig(5, "Mach number along the nozzle (derived from solved ṁ, P, T). The sonic transition falls inside a near-throat segment and is smeared first-order across it; the profile stays monotone through the throat.")}
 
 ${fig(6, "Static temperature along the nozzle.")}
 
@@ -1251,7 +1279,7 @@ approximates.
 | ------- | ----------- | ------------ | --------- | ---------- | ----------- | ------------ | --------------- | ---------------- |
 ${wallTableRows}
 
-${fig(7, "Wall stack temperatures along the engine: analytic resistance network (lines) vs solver solid nodes (markers); dashed line is the coolant cell temperature.")}
+${fig(7, "Wall stack temperatures along the engine: analytic resistance network (lines) vs solver solid nodes (markers); dashed line is the per-station coolant temperature.")}
 
 ${fig(8, "Gas-side wall heat flux along the engine: resistance network (line) vs solver (markers). The peak sits at the throat, as the (Dt/D)^1.8 film scaling dictates.")}
 
@@ -1268,17 +1296,20 @@ analytical references:
   match the orifice closed form (with hydrostatic head) to
   ${pct(Math.max(oxCheck.err, fuelCheck.err))} while discharging against a
   solved chamber pressure;
-- away from the transonic segment, nozzle profiles track the RK4
-  friction-and-heat ODE to ${pct(Math.max(subStats.maxP, supStats.maxP))}
-  worst-case on pressure, and the isentrope explains the remainder;
+- subsonic nozzle profiles track the RK4 friction-and-heat ODE to
+  ${pct(subStats.maxP)} on pressure; down the supersonic leg the default
+  limited-upwind faces' first-order truncation accumulates to
+  ${pct(supStats.maxP)} at the exit (grid-convergent, and the cost of a
+  scheme with no wrong-branch transonic roots);
 - the three-layer regenerative wall stack matches the exact resistance
   network to ${wallTmaxK.toExponential(1)} K and closes the coolant energy
   balance to ${pct(coolantBalanceErr)}.
 
-The one systematic deviation — a ${pct(Math.abs(mdotExcess))} excess of
-choked mass flow (equivalently a ${pct(Math.abs(cstarErr))} c* deficit)
-— is the documented transonic discretization artifact of the quasi-1-D
-nozzle, independent of the combustion coupling. Known model limitations
+The one systematic integral deviation — a ${pct(Math.abs(mdotExcess))}
+excess of choked mass flow (equivalently a ${pct(Math.abs(cstarErr))} c*
+deficit) — is the documented first-order choking bias of the default
+limited-upwind momentum faces, independent of the combustion coupling and
+shrinking with grid refinement. Known model limitations
 (steady + kineticEnergy only, frozen downstream composition, standard-state
 reactant injection, idealGas product fluid) are catalogued in
 [docs/combustion.md](../combustion.md).

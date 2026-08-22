@@ -3,7 +3,7 @@
  * the Analysis view (wired in by ResultsPanel).
  *
  * Renders a RunDiary (convergenceDiary.ts): outcome pill + digest header,
- * severity/progress meta with honest retention accounting, an ordered event
+ * severity/progress meta with retention accounting, an ordered event
  * timeline (collapsed to the first DIARY_COLLAPSED_COUNT events with a
  * Show all / Show fewer toggle), and JSON / plain-text downloads whose
  * payloads carry the diary provenance (config hash, settings summary) plus

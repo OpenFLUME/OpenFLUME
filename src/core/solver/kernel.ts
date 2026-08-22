@@ -158,9 +158,13 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
   //     T_s = T0 − v²/(2cp),  v = ṁ/(ρA),  ρ = P/(R·T_s)
   //  ⇒  a·T_s² + T_s − T0 = 0,  a = (ṁR/(P·A))²/(2cp)
   //  ⇒  T_s = 2·T0 / (1 + √(1 + 4·a·T0))   (continuous-subsonic root).
-  // The resulting momentum subsystem chokes at M = 1, as it must.  Applies
-  // only to the analytic ideal-gas path (fluids carrying R and γ); real
-  // fluid, species mixtures, and fluids without R/γ keep the frozen static T.
+  // The resulting momentum subsystem chokes at M = 1, as it must.  This is
+  // the SEGREGATED (transient) closure only — steady kineticEnergy solves
+  // take the coupled h-system (useCoupledH above), where static h is a
+  // Newton unknown and ρ(P, h) carries the same Mach coupling exactly, for
+  // every EOS.  Applies only to the analytic ideal-gas path (fluids
+  // carrying R and γ); real fluid, species mixtures, and fluids without
+  // R/γ keep the frozen static T.
   const compressibleKE =
     ctx.kineticEnergy && !ctx.isRealFluid && !ctx.hasSpecies && !useCoupledH;
 
@@ -187,6 +191,54 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     junctionByNode.set(jn.nodeId, jn);
     for (const idx of jn.inletBranchIdx) junctionInletBranches.add(idx);
   }
+
+  /** settings.momentumFluxScheme (schema.ts): donor-cell momentum advection
+   *  (default) vs the legacy central endpoint form. */
+  const upwindFlux = ctx.momentumFluxScheme === "upwind";
+  /** Branches the upwind scheme applies to: areal, non-junction-inlet
+   *  branches of a COMPRESSIBLE fluid — ideal gases (R and γ defined)
+   *  always, real (PH) fluids when settings.kineticEnergy is on.  The
+   *  expansion-shock twin roots the scheme exists to remove are a property
+   *  of compressibility, not of any one EOS: whenever the momentum row's
+   *  downwind density responds to the downwind state through a
+   *  Mach-dependent closure, near M = 1 that response is double-valued (a
+   *  subsonic and a supersonic density satisfy the same integral balance).
+   *  For ideal gases the coupling is ρ = P/(R·T_s) with T_s from the
+   *  static-state recovery (steady coupled-h: ρ(P, h) with static h a
+   *  Newton unknown fluxed as h + v²/2; transient: staticTFromStag above).
+   *  Real fluids carry the SAME coupling on the kineticEnergy path — their
+   *  static h is the energy unknown and ρ(P, h) comes from statePH — so
+   *  they can choke emergently and need the upwind faces just as much.
+   *  Without kineticEnergy there is no Mach coupling (ρ has no velocity
+   *  dependence), hence no twin roots, and real-fluid branches keep the
+   *  central endpoint form bit-identically.  Liquids never have the
+   *  nonlinearity, and species mixtures keep the segregated ρ(P, T, Y)
+   *  path.  For everything excluded, the central form is the exact
+   *  integral balance (e.g. it resolves area steps between adjacent
+   *  branches within the branch that owns them) with no upwind truncation
+   *  error. */
+  const upwindEligible = (k: number): boolean => {
+    const bb = branches[k];
+    if (bb.component.area === undefined) return false;
+    if (junctionInletBranches.has(k)) return false;
+    const f = ctx.fluidAssignment.branch(bb.id);
+    if (f.R !== undefined && f.gamma !== undefined) return true;
+    return ctx.kineticEnergy && f instanceof RealFluid;
+  };
+  /** Static incidence for the upwind momentum-flux stencil: per node, the
+   *  eligible branches that can advect momentum through it. */
+  const arealIncident = (() => {
+    const m = new Map<string, number[]>();
+    branches.forEach((bb, k) => {
+      if (!upwindEligible(k)) return;
+      for (const n of [bb.from, bb.to]) {
+        const list = m.get(n) ?? [];
+        list.push(k);
+        m.set(n, list);
+      }
+    });
+    return m;
+  })();
 
   /** Per-role Σ|ṁ| of a junction's inlet branches at the iterate x. */
   function junctionMdotByRole(
@@ -398,6 +450,108 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         }
       } else {
         R[i] = sum;
+      }
+    }
+
+    // Upwind momentum-flux face pass (settings.momentumFluxScheme "upwind"):
+    // ONE exit-face velocity per areal branch, shared between its own
+    // momentum row and the rows of the branches it feeds, so the flux
+    // differences telescope exactly along a chain (staggered-grid
+    // consistency — mixing reconstruction orders between the two faces of
+    // a row biases the O(Δx) flux difference at O(1) relative error).
+    // The exit-face density is MUSCL-limited: donor value plus half a
+    // van Albada-limited slope.  Second-order on smooth profiles; at a
+    // would-be expansion-shock jump the limiter clips the downwind slope
+    // to the upstream one, so a row's sensitivity to its downwind density
+    // stays bounded by grid-smooth increments and the spurious root cannot
+    // balance.  The face value is clamped between the two node densities
+    // (positivity + boundedness, no tunable constants).  Faces without an
+    // upstream areal branch (chain entrances, plenums, junction nodes) use
+    // the plain downwind density — the same central convention their own
+    // row uses via the centralAccel fallback.
+    let uFaceArr: number[] | undefined;
+    let feedersArr: number[][] | undefined;
+    if (ctx.momentumFlux && upwindFlux) {
+      const nodePx = (id: string): number =>
+        nodeMap.get(id)!.type === "boundary"
+          ? state.nodeP.get(id)!
+          : intP[internalIndex.get(id)!];
+      const rhoAtNode = (
+        nodeId: string,
+        Aend: number,
+        mdotKE: number,
+      ): number => {
+        const P = nodePx(nodeId);
+        if (usePHFor(nodeId)) {
+          return safeStatePH(
+            fluidOf(nodeId),
+            P,
+            nodeHFromX(nodeId, x),
+            `node ${nodeId} momentum flux`,
+          ).rho;
+        }
+        let T = state.nodeT.get(nodeId)!;
+        if (ctx.hasSpecies && ctx.mixtureFluid && state.nodeY) {
+          return ctx.mixtureFluid.densityMix(P, T, state.nodeY.get(nodeId)!);
+        }
+        const nf = fluidOf(nodeId);
+        if (compressibleKE && nf.R !== undefined && nf.gamma !== undefined) {
+          T = staticTFromStag(nodeStagT(nodeId), P, mdotKE, Aend, nf.R, nf.gamma);
+        }
+        return nf.density(P, T);
+      };
+      uFaceArr = new Array(nBranch).fill(0);
+      feedersArr = new Array(nBranch);
+      const rhoDonArr = new Array(nBranch).fill(0);
+      for (let j = 0; j < nBranch; j++) {
+        feedersArr[j] = [];
+        if (!upwindEligible(j)) continue;
+        const b = branches[j];
+        const mdotJ = branchMdot[j];
+        const aIn = b.component.area!;
+        const aOut = b.component.areaOut ?? aIn;
+        const donor = mdotJ >= 0 ? b.from : b.to;
+        rhoDonArr[j] = rhoAtNode(donor, mdotJ >= 0 ? aIn : aOut, mdotJ);
+        for (const i of arealIncident.get(donor) ?? []) {
+          if (i === j) continue;
+          const mi = branchMdot[i];
+          if (!(Math.abs(mi) > 0)) continue;
+          const bi = branches[i];
+          const flowsIn = mi >= 0 ? bi.to === donor : bi.from === donor;
+          if (flowsIn) feedersArr[j].push(i);
+        }
+      }
+      for (let j = 0; j < nBranch; j++) {
+        if (!upwindEligible(j)) continue;
+        const b = branches[j];
+        const mdotJ = branchMdot[j];
+        const aIn = b.component.area!;
+        const aOut = b.component.areaOut ?? aIn;
+        const dwn = mdotJ >= 0 ? b.to : b.from;
+        const exitA = mdotJ >= 0 ? aOut : aIn;
+        const rhoDwn = rhoAtNode(dwn, exitA, mdotJ);
+        let rhoFace = rhoDwn;
+        const feeders = feedersArr[j];
+        if (feeders.length > 0) {
+          const rhoDon = rhoDonArr[j];
+          let sumM = 0;
+          let sumMRho = 0;
+          for (const i of feeders) {
+            const am = Math.abs(branchMdot[i]);
+            sumM += am;
+            sumMRho += am * rhoDonArr[i];
+          }
+          const dUp = rhoDon - sumMRho / sumM;
+          const dDn = rhoDwn - rhoDon;
+          const phi =
+            dUp * dDn > 0
+              ? (dUp * dDn * (dUp + dDn)) / (dUp * dUp + dDn * dDn)
+              : 0;
+          const lo = Math.min(rhoDon, rhoDwn);
+          const hi = Math.max(rhoDon, rhoDwn);
+          rhoFace = Math.min(hi, Math.max(lo, rhoDon + 0.5 * phi));
+        }
+        uFaceArr[j] = Math.abs(mdotJ) / (rhoFace * exitA);
       }
     }
 
@@ -619,10 +773,17 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         const mdotPrev = prevState.mdots[j];
         inertiaTerm = ((L / A) * (mdot - mdotPrev)) / dt;
       }
-      // Momentum flux (settings.momentumFlux): ΔP_accel = (ṁ/Ā)(u_to − u_from)
-      // with u = ṁ/(ρA) at the endpoint states and areas (areaOut for
-      // tapered components; Ā = mean area).  Direction-agnostic in this
-      // form; zero for constant-density constant-area flow and for
+      // Momentum flux (settings.momentumFlux, settings.momentumFluxScheme):
+      //   "upwind" (default) — donor-cell momentum advection, ΔP_accel =
+      //     (ṁ_j·u_j − ṁ_j·ū_up)/Ā, u_j = |ṁ_j|/(ρ_don·A_exit) at the
+      //     branch's own DONOR density, ū_up the mass-flow-weighted
+      //     velocity of the branches feeding the donor node (each at ITS
+      //     donor density and exit face).  No downwind density in the row
+      //     ⇒ monotone in the downstream pressure ⇒ no discrete expansion-
+      //     shock roots (see settings.momentumFluxScheme in schema.ts).
+      //   "central" — legacy exact integral form (ṁ/Ā)(u_to − u_from) at
+      //     the ENDPOINT states; bit-identical to pre-scheme builds.
+      // Zero either way for constant-density constant-area flow and for
       // components without a flow area.
       let accelTerm = 0;
       const accelArea =
@@ -656,19 +817,48 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
           }
           return nf.density(P, T);
         };
-        const rhoFrom = rhoAt(b.from, pFrom, accelArea);
-        const rhoTo = rhoAt(b.to, pTo, b.component.areaOut ?? accelArea);
         const areaTo = b.component.areaOut;
-        if (areaTo === undefined || areaTo === accelArea) {
-          // Constant-area branch — legacy expression, bit-identical.
-          accelTerm =
-            ((mdot * mdot) / (accelArea * accelArea)) *
-            (1 / rhoTo - 1 / rhoFrom);
-        } else {
+        const aOut = areaTo ?? accelArea;
+        /** Legacy central endpoint form — exact integral balance. */
+        const centralAccel = (): number => {
+          const rhoFrom = rhoAt(b.from, pFrom, accelArea);
+          const rhoTo = rhoAt(b.to, pTo, aOut);
+          if (areaTo === undefined || areaTo === accelArea) {
+            // Constant-area branch — legacy expression, bit-identical.
+            return (
+              ((mdot * mdot) / (accelArea * accelArea)) *
+              (1 / rhoTo - 1 / rhoFrom)
+            );
+          }
           const areaMean = 0.5 * (accelArea + areaTo);
-          accelTerm =
+          return (
             (mdot / areaMean) *
-            (mdot / (rhoTo * areaTo) - mdot / (rhoFrom * accelArea));
+            (mdot / (rhoTo * areaTo) - mdot / (rhoFrom * accelArea))
+          );
+        };
+        if (upwindFlux && feedersArr![j].length > 0) {
+          // Shared-face momentum advection: own exit-face velocity minus
+          // the mass-flow-weighted exit-face velocities of the feeding
+          // branches (all from the face pass above).
+          const uOwn = uFaceArr![j];
+          let sumM = 0;
+          let sumMU = 0;
+          for (const i of feedersArr![j]) {
+            const am = Math.abs(branchMdot[i]);
+            sumM += am;
+            sumMU += am * uFaceArr![i];
+          }
+          const uUp = sumMU / sumM;
+          const areaMean =
+            aOut !== accelArea ? 0.5 * (accelArea + aOut) : accelArea;
+          accelTerm = (mdot * (uOwn - uUp)) / areaMean;
+        } else {
+          // Central scheme, or no upstream areal branch (plenum, boundary,
+          // junction node) — there is no advected momentum to upwind
+          // against and the central endpoint form is exact for the
+          // within-branch acceleration, so single-branch networks and
+          // chain entrances keep their full restriction.
+          accelTerm = centralAccel();
         }
       }
       R[nInt + j] = pFrom - pTo - dP - accelTerm - inertiaTerm;
@@ -1172,6 +1362,100 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     }
 
     // ---- Momentum rows ----
+    // Upwind momentum-flux face pass, dual mirror of the scalar block: ONE
+    // exit-face velocity per areal branch with a MUSCL-limited face
+    // density.  Limiter and clamp branch on VALUES; the selected branch's
+    // dual expression carries the exact one-sided derivative.  The
+    // cross-branch dependencies (feeder ṁ, feeder donor states) flow
+    // through the dual seeds exactly — no FD marking needed.
+    let uFaceArrD: Dual[] | undefined;
+    let feedersArrD: number[][] | undefined;
+    if (ctx.momentumFlux && upwindFlux) {
+      const rhoAtNodeDual = (
+        nodeId: string,
+        Aend: number,
+        mdotKE: Dual,
+      ): Dual => {
+        if (usePHFor(nodeId)) return nodeStateDual(nodeId).rho;
+        const nf = fluidOf(nodeId);
+        const Pd = nodePDual(nodeId);
+        if (compressibleKE && nf.R !== undefined && nf.gamma !== undefined) {
+          const Ts = staticTFromStagDual(
+            nodeStagT(nodeId),
+            Pd,
+            mdotKE,
+            Aend,
+            nf.R,
+            nf.gamma,
+          );
+          return div(Pd, mul(constant(nf.R), Ts));
+        }
+        return nf.densityDual!(Pd, state.nodeT.get(nodeId)!);
+      };
+      uFaceArrD = new Array(nBranch).fill(null).map(() => constant(0));
+      feedersArrD = new Array(nBranch);
+      const rhoDonArrD: Dual[] = new Array(nBranch)
+        .fill(null)
+        .map(() => constant(0));
+      for (let j = 0; j < nBranch; j++) {
+        feedersArrD[j] = [];
+        if (!upwindEligible(j)) continue;
+        const b = branches[j];
+        const mdotJ = branchMdot[j];
+        const aIn = b.component.area!;
+        const aOut = b.component.areaOut ?? aIn;
+        const donor = mdotJ.v >= 0 ? b.from : b.to;
+        rhoDonArrD[j] = rhoAtNodeDual(donor, mdotJ.v >= 0 ? aIn : aOut, mdotJ);
+        for (const i of arealIncident.get(donor) ?? []) {
+          if (i === j) continue;
+          const mi = branchMdot[i];
+          if (!(Math.abs(mi.v) > 0)) continue;
+          const bi = branches[i];
+          const flowsIn = mi.v >= 0 ? bi.to === donor : bi.from === donor;
+          if (flowsIn) feedersArrD[j].push(i);
+        }
+      }
+      for (let j = 0; j < nBranch; j++) {
+        if (!upwindEligible(j)) continue;
+        const b = branches[j];
+        const mdotJ = branchMdot[j];
+        const aIn = b.component.area!;
+        const aOut = b.component.areaOut ?? aIn;
+        const dwn = mdotJ.v >= 0 ? b.to : b.from;
+        const exitA = mdotJ.v >= 0 ? aOut : aIn;
+        const rhoDwn = rhoAtNodeDual(dwn, exitA, mdotJ);
+        let rhoFace = rhoDwn;
+        const feeders = feedersArrD[j];
+        if (feeders.length > 0) {
+          const rhoDon = rhoDonArrD[j];
+          let sumM: Dual = constant(0);
+          let sumMRho: Dual = constant(0);
+          for (const i of feeders) {
+            const mi = branchMdot[i];
+            const am = mul(constant(mi.v >= 0 ? 1 : -1), mi);
+            sumM = add(sumM, am);
+            sumMRho = add(sumMRho, mul(am, rhoDonArrD[i]));
+          }
+          const dUp = sub(rhoDon, div(sumMRho, sumM));
+          const dDn = sub(rhoDwn, rhoDon);
+          const phi: Dual =
+            dUp.v * dDn.v > 0
+              ? div(
+                  mul(mul(dUp, dDn), add(dUp, dDn)),
+                  add(mul(dUp, dUp), mul(dDn, dDn)),
+                )
+              : constant(0);
+          const unclamped = add(rhoDon, mul(constant(0.5), phi));
+          const lo = rhoDon.v <= rhoDwn.v ? rhoDon : rhoDwn;
+          const hi = rhoDon.v <= rhoDwn.v ? rhoDwn : rhoDon;
+          rhoFace =
+            unclamped.v < lo.v ? lo : unclamped.v > hi.v ? hi : unclamped;
+        }
+        const absMdotJ = mul(constant(mdotJ.v >= 0 ? 1 : -1), mdotJ);
+        uFaceArrD[j] = div(absMdotJ, mul(rhoFace, constant(exitA)));
+      }
+    }
+
     for (let j = 0; j < nBranch; j++) {
       const b = branches[j];
       const mdot = branchMdot[j];
@@ -1360,9 +1644,10 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         continue;
       }
 
-      // Momentum flux (settings.momentumFlux), dual mirror of the scalar
-      // block: ΔP_accel = (ṁ/Ā)(u_to − u_from) at the endpoint states and
-      // areas (areaOut for tapered components).
+      // Momentum flux (settings.momentumFlux, settings.momentumFluxScheme),
+      // dual mirror of the scalar block.  The upwind stencil's cross-branch
+      // dependencies (feeding branches' ṁ and their donor-node states) flow
+      // through the dual seeds exactly — no FD marking needed.
       let accelTerm: Dual = constant(0);
       const accelArea =
         ctx.momentumFlux && !junctionInletBranches.has(j)
@@ -1386,24 +1671,47 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
           }
           return nf.densityDual!(Pd, state.nodeT.get(nodeId)!);
         };
-        const rhoFrom = rhoDualAt(b.from, accelArea);
-        const rhoTo = rhoDualAt(b.to, b.component.areaOut ?? accelArea);
         const areaTo = b.component.areaOut;
-        if (areaTo === undefined || areaTo === accelArea) {
-          // Constant-area branch — legacy expression, bit-identical.
-          accelTerm = mul(
-            div(mul(mdot, mdot), constant(accelArea * accelArea)),
-            sub(div(constant(1), rhoTo), div(constant(1), rhoFrom)),
-          );
-        } else {
+        const aOut = areaTo ?? accelArea;
+        /** Legacy central endpoint form — exact integral balance. */
+        const centralAccelDual = (): Dual => {
+          const rhoFrom = rhoDualAt(b.from, accelArea);
+          const rhoTo = rhoDualAt(b.to, aOut);
+          if (areaTo === undefined || areaTo === accelArea) {
+            // Constant-area branch — legacy expression, bit-identical.
+            return mul(
+              div(mul(mdot, mdot), constant(accelArea * accelArea)),
+              sub(div(constant(1), rhoTo), div(constant(1), rhoFrom)),
+            );
+          }
           const areaMean = 0.5 * (accelArea + areaTo);
-          accelTerm = mul(
+          return mul(
             div(mdot, constant(areaMean)),
             sub(
               div(mdot, mul(rhoTo, constant(areaTo))),
               div(mdot, mul(rhoFrom, constant(accelArea))),
             ),
           );
+        };
+        if (upwindFlux && feedersArrD![j].length > 0) {
+          // Shared-face momentum advection (see the scalar block).
+          const uOwn = uFaceArrD![j];
+          let sumM: Dual = constant(0);
+          let sumMU: Dual = constant(0);
+          for (const i of feedersArrD![j]) {
+            const mi = branchMdot[i];
+            const am = mul(constant(mi.v >= 0 ? 1 : -1), mi);
+            sumM = add(sumM, am);
+            sumMU = add(sumMU, mul(am, uFaceArrD![i]));
+          }
+          const uUp = div(sumMU, sumM);
+          const areaMean =
+            aOut !== accelArea ? 0.5 * (accelArea + aOut) : accelArea;
+          accelTerm = div(mul(mdot, sub(uOwn, uUp)), constant(areaMean));
+        } else {
+          // Central scheme, or no upstream areal branch — central endpoint
+          // form (exact within-branch acceleration); see the scalar block.
+          accelTerm = centralAccelDual();
         }
       }
 

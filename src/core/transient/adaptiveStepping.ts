@@ -237,7 +237,7 @@ export function runAdaptiveTimeStepping(
         relaxation: config.settings.relaxation ?? 1.0,
         prevState: state,
         jacobian: config.settings.jacobian ?? "hybrid",
-        coupledHonestyGate: config.settings.coupledHonestyGate === true,
+        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
         globalization: config.settings.globalization ?? "lineSearch",
       });
       if (!res1.converged) {
@@ -262,7 +262,7 @@ export function runAdaptiveTimeStepping(
         relaxation: config.settings.relaxation ?? 1.0,
         prevState: state,
         jacobian: config.settings.jacobian ?? "hybrid",
-        coupledHonestyGate: config.settings.coupledHonestyGate === true,
+        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
         globalization: config.settings.globalization ?? "lineSearch",
       });
       if (!resMid.converged) {
@@ -286,7 +286,7 @@ export function runAdaptiveTimeStepping(
         relaxation: config.settings.relaxation ?? 1.0,
         prevState: sMid,
         jacobian: config.settings.jacobian ?? "hybrid",
-        coupledHonestyGate: config.settings.coupledHonestyGate === true,
+        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
         globalization: config.settings.globalization ?? "lineSearch",
       });
       if (!res2.converged) {

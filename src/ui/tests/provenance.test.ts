@@ -110,7 +110,7 @@ describe("provenance", () => {
     );
     expect(lines[2]).toBe("# mode=transient");
     expect(lines[3]).toMatch(/^# settings=tol=/);
-    // sha256 when available, honestly-named fnv fallback otherwise
+    // sha256 when available, FNV fallback labeled config_hash otherwise
     expect(lines[4]).toMatch(/^# config_(sha256|hash)=[0-9a-f]+$/);
   });
 });

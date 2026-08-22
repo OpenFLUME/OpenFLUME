@@ -114,9 +114,12 @@ export interface SolverContext {
    *  `instanceof RealFluid` instead. */
   isRealFluid: boolean;
   hasSpecies: boolean;
-  /** settings.momentumFlux: include ΔP_accel = (ṁ/A)²(1/ρ_dn − 1/ρ_up) in
-   *  branch momentum rows (and the reported branch dP). */
+  /** settings.momentumFlux: include the momentum-flux (longitudinal
+   *  inertia) term in branch momentum rows (and the reported branch dP). */
   momentumFlux: boolean;
+  /** settings.momentumFluxScheme (default "upwind"): donor-cell momentum
+   *  advection vs the legacy central endpoint form.  See schema.ts. */
+  momentumFluxScheme: "upwind" | "central";
   /** settings.kineticEnergy: transport stagnation enthalpy h + V²/2
    *  (V = ṁ/(ρA) at the endpoint state) in the nodal energy balance —
    *  quasi-1-D compressible formulation together with momentumFlux.

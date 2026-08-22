@@ -346,7 +346,7 @@ describe("examples library: validation, convergence, and physics", () => {
       } else {
         it("solveTransient converges and invariants hold", () => {
           const res = solveTransient(config);
-          // All shipped transient examples must converge genuinely.
+          // All shipped transient examples must meet residual tolerance.
           expect(res.converged).toBe(true);
 
           if (name === "Tank blowdown") {

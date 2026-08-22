@@ -618,7 +618,7 @@ describe("buildChannelsCsv", () => {
     expect(csv).toContain("1,101250,100200\n");
   });
 
-  it("steady scalars: long rows with no time column at all; raw SI units are honest", () => {
+  it("steady scalars: long rows with no time column at all; raw SI units", () => {
     const config = makeSteadyConfig();
     const result = makeSteady();
     const channels = listChannels(config, result);

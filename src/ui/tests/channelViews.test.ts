@@ -191,7 +191,7 @@ describe("CHANNEL_VIEW_PRESETS registry", () => {
     expect(channelViewPreset("nope" as ChannelViewPresetId)).toBeUndefined();
   });
 
-  it("mode-scoped presets declare their mode honestly", () => {
+  it("mode-scoped presets declare their mode", () => {
     // Gas volume is the only quantity the solver cannot produce in steady;
     // every other preset now applies to both modes.
     expect(channelViewPreset("node-gas-volume")!.mode).toBe("transient");
@@ -355,7 +355,7 @@ describe("presetChannels", () => {
     expect(
       tripletKeys(presetChannels(transientChannels, "node-transport").channels),
     ).toEqual(["node:n1:viscosity", "node:n1:speedOfSound"]);
-    // both specificEnergy, so one honest axis
+    // both specificEnergy, so one shared J/kg axis
     expect(
       tripletKeys(presetChannels(transientChannels, "node-energy").channels),
     ).toEqual(["node:n1:enthalpy", "node:n1:internalEnergy"]);
@@ -398,7 +398,7 @@ describe("presetChannels", () => {
     expect(unknown).toEqual({ channels: [], total: 0, capped: false });
   });
 
-  it("reports total/capped honestly and honors custom caps", () => {
+  it("reports total/capped counts and honors custom caps", () => {
     const sel = presetChannels(transientChannels, "node-pressure");
     expect(sel.total).toBe(2);
     expect(sel.capped).toBe(false);
@@ -632,7 +632,7 @@ describe("aggregateChartSeries", () => {
     expect(axis.series[1].values).toEqual([100, 200, 300]);
   });
 
-  it("skips ragged/unresolved channels honestly and reports counts", () => {
+  it("skips ragged/unresolved channels and reports counts", () => {
     const ghost = transientChannels.find(
       (c) => c.channel.id === "n1" && c.channel.field === "pressure",
     )!;

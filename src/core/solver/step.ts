@@ -71,7 +71,7 @@ export interface SolveStepOptions {
   steadySolver?: "ptc" | "direct";
   globalization?: "trustRegion" | "lineSearch";
   jacobian?: "hybrid" | "fd";
-  coupledHonestyGate?: boolean;
+  certifyAfterCoupling?: boolean;
 }
 
 export interface SolveStepResult {
@@ -95,9 +95,9 @@ export function solveStateStep(
   // one globalization yet converge cleanly under another — empirically the
   // failing direction is not predictable a priori (line search wins on some
   // steps, trust region on others, relaxation 1.0 on yet others).  Each
-  // tier is a complete, honest Newton solve from the same entry state; the
+  // tier is a complete Newton solve from the same entry state; the
   // first tier to meet the convergence bar wins.  If NO tier converges, the
-  // best-residual attempt is returned with converged = false (the honest
+  // best-residual attempt is returned with converged = false (the
   // signal introduced for the chilldown parked-state bug).  Only transient
   // real-fluid extended-system steps cascade; steady and legacy paths keep
   // their single-attempt behaviour.
@@ -165,7 +165,8 @@ export function solveStateStep(
       bestState = cloneStepState(state);
     }
   }
-  // No tier converged: restore the best attempt's state and report honestly.
+  // No tier converged: restore the best attempt's state and return it with
+  // converged = false.
   copyStepStateInto(state, bestState!);
   return best!;
 }
@@ -953,14 +954,15 @@ function solveStateStepAttempt(
   // with stagnation-enthalpy energy rows solved simultaneously for EVERY
   // fluid class — see useCoupledHMode in ./kernel.ts.
   const useCoupledH = useCoupledHMode(ctx, dt);
-  // Coupled-honesty gate (EXPERIMENTAL, opt-in): when on, the certifying
+  // certifyAfterCoupling (EXPERIMENTAL, opt-in): when on, the certifying
   // scaled residual is re-measured AFTER the correlation h-map update and
   // wall re-solve of each outer iteration, and the best-outer / hopeless-step
   // bookkeeping tracks that post-coupling value (the pre-coupling inner-Newton
   // residual converges against the PREVIOUS outer's coupling and would
   // falsely certify — the energy-certification finding).  Only meaningful
   // for the extended system (real-fluid transient).
-  const gateActive = options.coupledHonestyGate === true && useExtendedSystem;
+  const checkAfterCoupling =
+    options.certifyAfterCoupling === true && useExtendedSystem;
   // Column layout of the unknown vector (see ./dofMap.ts).  Every index below
   // is resolved through `dof` rather than block arithmetic, so the scaling,
   // clamping and publish loops stay correct as the energy block changes shape.
@@ -1089,14 +1091,15 @@ function solveStateStepAttempt(
   // tol and otherwise stays at the 1e99 sentinel), this always reflects the
   // true convergence of the current iterate on a dimensionless, physically
   // meaningful scale, and it gates the transient real-fluid convergence
-  // flag below (honesty fix for the chilldown parked-state bug, where steps
-  // with ~1e4 W energy residuals were certified as converged).
+  // flag below (residual-certification fix for the chilldown parked-state
+  // bug, where steps with ~1e4 W energy residuals were certified as
+  // converged).
   let lastInnerBestResScaled = 1e99;
   let returnResidual = 1e99;
   // Consecutive settled outer iterations without inner-Newton convergence
   // (legacy state-motion stall test, NON-extended paths only — the extended
   // system uses the residual-trend detector at the bottom of the outer
-  // loop).  Used to break out honestly instead of grinding to maxOuter.
+  // loop).  Used to break out instead of grinding to maxOuter.
   let stalledOuters = 0;
   // No-progress patience (outer iterations without a > 2 % improvement of
   // the best certifying scaled residual) before an above-bar
@@ -1104,7 +1107,7 @@ function solveStateStepAttempt(
   // (docs/solver-convergence.md): the subcooled-chilldown t=90 s step
   // descends to ~668 W, pauses through a 12-outer +4 % regime-flip bump,
   // then plunges 40× and certifies (15.9 W) — so the patience must exceed
-  // 12; 14 gives ~20 % margin over that measurement.  A genuine limit
+  // 12; 14 gives ~20 % margin over that measurement.  A limit
   // cycle trips the SAME test ~14 outers after its envelope minimum stops
   // improving (a period-p cycle's minimum is visited once and never
   // improved afterwards — envelope stagnation IS the cycle signature; a
@@ -1121,7 +1124,7 @@ function solveStateStepAttempt(
   let scaledBestOuter = 0;
   // Most-converged outer iterate (scaled residual of the inner Newton's
   // best point).  Restored on a non-converged exit so the returned state is
-  // the best discrete solution found, and its scaled value gates the honest
+  // the best discrete solution found, and its scaled value gates the
   // converged flag.
   let bestOuterScaled = 1e99;
   let bestOuterRaw = 1e99;
@@ -1139,7 +1142,7 @@ function solveStateStepAttempt(
     dt === undefined &&
     ctx.isRealFluid &&
     (options.steadySolver ?? "ptc") !== "direct";
-  const ptcDeltaTau0 = 0.05; // 1/deltaTau = 20, genuinely dominant for weak diagonals
+  const ptcDeltaTau0 = 0.05; // 1/deltaTau = 20, dominant for weak diagonals
   const ptcMinTau = 0.005; // hard floor to prevent freezing death spiral
   const ptcMaxTau = 1e12;
   const ptcGrowthCap = 5;
@@ -1695,7 +1698,7 @@ function solveStateStepAttempt(
     }
     returnResidual = bestResNorm;
     // Row-floor-scaled residual norm of the inner loop's best point, for the
-    // honest transient convergence flag below.  Computed FRESH at the
+    // transient convergence flag below.  Computed FRESH at the
     // restored bestX because bestResNorm can also improve via the
     // accepted-step update inside the inner loop (where the trial's
     // residual vector is not retained), so a cached scaled value can go
@@ -1717,7 +1720,7 @@ function solveStateStepAttempt(
     } else {
       lastInnerBestResScaled = bestResNorm;
     }
-    if (!gateActive) {
+    if (!checkAfterCoupling) {
       if (lastInnerBestResScaled < scaledBestEver * 0.98) {
         scaledBestEver = lastInnerBestResScaled;
         scaledBestOuter = outer;
@@ -1885,7 +1888,7 @@ function solveStateStepAttempt(
     }
     for (let j = 0; j < nBranch; j++) state.mdots[j] = X[nInt + j];
     // State maps changed — the compressible stagnation-T memo is stale for
-    // any residual evaluated below (e.g. the coupled-honesty gate).
+    // any residual evaluated below (e.g. certifyAfterCoupling).
     kernel.invalidateStagTCache();
 
     // Recompute correlation-based h after state update, then solve thermal subsystem
@@ -1910,7 +1913,7 @@ function solveStateStepAttempt(
       maxDeltaSolidT = thermalRes.maxDeltaT;
     }
 
-    // Coupled-honesty gate (opt-in): re-verify the scaled residual at the
+    // certifyAfterCoupling (opt-in): re-measure the scaled residual at the
     // POST-wall-solve / POST-h-map state.  X still holds the inner Newton's
     // best point; state.solidT and kernelEnv.conductorHMap now reflect this
     // outer's coupling, so computeResidual(X) measures the residual at the
@@ -1919,7 +1922,7 @@ function solveStateStepAttempt(
     // detection (the pre-coupling value converges against the previous
     // outer's coupling and would falsely certify — the certification-lag
     // finding).
-    if (gateActive) {
+    if (checkAfterCoupling) {
       try {
         const Rc = computeResidual(X);
         let raw = 0;
@@ -2005,7 +2008,7 @@ function solveStateStepAttempt(
     // bug (~46 kW sustained enthalpy-flux imbalance reported as a valid
     // steady state).
     // For transient REAL-FLUID steps the convergence flag must distinguish
-    // a genuinely settled Newton solution from a STALLED iteration: the
+    // a settled Newton solution from a STALLED iteration: the
     // chilldown parked-state bug certified a state with ~2.5e4 W energy
     // imbalance (scaled norm ~1.3) as converged.  The bar is the row-floor
     // scaled norm < tol*1e3 — the scaled-norm analogue of the state-settling
@@ -2054,7 +2057,7 @@ function solveStateStepAttempt(
     // outer iterations (scaledBestOuter records the last material
     // improvement).  Any descent faster than ~2 % per 14 outers resets the
     // clock every window and is never cut off — the iteration grinds as
-    // long as it is genuinely converging.  A flat no-root grind trips it;
+    // long as it is converging.  A flat no-root grind trips it;
     // a limit cycle trips it ~14 outers after its envelope minimum is first
     // visited (a cycle's minimum never improves afterwards — envelope
     // stagnation IS the cycle signature).  Iteration caps are unchanged.
@@ -2101,10 +2104,10 @@ function solveStateStepAttempt(
 
   // Non-converged exit (stalled / hopeless / maxOuter): restore the
   // most-converged outer iterate found (its residual is measured against
-  // its own final coupling), and judge the honest flag by the same bar.
+  // its own final coupling), and judge the converged flag by the same bar.
   // For the limit-cycling dome-edge steps this rescues a fully-converged
   // Picard iterate that the oscillating later outers would have buried;
-  // for genuinely unsolvable steps (no root within reach) the best iterate
+  // for unsolvable steps (no root within reach) the best iterate
   // is still far above the bar and the flag stays false.
   if (!outerConverged && bestOuterState !== undefined) {
     copyStepStateInto(state, bestOuterState);

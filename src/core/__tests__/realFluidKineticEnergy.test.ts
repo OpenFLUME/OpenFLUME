@@ -144,7 +144,11 @@ describe("real-fluid kineticEnergy — adiabatic accelerating N2 duct (steady)",
     const T2 = res.nodes["n2"].temperature;
     expect(T1).toBeLessThan(Tin);
     expect(T2).toBeLessThan(T1);
-    expect(T2).toBeLessThan(292); // ≥ 8 K of measurable static cooling
+    // ≥ 6 K of measurable static cooling.  (Was ≥ 8 K under the central
+    // momentum faces; the default limited-upwind faces — real-fluid
+    // branches are upwind-eligible under kineticEnergy — converge to a
+    // slightly lower mass flow on this coarse 3-segment duct.)
+    expect(T2).toBeLessThan(294);
   });
 
   it("transient extended system also transports stagnation enthalpy", () => {

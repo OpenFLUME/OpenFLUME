@@ -122,6 +122,17 @@ this study two opt-in settings close the compressible physics:
   harmonic mean of the endpoint static densities, the correct integral
   weighting for a flow that accelerates along a segment.
 
+The acceleration term supports two face schemes
+(`settings.momentumFluxScheme`). The profile figures and statistics in this
+report use **`central`** — the exact endpoint (integral) form, which is the
+more accurate choice on these monotone subsonic-to-choked ducts and whose
+converged roots the solver's second-law audit certifies. The **default**
+scheme is **`upwind`** (GFSSP-style donor-cell momentum advection with a
+MUSCL/van Albada limited face density): it removes the central form's
+spurious transonic roots by construction and converges from cold starts, at
+the cost of first-order accuracy at the choking cell; its accuracy on these
+cases is summarized separately below.
+
 Pipe friction is the Darcy relation with a prescribed constant friction
 factor (`pipe.frictionFactor`), matching the benchmark's use of a fixed f.
 In steady mode the solver detects this configuration and couples the node
@@ -130,10 +141,13 @@ flows (the coupled [P, ṁ, h] system); this fully coupled treatment is what
 allows it to hold the near-sonic
 states at a choked exit. As with GFSSP, the mass flow rate is not prescribed:
 pressure boundary conditions are imposed at both ends and the flow rate is
-computed. Near-choked cases are seeded with an initial mass-flow guess
-(`branches[].initialMdot`) and nodal pressure/temperature profiles, exactly
-as GFSSP requires initial guesses. The Mach number is a derived quantity,
-computed from the solved mass flow, pressure, and temperature.
+computed. This study's near-choked cases are seeded with an initial
+mass-flow guess (`branches[].initialMdot`) and nodal pressure/temperature
+profiles — required by the `central` scheme used for the figures below,
+exactly as GFSSP requires initial guesses (the solver's default `upwind`
+scheme converges these cases from cold starts; see the scheme comparison
+above). The Mach number is a derived quantity, computed from the solved
+mass flow, pressure, and temperature.
 
 ## Discretization
 
@@ -169,6 +183,29 @@ node-lumped equations choke slightly early there.
 | 3 — Combined (21 clustered) | 0.18 % | 1.6 % | 0.5 % | 1.4 % | 18 |
 | 4 — Nozzle, friction (65 clustered) | 0.03 % | 0.0 % | 0.0 % | 0.0 % | 63 |
 | 5 — Nozzle, friction + heat (65 clustered) | 0.01 % | 0.0 % | 0.1 % | 0.1 % | 63 |
+
+### Default scheme (limited-upwind momentum faces)
+
+The table above uses `momentumFluxScheme: "central"`. The solver's default,
+`"upwind"`, trades a few percent of choked-flow accuracy for transonic
+robustness (no spurious sonic-crossing roots; cold-start convergence — see
+the choked CD-nozzle example's tests). Re-running the same cases under the
+default gives GFSSP-class agreement — the original study reports 1.7–5 % on
+its own first-order upwind discretization:
+
+| Case | ṁ error | max ΔM/M | stations compared |
+| ---- | ------- | -------- | ----------------- |
+| 1 — Fanno (21 clustered) | 2.05 % | 2.2 % | 19 |
+| 2 — Rayleigh (21 clustered) | 3.48 % | 4.0 % | 18 |
+| 3 — Combined (21 clustered) | 2.19 % | 2.6 % | 18 |
+| 4 — Nozzle, friction (65 clustered) | 0.38 % | 0.6 % | 63 |
+| 5 — Nozzle, friction + heat (65 clustered) | 0.36 % | 0.6 % | 63 |
+
+The error concentrates at the choking cell, where the limiter correctly
+falls back to first order; the subsonic nozzle cases (4 and 5), which never
+approach M = 1, stay within a fraction of a percent. Refining the Fanno grid
+from 21 to 41 nodes halves the error — first-order convergence at the choke,
+second-order elsewhere.
 
 ### Case 1: Fanno Flow
 

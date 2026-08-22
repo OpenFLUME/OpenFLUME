@@ -71,7 +71,7 @@ describe("HEM pipe ΔP hand-calculation", () => {
     // Re=2300, Swamee–Jain above Re=4000, smoothstep blend between, both
     // branches evaluated at the actual Re).  This test operates at
     // Re ≈ 1.7e5 (fully turbulent), so it is insensitive to the transition
-    // fix; the shared call simply keeps the hand-calc honest.
+    // fix; the shared call matches the solver's friction evaluation.
     const f = darcyFrictionFactor(Re, roughness / D);
 
     const dP_hand = (f * (L / D) * (rho * v * Math.abs(v))) / 2;

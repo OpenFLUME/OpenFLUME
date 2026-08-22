@@ -372,7 +372,7 @@ describe("listChannels", () => {
     ).toBe("Old Supply · Pressure");
   });
 
-  it("reports quantity/rawUnit/availability/signed honestly", () => {
+  it("reports quantity/rawUnit/availability/signed fields", () => {
     const channels = listChannels(config, transient);
     const byTriplet = new Map(
       channels.map((c) => [
@@ -414,7 +414,7 @@ describe("listChannels", () => {
     expect(steadyByTriplet.get("node:n2:quality")!.availability).toBe("both");
   });
 
-  it("gives every thermodynamic property an honest, convertible quantity kind", () => {
+  it("gives every thermodynamic property a convertible quantity kind", () => {
     const byTriplet = new Map(
       listChannels(config, steady).map((c) => [
         `${c.channel.entity}:${c.channel.id}:${c.channel.field}`,
@@ -439,7 +439,7 @@ describe("listChannels", () => {
       const descriptor = byTriplet.get(triplet);
       expect(descriptor, triplet).toBeDefined();
       expect(descriptor!.quantity, triplet).toBe(quantity);
-      // An honest kind means the value is unit-convertible, never raw SI.
+      // A convertible kind means the value has a QuantityKind, never raw SI.
       expect(descriptor!.rawUnit, triplet).toBeUndefined();
     }
   });

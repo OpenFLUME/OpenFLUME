@@ -12,7 +12,7 @@
  *
  * Two rules govern the whole module:
  *
- *   Honesty — every field is optional and is OMITTED rather than defaulted
+ *   Omission — every field is optional and is OMITTED rather than defaulted
  *   when the underlying model cannot supply it: absolute entropy has no
  *   reference state in the analytic fluid models, sound speed and cp are not
  *   single-valued inside the two-phase dome, and mass flux / dynamic

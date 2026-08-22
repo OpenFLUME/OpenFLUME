@@ -465,7 +465,7 @@ describe("variant convergence diaries", () => {
       expect(v.diary!.events.at(-1)!.kind).toBe("runFinish");
     }
     // Variant 0 saw live progress (milestone consumed); auto-settled
-    // variants 1/2 saw none — honest accounting, nothing fabricated.
+    // variants 1/2 saw none — exact accounting, no invented progress.
     expect(v0.diary!.summary.progressUpdates).toBe(2);
     expect(v0.diary!.events.some((e) => e.kind === "residualDecade")).toBe(
       true,

@@ -15,7 +15,7 @@
  *     station 4 is bracketed by physical wall samples.
  *
  * CI scale: ONE representative N=3 case (saturated 74.97 psia, ~60–90 s
- * with the honest-convergence cascade).  The full 4-case suite (3
+ * with the retry cascade).  The full 4-case suite (3
  * saturated + matched subcooled 74.97) runs under RUN_SLOW=1
  * (`npm run test:slow`) — see docs/testing-slow.md.  The expensive
  * N-sweep (grid convergence) is the manually-run
@@ -47,8 +47,8 @@ import {
 } from "../../validation/chilldownMetric";
 import { interpolateTraceToStation } from "../../validation/stationInterp";
 
-// Hang-guard timeout per case (not a physics gate): the honest-convergence
-// cascade runs genuine Newton retries on the subcooled case's hard
+// Hang-guard timeout per case (not a physics gate): the retry
+// cascade runs Newton retries on the subcooled case's hard
 // dome-edge steps, so a case that took ~10–20 s with the old vacuous
 // convergence now takes ~40–90 s in isolation and > 120 s when the full
 // suite competes for CPU.  300 s matches vitest's per-test timeout.
@@ -116,7 +116,7 @@ beforeAll(async () => {
   await initRealFluids();
   fluid = new RealFluid("Nitrogen");
   // CI representative case: one saturated N=3 solve (~60–90 s with the
-  // honest-convergence cascade).  The full 4-case suite (3 saturated +
+  // retry cascade).  The full 4-case suite (3 saturated +
   // matched subcooled 74.97) moved to describeSlow below — see
   // docs/testing-slow.md.
   const sat74 =
@@ -142,8 +142,8 @@ beforeAll(async () => {
     await new Promise((r) => setImmediate(r));
     cases.push(runCase(p));
   }
-  // 600 s hook budget: with the honest-convergence cascade the subcooled
-  // case's hard dome-edge steps now run genuine Newton retries (~90–150 s
+  // 600 s hook budget: with the retry cascade the subcooled
+  // case's hard dome-edge steps now run Newton retries (~90–150 s
   // for that case alone when the full suite runs files in parallel and
   // competes for CPU), so the previous 300 s budget timed out spuriously.
 }, 600000);
@@ -156,7 +156,7 @@ describe("NBS Table-6 chilldown baseline — CI representative case (N=3, sat 74
     assertNoNaN(ciCase!.res);
   });
 
-  it("station-4 chilldown time sits inside the honest wide band", () => {
+  it("station-4 chilldown time sits inside the wide band", () => {
     const m = predictedChilldownTime(
       ciCase!.input,
       DEFAULT_CHILLDOWN_TIME_DEFINITION,
@@ -223,7 +223,7 @@ describeSlow(
         rows.push(
           `P=${c.point.drivingPressure.psia} psia | exp=${exp}s | GFSSP=${gfssp}s (${gfsspErr >= 0 ? "+" : ""}${gfsspErr.toFixed(1)}%) | ours=${m.timeS!.toFixed(1)}s (${ourErr >= 0 ? "+" : ""}${ourErr.toFixed(1)}%) | thresh=${m.thresholdK.toFixed(1)}K`,
         );
-        // Honest wide band per case: catches gross regressions (no crossing,
+        // Wide band per case: catches gross regressions (no crossing,
         // factor-2 drift) without pretending the coarse-N model is exact.
         expect(m.timeS!).toBeGreaterThan(exp * 0.5);
         expect(m.timeS!).toBeLessThan(exp * 1.6);

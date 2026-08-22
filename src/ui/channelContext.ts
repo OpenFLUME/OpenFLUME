@@ -26,9 +26,9 @@
  *                              optional `all` kind for the full-inventory
  *                              download (`…-all-channels-N.csv`).
  *
- * Unit honesty (mirrors channels.ts): values are RAW SI solver values unless
+ * Unit conversion (mirrors channels.ts): values are RAW SI solver values unless
  * the caller explicitly supplies unit preferences; channels carrying a
- * `rawUnit` are NEVER converted because they have no honest QuantityKind.
+ * `rawUnit` are NEVER converted because they have no convertible QuantityKind.
  * Headers/comments always state which regime applies.
  */
 

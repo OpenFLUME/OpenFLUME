@@ -80,7 +80,7 @@ functions of (Pc, O/F). They are Picard-lagged in the existing outer loop
 (`core/solver/step.ts`): after each inner Newton solve, the model is
 re-evaluated at the solved state and the named product fluid's `IdealGas`
 instance is swapped through the live fluid-assignment map. Two contracts
-keep the swap honest:
+keep the swap consistent:
 
 - **Temperature continuity** — swapping cp silently re-interprets every
   stored enthalpy (`h = cp·T`). The state maps AND the inner Newton's
@@ -129,18 +129,18 @@ formula-coupled twin (`basic-lox-rp1-thruster.fn`, fixed γ = 1.2 gas):
 
 | Quantity | Twin | Junction | Note |
 | --- | --- | --- | --- |
-| Pc | 986.6 kPa | 981.0 kPa | −0.6 % |
-| ṁ_ox | 0.5472 kg/s | 0.5643 kg/s | +3.1 % |
-| ṁ_fuel | 0.2105 kg/s | 0.2176 kg/s | +3.4 % |
-| O/F | 2.600 | 2.593 | — |
-| T_chamber | 3192.8 K | 3190.7 K | = η·T0 exactly |
-| emergent c* = Pc·At/ṁ | 1636 m/s | 1577 m/s | vs η_c*·c*_CEA = 1700 m/s |
+| Pc | 986.6 kPa | 983.3 kPa | −0.3 % |
+| ṁ_ox | 0.5472 kg/s | 0.5622 kg/s | +2.7 % |
+| ṁ_fuel | 0.2105 kg/s | 0.2170 kg/s | +3.1 % |
+| O/F | 2.600 | 2.592 | — |
+| T_chamber | 3192.8 K | 3190.9 K | = η·T0 exactly |
+| emergent c* = Pc·At/ṁ | 1636 m/s | 1586 m/s | vs η_c*·c*_CEA = 1701 m/s |
 
 The few-percent shifts are physics, not error: the junction runs the CEA
 equilibrium gas (γ ≈ 1.127, cp ≈ 3236 J/kg·K) where the twin fixes γ = 1.2,
-cp ≈ 2169. The emergent c* sits ~7 % below the ideal 1-D CEA reference —
+cp ≈ 2169. The emergent c* sits ~6.7 % below the ideal 1-D CEA reference —
 the discretized nozzle with friction passes slightly more flow than the
-ideal choking relation (see the artifact below).
+ideal choking relation (see the transonic discretization note below).
 
 ## Known limitations (v1)
 
@@ -158,22 +158,41 @@ ideal choking relation (see the artifact below).
 - **Product fluid must be a named `idealGas` entry**, because the property
   lag swaps its parameters.
 
-### Transonic discretization artifact (predates junctions)
+### Transonic discretization (predates junctions)
 
-With throat-clustered stations, the quasi-1D compressible discretization has
-**multiple exact roots** near the sonic point: for the near-critical throat
-segments, subsonic and supersonic segment states nearly coincide, and exact
-discrete roots place the sonic transition inside one of the tiny segments
-with 1–2 stations (conv6..div1 in the example) sitting off the smooth curve.
-The smooth textbook profile is a **pseudo-root**: with CEA gas (γ ≈ 1.127)
-Newton stalls a few hundred pascals from it, because the residual is only C0
-across the M = 1 branch switch and has no exact zero there. Integral
-quantities are robust — chamber pressure varies by ~1 % and O/F by < 0.1 %
-across every root observed — but the local P/T at the affected stations, and
-therefore the emergent c*, inherit the artifact. From very crude initial
-states (fully uniform P/T) Newton may walk to the pseudo-root and report
-`converged: false` at a physically excellent state. Warm starts and
-moderately perturbed states (the robustness tests use mass flows ×3 and
-pressures ×1.5) converge reliably. Fixing this properly needs either a
-smoothed transonic branch switch or a shock-capturing discretization — a
-solver-class change tracked separately from the junction work.
+With throat-clustered stations, the exact-integral (central) quasi-1D
+compressible discretization has **multiple exact roots** near the sonic
+point: mass, momentum, and energy conservation alone admit
+entropy-violating combinations (discrete "expansion shocks" — a subsonic
+donor jumping to a supersonic downwind state away from the area minimum),
+and older builds could converge onto one, with 1–2 stations sitting far off
+the smooth curve on the wrong branch. On this example's grid the central
+system is worse than multi-rooted: it has **no admissible transonic root at
+all** — Newton walks away even from an exact isentropic seed.
+
+The solver now closes this with **limited-upwind momentum faces**
+(`settings.momentumFluxScheme: "upwind"`, the default): each compressible
+branch (ideal gas; real fluid when `kineticEnergy` is on) carries one
+exit-face velocity built from its *upstream* node's
+density plus a MUSCL/van Albada slope-limited correction, and its momentum
+row advects the feeding branches' face velocities — the standard
+system-code discretization (GFSSP-style donor-cell advection with a
+second-order limited reconstruction). A momentum row's sensitivity to its
+downwind density is bounded by grid-smooth increments, so the
+expansion-shock roots cease to exist **by construction** and the transonic
+solve is seed-robust: this example reaches the same physical root from the
+authored warm start, from an exact isentropic profile, and from the
+historical artifact root. Liquids, real fluids without `kineticEnergy`,
+species mixtures, junction-inlet branches, and chain entrances keep
+the exact central form bit-identically. The legacy `"central"` scheme
+remains available and is certified post-hoc by a second-law audit
+(`settings.transonicAdmissibility`; see `core/solver/admissibility.ts`).
+
+What remains is first-order behavior at the sonic cell: the crossing
+is smeared across the conv7/throat segment, and the discretized nozzle
+passes a few percent more flow than the ideal choking relation (a
+truncation bias that shrinks with grid refinement; the GFSSP verification
+cases measure 2–6 %). Integral quantities are robust — chamber pressure
+varies by ~1 % and O/F by < 0.1 % across formulations — and the profile is
+monotone and physical through the throat. Cold starts and heavily perturbed
+states converge reliably.

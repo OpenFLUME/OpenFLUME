@@ -7,7 +7,7 @@
  * NBS/GFSSP cryogenic transfer-line chilldown that the single-phase
  * surrogate could not.
  *
- * BRING-UP LADDER & HONEST SCALING:
+ * BRING-UP LADDER AND MEASURED COST:
  *   N=3, L=6 m   → ~18 s solve (interactive default)
  *   N=3, L=60.96 m → ~23 s solve (fast test scale)
  *   N=4, L=60.96 m → ~42 s solve (validation test scale)
@@ -17,7 +17,7 @@
  *
  * Because the full N=6 scale exceeds the <3 min total-test budget, the
  * benchmark assertions below run at N=4 for structure/energy/sanity and
- * N=3 for the pressure-trend sweep.  All values are reported honestly.
+ * N=3 for the pressure-trend sweep.
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -204,7 +204,7 @@ describe("Two-phase chilldown validation (GFSSP Fig.14)", () => {
 
     // (d) Common asymptote — all final wall temperatures approach Tsat.
     // With the coarse dt=15 discretisation the slow tail is not fully
-    // resolved; we assert within a generous but honest band.
+    // resolved; we assert within a wide band.
     const finalTs = stations.map((sid) => {
       const temps = res.solidNodes![sid].temperature;
       return temps[temps.length - 1];
@@ -273,7 +273,7 @@ describe("Two-phase chilldown validation (GFSSP Fig.14)", () => {
         // at four stations.  Our model uses the same full length.  The HEM
         // two-phase model with constant copper cp and a single boiling correlation
         // is a simplification vs GFSSP's regime blending, so we allow a wide
-        // honest band.  For the 0.5169 MPa case the paper reports 150–160 s;
+        // wide band.  For the 0.5169 MPa case the paper reports 150–160 s;
         // our s2 analog (≈40.6 m) gives ~110 s.  The front speed is proportional
         // to mass flux, and the full 60-m station would be slightly later.  We
         // assert within [75, 320] s, which brackets both the paper value and the
@@ -650,7 +650,7 @@ describe("buildChilldownTwoPhase fluidFront: true plumbing", () => {
  * non-closure, station-4 threshold never crossed).
  *
  * Two invariants pin the fix so the bug cannot return silently:
- *   (a) per-step honest convergence — every step's scaled residual is below
+ *   (a) per-step residual certification — every step's scaled residual is below
  *       the tol*1e3 bar (pre-fix parked steps sat at ~1.3);
  *   (b) global energy conservation — |inlet enthalpy flux − outlet flux −
  *       wall heat − storage rate| closes within 12 % of the inlet flux over
@@ -688,7 +688,7 @@ describe("buildChilldownTwoPhase fluidFront: true plumbing", () => {
  * error (this audit measures distance to the discrete root, which is
  * refinement-independent at an exact solve).  Full mechanism analysis and
  * the coupled-gate prototype: the energy-certification finding.  The 12 %
- * bar is honest for the measured
+ * bar is sized for the measured
  * artifact (24 % headroom) while retaining a ~18× margin against the
  * 215 % parked-state regression this test exists to catch; do NOT read it
  * as "energy closes to 12 %" — see the measured numbers above.
@@ -714,7 +714,7 @@ describe("Subcooled flashing chilldown — energy-conservation invariant (regres
     expect(res.converged).toBe(true);
     assertNoNaN(res);
 
-    // (a) per-step honest convergence (pre-fix parked steps: scaled ~1.3)
+    // (a) per-step residual certification (pre-fix parked steps: scaled ~1.3)
     expect(res.stepResidualsScaled).toBeDefined();
     const tol = cfg.settings.tolerance;
     const worstScaled = Math.max(...res.stepResidualsScaled!);
@@ -785,7 +785,7 @@ describe("Subcooled flashing chilldown — energy-conservation invariant (regres
     );
     // Pre-fix parked state: 215 %.  Measured post-fix: 9.66 % worst step
     // (front-passage certification lag — see header), trailing steps
-    // 0.8–4.9 %.  Bar: 12 %, honest for the measured artifact, ~18× margin
+    // 0.8–4.9 %.  Bar: 12 %, sized for the measured artifact, ~18× margin
     // against the regression this test guards.  Do NOT tighten to 2 % until
     // the coupled-certification finding is
     // resolved at the solver level.

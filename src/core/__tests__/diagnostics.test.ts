@@ -115,7 +115,7 @@ describe("Solver diagnostics counters", () => {
   });
 
   // SLOW (RUN_SLOW=1): the full N=4 audit chilldown costs ~125 s with the
-  // honest-convergence cascade.  CI keeps the cheap counter-API tests above.
+  // retry cascade.  CI keeps the cheap counter-API tests above.
   describeSlow(
     "BASELINE: standard two-phase chilldown run at nominal parameters (slow)",
     () => {

@@ -56,7 +56,7 @@ describe("chartMath", () => {
     }
   });
 
-  it("niceTicks still honors genuinely small ranges near zero", () => {
+  it("niceTicks still honors tiny ranges near zero", () => {
     // 1e-12 span at magnitude ≤1 is NOT representation noise — real ticks.
     const ticks = niceTicks(0, 1e-12, 5);
     expect(ticks.length).toBeGreaterThan(1);

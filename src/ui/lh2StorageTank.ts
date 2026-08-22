@@ -28,7 +28,7 @@
  *    Crucially, no fluid property is hand-coded: densities and enthalpies are
  *    READ BACK from the solver (`node('tankLiq').rho`, `.h`, ...) one step
  *    later, so the emulated twins carry genuine CoolProp ParaHydrogen
- *    properties.  This closes the volume constraint honestly and is what
+ *    properties.  This closes the volume constraint and is what
  *    reproduces the physical result: incoming cold liquid COMPRESSES the ullage
  *    and tank pressure RISES toward the source, where a single equilibrium tank
  *    would collapse the ullage instead.

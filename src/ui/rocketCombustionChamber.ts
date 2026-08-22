@@ -19,22 +19,32 @@
  * rocket rather than a venturi: static pressure falls monotonically from the
  * chamber all the way to the exit plane, and the Mach number rises
  * monotonically through the sonic point to M_e ≈ 2.6 at an area ratio of 4.
- * Mass flow comes out within ~1 % of the analytic choked value
+ * Mass flow comes out a few percent above the analytic choked value
  *
  *     ṁ* = A* · P₀ · √(γ/(R·T₀)) · (2/(γ+1))^((γ+1)/(2(γ-1)))
  *
+ * under the default limited-upwind momentum faces (their documented
+ * first-order sonic-cell bias; ~1 % is recovered by
+ * settings.momentumFluxScheme: "central" with this file's warm start).
+ *
  * ── WHY IT IS BUILT THIS WAY ───────────────────────────────────────────────
  *
- * Two choices below are load-bearing; both were established by sweeping the
- * alternatives, and changing either one breaks the case.
+ * Two choices below were established by sweeping the alternatives under the
+ * CENTRAL momentum-flux scheme, where both are load-bearing.  The default
+ * "upwind" scheme has since removed the wrong roots by construction (the
+ * companion test reaches the same physical root from a flat adversarial
+ * seed), but the choices are kept: the warm start remains the right way to
+ * author a transonic case ("central" still needs it, and it costs nothing),
+ * and clustering remains an accuracy matter for both schemes.
  *
- *  1. `initialMdot` on every duct branch.  The transonic solution is a saddle:
- *     from the solver's default 0.1 kg/s guess a (mesh × relaxation) sweep
- *     converged to the right answer in only 5 of 30 combinations, and in 5
- *     more it reported converged = true on a physically absurd state
- *     (negative mass flow, non-monotone pressure).  With the mass-flow warm
- *     start seeded at ṁ*, all 30 of 30 converge.  This mirrors GFSSP, which
- *     requires the same warm start for near-choked ducts.
+ *  1. `initialMdot` on every duct branch.  Under "central" the transonic
+ *     solution is a saddle: from the solver's default 0.1 kg/s guess a
+ *     (mesh × relaxation) sweep converged to the right answer in only 5 of
+ *     30 combinations, and in 5 more it reported converged = true on a
+ *     physically absurd state (negative mass flow, non-monotone pressure).
+ *     With the mass-flow warm start seeded at ṁ*, all 30 of 30 converge.
+ *     This mirrors GFSSP, which requires the same warm start for
+ *     near-choked ducts.
  *
  *  2. Throat-clustered stations.  The sonic point is crossed INSIDE one cell,
  *     so the cells adjacent to the throat must be small.  Uniform spacing
@@ -142,12 +152,15 @@ const A_STAR = areaOf(D_THROAT);
  * solution.  They start from a plain linear ramp — in STATION INDEX — between
  * the two boundary states, and with the mass-flow warm start the Newton lands
  * on the choked root from that ramp at every relaxation from 0.1 to 0.8.
- * The index part is load-bearing: because the mesh is throat-clustered, an
- * index-linear ramp concentrates the pressure drop through the transonic
- * cells, roughly where the physics puts it.  A ramp linear in physical z, a
- * flat guess, or a two-level chamber/exhaust guess all converge to spurious
- * roots with an expansion shock parked near the throat (mdot 1–20 % high,
- * non-monotone pressure) or fail outright.
+ * The index part matters under the CENTRAL scheme: because the mesh is
+ * throat-clustered, an index-linear ramp concentrates the pressure drop
+ * through the transonic cells, roughly where the physics puts it, whereas a
+ * ramp linear in physical z, a flat guess, or a two-level chamber/exhaust
+ * guess all converge to spurious central-scheme roots with an expansion
+ * shock parked near the throat (mdot 1–20 % high, non-monotone pressure) or
+ * fail outright.  The default upwind scheme has no such roots — the
+ * companion test converges from a flat adversarial seed — but the ramp is
+ * kept so the example also solves cleanly under "central".
  * ======================================================================== */
 
 /** A/A* for a given Mach number (γ = GAMMA). */
@@ -395,8 +408,9 @@ export function buildRocketCombustionChamber(
       id: branchId(i),
       from: a.id,
       to: b.id,
-      // Load-bearing: without this warm start the transonic saddle sends the
-      // Newton to a wrong root (see the module header).
+      // Load-bearing under the central scheme, where the transonic saddle
+      // sends an unseeded Newton to a wrong root; a convenience under the
+      // default upwind scheme (see the module header).
       initialMdot: mdotSeed,
       component: {
         type: "pipe",
@@ -425,7 +439,7 @@ export function buildRocketCombustionChamber(
     },
     {
       id: "noteThroat",
-      text: "settings.momentumFlux and kineticEnergy are on, so this is quasi-1-D compressible duct flow.\nThe throat is choked: the flow crosses M = 1 here and keeps accelerating. Mass flow settles within ~1% of the analytic choked value, and the solver finds it from the pressure ratio alone.",
+      text: "settings.momentumFlux and kineticEnergy are on, so this is quasi-1-D compressible duct flow.\nThe throat is choked: the flow crosses M = 1 here and keeps accelerating. Mass flow settles a few percent above the analytic choked value (the default upwind scheme's sonic-cell bias; momentumFluxScheme: \"central\" tightens it to ~1%), and the solver finds it from the pressure ratio alone.",
       x: snap(throat.x - 80),
       y: snap(throat.y + 80),
       width: 400,

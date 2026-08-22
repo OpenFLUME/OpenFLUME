@@ -24,7 +24,7 @@
  * per variant solve, through the shared solver worker client by default.
  * A variant failure is recorded and later variants still run.
  *
- * Cancellation (cancelJob) is synchronous and honest:
+ * Cancellation (cancelJob) is synchronous:
  *   - the in-flight variant and every pending variant become 'cancelled';
  *     'completed'/'failed' variants keep their results;
  *   - the job becomes 'cancelled' with finishedAt/durationMs set;
@@ -348,7 +348,7 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
           },
           onUnitDone: (unit, result) => {
             const doneAt = now();
-            // Finalize the live diary; fall back to an honest final-evidence
+            // Finalize the live diary; fall back to a final-evidence
             // diary if the collector is somehow missing (never fabricated
             // progress milestones in that case).
             const diary =

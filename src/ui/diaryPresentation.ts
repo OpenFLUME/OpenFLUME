@@ -8,7 +8,7 @@
  *
  *   - coordinate / outcome / severity labels for the timeline,
  *   - collapsed-window slicing (first N events + hidden count),
- *   - honest retention-accounting lines (dropped / coalesced occurrences),
+ *   - retention-accounting lines (dropped / coalesced occurrences),
  *   - export payloads (JSON / plain text) and filesystem-safe filenames.
  *
  * Pure: no React, no DOM, no store.  Diary data is already sanitized at the
@@ -151,7 +151,7 @@ export function diaryMetaText(diary: RunDiary): string {
 }
 
 /**
- * Honest retention accounting: null when nothing was dropped or coalesced,
+ * Retention accounting: null when nothing was dropped or coalesced,
  * otherwise e.g. "3 event occurrences dropped by the retention cap (200) ·
  * 5 repeated occurrences folded into ×counts".
  */

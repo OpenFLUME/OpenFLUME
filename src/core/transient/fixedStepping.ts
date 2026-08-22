@@ -161,7 +161,7 @@ export function runFixedTimeStepping(
       relaxation: config.settings.relaxation ?? 1.0,
       prevState,
       jacobian: config.settings.jacobian ?? "hybrid",
-      coupledHonestyGate: config.settings.coupledHonestyGate === true,
+      certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
       globalization: config.settings.globalization ?? "lineSearch",
     });
 

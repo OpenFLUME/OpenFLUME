@@ -137,7 +137,7 @@ export function lookupCombustionGas(
  * fractions: dT0/dPc via the ln-Pc axis (d lnPc/dPc = 1/Pc), dT0/dOF
  * directly.  Where the lookup point is CLAMPED to a table edge the
  * interpolation fraction is constant, so the propagated derivative is 0 in
- * the clamped direction — the honest derivative of the clamped function.
+ * the clamped direction — the derivative of the clamped function.
  */
 export function lookupChamberT0Dual(
   propellants: CombustionPropellants,
