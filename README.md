@@ -9,6 +9,7 @@
 [![CI](https://github.com/OpenFLUME/OpenFLUME/actions/workflows/ci.yml/badge.svg)](https://github.com/OpenFLUME/OpenFLUME/actions/workflows/ci.yml)
 [![Deploy demo](https://github.com/OpenFLUME/OpenFLUME/actions/workflows/deploy.yml/badge.svg)](https://github.com/OpenFLUME/OpenFLUME/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/1341200353.svg)](https://doi.org/10.5281/zenodo.22051608)
 
 **OpenFLUME** (Open **FLU**id **M**odel **E**nvironment) is a finite-volume thermo-fluid network simulator that runs entirely in the browser. Inspired by NASA GFSSP and SINDA/FLUINT, it solves coupled mass, momentum, and energy equations on arbitrary pipe-and-node networks using a Newton–Raphson steady solver and a backward-Euler transient solver.
 
@@ -930,7 +931,7 @@ The worker is spawned as a Vite-native module worker (`new Worker(new URL('./sol
 
 If this software contributes to your research, please cite it. See [CITATION.cff](CITATION.cff) for the current citation metadata, or use:
 
-> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.1.0). [https://github.com/OpenFLUME/OpenFLUME](https://github.com/OpenFLUME/OpenFLUME)
+> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.1.0). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
 
 ---
 
