@@ -933,22 +933,18 @@ function solveStateStepAttempt(
   // simultaneously.  The 3×3 Jacobian is ill-conditioned in the two-phase dome
   // because density collapses and the FD derivatives become noisy, so we fall
   // back to the segregated (Picard-like) outer loop for dome nodes.
+  // Assigned (with hRelax) at the top of every outer iteration for
+  // real-fluid transient solves; false otherwise.
   let anyNodeTwoPhase = false;
-  if (ctx.isRealFluid && dt !== undefined) {
-    anyNodeTwoPhase = anyTwoPhaseNode(ctx, state);
-  }
 
   // For steady real-fluid h-updates, full relaxation is stable because the energy
   // balance is linear in h when P/md are frozen. Under-relaxation was causing
   // 40+ outer iterations to hit the 1e-7 tolerance.
-  // For transient, use heavy under-relaxation (0.1) to keep the inner loop stable
-  // when density collapses during flashing (two-phase dome crossing).
-  let hRelax =
-    dt !== undefined
-      ? anyNodeTwoPhase
-        ? Math.min(relax, 0.05)
-        : Math.min(relax, 0.5)
-      : 1.0;
+  // For transient real-fluid solves the value is reassigned at the top of
+  // every outer iteration (heavy under-relaxation, 0.1, only while a node is
+  // in the two-phase dome) — see the anyTwoPhaseNode refresh in the outer
+  // loop below.
+  let hRelax = 1.0;
   const useExtendedSystem = ctx.isRealFluid && dt !== undefined;
   // Coupled steady enthalpy system (settings.kineticEnergy): x = [P, ṁ, h]
   // with stagnation-enthalpy energy rows solved simultaneously for EVERY

@@ -911,6 +911,47 @@ describe("Validation tests", () => {
     expect(errs.some((e) => e.includes("monotonically decreasing"))).toBe(true);
   });
 
+  it("catches pump curve with non-ascending flow points", () => {
+    const config = makeConfig({
+      nodes: [
+        {
+          id: "A",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+        {
+          id: "B",
+          type: "boundary",
+          x: 1,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        {
+          id: "p1",
+          from: "A",
+          to: "B",
+          component: {
+            type: "pump",
+            curve: [
+              [1, 200],
+              [0, 100],
+            ],
+          },
+        },
+      ],
+    });
+    const errs = validateNetwork(config);
+    expect(
+      errs.some((e) => e.includes("flow points must be strictly increasing")),
+    ).toBe(true);
+  });
+
   it("catches valve position out of range", () => {
     const config = makeConfig({
       nodes: [

@@ -146,11 +146,10 @@ describe("lookupChamberT0Dual derivatives", () => {
 
   it("clamped lookups carry zero derivative in the clamped direction", () => {
     const bounds = combustionGasBounds("lox-rp1");
-    const below = lookupChamberT0Dual(
-      "lox-rp1",
-      constant(PC),
-      { v: bounds.ofMin / 2, d: 1 },
-    );
+    const below = lookupChamberT0Dual("lox-rp1", constant(PC), {
+      v: bounds.ofMin / 2,
+      d: 1,
+    });
     expect(below.d).toBe(0);
     const above = lookupChamberT0Dual(
       "lox-rp1",
@@ -408,9 +407,9 @@ describe("LOX/RP-1 thruster with reacting junction", () => {
 
     // Against the formula-coupled twin.
     expect(Math.abs(jn.pc - TWIN.pc) / TWIN.pc).toBeLessThan(0.02);
-    expect(
-      Math.abs(jn.mdotByRole.oxidizer - TWIN.ox) / TWIN.ox,
-    ).toBeLessThan(0.05);
+    expect(Math.abs(jn.mdotByRole.oxidizer - TWIN.ox) / TWIN.ox).toBeLessThan(
+      0.05,
+    );
     expect(Math.abs(jn.mdotByRole.fuel - TWIN.fuel) / TWIN.fuel).toBeLessThan(
       0.05,
     );
@@ -426,10 +425,7 @@ describe("LOX/RP-1 thruster with reacting junction", () => {
     expect(jn.productTemperature / jn.gas.T0).toBeCloseTo(0.9409, 4);
     // The chamber node state IS the junction state.
     expect(res.nodes.chamber.pressure).toBeCloseTo(jn.pc, 6);
-    expect(res.nodes.chamber.temperature).toBeCloseTo(
-      jn.productTemperature,
-      6,
-    );
+    expect(res.nodes.chamber.temperature).toBeCloseTo(jn.productTemperature, 6);
     // Mass balance: both inlets plus nothing else feed the gas path.
     expect(res.branches.seg1.mdot).toBeCloseTo(jn.mdotTotal, 8);
 

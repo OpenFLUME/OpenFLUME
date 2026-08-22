@@ -252,25 +252,39 @@ describe("Clamping and error handling", () => {
 });
 
 describe("statePH performance", () => {
-  it("per-call latency of statePH ~10–200 µs", () => {
+  it("uncached statePH stays in the flash-latency band; LRU repeats are far cheaper", () => {
     const fluid = new RealFluid("Nitrogen");
     const P = 101325;
-    const h =
-      fluid.hSatLiquid(P) + 0.5 * (fluid.hSatVapor(P) - fluid.hSatLiquid(P));
+    const hf = fluid.hSatLiquid(P);
+    const hg = fluid.hSatVapor(P);
 
-    // Warm-up
-    for (let i = 0; i < 10; i++) fluid.statePH(P, h);
+    // Warm-up (WASM/JIT, saturation caches).
+    for (let i = 0; i < 10; i++) fluid.statePH(P, hf + 0.5 * (hg - hf));
 
+    // Uncached path: a distinct exact h each call (offsets < 1 J/kg keep the
+    // state mid-dome) so every call misses the (fluid, P, h) value cache.
     const runs = 500;
     const t0 = performance.now();
     for (let i = 0; i < runs; i++) {
-      fluid.statePH(P, h);
+      fluid.statePH(P, hf + 0.5 * (hg - hf) + i * 1e-3);
     }
     const t1 = performance.now();
-    const avgUs = ((t1 - t0) * 1000) / runs; // ms → µs
-    console.log(`statePH avg latency: ${avgUs.toFixed(2)} µs (${runs} runs)`);
-    expect(avgUs).toBeGreaterThan(1);
-    expect(avgUs).toBeLessThan(500); // generous upper bound for CI / first-call overhead
+    const missUs = ((t1 - t0) * 1000) / runs; // ms → µs
+    console.log(`statePH miss latency: ${missUs.toFixed(2)} µs (${runs} runs)`);
+    expect(missUs).toBeLessThan(500); // generous upper bound for CI
+
+    // Cached path: repeated exact key rides the bounded LRU.
+    const hRepeat = hf + 0.25 * (hg - hf);
+    fluid.statePH(P, hRepeat); // populate
+    const t2 = performance.now();
+    for (let i = 0; i < runs; i++) {
+      fluid.statePH(P, hRepeat);
+    }
+    const t3 = performance.now();
+    const hitUs = ((t3 - t2) * 1000) / runs;
+    console.log(`statePH hit latency: ${hitUs.toFixed(2)} µs (${runs} runs)`);
+    expect(hitUs).toBeLessThan(missUs); // hits must undercut recomputes
+    expect(hitUs).toBeLessThan(50); // and stay near-free in absolute terms
   });
 });
 

@@ -458,10 +458,7 @@ function checkController(
   optionalObject(controller.limits, `${path}.limits`);
 }
 
-function checkJunction(
-  junction: Record<string, unknown>,
-  path: string,
-): void {
+function checkJunction(junction: Record<string, unknown>, path: string): void {
   // validate.ts string-indexes every reference field unconditionally.
   for (const field of ["node", "productFluid"] as const) {
     if (typeof junction[field] !== "string") {

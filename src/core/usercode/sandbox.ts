@@ -11,8 +11,17 @@
  * `defineComponent` / `args` parameters in scope.  Everything here is
  * SYNCHRONOUS.  This is convenience sandboxing (no ambient-module access in
  * strict-mode function bodies beyond the global object), not a security
- * boundary — only load component code from sources the user already trusts
- * (their own network files).
+ * boundary — only load component code from sources the user already trusts.
+ * Defense in depth around this file:
+ *   - the UI requires explicit user approval of embedded component code
+ *     before load/solve (Toolbar's trust-hash dialog);
+ *   - the solver worker strips the exfiltration-capable globals (fetch,
+ *     XMLHttpRequest, WebSocket, indexedDB, caches, …) from its own global
+ *     scope before any solve runs — see hardenWorkerScope in
+ *     src/ui/solverWorker.ts;
+ *   - there is NO execution timeout: the solve is synchronous, so a hostile
+ *     or buggy formula can spin until the user cancels (the client then
+ *     terminates the whole worker — workerClient.ts).
  *
  * Runtime invocation wraps user errors and non-finite outputs in
  * UserCodeError carrying the source id and lifecycle phase.

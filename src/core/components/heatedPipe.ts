@@ -78,6 +78,10 @@ export class HeatedPipe extends Pipe implements BranchComponent {
         return this.ua * (this.wallTemperature - Tup);
       }
     }
+    // ε-NTU heat pickup vanishes with the flow: at mdot = 0 the transferred
+    // heat is 0 for ANY ua (lim ṁ·cp·ε → 0), and computing NTU there would
+    // be 0/0 = NaN when ua = 0 as well.
+    if (!(mdotAbs > 0) || !(cp > 0)) return 0;
     const NTU = this.ua / (mdotAbs * cp);
     const epsilon = 1 - Math.exp(-NTU);
     return mdotAbs * cp * epsilon * (this.wallTemperature - Tup);

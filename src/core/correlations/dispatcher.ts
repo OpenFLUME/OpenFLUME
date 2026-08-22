@@ -216,7 +216,7 @@ export function evaluateConvectionH(
         }
       }
     }
-  } else {
+  } else if (corr.model === "darrHartwig") {
     // darrHartwig — Darr–Hartwig 2020 LH2 set (../darrHartwig.ts; integration
     // contract documented there).  Returns h_eff = q″/(T_w − T_node), guarded.
     const cf = conductorFluid(ctx, fluidNodeId);
@@ -275,6 +275,14 @@ export function evaluateConvectionH(
         }
       }
     }
+  } else {
+    // The schema union is closed today, but keep the dispatch explicit so a
+    // model added to the schema without a branch here fails loudly instead
+    // of silently evaluating as Darr–Hartwig (same pattern as
+    // combustion/model.ts).
+    throw new Error(
+      `evaluateConvectionH: unknown correlation model "${(corr as { model: string }).model}" on conductor ${cond.id}`,
+    );
   }
 
   // Apply explicit floor (fallback or user-supplied).  When the clamp binds

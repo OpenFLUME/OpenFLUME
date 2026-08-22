@@ -49,6 +49,11 @@ export function darcyFrictionFactor(
   epsOverD: number,
   sj: SwameeJainClosureParams = DEFAULT_CLOSURE_PARAMS.swameeJain,
 ): number {
+  // Re = NaN arises at mdot = 0 with a zero-viscosity fluid (0/0; see the
+  // mu ≡ 0 note on the dual twin below): return the same fully-rough
+  // constant the dual path uses — the caller multiplies by zero flow anyway,
+  // and a NaN here poisoned the whole momentum row.
+  if (!Number.isFinite(Re)) return swameeJain(Infinity, epsOverD, sj);
   if (Re < RE_LAMINAR) return 64 / Math.max(Re, 1e-6);
   const fturb = swameeJain(Re, epsOverD, sj);
   if (Re >= RE_TURBULENT) return fturb;

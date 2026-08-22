@@ -135,8 +135,20 @@ function buildNozzle(
       type: isIn || isOut ? ("boundary" as const) : ("internal" as const),
       x: i * 100,
       y: 0,
-      pressure: isIn ? P0 : isOut ? P_EXIT : seed === "ramp" ? P0 + s * (P_EXIT - P0) : P0,
-      temperature: isIn ? T0 : isOut ? T_EXIT : seed === "ramp" ? T0 + s * (T_EXIT - T0) : T0,
+      pressure: isIn
+        ? P0
+        : isOut
+          ? P_EXIT
+          : seed === "ramp"
+            ? P0 + s * (P_EXIT - P0)
+            : P0,
+      temperature: isIn
+        ? T0
+        : isOut
+          ? T_EXIT
+          : seed === "ramp"
+            ? T0 + s * (T_EXIT - T0)
+            : T0,
     };
   });
   const branches: NetworkConfig["branches"] = [];
@@ -273,8 +285,10 @@ describe("real-fluid transonic — choked N2 CD nozzle (upwind faces)", () => {
       const v = mdot / (nd.density * A);
       return n2.enthalpyPT(nd.pressure, nd.temperature) + 0.5 * v * v;
     };
-    const keScale = h0(ZS.length - 2) - // stagnation minus static at the
-      n2.enthalpyPT( // last interior station
+    const keScale =
+      h0(ZS.length - 2) - // stagnation minus static at the
+      n2.enthalpyPT(
+        // last interior station
         res.nodes[stationId(ZS.length - 2)].pressure,
         res.nodes[stationId(ZS.length - 2)].temperature,
       );

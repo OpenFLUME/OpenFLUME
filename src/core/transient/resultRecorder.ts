@@ -192,13 +192,18 @@ export function initTransientResults(
   };
 }
 
-/** Append one accepted step (at time `t`) to every accumulator array. */
+/** Append one accepted step (at time `t`) to every accumulator array.
+ *  `prevState`/`dt` are the pair the accepted step's momentum rows were
+ *  solved against — they let the reported branch dP subtract the fluid-
+ *  inertia term (branchDerivedProperties has the rationale). */
 export function recordTransientStep(
   ctx: SolverContext,
   config: NetworkConfig,
   acc: TransientResultAccumulators,
   t: number,
   state: StepState,
+  prevState?: StepState,
+  dt?: number,
 ): void {
   const { nodeResults, branchResults, solidResults, conductorResults } = acc;
   acc.times.push(t);
@@ -236,7 +241,7 @@ export function recordTransientStep(
     appendHistories(
       BRANCH_FLOW_KEYS,
       entry,
-      branchDerivedProperties(ctx, state, j, nodeProps, t),
+      branchDerivedProperties(ctx, state, j, nodeProps, t, { prevState, dt }),
     );
   }
   for (const sNode of config.solidNodes ?? []) {

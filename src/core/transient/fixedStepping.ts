@@ -176,7 +176,7 @@ export function runFixedTimeStepping(
     stepResiduals.push(res.residual);
     stepResidualsScaled.push(res.residualScaled ?? res.residual);
 
-    recordTransientStep(ctx, config, acc, t, state);
+    recordTransientStep(ctx, config, acc, t, state, prevState, dt);
 
     if (res.converged) {
       // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE):

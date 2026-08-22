@@ -401,7 +401,10 @@ export function runAdaptiveTimeStepping(
     if (dt < minDt) minDt = dt;
     if (dt > maxDt) maxDt = dt;
 
-    recordTransientStep(ctx, config, acc, t, state);
+    // The accepted state is the second half-step solution: its momentum rows
+    // were solved from the mid state with dt/2 (the reported branch dP
+    // subtracts the fluid-inertia term against exactly that pair).
+    recordTransientStep(ctx, config, acc, t, state, acceptedMid, dt / 2);
 
     // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE):
     // advance from the ACCEPTED step state — same "certified accepted"

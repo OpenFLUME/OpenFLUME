@@ -224,6 +224,16 @@ export function validateBranches(
             break;
           }
         }
+        // Pump.interpolate assumes flow points sorted ascending (segment
+        // scan + end-slope extrapolation are both wrong on unsorted input).
+        for (let i = 0; i < comp.curve.length - 1; i++) {
+          if (comp.curve[i + 1][0] <= comp.curve[i][0]) {
+            errors.push(
+              `Pump ${branch.id} curve flow points must be strictly increasing`,
+            );
+            break;
+          }
+        }
       }
     } else if (comp.type === "bend") {
       if (comp.diameter <= 0)

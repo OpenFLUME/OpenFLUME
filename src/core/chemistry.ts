@@ -6,6 +6,7 @@
  */
 
 import type { ArrheniusReaction } from "./schema";
+import { R_UNIVERSAL } from "./constants";
 
 export type { ArrheniusReaction } from "./schema";
 
@@ -24,7 +25,7 @@ export function computeChemistryRates(
   speciesNames: string[],
   mixtureR: number, // J/kg/K
   cpMix: number, // J/kg/K
-  R_universal = 8.314462618,
+  R_universal = R_UNIVERSAL,
 ): { omega: Record<string, number>; dTdt: number } {
   const omega: Record<string, number> = {};
   for (const sp of speciesNames) omega[sp] = 0;

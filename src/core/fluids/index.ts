@@ -19,6 +19,7 @@
 import { RealFluid, type PHState, type PHDerivatives } from "./realFluid";
 import type { Dual } from "../dual";
 import { constant, div } from "../dual";
+import { R_UNIVERSAL } from "../constants";
 
 export interface FluidModel {
   density(P: number, T: number): number;
@@ -510,7 +511,7 @@ export class IdealGasMixture implements MixtureFluidModel {
   readonly cp: number[]; // J/kg/K
   readonly formationEnthalpy: number[]; // J/kg
   readonly viscosity: number[]; // Pa·s
-  readonly R_universal = 8.314462618; // J/mol/K
+  readonly R_universal = R_UNIVERSAL; // J/mol/K
 
   constructor(
     names: string[],

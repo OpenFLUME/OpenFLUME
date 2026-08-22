@@ -929,4 +929,26 @@ describe("Property cache bounding (LruMap)", () => {
     const Tsat = f.saturationTemperature(74.97 * 6894.757293168);
     expect(Math.abs(Tsat - 27.2916)).toBeLessThan(0.01);
   });
+
+  it("statePH value cache stays bounded, shares frozen objects, and recomputes bit-exactly after eviction", () => {
+    const f = new RealFluid("Nitrogen");
+    const P = 2e6;
+    const h0 = f.enthalpyPT(P, 100); // subcooled liquid
+    const first = f.statePH(P, h0);
+    // Cache hit returns the SAME frozen object — callers share it.
+    expect(f.statePH(P, h0)).toBe(first);
+    expect(Object.isFrozen(first)).toBe(true);
+    // Overflow the cache with distinct exact (P, h) keys…
+    const n = PROPERTY_CACHE_CAPACITY + 64;
+    for (let i = 0; i < n; i++) {
+      f.statePH(P, h0 + i); // 1 J/kg apart: distinct exact doubles, same phase
+    }
+    expect(getFluidCacheSizes().statePHCache).toBeLessThanOrEqual(
+      PROPERTY_CACHE_CAPACITY,
+    );
+    // …then the evicted key recomputes to a bit-identical value.
+    const recomputed = f.statePH(P, h0);
+    expect(recomputed).not.toBe(first);
+    expect(recomputed).toEqual(first);
+  });
 });

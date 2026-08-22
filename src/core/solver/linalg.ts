@@ -4,11 +4,24 @@
  * the right tool — no sparse machinery needed).
  */
 
+import { enterDenseSolve, leaveDenseSolve, perfEnabled } from "../perf";
+
 /** Solve A·x = b by Gaussian elimination with partial pivoting.  A pivot
- *  smaller than 1e-14 is replaced by 1e-14 (regularisation) instead of
- *  failing, so a structurally singular row yields a huge-but-finite step
+ *  smaller than 1e-14 in magnitude is replaced by ±1e-14 (regularisation,
+ *  keeping the original sign so the step direction is not flipped) instead
+ *  of failing, so a structurally singular row yields a huge-but-finite step
  *  that the caller's line search / trust region then rejects. */
 export function solveDense(A: number[][], b: number[]): number[] {
+  const track = perfEnabled;
+  if (track) enterDenseSolve();
+  try {
+    return solveDenseBody(A, b);
+  } finally {
+    if (track) leaveDenseSolve();
+  }
+}
+
+function solveDenseBody(A: number[][], b: number[]): number[] {
   const n = b.length;
   const M = A.map((row, i) => [...row, b[i]]);
 
@@ -23,7 +36,7 @@ export function solveDense(A: number[][], b: number[]): number[] {
       }
     }
     if (maxVal < 1e-14) {
-      M[i][i] = 1e-14;
+      M[i][i] = M[i][i] < 0 ? -1e-14 : 1e-14;
     } else {
       [M[i], M[maxRow]] = [M[maxRow], M[i]];
     }

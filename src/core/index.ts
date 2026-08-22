@@ -18,6 +18,7 @@
  *     correlation constants
  *   usercode/ — sandboxed user-defined components and expressions
  *   diagnostics.ts — opt-in solver instrumentation counters
+ *   perf.ts        — opt-in exact-attribution timers for real-fluid studies
  */
 export type { FluidModel, FluidPhase, PHState, PHStateDual } from "./fluids";
 export {
@@ -227,6 +228,8 @@ export type {
   StatePHFallbackTiers,
   TtWfDiagnostics,
 } from "./diagnostics";
+export { setPerfEnabled, resetPerf, getPerfSnapshot } from "./perf";
+export type { PerfSnapshot, PropertyCallKind } from "./perf";
 export {
   evaluateTtWf,
   initTtWfState,

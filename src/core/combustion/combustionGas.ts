@@ -32,8 +32,11 @@ import { constant, add, sub, mul, div, log } from "../dual";
 export type { CombustionPropellants } from "./generated/ceaTables";
 export { CEA_PROVENANCE } from "./generated/ceaTables";
 
-/** Universal gas constant [J/(mol*K)] — matches IdealGasMixture.R_universal. */
-export const R_UNIVERSAL = 8.314462618;
+/** Universal gas constant [J/(mol·K)] — from the shared constants module
+ *  (also used by IdealGasMixture and chemistry.ts). */
+import { R_UNIVERSAL } from "../constants";
+
+export { R_UNIVERSAL };
 
 export interface CombustionGasState {
   /** Equilibrium chamber (stagnation) temperature [K]. */
@@ -180,7 +183,9 @@ function divBySpan(x: Dual, lo: number, hi: number): Dual {
 function requireTable(propellants: CombustionPropellants): CeaChamberTable {
   const table = CEA_TABLES[propellants];
   if (!table) {
-    throw new Error(`lookupCombustionGas: unknown propellants "${propellants}"`);
+    throw new Error(
+      `lookupCombustionGas: unknown propellants "${propellants}"`,
+    );
   }
   return table;
 }

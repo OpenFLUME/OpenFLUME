@@ -188,9 +188,14 @@ export function auditSecondLaw(
     const tDon = state.nodeT.get(donor);
     const tDwn = state.nodeT.get(dwn);
     if (
-      pDon === undefined || pDwn === undefined ||
-      tDon === undefined || tDwn === undefined ||
-      !(pDon > 0) || !(pDwn > 0) || !(tDon > 0) || !(tDwn > 0)
+      pDon === undefined ||
+      pDwn === undefined ||
+      tDon === undefined ||
+      tDwn === undefined ||
+      !(pDon > 0) ||
+      !(pDwn > 0) ||
+      !(tDon > 0) ||
+      !(tDwn > 0)
     ) {
       continue;
     }

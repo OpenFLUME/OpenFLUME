@@ -218,13 +218,19 @@ export interface BranchDerivedProperties {
  * handed to time-scheduled components — omit it for steady solves.
  *
  * ΔP is the component's own pressure-drop closure evaluated at this state
- * (including the elevation head, and the momentum-flux term when
- * settings.momentumFlux is on), which is exactly the branch momentum row.
- * At steady convergence it equals P_from − P_to; during a transient with
- * fluid inertia it deliberately does not, since the balance also carries
- * ∂ṁ/∂t.  That closure is the one call here allowed to throw: a user
- * component that raises or returns a non-finite ΔP fails loudly, naming the
- * branch, instead of quietly publishing a substitute number.
+ * (including the elevation head), which is exactly the branch momentum row.
+ * With settings.momentumFlux the acceleration term is part of that row too,
+ * but its value is scheme-dependent (upwind donor faces, tapered areas,
+ * junction-inlet exclusions — kernel.ts), so instead of re-deriving the
+ * stencil here the converged row itself is used:
+ * P_from − P_to = ΔP + ΔP_accel + ΔP_inertia, hence the reported total is
+ * P_from − P_to less the fluid-inertia term (supplied via `prevState`/`dt`
+ * by the transient recorder; zero for steady solves).  At steady convergence
+ * it equals P_from − P_to; during a transient with fluid inertia it
+ * deliberately does not, since the balance also carries ∂ṁ/∂t.  The closure
+ * is still the one call here allowed to throw: a user component that raises
+ * or returns a non-finite ΔP fails loudly, naming the branch, instead of
+ * quietly publishing a substitute number.
  */
 export function branchDerivedProperties(
   ctx: SolverContext,
@@ -232,6 +238,7 @@ export function branchDerivedProperties(
   j: number,
   nodeProps?: Map<string, NodeDerivedProperties>,
   t?: number,
+  opts?: { prevState?: StepState; dt?: number },
 ): BranchDerivedProperties {
   const b = ctx.branches[j];
   const mdot = state.mdots[j];
@@ -283,13 +290,22 @@ export function branchDerivedProperties(
       pTo,
     );
     // Reported dP mirrors the momentum row: with settings.momentumFlux the
-    // acceleration term is part of the branch pressure balance.
-    const accelArea = ctx.momentumFlux ? b.component.area : undefined;
-    if (accelArea !== undefined && accelArea > 0) {
-      const rhoFrom = state.nodeRho.get(b.from)!;
-      const rhoTo = state.nodeRho.get(b.to)!;
-      dP +=
-        ((mdot * mdot) / (accelArea * accelArea)) * (1 / rhoTo - 1 / rhoFrom);
+    // acceleration term is part of the branch pressure balance.  Its value
+    // is scheme-dependent (see the doc comment above), so it is recovered
+    // from the converged row rather than re-derived here.
+    if (ctx.momentumFlux) {
+      let inertiaTerm = 0;
+      if (
+        opts?.dt !== undefined &&
+        opts.prevState !== undefined &&
+        b.inertia &&
+        b.component instanceof Pipe
+      ) {
+        const L = b.component.length;
+        const A = b.component.area;
+        inertiaTerm = ((L / A) * (mdot - opts.prevState.mdots[j])) / opts.dt;
+      }
+      dP = pFrom - pTo - inertiaTerm;
     }
   }
 

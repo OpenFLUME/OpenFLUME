@@ -55,6 +55,12 @@ import { FALLBACK_H_FLOOR } from "../correlations";
 import type { Dual } from "../dual";
 import { constant, add, sub, mul, div, pow, neg, abs } from "../dual";
 import type { SolverJunctionEntry } from "./types";
+import {
+  recordResidualEval,
+  enterJacobian,
+  leaveJacobian,
+  perfEnabled,
+} from "../perf";
 
 /** Environment captured by the Newton kernel factory.  `conductorHMap` is
  *  rebound per outer Picard iteration (h-map under-relaxation), so it is read
@@ -384,6 +390,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
   // Scalar residual
   // ────────────────────────────────────────────────────────────────────────
   function computeResidual(x: number[]): number[] {
+    if (perfEnabled) recordResidualEval();
     const R = new Array(nVar).fill(0);
     const intP = new Array(nInt).fill(0);
     for (let i = 0; i < nInt; i++) intP[i] = x[i];
@@ -496,7 +503,14 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         }
         const nf = fluidOf(nodeId);
         if (compressibleKE && nf.R !== undefined && nf.gamma !== undefined) {
-          T = staticTFromStag(nodeStagT(nodeId), P, mdotKE, Aend, nf.R, nf.gamma);
+          T = staticTFromStag(
+            nodeStagT(nodeId),
+            P,
+            mdotKE,
+            Aend,
+            nf.R,
+            nf.gamma,
+          );
         }
         return nf.density(P, T);
       };
@@ -591,11 +605,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         rho = phUp.rho;
         mu = phUp.mu;
         upT = phUp.T;
-        if (
-          useCoupledH &&
-          ctx.kineticEnergy &&
-          !junctionInletBranches.has(j)
-        ) {
+        if (useCoupledH && ctx.kineticEnergy && !junctionInletBranches.has(j)) {
           // Friction ΔP ∝ ∫G²/ρ dx: the harmonic mean of the endpoint
           // densities integrates 1/ρ to second order, where the upstream
           // density alone underestimates friction in strongly accelerating
@@ -908,12 +918,8 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         // Newton was observed to walk off spurious roots because of it.
         const jn = junctionByNode.get(nodeId);
         if (jn !== undefined) {
-          const T0 = jn.model.evaluate(Pcurr, junctionMdotByRole(jn, x)).gas
-            .T0;
-          const hTarget = fluidOf(nodeId).enthalpyPT(
-            Pcurr,
-            jn.efficiency * T0,
-          );
+          const T0 = jn.model.evaluate(Pcurr, junctionMdotByRole(jn, x)).gas.T0;
+          const hTarget = fluidOf(nodeId).enthalpyPT(Pcurr, jn.efficiency * T0);
           const hRef = Math.max(
             Math.abs(state.nodeH?.get(nodeId) ?? hTarget),
             1e4,
@@ -1477,11 +1483,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         rho = upSt.rho;
         mu = upSt.mu;
         upT = upSt.T.v;
-        if (
-          useCoupledH &&
-          ctx.kineticEnergy &&
-          !junctionInletBranches.has(j)
-        ) {
+        if (useCoupledH && ctx.kineticEnergy && !junctionInletBranches.has(j)) {
           // Harmonic-mean friction density (mirrors the scalar path;
           // junction inlets keep the upstream reactant density).
           const downNode = mdot.v >= 0 ? b.to : b.from;
@@ -2083,6 +2085,16 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
 
   /** Finite-difference Jacobian builder (legacy, always works). */
   function numericalJacobian(x: number[]): number[][] {
+    const track = perfEnabled;
+    if (track) enterJacobian("fd");
+    try {
+      return numericalJacobianBody(x);
+    } finally {
+      if (track) leaveJacobian();
+    }
+  }
+
+  function numericalJacobianBody(x: number[]): number[][] {
     const n = x.length;
     const J: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
     let R0: number[];
@@ -2110,6 +2122,16 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  arithmetic — this is what turns the dual path from "exact but just as
    *  many property calls as FD" into the measured O(nodes)-calls speedup. */
   function hybridJacobian(x: number[]): number[][] {
+    const track = perfEnabled;
+    if (track) enterJacobian("hybrid");
+    try {
+      return hybridJacobianBody(x);
+    } finally {
+      if (track) leaveJacobian();
+    }
+  }
+
+  function hybridJacobianBody(x: number[]): number[][] {
     const n = x.length;
     const J: number[][] = Array.from({ length: n }, () => new Array(n).fill(0));
 

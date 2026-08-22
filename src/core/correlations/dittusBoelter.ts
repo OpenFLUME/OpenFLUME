@@ -5,8 +5,9 @@ import {
 
 /** Dittus–Boelter: Nu = C·Re^m·Pr^n (heating exponent n = 0.4 by default; the
  *  constants are the calibratable closure parameters — see closureParams.ts).
- *  Below Re = 2300, laminar Nu = 3.66 with a smooth linear blend 2000 → 4000
- *  (regime-boundary numerics — deliberately NOT calibratable). */
+ *  Below Re = 2000, laminar Nu = 3.66; above 4000, fully turbulent; smooth
+ *  linear blend across 2000 → 4000 (regime-boundary numerics — deliberately
+ *  NOT calibratable). */
 export function dittusBoelterH(
   G: number,
   D: number,

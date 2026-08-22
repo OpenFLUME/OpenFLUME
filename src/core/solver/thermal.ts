@@ -17,23 +17,6 @@ import { FALLBACK_H_FLOOR } from "../correlations";
 
 const STEFAN_BOLTZMANN = 5.670374419e-8;
 
-function radiationConductance(
-  emissivity: number,
-  area: number,
-  viewFactor: number,
-  Tf: number,
-  Tt: number,
-): number {
-  return (
-    STEFAN_BOLTZMANN *
-    emissivity *
-    area *
-    viewFactor *
-    (Tf * Tf + Tt * Tt) *
-    (Tf + Tt)
-  );
-}
-
 /**
  * Conductor conductance G [W/K].  `t` is the candidate step's END time [s]
  * (backward Euler): a `{ timeTable }` k reads its constant-for-the-step value
@@ -71,12 +54,12 @@ function getConductance(
     const h = hMap?.get(cond.id) ?? cond.type.h ?? FALLBACK_H_FLOOR;
     return h * cond.type.area;
   }
-  return radiationConductance(
-    cond.type.emissivity,
-    cond.type.area,
-    cond.type.viewFactor,
-    Tfrom,
-    Tto,
+  // Radiation has no single linear conductance: the T⁴ law is handled
+  // explicitly by both callers (computeConductorHeatRate's early return and
+  // the radiation Jacobian branch in assembleThermalSubsystem) before this
+  // function is reached — fail loudly if a future caller forgets.
+  throw new Error(
+    `conductor ${cond.id}: getConductance is undefined for kind "${cond.type.kind}"`,
   );
 }
 
