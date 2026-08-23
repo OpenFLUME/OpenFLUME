@@ -6,8 +6,14 @@ solved inside the core Newton system, and the model's v1 limitations.
 
 The first validation case is the shipped example **"LOX/RP-1 thruster
 (combustor)"** (`src/ui/thrusterCombustor.ts`), whose physics regression
-reference is the formula-coupled twin `basic-lox-rp1-thruster.fn`. Tests live
-in `src/core/__tests__/reactingJunction.test.ts`.
+reference is the formula-coupled twin `basic-lox-rp1-thruster.fn`. A second
+example, **"LOX/RP-1 thruster (transient startup)"**
+(`src/ui/thrusterCombustorTransient.ts`), reuses the same geometry and
+thermal model to ramp the propellant feed pressures from 100 psi to 1000 psi
+over 1 s and hold there for another second — see "Transient reacting
+junctions" below. Tests live in `src/core/__tests__/reactingJunction.test.ts`
+(unit/steady/transient) and `src/ui/tests/examples.test.ts` (the shipped
+transient example, end to end).
 
 ## The model
 
@@ -29,8 +35,10 @@ junctions: [{
 
 The junction node's three balances:
 
-- **Mass** — the ordinary nodal balance `Σṁ = 0` already closes (combustion
-  conserves mass). Unchanged.
+- **Mass** — the ordinary nodal balance `Σṁ = 0` (steady) or
+  `Σṁ = d(ρV)/dt` (transient, generic over every internal node — see
+  "Transient reacting junctions" below) already closes; combustion
+  conserves mass, so this row is completely unmodified by the junction.
 - **Momentum** — each inlet branch evaluates its ΔP with upstream (reactant)
   density, and the junction back-pressures it through the shared nodal
   pressure unknown. Unchanged, except that the harmonic-mean friction
@@ -141,11 +149,53 @@ friction passes slightly more flow than the ideal choking relation (see
 the transonic discretization note below). Live numbers and full
 methodology: [docs/validation/combustion-report.md](validation/combustion-report.md#2-thruster-integral-quantities).
 
+## Transient reacting junctions
+
+The closure replaces a coupled-enthalpy energy row, which exists in BOTH the
+steady and the transient coupled-h system (`useCoupledHMode`,
+`core/solver/kernel.ts` — steady always takes it; transient takes it too for
+every analytic, non-real-fluid `kineticEnergy` network, not just ones with
+junctions). So a junction node in a transient network is solved exactly like
+steady, with one difference: the node's MASS row now carries a real
+`d(ρV)/dt` storage term like any other internal node, which needs
+`node.volume` set (validate/junctions.ts and the generic node-volume check
+both enforce this). The ENERGY row stays algebraic/quasi-steady — no
+storage term — because chamber combustion/residence time (~ms) sits far
+below any ramp rate a boundary schedule would realistically author; the
+chamber still has genuine fill/drain dynamics through Pc, it just reaches
+its instantaneous CEA equilibrium enthalpy infinitely fast rather than
+integrating a stored energy of its own. `thrusterCombustorTransient.ts`
+demonstrates this: the chamber pressure visibly lags the ramping feed
+pressure (the mass row's dynamic) while its temperature-vs-Pc relationship
+stays exactly the steady CEA curve at every instant (the energy row's
+closure).
+
+Two things specific to running the closure transiently:
+
+- **Exhaust boundary.** A downstream boundary node held at a FIXED pressure
+  is the standard steady treatment, but at the low end of a wide feed-pressure
+  ramp (100 psi in the shipped example) it can over-expand the nozzle enough
+  that a sea-level ambient (101.3 kPa) back-propagates an unphysical
+  recompression kink into the last interior station. The shipped example
+  fixes the exhaust at 30 kPa instead — a plausible high-altitude ambient —
+  which was found (empirically, by sweeping the fixed exhaust pressure) to
+  keep the profile monotone at both ends of the ramp without requiring a new
+  dynamic-boundary solver feature.
+- **Newton tolerance.** The extra mass-storage row raises the raw (mixed-unit,
+  un-scaled) residual's noise floor at some points along the ramp enough that
+  the steady example's `1e-8` tolerance is reachable only by grinding many
+  extra inner-Newton iterations right at that floor — measured as one step
+  going from ~15 s to 8+ minutes for no accuracy gain, since outer-loop
+  (Picard) convergence is certified separately via `maxDeltaT < fluidTol` and
+  is unaffected by tightening this bar further. The transient example uses
+  `1e-7` instead.
+
 ## Known limitations (v1)
 
-- **Steady + `kineticEnergy` only.** The closure replaces a coupled-enthalpy
-  energy row, which exists only in that system. Validation rejects
-  transient mode and species transport.
+- **`kineticEnergy` required** (steady or transient) — the closure replaces
+  a coupled-enthalpy energy row, which exists only in that system.
+  Validation rejects species transport, which the coupled-h system does not
+  support at all yet.
 - **Frozen composition downstream.** The product is one constant-parameter
   ideal gas evaluated at chamber conditions; no shifting equilibrium
   through the nozzle.

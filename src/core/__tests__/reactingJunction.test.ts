@@ -27,6 +27,7 @@ import { describe, it, expect } from "vitest";
 import type { NetworkConfig } from "../schema";
 import { decodeAndValidateNetwork } from "../config";
 import { solveSteady } from "../solver";
+import { solveTransient } from "../transient";
 import { createCombustionModel } from "../combustion/model";
 import {
   lookupCombustionGas,
@@ -286,13 +287,19 @@ describe("junction validation", () => {
     expect(validationErrors(() => {})).toEqual([]);
   });
 
-  it("requires steady mode", () => {
+  it("accepts transient mode when every internal node carries a volume", () => {
+    // Transient reacting junctions are supported (docs/combustion.md): the
+    // chamber's ordinary MASS row picks up a real d(ρV)/dt storage term like
+    // any other internal node (hence the volume requirement, generic — not
+    // junction-specific), while the junction's ENERGY row stays the same
+    // quasi-steady CEA closure as steady (core/solver/kernel.ts).
     const errors = validationErrors((cfg) => {
       cfg.settings.mode = "transient";
       cfg.settings.dt = 0.01;
       cfg.settings.endTime = 0.1;
+      cfg.nodes.find((n) => n.id === "chamber")!.volume = 1e-4;
     });
-    expect(errors.join("\n")).toMatch(/require settings\.mode "steady"/);
+    expect(errors).toEqual([]);
   });
 
   it("requires kineticEnergy (the coupled enthalpy system)", () => {
@@ -466,5 +473,147 @@ describe("LOX/RP-1 thruster with reacting junction", () => {
     expect(Math.abs(jn.pc - TWIN.pc) / TWIN.pc).toBeLessThan(0.02);
     expect(jn.of!).toBeGreaterThan(2.4);
     expect(jn.of!).toBeLessThan(2.8);
+  });
+});
+
+/* ==========================================================================
+ * 5. Transient reacting junction (docs/combustion.md: TRANSIENT support)
+ *
+ * useCoupledHMode (core/solver/kernel.ts) now also drives the coupled
+ * [P, ṁ, h] system for transient analytic (non-real-fluid) kineticEnergy
+ * solves, so the junction's CEA closure row runs every implicit step —
+ * quasi-steady in energy, but the chamber's ordinary mass row picks up a
+ * real d(ρV)/dt storage term once it has a volume. Uses the small mini
+ * network (not the 40+-station thruster) so this stays a fast-suite test.
+ * ========================================================================== */
+
+describe("Transient reacting junction", () => {
+  it("tracks a feed-pressure ramp quasi-statically to the steady solution", () => {
+    // Steady reference at the mini network's own (unmodified) feed pressure.
+    const { config: steadyConfig, errors: steadyErrors } =
+      decodeAndValidateNetwork(miniJunctionNetwork());
+    expect(steadyErrors).toEqual([]);
+    const steadyRes = solveSteady(steadyConfig);
+    expect(steadyRes.converged).toBe(true);
+
+    // Transient: both tanks ramp from 80% of that feed pressure up to it
+    // over 20 ms, then hold for 20 ms more. The chamber fill time (volume /
+    // volumetric flow) is far below the ramp rate here too, so by the end
+    // of the hold the transient chamber pressure should have relaxed close
+    // to the steady value above — the same "quasi-static" behaviour
+    // documented for the full thruster example
+    // (src/ui/thrusterCombustorTransient.ts).
+    const cfg = miniJunctionNetwork();
+    cfg.settings.mode = "transient";
+    cfg.settings.dt = 0.005;
+    cfg.settings.endTime = 0.04;
+    cfg.nodes.find((n) => n.id === "chamber")!.volume = 1e-4;
+    const feedP = 1.3e6;
+    for (const id of ["loxTank", "fuelTank"]) {
+      const n = cfg.nodes.find((nd) => nd.id === id)!;
+      n.pressure = 0.8 * feedP;
+      n.pressureSchedule = [
+        [0, 0.8 * feedP],
+        [0.02, feedP],
+        [0.04, feedP],
+      ];
+    }
+    const { config, errors } = decodeAndValidateNetwork(cfg);
+    expect(errors).toEqual([]);
+    const res = solveTransient(config);
+    expect(res.converged).toBe(true);
+
+    // Monotonic over every SOLVED step (index 0 is the raw pre-solve warm
+    // start, not a converged state, so the comparison starts at index 1).
+    const chamberP = res.nodes.chamber.pressure;
+    for (let i = 2; i < chamberP.length; i++) {
+      expect(chamberP[i]).toBeGreaterThanOrEqual(chamberP[i - 1]);
+    }
+    // Quasi-static: after the 20 ms hold, the transient result should have
+    // settled close to the steady solution at the same (final) feed
+    // pressure.
+    const finalP = chamberP[chamberP.length - 1];
+    expect(
+      Math.abs(finalP - steadyRes.nodes.chamber.pressure) /
+        steadyRes.nodes.chamber.pressure,
+    ).toBeLessThan(0.02);
+  });
+
+  it("reports a per-step junction summary trajectory (TransientResult.junctions)", () => {
+    const { config: steadyConfig, errors: steadyErrors } =
+      decodeAndValidateNetwork(miniJunctionNetwork());
+    expect(steadyErrors).toEqual([]);
+    const steadyRes = solveSteady(steadyConfig);
+    expect(steadyRes.converged).toBe(true);
+    const steadyJn = steadyRes.junctions!.jn;
+
+    const cfg = miniJunctionNetwork();
+    cfg.settings.mode = "transient";
+    cfg.settings.dt = 0.005;
+    cfg.settings.endTime = 0.04;
+    cfg.nodes.find((n) => n.id === "chamber")!.volume = 1e-4;
+    const feedP = 1.3e6;
+    for (const id of ["loxTank", "fuelTank"]) {
+      const n = cfg.nodes.find((nd) => nd.id === id)!;
+      n.pressure = 0.8 * feedP;
+      n.pressureSchedule = [
+        [0, 0.8 * feedP],
+        [0.02, feedP],
+        [0.04, feedP],
+      ];
+    }
+    const { config, errors } = decodeAndValidateNetwork(cfg);
+    expect(errors).toEqual([]);
+    const res = solveTransient(config);
+    expect(res.converged).toBe(true);
+
+    // Present, keyed by JunctionConfig.id, one history per role plus the
+    // scalar/gas-state trajectories, all aligned 1:1 with res.times.
+    expect(res.junctions).toBeDefined();
+    const jn = res.junctions!.jn;
+    expect(jn).toBeDefined();
+    const n = res.times.length;
+    for (const arr of [
+      jn.pc,
+      jn.productTemperature,
+      jn.mdotTotal,
+      jn.of!,
+      jn.gas.T0,
+      jn.gas.gamma,
+      jn.gas.cstar,
+    ]) {
+      expect(arr).toHaveLength(n);
+    }
+    expect(jn.clampedPc).toHaveLength(n);
+    expect(jn.clampedOf).toHaveLength(n);
+    expect(Object.keys(jn.mdotByRole).sort()).toEqual(["fuel", "oxidizer"]);
+    expect(jn.mdotByRole.oxidizer).toHaveLength(n);
+    expect(jn.mdotByRole.fuel).toHaveLength(n);
+
+    // Self-consistency: the junction's own pc/productTemperature track the
+    // chamber node exactly (same node, JunctionConfig.node) at every step.
+    for (let i = 0; i < n; i++) {
+      expect(jn.pc[i]).toBeCloseTo(res.nodes.chamber.pressure[i], 6);
+      expect(jn.productTemperature[i]).toBeCloseTo(
+        res.nodes.chamber.temperature[i],
+        6,
+      );
+    }
+    expect(jn.clampedPc.some(Boolean)).toBe(false);
+    expect(jn.clampedOf.some(Boolean)).toBe(false);
+
+    // Quasi-static: the last step's summary should sit close to the steady
+    // solution's summary at the same (final) feed pressure — same bar as
+    // the chamber-pressure check above.
+    const last = jn.pc.length - 1;
+    expect(Math.abs(jn.pc[last] - steadyJn.pc) / steadyJn.pc).toBeLessThan(
+      0.02,
+    );
+    expect(
+      Math.abs(jn.gas.T0[last] - steadyJn.gas.T0) / steadyJn.gas.T0,
+    ).toBeLessThan(0.02);
+    expect(Math.abs(jn.of![last] - steadyJn.of!) / steadyJn.of!).toBeLessThan(
+      0.02,
+    );
   });
 });

@@ -22,6 +22,8 @@ import type {
   TransientResult,
   TtWfConductorHistory,
   FluidFrontNodeHistory,
+  JunctionSummary,
+  JunctionSummaryHistory,
 } from "../schema";
 import type { SolverContext, StepState } from "../solver";
 import {
@@ -30,6 +32,7 @@ import {
   computeConductorHeatRate,
   conductorHeatFlux,
   nodeDerivedMap,
+  computeJunctionSummaries,
 } from "../solver";
 import { FALLBACK_H_FLOOR } from "../correlations";
 
@@ -107,12 +110,78 @@ function sliceHistories<K extends string>(
   return out;
 }
 
+const GAS_KEYS = ["T0", "mw", "R", "gamma", "cp", "mu", "cstar"] as const;
+
+/** Start a JunctionSummaryHistory from the t = 0 (or first-solved) summary.
+ *  The role-key set is fixed by the junction's model.requiredRoles (every
+ *  role must be covered by an inlet — validate/junctions.ts), so it is safe
+ *  to lock it in here and index by it for the rest of the run. */
+function seedJunctionHistory(s: JunctionSummary): JunctionSummaryHistory {
+  const mdotByRole: Record<string, number[]> = {};
+  for (const [role, v] of Object.entries(s.mdotByRole)) mdotByRole[role] = [v];
+  const gas = {} as JunctionSummaryHistory["gas"];
+  for (const k of GAS_KEYS) gas[k] = [s.gas[k]];
+  return {
+    pc: [s.pc],
+    productTemperature: [s.productTemperature],
+    mdotByRole,
+    mdotTotal: [s.mdotTotal],
+    ...(s.of !== undefined ? { of: [s.of] } : {}),
+    gas,
+    clampedPc: [s.clampedPc],
+    clampedOf: [s.clampedOf],
+  };
+}
+
+/** Append one accepted step's summary, holding the 1:1 alignment with times. */
+function appendJunctionHistory(
+  h: JunctionSummaryHistory,
+  s: JunctionSummary,
+): void {
+  h.pc.push(s.pc);
+  h.productTemperature.push(s.productTemperature);
+  for (const role of Object.keys(h.mdotByRole)) {
+    h.mdotByRole[role].push(s.mdotByRole[role] ?? NaN);
+  }
+  h.mdotTotal.push(s.mdotTotal);
+  if (h.of) h.of.push(s.of ?? NaN);
+  for (const k of GAS_KEYS) h.gas[k].push(s.gas[k]);
+  h.clampedPc.push(s.clampedPc);
+  h.clampedOf.push(s.clampedOf);
+}
+
+/** Copy a JunctionSummaryHistory's arrays, sliced to `[0, stepIndex]`. */
+function sliceJunctionHistory(
+  h: JunctionSummaryHistory,
+  stepIndex: number,
+): JunctionSummaryHistory {
+  const mdotByRole: Record<string, number[]> = {};
+  for (const role of Object.keys(h.mdotByRole)) {
+    mdotByRole[role] = h.mdotByRole[role].slice(0, stepIndex + 1);
+  }
+  const gas = {} as JunctionSummaryHistory["gas"];
+  for (const k of GAS_KEYS) gas[k] = h.gas[k].slice(0, stepIndex + 1);
+  return {
+    pc: h.pc.slice(0, stepIndex + 1),
+    productTemperature: h.productTemperature.slice(0, stepIndex + 1),
+    mdotByRole,
+    mdotTotal: h.mdotTotal.slice(0, stepIndex + 1),
+    ...(h.of ? { of: h.of.slice(0, stepIndex + 1) } : {}),
+    gas,
+    clampedPc: h.clampedPc.slice(0, stepIndex + 1),
+    clampedOf: h.clampedOf.slice(0, stepIndex + 1),
+  };
+}
+
 export interface TransientResultAccumulators {
   times: number[];
   nodeResults: TransientResult["nodes"];
   branchResults: TransientResult["branches"];
   solidResults: NonNullable<TransientResult["solidNodes"]>;
   conductorResults: NonNullable<TransientResult["conductors"]>;
+  /** Undefined when the network declares no reacting junctions — mirrors
+   *  SteadyResult.junctions' own optionality. */
+  junctionResults: Record<string, JunctionSummaryHistory> | undefined;
 }
 
 /** Seed every accumulator array with the t = 0 state (times = [0]). */
@@ -183,12 +252,21 @@ export function initTransientResults(
     if (flux !== undefined) entry.heatFlux = [flux];
     conductorResults[cond.id] = entry;
   }
+  const initialJunctionSummaries = computeJunctionSummaries(ctx, state);
+  let junctionResults: Record<string, JunctionSummaryHistory> | undefined;
+  if (initialJunctionSummaries) {
+    junctionResults = {};
+    for (const [id, s] of Object.entries(initialJunctionSummaries)) {
+      junctionResults[id] = seedJunctionHistory(s);
+    }
+  }
   return {
     times: [0],
     nodeResults,
     branchResults,
     solidResults,
     conductorResults,
+    junctionResults,
   };
 }
 
@@ -205,7 +283,13 @@ export function recordTransientStep(
   prevState?: StepState,
   dt?: number,
 ): void {
-  const { nodeResults, branchResults, solidResults, conductorResults } = acc;
+  const {
+    nodeResults,
+    branchResults,
+    solidResults,
+    conductorResults,
+    junctionResults,
+  } = acc;
   acc.times.push(t);
   const nodeProps = nodeDerivedMap(
     ctx,
@@ -265,6 +349,13 @@ export function recordTransientStep(
       );
     }
   }
+  if (junctionResults) {
+    const summaries = computeJunctionSummaries(ctx, state) ?? {};
+    for (const [id, h] of Object.entries(junctionResults)) {
+      const s = summaries[id];
+      if (s) appendJunctionHistory(h, s);
+    }
+  }
 }
 
 /**
@@ -278,6 +369,7 @@ export function buildPartialTransientResult(
   branchResults: TransientResult["branches"],
   solidResults: TransientResult["solidNodes"],
   conductorResults: TransientResult["conductors"],
+  junctionResults: Record<string, JunctionSummaryHistory> | undefined,
   ttWfResults: Record<string, TtWfConductorHistory> | undefined,
   fluidFrontResults: Record<string, FluidFrontNodeHistory> | undefined,
   converged: boolean,
@@ -349,6 +441,17 @@ export function buildPartialTransientResult(
       partialConductors[id] = entry;
     }
   }
+  const partialJunctions: TransientResult["junctions"] = junctionResults
+    ? {}
+    : undefined;
+  if (junctionResults && partialJunctions) {
+    for (const id of Object.keys(junctionResults)) {
+      partialJunctions[id] = sliceJunctionHistory(
+        junctionResults[id],
+        stepIndex,
+      );
+    }
+  }
   const partialTtWf: TransientResult["ttWf"] = ttWfResults ? {} : undefined;
   if (ttWfResults && partialTtWf) {
     for (const id of Object.keys(ttWfResults)) {
@@ -376,6 +479,7 @@ export function buildPartialTransientResult(
     branches: partialBranches,
     solidNodes: partialSolid,
     conductors: partialConductors,
+    junctions: partialJunctions,
     ttWf: partialTtWf,
     fluidFront: partialFluidFront,
     aborted,

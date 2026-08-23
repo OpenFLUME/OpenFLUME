@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">LOX/RP-1 startup ramp: feed and chamber pressure vs time</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0.0</text>
+<line x1="221" y1="46" x2="221" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="390" text-anchor="middle" font-size="11">0.5</text>
+<line x1="366" y1="46" x2="366" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="366" y="390" text-anchor="middle" font-size="11">1.0</text>
+<line x1="511" y1="46" x2="511" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="511" y="390" text-anchor="middle" font-size="11">1.5</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">2.0</text>
+<line x1="76" y1="293.0628918649837" x2="656" y2="293.0628918649837" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="297.0628918649837" text-anchor="end" font-size="11">2000</text>
+<line x1="76" y1="199.24879960298333" x2="656" y2="199.24879960298333" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="203.24879960298333" text-anchor="end" font-size="11">4000</text>
+<line x1="76" y1="105.43470734098292" x2="656" y2="105.43470734098292" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="109.43470734098292" text-anchor="end" font-size="11">6000</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">t [s]</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">P [kPa]</text>
+<path d="M76.0,354.5 L148.5,281.8 L221.0,209.0 L293.5,136.2 L366.0,63.5 L438.5,63.5 L511.0,63.5 L583.5,63.5 L656.0,63.5" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<rect x="72.6" y="351.1357142857143" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="145.1" y="278.36785714285713" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="217.6" y="205.6" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="290.1" y="132.83214285714286" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="362.6" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="435.1" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="507.6" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="580.1" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="652.6" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,340.3 L148.5,315.3 L221.0,281.3 L293.5,252.6 L366.0,227.2 L438.5,227.2 L511.0,227.2 L583.5,227.2 L656.0,227.2" fill="none" stroke="#c0392b" stroke-width="1.8"/>
+<circle cx="76" cy="340.27169102374467" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="148.5" cy="315.3386645812167" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="221" cy="281.34256205440676" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="293.5" cy="252.595946375126" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="366" cy="227.22243308414807" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="438.5" cy="227.1799123777907" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="511" cy="227.17998302637685" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="583.5" cy="227.18007953050528" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="656" cy="227.1801436864383" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<path d="M76.0,227.2 L656.0,227.2" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 3"/>
+<rect x="328.8" y="300" width="319.2" height="64" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="336.8" y1="310" x2="358.8" y2="310" stroke="#1f5fa8" stroke-width="1.8"/>
+<rect x="344.40000000000003" y="306.6" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="364.8" y="314" font-size="11">LOX/RP-1 feed pressure (authored schedule)</text>
+<line x1="336.8" y1="328" x2="358.8" y2="328" stroke="#c0392b" stroke-width="1.8"/>
+<circle cx="347.8" cy="328" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="364.8" y="332" font-size="11">chamber pressure Pc (solved)</text>
+<line x1="336.8" y1="346" x2="358.8" y2="346" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 3"/>
+<text x="364.8" y="350" font-size="11">steady Pc at the fully-ramped feed pressure</text>
+</svg>

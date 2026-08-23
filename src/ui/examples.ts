@@ -2,6 +2,7 @@ import { NetworkConfig } from "./types";
 import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
 import { thrusterCombustor } from "./thrusterCombustor";
+import { thrusterCombustorTransient } from "./thrusterCombustorTransient";
 import { CANVAS_GRID_SIZE } from "./canvasGeometry";
 import { arrayMin, arrayMax } from "./arrayMinMax";
 
@@ -9,6 +10,7 @@ export {
   extensionAdvancedExample,
   lh2StorageTankNoVentFill,
   thrusterCombustor,
+  thrusterCombustorTransient,
 };
 
 /** Physical coordinates [m], z-up. Canvas `x`/`y` on the node stay schematic pixels. */
@@ -4680,6 +4682,7 @@ export const exampleGroups: Record<string, string[]> = {
     "Heated pipe with radiating wall (conjugate HT)",
     "Spacecraft radiator panel (ammonia loop heat pipe)",
     "LOX/RP-1 thruster (combustor)",
+    "LOX/RP-1 thruster (transient startup)",
   ],
   Benchmarks: [
     "Water-water counterflow heat exchanger",
@@ -5022,7 +5025,7 @@ export const nitrousOxideCavitatingVenturiSteady: NetworkConfig = {
 };
 
 /**
- * The shipped example library — these 12 entries populate the UI
+ * The shipped example library — these 13 entries populate the UI
  * **Examples ▾** dropdown (see `exampleGroups`) and are the configs
  * covered by the examples-library round-trip/physics tests.
  *
@@ -5043,6 +5046,7 @@ export const examples: Record<string, NetworkConfig> = {
   "Heated pipe with radiating wall (conjugate HT)": heatedPipeRadiatingWall,
   "Spacecraft radiator panel (ammonia loop heat pipe)": spacecraftRadiatorPanel,
   "LOX/RP-1 thruster (combustor)": thrusterCombustor,
+  "LOX/RP-1 thruster (transient startup)": thrusterCombustorTransient,
   "Water-water counterflow heat exchanger": gfsspEx5WaterWaterHX,
   "Entrapped-air line": leeMartinEntrappedAir,
   "Extension: Cryo tank vent control (transient)": extensionAdvancedExample,

@@ -479,10 +479,17 @@ export function createInitialState(
       const T = node.temperature ?? 300;
       nodeP.set(node.id, P);
       nodeT.set(node.id, T);
-      if (ctx.isRealFluid) {
-        // Mixed-EOS network: the real-fluid machinery reads state.nodeH for
-        // EVERY node, so analytic nodes carry h = h(P, T) too (exact — their
-        // enthalpy is a function of T alone) with no quality/phase.
+      if (ctx.isRealFluid || ctx.kineticEnergy) {
+        // Mixed-EOS network, OR any coupled-h system (settings.kineticEnergy
+        // — steady always, transient for the analytic EOS classes; see
+        // useCoupledHMode in ./kernel.ts): that machinery reads state.nodeH
+        // for EVERY node, so analytic nodes carry h = h(P, T) too (exact —
+        // their enthalpy is a function of T alone) with no quality/phase.
+        // Populating it here (not just in step.ts's own per-attempt seed)
+        // matters for transient: the FIRST step's `prevState` is this very
+        // initial state, and the transient storage row reads
+        // `prevState.nodeH` unconditionally once the node has an energy
+        // column.
         nodeH.set(node.id, nodeFluid.enthalpyPT(P, T));
         nodeQuality.set(node.id, undefined);
         nodePhase.set(node.id, undefined);
@@ -516,7 +523,7 @@ export function createInitialState(
   for (const sNode of config.solidNodes ?? []) {
     solidT.set(sNode.id, sNode.temperature);
   }
-  if (ctx.isRealFluid) {
+  if (ctx.isRealFluid || ctx.kineticEnergy) {
     return {
       nodeP,
       nodeT,

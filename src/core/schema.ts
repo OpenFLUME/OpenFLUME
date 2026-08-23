@@ -459,9 +459,19 @@ export interface JunctionModelConfig {
  *
  * Only the product continuum's ideal-gas property closure (R, γ, μ, cp) is
  * Picard-lagged between outer iterations, with its own settle criterion.
- * See docs/combustion.md for the physics and the v1 limitations (steady +
- * kineticEnergy only; frozen composition downstream; reactant inlet
- * enthalpy not yet a model input).
+ *
+ * Requires settings.kineticEnergy (steady or transient — both drive the
+ * coupled enthalpy system the closure's energy row needs; see
+ * useCoupledHMode in core/solver/kernel.ts).  In TRANSIENT the chamber's
+ * MASS row still carries a real d(ρV)/dt storage term like any other
+ * internal node (needs `node.volume`), so Pc has genuine fill/drain
+ * dynamics; only the ENERGY row stays algebraic/quasi-steady
+ * (h = efficiency·h(T0), no storage term) — physically appropriate because
+ * the chamber's combustion/residence time (~ms) sits far below any transient
+ * a boundary schedule would author, but see docs/combustion.md before
+ * relying on it for microsecond-scale transients.  See docs/combustion.md
+ * for the physics and the remaining v1 limitations (frozen composition
+ * downstream; reactant inlet enthalpy not yet a model input).
  */
 export interface JunctionConfig {
   id: string;
@@ -688,8 +698,9 @@ export interface NetworkConfig {
    *  solves only — validate.ts rejects controllers in steady mode. */
   controllers?: ControllerConfig[];
   /** Reacting junctions (core/solver/kernel.ts energy-closure rows).
-   *  Steady + kineticEnergy solves only — validate/junctions.ts rejects
-   *  anything else in v1.  See JunctionConfig for the physics. */
+   *  Requires settings.kineticEnergy (steady or transient); forbidden with
+   *  species transport — validate/junctions.ts enforces both.  See
+   *  JunctionConfig for the physics. */
   junctions?: JunctionConfig[];
   /** User-code component library, keyed by component name. */
   componentLibrary?: Record<string, UserComponentLibraryEntry>;
@@ -982,6 +993,44 @@ export interface JunctionSummary {
   clampedOf: boolean;
 }
 
+/**
+ * Per-accepted-step reacting-junction summary trajectory — the TRANSIENT
+ * analogue of JunctionSummary, aligned 1:1 with TransientResult.times.  Same
+ * reporting-only contract: nothing here feeds back into the solve, and in
+ * transient the closure itself is still quasi-steady in energy (it is
+ * re-evaluated fresh from each step's converged state, not integrated) —
+ * see docs/combustion.md, "Transient reacting junctions".
+ */
+export interface JunctionSummaryHistory {
+  /** Solved junction (chamber) pressure [Pa]. */
+  pc: number[];
+  /** Solved product-node temperature [K] (efficiency already applied). */
+  productTemperature: number[];
+  /** Per-role inlet mass flows [kg/s] (Σ|ṁ| over that role's inlets). */
+  mdotByRole: Record<string, number[]>;
+  /** Total product mass flow Σ inlets [kg/s]. */
+  mdotTotal: number[];
+  /** Oxidizer/fuel mass ratio — present when the model uses those roles. */
+  of?: number[];
+  /** Product gas state trajectory from the thermochemistry model at each
+   *  step's (pc, inlet flows): adiabatic T0, mw, R, gamma, cp, mu, cstar. */
+  gas: {
+    T0: number[];
+    mw: number[];
+    R: number[];
+    gamma: number[];
+    cp: number[];
+    mu: number[];
+    cstar: number[];
+  };
+  /** True at steps where the solved pc fell outside the model's tabulated
+   *  pressure range and was clamped to the nearest edge. */
+  clampedPc: boolean[];
+  /** True at steps where the solved mixture ratio fell outside the
+   *  tabulated range and was clamped to the nearest edge. */
+  clampedOf: boolean[];
+}
+
 export interface SteadyResult {
   converged: boolean;
   iterations: number;
@@ -1136,6 +1185,11 @@ export interface TransientResult {
   >;
   branches: Record<string, BranchFlowHistories & { mdot: number[] }>;
   solidNodes?: Record<string, { temperature: number[] }>;
+  /** Per-junction reporting-summary trajectories, keyed by JunctionConfig.id
+   *  — present only when the network declares reacting junctions.
+   *  Transient analogue of SteadyResult.junctions; see
+   *  JunctionSummaryHistory. */
+  junctions?: Record<string, JunctionSummaryHistory>;
   conductors?: Record<
     string,
     {

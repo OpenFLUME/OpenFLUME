@@ -19,8 +19,8 @@ import {
 } from "../../substrate/textProjection";
 
 describe("examples library text round-trip", () => {
-  it("covers exactly 12 examples", () => {
-    expect(Object.keys(examples)).toHaveLength(12);
+  it("covers exactly 13 examples", () => {
+    expect(Object.keys(examples)).toHaveLength(13);
   });
 
   const failures: string[] = [];

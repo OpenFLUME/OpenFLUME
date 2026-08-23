@@ -21,20 +21,26 @@
  *      shell, coolant films on base/fins/shell) solved exactly with
  *      mean-temperature copper k, vs the solver's three solid layers;
  *      global coolant energy balance; analytic fin efficiency.
+ *   5. Transient reacting junction — the startup-ramp thruster example
+ *      (src/ui/thrusterCombustorTransient.ts), quasi-static energy closure
+ *      at every implicit step, checked against a steady solve of the same
+ *      network held at the fully-ramped feed pressure.
  *
  * All numbers and figures come from live solves — rerun after solver changes:
  *
  *   npx tsx scripts/combustion-validation-report.ts
  *
  * CI gate: src/core/__tests__/reactingJunction.test.ts (junction physics,
- * validation rules, robustness) and src/ui/tests/examples.test.ts (the
- * thruster example solves and passes invariants).
+ * validation rules, robustness, and the transient startup ramp) and
+ * src/ui/tests/examples.test.ts (both the steady and transient thruster
+ * examples solve and pass invariants).
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { decodeAndValidateNetwork } from "../src/core/config";
 import { solveSteady } from "../src/core/solver";
+import { solveTransient } from "../src/core";
 import type { NetworkConfig } from "../src/core";
 import {
   combustionGasBounds,
@@ -42,6 +48,7 @@ import {
 } from "../src/core/combustion/combustionGas";
 import { getSolidMaterialTable } from "../src/core/solidProperties";
 import { thrusterCombustor } from "../src/ui/thrusterCombustor";
+import { thrusterCombustorTransient } from "../src/ui/thrusterCombustorTransient";
 
 /* ==========================================================================
  * Formatting helpers
@@ -1204,6 +1211,107 @@ writeFig(
 );
 
 /* ==========================================================================
+ * Part 5 — transient reacting junction (LOX/RP-1 startup ramp)
+ * ========================================================================== */
+
+console.log("Part 5 — transient reacting junction (LOX/RP-1 startup ramp)");
+
+const PSI = 6894.757293168361;
+const FEED_PSI_FINAL = 1000;
+
+const { config: tConfig, errors: tErrors } = decodeAndValidateNetwork(
+  JSON.parse(JSON.stringify(thrusterCombustorTransient)) as NetworkConfig,
+);
+if (tErrors.length)
+  throw new Error(`invalid transient thruster network:\n${tErrors.join("\n")}`);
+const tRes = solveTransient(tConfig);
+if (!tRes.converged)
+  throw new Error("transient thruster solve did not converge");
+const tJn = tRes.junctions!.mainCombustor;
+const tTimes = tRes.times;
+const tChamberP = tRes.nodes.chamber.pressure;
+const tLoxP = tRes.nodes.loxTank.pressure;
+const tExhaustP = tRes.nodes.exhaust.pressure;
+const tLast = tTimes.length - 1;
+
+// Quasi-static reference: the SAME network held steady at the ramp's final
+// (fully-ramped, 1000 psi) feed pressure — not the steady thrusterCombustor
+// example above, which is authored at its own (lower) feed pressure and so
+// is not a valid reference point for this comparison.
+const steadyAtFinalFeedCfgRaw = JSON.parse(
+  JSON.stringify(thrusterCombustorTransient),
+) as NetworkConfig;
+steadyAtFinalFeedCfgRaw.settings = {
+  ...steadyAtFinalFeedCfgRaw.settings,
+  mode: "steady",
+};
+for (const id of ["loxTank", "fuelTank"]) {
+  const n = steadyAtFinalFeedCfgRaw.nodes.find((nd) => nd.id === id)!;
+  delete n.pressureSchedule;
+  n.pressure = FEED_PSI_FINAL * PSI;
+}
+const steadyAtFinalFeed = decodeAndValidateNetwork(steadyAtFinalFeedCfgRaw);
+if (steadyAtFinalFeed.errors.length)
+  throw new Error(
+    `invalid steady-at-final-feed network:\n${steadyAtFinalFeed.errors.join("\n")}`,
+  );
+const tSteadyRef = solveSteady(steadyAtFinalFeed.config);
+if (!tSteadyRef.converged)
+  throw new Error("steady-at-final-feed solve did not converge");
+const tSteadyJn = tSteadyRef.junctions!.mainCombustor;
+
+const rampEndIdx = tTimes.findIndex((t) => t >= 1.0);
+const heldP = tChamberP.slice(rampEndIdx);
+const heldSpread = (Math.max(...heldP) - Math.min(...heldP)) / heldP[0];
+const pcQuasiStaticErr =
+  Math.abs(tChamberP[tLast] - tSteadyRef.nodes.chamber.pressure) /
+  tSteadyRef.nodes.chamber.pressure;
+const t0QuasiStaticErr =
+  Math.abs(tJn.gas.T0[tLast] - tSteadyJn.gas.T0) / tSteadyJn.gas.T0;
+const ofQuasiStaticErr =
+  Math.abs(tJn.of![tLast] - tSteadyJn.of!) / tSteadyJn.of!;
+const exhaustSpread =
+  (Math.max(...tExhaustP) - Math.min(...tExhaustP)) /
+  (tExhaustP.reduce((a, b) => a + b, 0) / tExhaustP.length);
+
+writeFig(
+  9,
+  "transient-startup",
+  lineChart({
+    title: "LOX/RP-1 startup ramp: feed and chamber pressure vs time",
+    xLabel: "t [s]",
+    yLabel: "P [kPa]",
+    series: [
+      {
+        label: "LOX/RP-1 feed pressure (authored schedule)",
+        pts: tTimes.map((t, i) => [t, tLoxP[i] / 1e3]),
+        color: C.blue,
+        mode: "both",
+        marker: "square",
+      },
+      {
+        label: "chamber pressure Pc (solved)",
+        pts: tTimes.map((t, i) => [t, tChamberP[i] / 1e3]),
+        color: C.red,
+        mode: "both",
+        marker: "circle",
+      },
+      {
+        label: "steady Pc at the fully-ramped feed pressure",
+        pts: [
+          [0, tSteadyRef.nodes.chamber.pressure / 1e3],
+          [2, tSteadyRef.nodes.chamber.pressure / 1e3],
+        ],
+        color: C.red,
+        mode: "line",
+        dash: "5 3",
+      },
+    ],
+    legend: "bottom-right",
+  }),
+);
+
+/* ==========================================================================
  * Assemble the report
  * ========================================================================== */
 
@@ -1234,9 +1342,10 @@ Generated by \`scripts/combustion-validation-report.ts\` — all numbers and
 figures come from live solves of the current solver. Regenerate with
 \`npx tsx scripts/combustion-validation-report.ts\`. The corresponding CI
 gates are \`src/core/__tests__/reactingJunction.test.ts\` (junction physics,
-validation rules, robustness from perturbed initial conditions) and the
-examples suite (the thruster solves and passes invariants). Model
-documentation: [docs/combustion.md](../combustion.md).
+validation rules, robustness from perturbed initial conditions, and the
+transient startup ramp) and the examples suite (both the steady and
+transient thruster examples solve and pass invariants). Model documentation:
+[docs/combustion.md](../combustion.md).
 
 ## Abstract
 
@@ -1246,16 +1355,18 @@ closure h = η·h(T0(Pc, O/F)) with T0 from NASA CEA equilibrium tables,
 solved inside the monolithic Newton system — and validates the complete
 LOX/RP-1 thruster example (feed circuits, injectors, chamber, choked
 converging–diverging nozzle, and a ${stations.length}-station three-layer
-regenerative cooling jacket) against closed-form analytical solutions. Four groups of
-checks are made: (1) thermodynamic self-consistency of the committed CEA
-tables (cp = γR/(γ−1) and the frozen c\\* closed form) across the entire
-tabulated (Pc, O/F) domain; (2) integral engine quantities against the
-choked-flow, orifice, and chamber-closure closed forms; (3) nozzle
+regenerative cooling jacket) against closed-form analytical solutions. Five
+groups of checks are made: (1) thermodynamic self-consistency of the
+committed CEA tables (cp = γR/(γ−1) and the frozen c\\* closed form) across
+the entire tabulated (Pc, O/F) domain; (2) integral engine quantities against
+the choked-flow, orifice, and chamber-closure closed forms; (3) nozzle
 pressure/temperature/Mach profiles against a frozen-γ isentropic reference
 and an RK4 integration of the generalized quasi-1-D compressible ODE with
-friction and wall-heat extraction; and (4) the per-station three-layer wall
-stack against an exact series–parallel thermal-resistance network. The
-solver (default limited-upwind momentum faces,
+friction and wall-heat extraction; (4) the per-station three-layer wall
+stack against an exact series–parallel thermal-resistance network; and (5)
+the transient (startup-ramp) reacting junction against the equivalent
+steady solution at the fully-ramped feed pressure. The solver (default
+limited-upwind momentum faces,
 \`settings.momentumFluxScheme: "upwind"\`) tracks the analytical references
 to ${pct(Math.max(subStats.maxP, subStats.maxT, subStats.maxM))} on the
 subsonic leg and ${pct(supStats.maxP)} on the supersonic leg (§3). Each leg
@@ -1263,7 +1374,10 @@ is anchored at a solved station, so those figures are *local* truncation.
 The dominant error is separate and integral: the sonic cell chokes at a
 slightly large effective throat state, biasing the mass flow by
 ${pct(Math.abs(mdotExcess))} and offsetting the entire Mach profile by about
-as much (§2). Wall temperatures agree to ${wallTmaxK.toExponential(1)} K.
+as much (§2). Wall temperatures agree to ${wallTmaxK.toExponential(1)} K. The
+transient startup ramp tracks its quasi-static reference to
+${pct(Math.max(pcQuasiStaticErr, t0QuasiStaticErr))} on chamber pressure and
+adiabatic temperature after the 1 s ramp and 1 s hold (§5).
 
 ## The Model Under Test
 
@@ -1531,6 +1645,53 @@ ${fig(7, "Wall stack temperatures along the engine: analytic resistance network 
 
 ${fig(8, "Gas-side wall heat flux along the engine: resistance network (line) vs solver (markers). The peak sits at the throat, as the (Dt/D)^1.8 film scaling dictates.")}
 
+## 5. Transient Reacting Junction (Startup Ramp)
+
+The transient example (\`src/ui/thrusterCombustorTransient.ts\`) reuses the
+same feed/nozzle/jacket network as §§1–4, with every node given a volume for
+mass-storage and the LOX/RP-1 feed pressures ramped
+${100} → ${FEED_PSI_FINAL} psi over the first second, then held for a second
+more. The junction's energy row stays the quasi-steady CEA closure of §§1–4
+at every implicit step (\`useCoupledHMode\`, core/solver/kernel.ts) — only the
+chamber's ordinary mass row (\`d(ρV)/dt\`) is genuinely transient — so the
+chamber should track the feed **quasi-statically**: at each instant, close to
+the steady solution the same feed pressure would produce. That is exactly
+what the coupled Newton system's own quasi-steady energy treatment predicts,
+and is what this section checks, against a steady solve of the identical
+network held at the fully-ramped (${FEED_PSI_FINAL} psi) feed pressure —
+not the §§1–4 thruster example, which is authored at its own, unrelated feed
+pressure.
+
+The exhaust boundary is fixed at 30 kPa (a plausible high-altitude ambient)
+rather than sea-level, because a sea-level exhaust produces an unphysical
+recompression kink at the last interior nozzle station at the low (100 psi)
+end of the ramp; 30 kPa was found empirically to remove that artifact at
+both ends of the ramp without perturbing the chamber physics
+([docs/combustion.md](../combustion.md), "Transient reacting junctions").
+The Newton tolerance is loosened from the §§1–4 default (1e-8) to 1e-7 for
+this example: near the top of the hold the inner Newton loop's unscaled
+residual grinds against a numerical noise floor at the tighter tolerance,
+inflating a single step's cost by more than 30× for no gain in accuracy (see
+the same section of docs/combustion.md).
+
+| Quantity | End of ramp+hold (transient) | Steady at ${FEED_PSI_FINAL} psi feed | deviation |
+| -------- | ----------------------------- | ------------------------------------- | --------- |
+| Chamber pressure Pc [kPa] | ${sig(tChamberP[tLast] / 1e3, 5)} | ${sig(tSteadyRef.nodes.chamber.pressure / 1e3, 5)} | ${pct(pcQuasiStaticErr)} |
+| Adiabatic T0 (CEA) [K] | ${tJn.gas.T0[tLast].toFixed(1)} | ${tSteadyJn.gas.T0.toFixed(1)} | ${pct(t0QuasiStaticErr)} |
+| O/F | ${tJn.of![tLast].toFixed(4)} | ${tSteadyJn.of!.toFixed(4)} | ${pct(ofQuasiStaticErr)} |
+
+Across the ${tTimes.length} accepted steps (fixed \`dt\` = ${tConfig.settings.dt} s
+to \`endTime\` = ${tConfig.settings.endTime} s), the chamber pressure rises
+monotonically through the ramp, then sits flat through the hold to a
+relative spread of ${pct(heldSpread)} (a numerical noise floor at the
+loosened tolerance, not a physical drift) — the LOX/RP-1 feed pressures
+reproduce the authored schedule exactly (${sig(tLoxP[0] / PSI, 4)} →
+${sig(tLoxP[tLast] / PSI, 4)} psi), and the fixed exhaust boundary holds
+to a ${pct(exhaustSpread)} spread across the whole run, confirming it never
+back-couples into the solve.
+
+${fig(9, `Feed and chamber pressure vs time through the ${tConfig.settings.endTime}-second startup ramp: the chamber (red) tracks the feed (blue) quasi-statically, converging onto the steady solution at the fully-ramped feed pressure (dashed) by the end of the hold.`)}
+
 ## Conclusions
 
 The reacting-junction formulation and the thruster case reproduce their
@@ -1551,7 +1712,12 @@ analytical references:
   of a scheme with no wrong-branch transonic roots;
 - the three-layer regenerative wall stack matches the exact resistance
   network to ${wallTmaxK.toExponential(1)} K and closes the coolant energy
-  balance to ${pct(coolantBalanceErr)}.
+  balance to ${pct(coolantBalanceErr)};
+- the transient startup ramp tracks its quasi-static reference (a steady
+  solve at the fully-ramped feed pressure) to
+  ${pct(Math.max(pcQuasiStaticErr, t0QuasiStaticErr, ofQuasiStaticErr))} on
+  chamber pressure, adiabatic temperature, and O/F, exactly as the junction's
+  quasi-steady energy treatment predicts.
 
 The one systematic integral deviation — a ${pct(Math.abs(mdotExcess))}
 excess of choked mass flow (equivalently a ${pct(Math.abs(cstarErr))} c\\*
@@ -1560,9 +1726,9 @@ limited-upwind momentum faces, independent of the combustion coupling. It is
 also the dominant error in the gas path: it is set at the sonic cell and
 then offsets the entire Mach profile, so it is the number to watch, and
 sonic-cell resolution is the lever that moves it. Known model limitations
-(steady + kineticEnergy only, frozen downstream composition, standard-state
-reactant injection, idealGas product fluid) are catalogued in
-[docs/combustion.md](../combustion.md).
+(quasi-steady junction energy even in transient mode, frozen downstream
+composition, standard-state reactant injection, idealGas product fluid) are
+catalogued in [docs/combustion.md](../combustion.md).
 
 ## References
 
