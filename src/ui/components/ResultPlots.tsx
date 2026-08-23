@@ -8,8 +8,8 @@
  * spatial distribution, and none of them is presumed.
  *
  * The tabs are the app's ordinary tabs (`.tab`, same as the workspace strip and
- * the Configuration sections) so they read as tabs without having to be
- * learned. Plots live in the store, so leaving the Runs tab does not discard
+ * the Setup sections) so they read as tabs without having to be
+ * learned. Plots live in the store, so leaving the Results tab does not discard
  * them.
  */
 import { useEffect, useMemo, useState } from "react";
@@ -295,7 +295,7 @@ export default function ResultPlots({
   const compareControl =
     comparableRuns.length === 0 ? null : (
       <div className="plot-compare" data-testid="plot-compare">
-        <span className="plot-compare__label">Runs</span>
+        <span className="plot-compare__label">Results</span>
         {primaryRunName && (
           <span
             className="plot-compare__chip"

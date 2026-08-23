@@ -254,9 +254,9 @@ function useCommands(onClose: () => void): Command[] {
       },
       {
         id: "open-settings",
-        label: "Go to Configuration",
+        label: "Go to Setup",
         hint: "view",
-        keywords: "settings solver physics fluids species units",
+        keywords: "settings configuration solver physics fluids species units",
         run: done(() => store.setActiveTab("config")),
       },
       {
@@ -270,9 +270,9 @@ function useCommands(onClose: () => void): Command[] {
       },
       {
         id: "tab-results",
-        label: "Go to Runs",
+        label: "Go to Results",
         hint: "view",
-        keywords: "results analysis plots history",
+        keywords: "runs analysis plots history",
         run: done(() => store.setActiveTab("results")),
       },
       {

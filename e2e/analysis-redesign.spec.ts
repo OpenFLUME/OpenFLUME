@@ -1,12 +1,12 @@
 /**
  * e2e/analysis-redesign.spec.ts — the redesigned Analysis workspace:
  *
- *   1. Fast steady run: the Runs tab opens on ONE EMPTY plot — an axis and an
+ *   1. Fast steady run: the Results tab opens on ONE EMPTY plot — an axis and an
  *      invitation, because nothing here should presume what the analyst came
- *      to look at; Runs / Diary / Details / Result tables are closed
+ *      to look at; Run history / Diary / Details / Result tables are closed
  *      disclosures opened via the sticky run strip (or their header).
  *   2. Two historical runs: the strip selector switches the displayed run
- *      and its captured context (stale flag follows); the Runs disclosure
+ *      and its captured context (stale flag follows); the Run history disclosure
  *      still supports rename / pin-baseline / delete.
  *   3. Fast transient run: the plot opens on a time axis and the preset
  *      control fills it (node pressures, temperatures, mass flow) with
@@ -658,7 +658,7 @@ test.describe("Analysis redesign", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("6. Plots are independent tabs that survive leaving the Runs tab", async ({
+  test("6. Plots are independent tabs that survive leaving the Results tab", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);

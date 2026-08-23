@@ -59,7 +59,7 @@ export interface RunStripState {
   partial?: boolean;
   /** Pinned comparison baseline name (null when unpinned). */
   baselineName?: string | null;
-  /** Number of records in run history (badge on the Runs button). */
+  /** Number of records in run history (badge on the Results section). */
   runCount?: number;
   /** Retained diary events for the displayed run (null → no diary). */
   diaryEventCount?: number | null;
@@ -80,7 +80,7 @@ export interface RunStripView {
   partial: boolean;
   /** "Baseline: <name>" (null → no baseline pill). */
   baselineText: string | null;
-  /** Count badge for the Runs button (null when history is empty). */
+  /** Count badge for the Results section (null when history is empty). */
   runsBadge: string | null;
   /** Count badge for the Solver diary button (null when no diary). */
   diaryBadge: string | null;

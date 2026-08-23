@@ -2161,7 +2161,7 @@ test.describe("OpenFLUME E2E", () => {
     ).toContainText("Baseline: Run 1");
 
     // Comparison UI: delta note + Δ columns in the steady tables (Result
-    // tables disclosure; the Runs disclosure stays open).
+    // tables disclosure; the Run history disclosure stays open).
     await openAnalysisSection(page, "final");
     await expect(
       page.locator('[data-testid="baseline-delta-note"]'),

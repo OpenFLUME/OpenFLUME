@@ -3,13 +3,13 @@
  *
  *   ┌ Toolbar ───────────────────────────────────────────────┐
  *   ├ outline │ tabs + center view              │ inspector ─┤
- *   │  tree   │ (Model / Configuration /        │ (docked    │
- *   │         │  Sweep / Runs)                  │  props)    │
+ *   │  tree   │ (Model / Setup / Sweep /        │ (docked    │
+ *   │         │  Results)                       │  props)    │
  *   └─────────┴─────────────────────────────────┴────────────┘
  *
- * The project outline (left, Ctrl+\ to toggle) covers configuration, model
+ * The project outline (left, Ctrl+\ to toggle) covers setup, model
  * entities, and run history with status icons; the Properties panel is a
- * dock that mounts on selection; every workspace — Configuration included —
+ * dock that mounts on selection; every workspace — Setup included —
  * is a tab in the center; Cmd/Ctrl+K opens the command palette.
  *
  * There is deliberately no bottom drawer: run outcome lives in the toolbar's

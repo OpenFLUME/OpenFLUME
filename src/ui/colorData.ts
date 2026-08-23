@@ -4,7 +4,7 @@
  *
  * The set of colorable quantities is not maintained here — it is the channel
  * field registry (ui/channels.ts), so anything the solver publishes and the
- * Analysis tab can plot can also paint the diagram, with the same label,
+ * Results tab can plot can also paint the diagram, with the same label,
  * unit kind and sign convention.  `ColorBy` is therefore a field NAME
  * (applied to whichever entity kinds carry that field: 'temperature' colors
  * fluid and solid nodes alike, 'heatFlux' colors conductors), and values are

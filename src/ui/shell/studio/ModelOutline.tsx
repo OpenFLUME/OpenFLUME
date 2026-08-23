@@ -3,14 +3,14 @@
  *
  * One searchable tree covers the WHOLE project, not just canvas entities:
  *
- *   CONFIGURATION   solver / physics / fluids (with named-fluid children) /
+ *   SETUP           solver / physics / fluids (with named-fluid children) /
  *                   species / units / extensibility — each row annotated with
- *                   its current value and clicking opens the settings page on
+ *                   its current value and clicking opens the Setup tab on
  *                   that section, so the tree doubles as a settings summary.
  *   MODEL           fluid nodes, branches, solid nodes, conductors, groups,
  *                   notes — click to select + zoom on the canvas.
- *   RUNS            run history records — click to select the run and open
- *                   the Runs view.
+ *   RESULTS         run history records — click to select the run and open
+ *                   the Results view.
  *
  * Rows that need attention carry a warning or error icon, fed by the
  * deterministic readiness checks and the live validation errors, so "what is
@@ -615,7 +615,7 @@ export default function ModelOutline() {
     [setActiveTab, setActiveGroupTab, setSelection, requestCanvasFocus],
   );
 
-  /** Open the Configuration workspace on a given section. */
+  /** Open the Setup workspace on a given section. */
   const openConfig = React.useCallback(
     (tab: SettingsTabId) => {
       setActiveTab("config");
@@ -934,7 +934,7 @@ export default function ModelOutline() {
       </div>
       <div className="model-outline__scroll" onScroll={hover.dismiss}>
         {(!filtering || configRows.length > 0) && (
-          <Section id="configuration" title="Configuration" rows={configRows} />
+          <Section id="configuration" title="Setup" rows={configRows} />
         )}
         {(!filtering || nodeRows.length > 0) && (
           <Section
@@ -1000,7 +1000,7 @@ export default function ModelOutline() {
         {(!filtering || runRows.length > 0) && (
           <Section
             id="results"
-            title="Runs"
+            title="Results"
             rows={runRows}
             emptyHint="Run the model to record results here."
             actions={

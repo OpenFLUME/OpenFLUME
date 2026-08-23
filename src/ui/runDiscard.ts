@@ -3,7 +3,7 @@
  *
  * Discarding is permanent: it is outside the undo history and it clears the
  * browser-storage mirror, so a reload will not bring the runs back. Both
- * places that offer it (the project outline's Runs section and the Runs tab's
+ * places that offer it (the project outline's Results section and the Results tab's
  * run history) ask first, and they ask with the same words — hence one module
  * rather than the same sentence written twice.
  */

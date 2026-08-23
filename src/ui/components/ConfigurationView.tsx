@@ -620,9 +620,9 @@ export function SettingsSections({ only }: { only?: SettingsTabId }) {
 }
 
 /**
- * The Configuration workspace view: everything global about the model that is
- * not the network itself. One of the four center views (Model, Configuration,
- * Sweep, Runs), reached from the tab strip or from a Configuration row in the
+ * The Setup workspace view: everything global about the model that is
+ * not the network itself. One of the four center views (Model, Setup,
+ * Sweep, Results), reached from the tab strip or from a Setup row in the
  * project outline — which is why it shares that section's name.
  *
  * These settings belong to the ACTIVE VARIANT: editing them while a variant
@@ -632,12 +632,12 @@ export function SettingsSections({ only }: { only?: SettingsTabId }) {
 export default function ConfigurationView() {
   return (
     // No visible heading: the selected tab already names this view, and a
-    // second "Configuration" title under it read as a duplicate.
+    // second "Setup" title under it read as a duplicate.
     <div
       data-testid="configuration-view"
       className="shell-studio__settings-page"
       role="region"
-      aria-label="Configuration"
+      aria-label="Setup"
     >
       <SettingsSections />
     </div>

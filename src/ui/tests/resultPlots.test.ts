@@ -1,5 +1,5 @@
 /**
- * resultPlots.ts — the plot model behind the Runs tab's tabs.
+ * resultPlots.ts — the plot model behind the Results tab's tabs.
  *
  * A plot is an x axis plus a list of channels — nothing else. These tests pin
  * what the UI leans on: an empty plot on the mode's natural axis, names that

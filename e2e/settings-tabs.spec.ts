@@ -1,12 +1,12 @@
 /**
- * e2e/settings-tabs.spec.ts — the Configuration tab's six sections and the
+ * e2e/settings-tabs.spec.ts — the Setup tab's six sections and the
  * fields they newly expose.
  *
  * Everything asserted here used to require hand-editing the model text: the
  * compressible formulation flags, the Newton strategy knobs, the closure
  * constants, and the species block. The point of the spec is that a user can
  * now reach them through the UI, that the edits land in the saved model, and
- * that a compressible solve driven entirely from Configuration converges.
+ * that a compressible solve driven entirely from Setup converges.
  */
 import { test, expect, Page } from "@playwright/test";
 import * as fs from "fs";

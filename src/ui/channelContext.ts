@@ -325,7 +325,7 @@ export function buildContextGraph(
 }
 
 /**
- * The WHOLE placeable network as a context graph, for the Runs view's path
+ * The WHOLE placeable network as a context graph, for the Results view's path
  * schematic: every node with finite coordinates, and every branch/conductor
  * whose endpoints both resolve. Same invariant as buildContextGraph (no
  * dangling edges), same shape, so `layoutContextGraph` positions either.

@@ -61,12 +61,12 @@ import type { ColorBy, ColorDomainOverrides } from "./colorData";
 
 export type { ColorBy };
 
-/** Workspace views, in tab-strip order. `config` is the global-configuration
- *  page — a center view like the others, not a modal. */
+/** Workspace views, in tab-strip order. `config` is the Setup tab —
+ *  a center view like the others, not a modal. */
 export type AppTab = "editor" | "config" | "sweep" | "results";
 
-/** Horizontal sections of the Global Settings dialog. `solver` is the landing
- *  tab, so opening the dialog always shows the basics first. */
+/** Horizontal sections of the Setup workspace tab. `solver` is the
+ *  landing section, so opening the tab always shows the basics first. */
 export type SettingsTabId =
   "solver" | "physics" | "fluids" | "species" | "units" | "extensibility";
 
@@ -122,9 +122,9 @@ interface StoreState {
   activeTab: AppTab;
   settingsTab: SettingsTabId;
   /**
-   * The Runs tab's plots, one per tab, and which is showing.
+   * The Results tab's plots, one per tab, and which is showing.
    *
-   * Session UI state, not model data: it lives here rather than in the Runs
+   * Session UI state, not model data: it lives here rather than in the Results
    * view so switching to the canvas and back does not throw away the plots the
    * user built. Cleared with the rest of the session when a different model is
    * loaded, because a plot names channels of the model it was made for.
@@ -625,7 +625,7 @@ export const useStore = create<StoreState>((set, get) => {
   /**
    * Everything a new model must forget.  Run history is scoped to the loaded
    * model: leaving it alone used to mix runs from the previous file into the
-   * new one's Runs tab, which is indistinguishable from a wrong answer.
+   * new one's Results tab, which is indistinguishable from a wrong answer.
    */
   const clearedSession = () => {
     clearRunsLocalStorage();
@@ -755,7 +755,7 @@ export const useStore = create<StoreState>((set, get) => {
     // reload resumes the session rather than discarding its runs.
     runHistory: initialRuns,
     runSeq: initialRuns.length,
-    // Plots are seeded by the Runs view from the displayed result's inventory,
+    // Plots are seeded by the Results view from the displayed result's inventory,
     // which is not known here.
     resultPlots: [],
     activePlotId: null,
@@ -1534,7 +1534,7 @@ export const useStore = create<StoreState>((set, get) => {
       set({
         activeTab: tab,
         activeGroupTab: null,
-        // Leaving Configuration returns it to its landing section, so it
+        // Leaving Setup returns it to its landing section, so it
         // always opens on Solver rather than wherever you last were.
         ...(tab === "config" ? {} : { settingsTab: "solver" as SettingsTabId }),
       }),

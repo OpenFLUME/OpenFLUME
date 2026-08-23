@@ -1,5 +1,5 @@
 /**
- * RunHistoryPanel — run history + baseline pinning (Runs view).
+ * RunHistoryPanel — run history + baseline pinning (Results view).
  *
  * The store ring-buffers the last 10 completed runs; running again never
  * destroys prior results. Each row: editable name, timestamp, mode, outcome,

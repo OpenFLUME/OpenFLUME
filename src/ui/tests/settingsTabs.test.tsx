@@ -130,7 +130,7 @@ describe("Settings dialog tabs", () => {
     expect(s().settingsTab).toBe("solver");
   });
 
-  it("keeps the section while Configuration stays active", () => {
+  it("keeps the section while Setup stays active", () => {
     const s = () => useStore.getState();
     s().setActiveTab("config");
     s().setSettingsTab("physics");

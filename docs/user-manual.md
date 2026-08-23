@@ -73,12 +73,14 @@ Four equation-of-state classes are supported: constant-density incompressible
 liquid, ideal gas with user-settable gas constants, thermal-expansion liquid for
 buoyancy-driven circulation, and real fluid through a CoolProp WebAssembly
 sidecar, with a generated 124-fluid HEOS catalogue and nine curated favorites.
-Eighteen branch component
-types model momentum sources and sinks: pipe, orifice, compressible orifice,
-cavitating venturi, generic resistance, valve, check valve, dynamic check valve,
-relief valve, pump, bend, area change, flow source, pressure regulator, heated
-pipe, tabulated pressure drop, Reynolds-dependent custom resistance, and
-user-authored JavaScript components. Conjugate heat transfer is available through solid lumped
+Seventeen branch component
+types model momentum sources and sinks: pipe, orifice, cavitating venturi,
+generic resistance, valve, check valve, dynamic check valve, relief valve, pump,
+bend, area change, flow source, pressure regulator, heated pipe, tabulated
+pressure drop, Reynolds-dependent custom resistance, and user-authored
+JavaScript components. A single `orifice` applies the ISO/AGA expansibility
+factor from the branch fluid — liquids stay incompressible; gases choke.
+Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a sourced temperature-dependent material catalogue and five
 convection heat-transfer models including two cryogenic chilldown correlations.
@@ -112,54 +114,86 @@ incidental gaps but consequences of the method.
 
 ## Nomenclature
 
-| Symbol        | Quantity                                            | Unit      |
-| ------------- | --------------------------------------------------- | --------- |
-| $A$           | flow or heat transfer area                          | m²        |
-| $C_d$         | discharge coefficient                               | —         |
-| $c_p$         | specific heat at constant pressure                  | J/(kg·K)  |
-| $c_v$         | specific heat at constant volume                    | J/(kg·K)  |
-| $D$           | diameter (hydraulic)                                | m         |
-| $F$           | radiation view factor                               | —         |
-| $f$           | Darcy friction factor                               | —         |
-| $G$           | mass flux                                           | kg/(m²·s) |
-| $g$           | gravitational acceleration, 9.80665                 | m/s²      |
-| $h$           | specific enthalpy                                   | J/kg      |
-| $h_c$         | convection heat transfer coefficient                | W/(m²·K)  |
-| $K$           | loss coefficient                                    | —         |
-| $k$           | thermal conductivity                                | W/(m·K)   |
-| $L$           | length                                              | m         |
-| $\dot m$      | mass flow rate                                      | kg/s      |
-| $m$           | mass                                                | kg        |
-| $\mathrm{Nu}$ | Nusselt number                                      | —         |
-| $n$           | polytropic index                                    | —         |
-| $P$           | pressure                                            | Pa        |
-| $\mathrm{Pr}$ | Prandtl number                                      | —         |
-| $Q$           | volumetric flow rate                                | m³/s      |
-| $\dot Q$      | heat transfer rate                                  | W         |
-| $R$           | specific gas constant                               | J/(kg·K)  |
-| $\mathrm{Re}$ | Reynolds number                                     | —         |
-| $T$           | temperature                                         | K         |
-| $t$           | time                                                | s         |
-| $UA$          | overall conductance                                 | W/K       |
-| $u$           | specific internal energy                            | J/kg      |
-| $V$           | volume                                              | m³        |
-| $v$           | velocity                                            | m/s       |
-| $x$           | vapor quality                                       | —         |
-| $Y$           | mass fraction                                       | —         |
-| $z$           | elevation (positive up)                             | m         |
-| $\beta$       | volumetric thermal expansion coefficient            | 1/K       |
-| $\gamma$      | ratio of specific heats                             | —         |
-| $\Delta P$    | pressure drop, $P_\text{from} - P_\text{to}$        | Pa        |
-| $\Delta t$    | time step                                           | s         |
-| $\varepsilon$ | pipe roughness; also effectiveness; also emissivity | m; —; —   |
-| $\mu$         | dynamic viscosity                                   | Pa·s      |
-| $\rho$        | density                                             | kg/m³     |
-| $\sigma$      | Stefan–Boltzmann constant, 5.670374×10⁻⁸            | W/(m²·K⁴) |
-| $\omega$      | under-relaxation factor                             | —         |
+| Symbol        | Quantity                                                                                         | Unit      |
+| ------------- | ------------------------------------------------------------------------------------------------ | --------- |
+| $A$           | flow or heat transfer area                                                                       | m²        |
+| $a$           | speed of sound                                                                                   | m/s       |
+| $C$           | quadratic loss coefficient, $1/(2\rho C_d^2 A^2)$                                                | 1/(kg·m)  |
+| $C_d$         | discharge coefficient                                                                            | —         |
+| $d$           | orifice or pipe bore (diameter ratio $\beta = d/D$)                                              | m         |
+| $c$           | damping coefficient (dynamic check valve)                                                        | N·s/m     |
+| $c_p$         | specific heat at constant pressure                                                               | J/(kg·K)  |
+| $c_v$         | specific heat at constant volume                                                                 | J/(kg·K)  |
+| $D$           | diameter (hydraulic)                                                                             | m         |
+| $F$           | radiation view factor; also force ($F_\text{preload}$)                                           | —; N      |
+| $f$           | Darcy friction factor                                                                            | —         |
+| $G$           | mass flux                                                                                        | kg/(m²·s) |
+| $g$           | gravitational acceleration, 9.80665                                                              | m/s²      |
+| $h$           | specific enthalpy; also liquid height (hydrostatic-column check)                                 | J/kg; m   |
+| $h_0$         | stagnation enthalpy, $h + \tfrac12 v^2$                                                          | J/kg      |
+| $h_c$         | convection heat transfer coefficient (property panel: **Specified h**)                           | W/(m²·K)  |
+| $\mathbf{J}$  | Jacobian of the residual                                                                         | —         |
+| $K$           | loss coefficient, including $K_{90}$, $K_\text{bend}$, $K_\text{exp}$, $K_\text{con}$            | —         |
+| $k$           | thermal conductivity; also spring stiffness                                                      | W/(m·K); N/m |
+| $L$           | length                                                                                           | m         |
+| $M$           | Mach number, $v/a$                                                                               | —         |
+| $\dot m$      | mass flow rate                                                                                   | kg/s      |
+| $m$           | mass                                                                                             | kg        |
+| $\mathrm{Nu}$ | Nusselt number                                                                                   | —         |
+| $n$           | polytropic index                                                                                 | —         |
+| $O/F$         | oxidizer-to-fuel mass ratio                                                                      | —         |
+| $P$           | pressure                                                                                         | Pa        |
+| $P_v$         | saturation (vapor) pressure                                                                      | Pa        |
+| $\mathrm{Pr}$ | Prandtl number                                                                                   | —         |
+| $p$           | valve or poppet fractional opening                                                               | —         |
+| $Q$           | volumetric flow rate                                                                             | m³/s      |
+| $\dot Q$      | heat transfer rate                                                                               | W         |
+| $R$           | specific gas constant; also reverse-flow resistance $R(\dot m)$                                  | J/(kg·K); Pa·s/kg |
+| $\mathbf{R}$  | residual vector                                                                                  | —         |
+| $\mathrm{Re}$ | Reynolds number                                                                                  | —         |
+| $r$           | pressure ratio $P_\text{down}/P_\text{up}$; also venturi recovery factor                         | —         |
+| $r_*$         | critical (choke) pressure ratio, $(2/(\kappa+1))^{\kappa/(\kappa-1)}$                            | —         |
+| $T$           | temperature                                                                                      | K         |
+| $T_0$         | stagnation temperature; also EOS reference temperature                                           | K         |
+| $t$           | time                                                                                             | s         |
+| $UA$          | overall conductance                                                                              | W/K       |
+| $u$           | specific internal energy                                                                         | J/kg      |
+| $V$           | volume                                                                                           | m³        |
+| $v$           | velocity                                                                                         | m/s       |
+| $\mathbf{x}$  | Newton unknown vector                                                                            | —         |
+| $x$           | vapor quality; also poppet travel                                                                | —; m      |
+| $Y$           | ISO/AGA expansibility factor; also Miropolskii two-phase factor; also species mass fraction      | —         |
+| $z$           | elevation (positive up)                                                                          | m         |
+| $\beta$       | volumetric thermal expansion coefficient; also orifice diameter ratio ($d/D$)                    | 1/K; —    |
+| $\gamma$      | ratio of specific heats                                                                          | —         |
+| $\Delta P$    | pressure drop, $P_\text{from} - P_\text{to}$                                                     | Pa        |
+| $\Delta T$    | temperature difference                                                                           | K         |
+| $\Delta t$    | time step                                                                                        | s         |
+| $\Delta z$    | elevation change, $z_\text{to} - z_\text{from}$                                                  | m         |
+| $\varepsilon$ | pipe roughness; also effectiveness; also emissivity                                              | m; —; —   |
+| $\epsilon$    | smoothing scale in $\tanh$ switches                                                              | kg/s      |
+| $\eta$        | energy-release efficiency (reacting junction)                                                    | —         |
+| $\kappa$      | isentropic exponent ($\gamma$ for an ideal gas; $a^2\rho/P$ for a real fluid)                    | —         |
+| $\mu$         | dynamic viscosity                                                                                | Pa·s      |
+| $\rho$        | density                                                                                          | kg/m³     |
+| $\rho_0$      | reference density (expandable-liquid EOS)                                                        | kg/m³     |
+| $\sigma$      | Stefan–Boltzmann constant, 5.670374×10⁻⁸                                                         | W/(m²·K⁴) |
+| $\tau$        | time constant                                                                                    | s         |
+| $\theta$      | bend angle                                                                                       | deg       |
+| $\omega$      | under-relaxation factor                                                                          | —         |
 
 **Subscripts.** `from`, `to` — branch or conductor endpoints in declared
-orientation. `up`, `dn` — upstream, downstream by sign of $\dot m$. `f`, `g` —
-saturated liquid, saturated vapor. `w` — wall. `sat` — saturation.
+orientation. `up`, `down`/`dn` — upstream, downstream by sign of $\dot m$.
+`f`, `g` — saturated liquid, saturated vapor; `g` is also the cushion gas
+volume $V_g$. `w` — wall; also the incompressible liquid volume $V_w$ in a
+cushion. `sat` — saturation. `0` — stagnation or EOS reference.
+`src` — source. `c` — component drop $\Delta P_c$, or chamber ($P_c$).
+`disc`, `stroke`, `preload`, `crack`, `full` — dynamic / relief-valve geometry
+and set-points. `in`, `out` — area-change ports. `set` — regulator set pressure.
+`top` — free surface of a hydrostatic column. `arc` — bend centreline arc.
+
+**Superscripts.** $n$, $n+1$ — time level. $\|\mathbf{R}\|_\infty$ — infinity
+norm of the residual.
 
 **Abbreviations.** AD, automatic differentiation. BDF1, first-order backward
 differentiation formula. EOS, equation of state. FD, finite difference. HEM,
@@ -502,19 +536,21 @@ Then run a transient:
 
 1. Choose **Tank blowdown** from _Applications_ — a 0.1 m³ air tank at 500 kPa,
    300 K venting through an orifice to atmosphere over 5 s.
-2. Click **Run**. The view switches to the **Runs** tab and charts build as the
-   run progresses. Tank pressure should decay monotonically toward 101 325 Pa and
-   tank temperature should fall well below its initial 300 K, since the expansion
-   is adiabatic, not isothermal.
+2. Click **Run**. The status pill reports **Converged** with the accepted step
+   count. Open the **Results** tab. A new plot starts empty — from **or plot a
+   whole set…** choose **Node pressure** to chart tank and ambient pressure
+   versus time. Tank pressure should decay monotonically toward 101 325 Pa.
+   The **Node & solid temperature** preset shows tank temperature falling well
+   below its initial 300 K: the expansion is adiabatic, not isothermal.
 3. Return to the **Model** tab. A time scrubber has appeared below the canvas;
    drag it and, with **Color by** set to **Pressure**, watch the network recolor
    through the blowdown.
 
-![The Runs tab after the tank blowdown transient, showing the tank pressure decay chart](figures/user-manual/tank-blowdown-results.png)
+![The Results tab after the tank blowdown transient, showing tank and ambient pressure versus time](figures/user-manual/tank-blowdown-results.png)
 
-_Figure 2-2. The **Runs** tab after the tank-blowdown transient: tank
-pressure decays from 500 kPa toward atmosphere over the 5 s run, 501 accepted
-steps._
+_Figure 2-2. The **Results** tab after the tank-blowdown transient, with the
+**Node pressure** preset: tank pressure decays from 500 kPa toward atmosphere
+over the 5 s run, 501 accepted steps._
 
 ![The Model tab after the transient run, colored by pressure, with the time scrubber below the canvas](figures/user-manual/tank-blowdown-scrubber.png)
 
@@ -1592,13 +1628,13 @@ Beneath the toolbar, a tab strip selects the workspace:
 | ------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Model**           | The P&ID canvas — the default view                                                                          |
 | _(subnetwork tabs)_ | One closable tab per opened group, showing only its members plus ghost ports for cross-boundary connections |
-| **Configuration**   | Everything global about the model: solver, physics, fluids, species, units, extensibility                   |
+| **Setup**           | Everything global about the model: solver, physics, fluids, species, units, extensibility                   |
 | **Sweep**           | Session-only parameter-sweep workspace                                                                      |
-| **Runs**            | Channels explorer, result tables, run history, solver diary                                                 |
+| **Results**         | Channels explorer, result tables, run history, solver diary                                                 |
 
 To the left, the **Project outline** lists the whole project — the active
 variant's configuration and elements, plus every recorded run — and can be
-hidden with `Ctrl`+`\`. To the right, a docked **Properties** panel appears
+hidden with `Ctrl`/`Cmd`+`\`. To the right, a docked **Properties** panel appears
 whenever something is selected and gives its width back to the canvas
 otherwise; drag its left edge to resize it. See §6.11 for the outline and
 §6.12 for simulation variants.
@@ -1789,14 +1825,14 @@ tagged **stale** if the model has since changed.
 Formula-capable fields carry the **f(x)** button described in
 section 3.10.
 
-## 6.6 Configuration
+## 6.6 Setup
 
-The **Configuration** tab holds everything global about the model — everything
+The **Setup** tab holds everything global about the model — everything
 that is not the network itself — in six sections: **Solver**, **Physics**,
 **Fluids**, **Species**, **Units**, **Extensibility**. It always opens on
 **Solver**, and leaving the tab returns it there, so the basics are one click
 away and the advanced surfaces stay out of the way until you want them. Rows in
-the project outline's **Configuration** section open this tab directly on the
+the project outline's **Setup** section open this tab directly on the
 section they name.
 
 These settings belong to the **active variant** (§6.12): editing them while a
@@ -1854,9 +1890,9 @@ single ideal-gas continuum; the tab says so when the network cannot support it.
 **Extensibility** holds the registers, logic-rules, and controllers JSON
 editors.
 
-![The Configuration tab on its Solver section](figures/user-manual/configuration-view.png)
+![The Setup tab on its Solver section](figures/user-manual/configuration-view.png)
 
-_Figure 6-2. The Configuration tab on its Solver section: the section tabs
+_Figure 6-2. The Setup tab on its Solver section: the section tabs
 across the top, solution tolerances on the left, time stepping in the center,
 and the Advanced numerics disclosure on the right._
 
@@ -1864,14 +1900,14 @@ and the Advanced numerics disclosure on the right._
 
 Click **Run**. Validation runs first, and a model with issues will not solve —
 the status pill shows the count and opens a list in which each issue selects the
-offending element on the canvas. Progress appears in the toolbar and, for
-transients, live charts build in the **Runs** tab as steps complete.
-**Cancel** terminates the run and keeps the partial trajectory, labeled as
-partial.
+offending element on the canvas. Progress appears in the toolbar. If the
+**Results** tab is open with channels plotted, those series update live as
+transient steps complete. **Cancel** terminates the run and keeps the partial
+trajectory, labeled as partial.
 
-## 6.8 Analysis (Runs Tab)
+## 6.8 Analysis (Results Tab)
 
-The **Runs** tab is where results are read. **The tab's title is the run
+The **Results** tab is where results are read. **The tab's title is the run
 selector**: it names the displayed run and switches between **Latest run** and
 each historical run, with the outcome badge, the run's evidence (iterations or
 accepted steps), and any **partial** or baseline pill beside it. There is no
@@ -1885,11 +1921,11 @@ plots, each opened from its own header.
 
 ### Plots
 
-The Runs tab holds **plots**, one per tab. A plot is two things and nothing
+The Results tab holds **plots**, one per tab. A plot is two things and nothing
 else: an **x axis** and a **list of channels**. Add as many plots as you like
 with **+ Plot** — pressure along the feed line in one tab, tank pressure over
 time in another — rename a tab by double-clicking it, and close it with its
-**×**. Plots survive leaving the Runs tab and are cleared when a different
+**×**. Plots survive leaving the Results tab and are cleared when a different
 model is loaded.
 
 A new plot is **empty**. Nothing is pre-selected, because which of the several
@@ -1960,7 +1996,7 @@ sets listed in §6.8.
 ### Comparing runs on one plot
 
 The question a design study asks is "which one was better?", and flipping
-between two runs a second apart cannot answer it. Above the chart, a **Runs**
+between two runs a second apart cannot answer it. Above the chart, a **Results**
 row names the run the plot is reading — the one chosen in the title dropdown —
 and **+ Compare run…** overlays another recorded run on the same axes. The same
 channels are resolved against each run, so adding a run doubles the lines
@@ -2022,8 +2058,9 @@ undo history, or autosave. Per-job controls include **Start**, **Cancel**,
 
 The variant table reports value, status, convergence, solve detail, diary event
 count, peak absolute mass flow, pressure and temperature ranges, and duration.
-**Promote** on a completed row appends that variant's result to Analysis run
-history, which is how a sweep finding becomes a durable record.
+**Promote** on a completed row creates a saved simulation variant named after
+the swept value, with the swept field as its patch and the promoted run filed
+under it — how a sweep finding becomes something that survives the session.
 
 ## 6.10 Model Text and Model Table
 
@@ -2045,23 +2082,23 @@ including a searchable **Notes** table, with a validation summary pill.
 
 ## 6.11 Project Outline
 
-The left panel is a searchable tree over the whole project. `Ctrl`+`\` hides
-and shows it; a filter box narrows every section at once.
+The left panel is a searchable tree over the whole project. `Ctrl`/`Cmd`+`\`
+hides and shows it; a filter box narrows every section at once.
 
 At the top sits the **variant picker** (§6.12), which both switches the active
 variant and labels everything below it as belonging to that variant. Beneath
 it:
 
-- **Configuration** — Solver, Physics, Fluids (with one child row per named
+- **Setup** — Solver, Physics, Fluids (with one child row per named
   fluid), Species, Units and Extensibility, each annotated with its current
-  value. Clicking a row opens the Configuration tab on that section.
+  value. Clicking a row opens the Setup tab on that section.
 - **Element sections** — fluid nodes, branches, solid nodes, conductors,
   subnetworks and notes. Each row carries the same symbol the canvas draws:
   a circle for an internal node, a rounded square for a boundary, a diamond
   for a solid (dashed when ambient), and the component's P&ID glyph for
   branches and conductors. Clicking a row selects the element and brings it
   into view on the canvas.
-- **Runs** — every recorded run, newest first, tagged with the variant that
+- **Results** — every recorded run, newest first, tagged with the variant that
   produced it (§6.12).
 
 Hovering any element row opens an instant summary card: what the element is,
@@ -2102,7 +2139,7 @@ variant you are editing is visible whether or not the outline is open.
 Variants are saved inside the `.fn` file, so they travel with the model.
 
 **Runs and comparison.** Each run is filed under the variant that produced it
-and shown in the outline's **Runs** list with that variant's name. Click a run
+and shown in the outline's **Results** list with that variant's name. Click a run
 to display it; click the star beside another run to pin it as the comparison
 baseline, and that star stays gold for as long as the pin holds. The baseline
 may come from a _different_ variant, which is how variants are compared: the
@@ -2116,12 +2153,12 @@ that produced them.
 model description. They are mirrored into browser storage so an ordinary reload
 keeps them, and they are written to a portable `<model>.runs.json` sidecar
 beside the model. **Save** in the toolbar writes both files whenever there are
-runs to save, so one action captures the whole session; **Save** in the Runs
+runs to save, so one action captures the whole session; **Save** in the Results
 section header writes the sidecar alone. Loading a `.runs.json` through **Load**
 reattaches its runs to the open model.
 
 **Discarding results.** Click the **×** beside a run to discard that one, or
-**Discard** in the Runs section header to drop the whole list. Both ask for
+**Discard** in the Results section header to drop the whole list. Both ask for
 confirmation first, naming what will go, because discarding is permanent: it is
 not covered by Undo, and it clears the browser-storage copy too, so a reload
 will not bring the runs back. Save the sidecar first if the results matter. The
@@ -2629,7 +2666,8 @@ models require `realFluid`.
 A saved model is a line-oriented text projection of the canonical
 `NetworkConfig`, not JSON, though the same schema is accepted as JSON internally
 for browser autosave. The projection is lossless and includes `groups`, `notes`,
-and node group membership.
+`variants`, and node group membership. A file with no variants serializes
+identically to one written before the field existed.
 
 ```
 header       ::= "// Fluid Network config v2"
@@ -2673,7 +2711,7 @@ reservoir that anchors the network's pressure level.
 unknown.
 
 **Channel** — A named scalar time series or steady value in a result, the unit of
-selection and export in the Runs view.
+selection and export in the Results view.
 
 **Conductor** — Directed thermal link carrying heat by conduction, convection, or
 radiation.
@@ -2711,6 +2749,10 @@ history.
 
 **Upwinding** — Taking a convected property from the upstream node according to
 the sign of the mass flow.
+
+**Variant** — A named sparse patch over the base network, stored in the `.fn`
+file as `config.variants`. The solver never sees variants; the editor resolves
+the active one first. Runs are filed under the variant that produced them.
 
 # Appendix E — References
 

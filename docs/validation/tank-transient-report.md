@@ -19,7 +19,7 @@ lumped-parameter ODEs and against classical closed-form results: the choked
 adiabatic blowdown solution and its cooling law T/T₀ = (m/m₀)^(γ−1), the
 two-tank equalization equilibrium pressure from energy conservation, and the
 adiabatic fill-heating limit T → γT_supply. Five cases are run: choked
-blowdown through a compressible orifice, a four-level time-step convergence
+blowdown through a gas `orifice` (ISO/AGA expansibility, choking at $r_*$), a four-level time-step convergence
 study of that blowdown, equalization of two unequal tanks through an orifice,
 charging of a tank from a constant-pressure supply, and blowdown through a
 valve whose area follows a prescribed opening schedule. At the working time
@@ -56,7 +56,7 @@ closed forms hold exactly). Five cases are studied:
 
 | Case | Description |
 | ---- | ----------- |
-| 1 | Adiabatic blowdown of a 0.1 m³ tank from 10 bar through a choked compressible orifice |
+| 1 | Adiabatic blowdown of a 0.1 m³ tank from 10 bar through a choked gas `orifice` |
 | 2 | Time-step convergence study of case 1 at dt = 0.4 / 0.2 / 0.1 / 0.05 s |
 | 3 | Pressure equalization of two tanks (0.05 m³ at 5 bar, 0.1 m³ at 2 bar) through an orifice |
 | 4 | Adiabatic charging of a 0.1 m³ tank at 1 bar from a 5 bar constant-pressure supply (fill heating) |
@@ -113,7 +113,7 @@ error is negligible against the deviations being measured.
 
 ### Choked Orifice Mass Flux
 
-The compressible orifice passes the isentropic mass flux
+The gas `orifice` ($Y(r,\kappa)$ with choking) passes the isentropic mass flux
 
 $$\dot m = C_d A\, P_u \sqrt{\tfrac{\gamma}{R T_u}} \left(\tfrac{2}{\gamma+1}\right)^{\frac{\gamma+1}{2(\gamma-1)}} \quad \text{for } P_d/P_u \le \left(\tfrac{2}{\gamma+1}\right)^{\frac{\gamma}{\gamma-1}} = 0.5283,$$
 
@@ -172,8 +172,7 @@ every internal node with volume — is solved simultaneously with the branch
 momentum relations by a coupled Newton-Raphson iteration on the
 end-of-step state. A tank is therefore nothing special: it is an internal
 node whose `volume` field activates the storage terms. Branch closures are
-quasi-steady and evaluated at end-of-step conditions: the compressible
-orifice imposes ṁ = ṁ_isentropic(P_u, P_d, T_u), the incompressible orifice
+quasi-steady and evaluated at end-of-step conditions: a gas `orifice` imposes ṁ = ṁ_isentropic(P_u, P_d, T_u) via $Y(r,\kappa)$, a liquid `orifice`
 and resistance impose ΔP = K ṁ²/(2ρ_up C_dA²)-type square laws with upstream
 density, and scheduled valves interpolate their position at the end-of-step
 time. Backward Euler is unconditionally stable and first-order accurate: its

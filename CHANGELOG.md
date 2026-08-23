@@ -9,9 +9,11 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-08-23
+
 ### Added
 
-- **Runs tab overhaul: plots you compose, instead of views we chose.**
+- **Results tab overhaul: plots you compose, instead of views we chose.**
   - The tab now holds any number of **plots**, each its own tab (add, rename by
     double-click, close). A plot is an **x axis** plus a **list of channels** —
     that is the entire model. Two questions can be on screen at once instead of
@@ -67,7 +69,7 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   - `src/core/graph.ts` — the adjacency, traversal and station-axis primitives
     both this and `geometry.ts` needed; `geometry.ts`'s private pipe-path
     helpers now come from there, so there is one implementation.
-  - **The Runs tab's title IS the run selector.** The sticky run strip is gone;
+  - **The Results tab's title IS the run selector.** The sticky run strip is gone;
     the heading that said "Plots" now names the displayed run, switches to any
     record, and carries the outcome badge, the run's evidence and its
     partial/baseline flags. A heading that says nothing over a bar that repeats
@@ -76,7 +78,7 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   - **Charts label their axes like charts**: the y quantity is written down the
     y axis rather than in a header line above the plot, which pairs with the x
     axis selector already sitting in the x label's place.
-  - **Any number of runs on one plot.** A plot's **Runs** row names the run it
+  - **Any number of runs on one plot.** A plot's **Results** row names the run it
     reads and offers **+ Compare run…** for every other record; the same
     channels are resolved against each and drawn on the same axes, dashed and
     colour-matched to the channel they mirror, each labelled with its run. This
@@ -118,9 +120,9 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
     visible when the outline is hidden (Ctrl+\).
 - **Runs are scoped to their model and variant.** Each run records the variant
   that produced it and appears in a flat, chronological, variant-tagged
-  **Runs** list; the ring-buffer cap is now per variant. Loading a different
+  **Results** list; the ring-buffer cap is now per variant. Loading a different
   model clears the history, fixing runs from a previous file appearing in the
-  new one's Runs tab. A run from _another_ variant can be pinned as the
+  new one's Results tab. A run from _another_ variant can be pinned as the
   comparison baseline, which is how variants are compared — the existing delta
   columns and dashed chart overlay do the work.
 - **Results sidecar** — results are no longer session-only. They are mirrored
@@ -128,12 +130,12 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   portable `<model>.runs.json` containing each run's config snapshot, result,
   and diary. **Save** in the toolbar writes the model and, when there are runs,
   the sidecar with it, so one action captures the whole session; **Save** in
-  the outline's Runs section writes the sidecar alone. **Load** accepts a
+  the outline's Results section writes the sidecar alone. **Load** accepts a
   sidecar and attaches its runs to the open model.
 - **Results can be discarded.** The **×** on a run row discards that run and
-  **Discard** in the Runs section header drops the whole list. Both confirm
+  **Discard** in the Results section header drops the whole list. Both confirm
   first, naming the run or counting the runs at stake, and both clear the
-  browser-storage mirror — which also fixes the per-run delete in the Runs
+  browser-storage mirror — which also fixes the per-run delete in the Results
   tab: it used to leave the run in storage, so a reload brought it back.
   Neither is undoable, which the confirmations say.
 - **Project outline polish**
@@ -157,16 +159,16 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   canvas-first prototype's command palette folded in; the flag and the losing
   shells were then removed. The new window is:
   - **Project outline** (left, Ctrl+\ toggles): one searchable tree over the
-    whole project — Configuration (solver / physics / fluids with named-fluid
+    whole project — Setup (solver / physics / fluids with named-fluid
     children / species / units / extensibility, each annotated with its
-    current value; clicking opens the Configuration tab on that section),
+    current value; clicking opens the Setup tab on that section),
     every model entity (click to select and zoom), and the run history.
     Rows carry status icons fed by the readiness checks and validation errors,
     so "what is wrong and where" is answered by the tree.
   - **Docked properties inspector** (right, resizable) replacing the floating
     overlay — the panel no longer occludes the canvas, and it mounts only when
     something is selected so the canvas keeps the width otherwise.
-  - **Configuration as a workspace tab** replacing the modal settings dialog
+  - **Setup as a workspace tab** replacing the modal settings dialog
     (see Changed).
   - **Command palette** (Cmd/Ctrl+K): run/cancel, place elements, open views,
     and jump to any element by id.
@@ -266,8 +268,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   the newest run again, which fixes a pin that silently did nothing after a
   reload: pinning a baseline needs a displayed run to compare against, and
   nothing was selected.
-- **Global Settings is now the Configuration workspace tab**, alongside Model,
-  Sweep, and Runs. It had already stopped being a dialog; making it a tab makes
+- **Global Settings is now the Setup workspace tab**, alongside Model, Sweep,
+  and Results. It had already stopped being a dialog; making it a tab makes
   the tab strip the one place that answers "which view am I in", and it now
   carries the same name as the outline section that links into it. The
   toolbar's Settings button is gone (the tab and the outline rows reach it),
@@ -275,8 +277,11 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   and the store models it as `activeTab === 'config'` rather than a separate
   `showSettings` flag. Its six sections are unchanged, and it still opens on
   Solver and returns there when you leave.
-- **The Results tab is now the Runs tab**, matching the outline's Runs section
-  and the run records it lists. Contents unchanged.
+- **The analysis workspace is the Results tab**, matching the outline's Results
+  section and the run records it lists.
+- **User-manual screenshots recaptured** from the 0.2.1 studio shell (docked
+  outline, Setup / Results tabs, and composed plots). Regenerate with
+  `npm run build && npx tsx scripts/capture-manual-figures.ts`.
 - **The provenance hash now ignores entity array order.** Two configs that
   differ only in the order elements are listed describe the same network — the
   solver publishes the same id-keyed results — so `configHash` canonicalizes
@@ -548,5 +553,7 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.0...v0.2.1
+[0.2.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/OpenFLUME/OpenFLUME/releases/tag/v0.1.0

@@ -1,5 +1,5 @@
 /**
- * ChannelExplorer — the frame around the Runs tab's plots.
+ * ChannelExplorer — the frame around the Results tab's plots.
  *
  * This used to be the whole surface: one channel set, five views, and two
  * controls competing to choose the set (a preset dropdown and a channel list),

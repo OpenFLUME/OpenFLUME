@@ -9,8 +9,8 @@
   ],
   "license": "MIT",
   "access_right": "open",
-  "version": "0.1.0",
-  "publication_date": "2026-08-20",
+  "version": "0.2.1",
+  "publication_date": "2026-08-23",
   "keywords": [
     "thermal-fluid",
     "network solver",

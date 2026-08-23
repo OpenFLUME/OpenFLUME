@@ -40,9 +40,9 @@ const TABS = '[data-testid="workspace-tabs"]';
 
 /** Non-canvas workspace tabs: tab testid + the root testid of the view they host. */
 const NON_CANVAS_TABS = [
-  { tab: "config-tab", view: "configuration-view", name: "Configuration" },
+  { tab: "config-tab", view: "configuration-view", name: "Setup" },
   { tab: "sweep-tab", view: "sweep-panel", name: "Sweep" },
-  { tab: "results-tab", view: "results-view", name: "Runs" },
+  { tab: "results-tab", view: "results-view", name: "Results" },
 ] as const;
 
 /** Rail and inspector are unmounted — absent from the DOM, not hidden. */

@@ -48,7 +48,7 @@ OpenFLUME is a local-first engineering tool for modeling 1-D fluid flow networks
 - **Transient Solver** – backward Euler with mass/energy storage in node volumes. Supports optional **fluid inertia** (`(L/A)·dṁ/dt`) on pipe branches, and **trapped-gas cushions** on internal nodes (`P·V_g^n = const`) for liquid networks with entrapped air.
 - **Compressible duct flow** – opt-in `momentumFlux` + `kineticEnergy` settings solve quasi-1-D compressible flow for **any** fluid model: stagnation-enthalpy transport, Fanno friction choking, Rayleigh thermal choking, and converging–diverging nozzles via tapered pipes (`pipe.diameterOut`), with per-branch Mach numbers in the results when the fluid supplies a speed of sound. Validated against the NASA GFSSP TFAWS-2007 compressible-flow verification paper.
 - **Fluids** – incompressible liquid (water/oil), ideal gas (air, or custom R/γ/μ/cₚ for He, CO₂, etc.), thermal-expansion liquid (`expandableLiquid` with ρ(T)=ρ₀(1−β(T−T₀)), `waterExpandable` preset) enabling natural-circulation / buoyancy loops, and **real fluid via CoolProp** with a generated 124-fluid HEOS catalogue (favorites: Nitrogen, Oxygen, Hydrogen, ParaHydrogen, Helium, Methane, Carbon Dioxide, Water, NitrousOxide) and NIST-grade properties with true h(P,T)/u(P,T) energy equations. The ~6.5 MB WASM (~4.3 MB gzipped) is lazy-loaded only when a real fluid is first selected, keeping the main bundle small.
-- **Components** (18 branch types)
+- **Components** (17 branch types)
   - `pipe` – Darcy–Weisbach with Swamee–Jain / laminar friction factor; optional constant `frictionFactor` and linear taper (`diameterOut`)
   - `orifice` – discharge-coefficient flow with expansibility $Y(r,\kappa)$ (chokes for gases)
   - `resistance` – generic K-factor loss
@@ -67,10 +67,10 @@ OpenFLUME is a local-first engineering tool for modeling 1-D fluid flow networks
   - `customResistance` – constant or Reynolds-dependent K-factor resistance
   - `userComponent` – embedded trusted JavaScript pressure-drop/heat callback
 - **Schedules** – time-varying boundary pressures, temperatures, valve positions, and mass-flow rates.
-- **Runs** – the **Runs** tab is where results are read: any number of **plots**, each its own tab, each an x axis (time, station along a flow path, physical position, element order) plus channels you choose from the full inventory. Plotting against station gives the hydraulic grade line. Deterministic findings, plus collapsible run details, result tables, solver diary, and run history. Derived reporting properties include enthalpy, internal energy, entropy, viscosity, specific heat, thermal conductivity, speed of sound, Mach, mass flux, heat flux, and heat-transfer coefficient when the fluid model and geometry can supply them. Any recorded run can be overlaid on any plot to compare designs. Transient charts follow the canvas time scrubber.
+- **Results** – the **Results** tab is where results are read: any number of **plots**, each its own tab, each an x axis (time, station along a flow path, physical position, element order) plus channels you choose from the full inventory. Plotting against station gives the hydraulic grade line. Deterministic findings, plus collapsible run details, result tables, solver diary, and run history. Derived reporting properties include enthalpy, internal energy, entropy, viscosity, specific heat, thermal conductivity, speed of sound, Mach, mass flux, heat flux, and heat-transfer coefficient when the fluid model and geometry can supply them. Any recorded run can be overlaid on any plot to compare designs. Transient charts follow the canvas time scrubber.
 - **Exploration (parameter sweeps)** – a session-only Sweep workspace: pick any supported scalar field, sweep it over an inclusive linear range (up to 25 variants), and solve the variants sequentially in the solver worker with per-variant status/results, cancellation, and rerun. Compare the variant table, export a provenance CSV, or **promote** a sweep point into a saved simulation variant carrying the swept field as its patch. Jobs snapshot and hash the model at creation (with a staleness warning after later edits).
 - **Simulation variants** – named alternatives to the network stored inside the `.fn` file as sparse patches (settings, parameters, or added/removed elements). Edits made while a variant is active are recorded into that variant, leaving the base network untouched, and base edits propagate into every variant that does not override them. Runs are filed under the variant that produced them, and pinning a run from another variant as the comparison baseline is how variants are compared.
-- **Solver diary (convergence inspection)** – every run records a bounded convergence diary from the evidence that crosses the worker boundary (throttled progress callbacks plus the final result). The **Runs** tab shows the outcome, a one-line digest, and an ordered event timeline with explicit retention accounting; JSON/text exports carry the config-hash provenance, and cancelled/errored runs keep a clearly-labeled partial diary.
+- **Solver diary (convergence inspection)** – every run records a bounded convergence diary from the evidence that crosses the worker boundary (throttled progress callbacks plus the final result). The **Results** tab shows the outcome, a one-line digest, and an ordered event timeline with explicit retention accounting; JSON/text exports carry the config-hash provenance, and cancelled/errored runs keep a clearly-labeled partial diary.
 - **Persistence** – `.fn` text save/load (lossless text projection, variants included), a portable `<model>.runs.json` results sidecar, localStorage autosave of both, 12 built-in examples.
 - **Validation** – pre-solve network validation with human-readable errors.
 - **Conjugate Heat Transfer** – solid nodes (lumped thermal mass) and conductors (conduction, convection, radiation) coupled to the fluid network. Supports steady and transient thermal solution with full Newton–Raphson Jacobian. Temperature-dependent cp(T)/k(T) presets ship with a sourced material catalogue — OFHC copper, GRCop-84 (296–1173 K), Aluminum 6061-T6, stainless steels 304/316 (4–1600 K, NIST cryogenic + ANL-75-55), Inconel 718 (298–1375 K), PTFE, and anisotropic G-10 CR — each with documented validity ranges and end-value clamping (see [`docs/solid-properties-results.md`](docs/solid-properties-results.md)).
@@ -125,12 +125,12 @@ documentation is indexed in [`docs/README.md`](docs/README.md).
 ### Window Layout
 
 A docked-IDE layout: the toolbar on top, the **project outline** on the left
-(`Ctrl`+`\` toggles it), the center workspace tabs — **Model**,
-**Configuration**, **Sweep**, **Runs** — and a **Properties** dock on the right that appears when something is selected and
+(`Ctrl`/`Cmd`+`\` toggles it), the center workspace tabs — **Model**,
+**Setup**, **Sweep**, **Results** — and a **Properties** dock on the right that appears when something is selected and
 gives its width back to the canvas otherwise.
 
 The outline is one searchable tree over the whole project: the **variant
-picker**, then the active variant's Configuration and element sections, then
+picker**, then the active variant's Setup and element sections, then
 every recorded run. Element rows carry the same symbol the canvas draws, so the
 panel reads as a legend; hovering a row opens an instant summary card, and rows
 can be dragged into a different order within their own section (ordering
@@ -177,9 +177,9 @@ Selecting a node, branch, solid node, or conductor opens the right-side property
 
 Geometry-like fields (node volume; pipe/heated-pipe length, diameter, UA; branch areas; conductor area/length; correlation diameter/flow area; dynamic-check-valve mechanical parameters) accept **formula bindings**: click the field's **f(x)** button to pick a valid model reference or helper (e.g. `pipe('seg1').surfaceArea`) — the formula is resolved once against the static model before each solve, with an inline preview in the current display unit. See [`docs/parameter-bindings.md`](docs/parameter-bindings.md) for the scope, allowlist, and semantics.
 
-### Configuration
+### Setup
 
-The **Configuration** tab holds everything global about the model, in six
+The **Setup** tab holds everything global about the model, in six
 sections, always opening on **Solver**. These settings belong to the active
 variant, so editing them under a variant records into that variant:
 
@@ -199,9 +199,9 @@ Click **Run**. The toolbar shows convergence status:
 
 Validation errors (e.g., disconnected graph, missing volumes in transient) appear in red next to the status.
 
-### Runs & Charts
+### Results
 
-The **Runs** tab is where results are read. The tab's **title is the run selector** — it names the displayed run, switches to any recorded run, and carries the outcome badge and stale/partial flags, rather than a strip above the plots repeating them.
+The **Results** tab is where results are read. The tab's **title is the run selector** — it names the displayed run, switches to any recorded run, and carries the outcome badge and stale/partial flags, rather than a strip above the plots repeating them.
 
 Below that the tab holds **plots**, one per tab (**+ Plot** to add, double-click to rename, **×** to close). A plot is an **x axis** plus a **list of channels** — that is the whole model. There are no named views deciding which question you came to ask; a new plot is empty until you fill it.
 
@@ -220,7 +220,7 @@ Deterministic **findings** appear under the plot when there is something to say 
 
 The canvas supports **property-based coloring** so you can visualize the spatial distribution of any solved quantity:
 
-- **Color-by modes** – the top-right **Color by** dropdown is generated from the same channel registry as the Runs tab. It offers `None` plus every quantity a result can carry: node pressure / temperature / density / enthalpy / internal energy / entropy / specific heat / viscosity / thermal conductivity / speed of sound / gas volume / quality / front fraction; branch mass flow / pressure drop / velocity / volumetric flow / mass flux / dynamic pressure / Reynolds / Mach; conductor heat rate / heat flux / heat-transfer coefficient / wetted fraction. Elements a quantity does not apply to are muted gray.
+- **Color-by modes** – the top-right **Color by** dropdown is generated from the same channel registry as the Results tab. It offers `None` plus every quantity a result can carry: node pressure / temperature / density / enthalpy / internal energy / entropy / specific heat / viscosity / thermal conductivity / speed of sound / gas volume / quality / front fraction; branch mass flow / pressure drop / velocity / volumetric flow / mass flux / dynamic pressure / Reynolds / Mach; conductor heat rate / heat flux / heat-transfer coefficient / wetted fraction. Elements a quantity does not apply to are muted gray.
 - **Colormap** – shared blue→red scale across all element types. The legend (bottom-right) shows the current quantity name, unit, and min/max domain.
 - **Data source** – while editing (no result, or a stale result), nodes show initial / boundary conditions; after a steady run, values come from the converged result; after a transient run, from the time step selected by the scrubber (during a run the canvas follows the latest available step).
 - **Time scrubber** – after a transient run completes (or is cancelled with partial data), a slider appears at the bottom of the canvas. Dragging it updates the canvas colors and all node/edge value overlays to reflect the state at that moment.
@@ -263,8 +263,8 @@ baseline.
 
 - **Save** – downloads the current network as a `.fn` file: a line-oriented, lossless text projection of the canonical `NetworkConfig` (includes `groups[]`, `notes[]`, `variants[]`, and `node.group` when present). Saving always writes the whole file, not just the variant currently on the canvas. When runs exist it also writes the `<model>.runs.json` sidecar, so one Save captures the whole session — two files, because results are bulky and regenerable while the `.fn` stays diffable.
 - **Load** – imports a `.fn` text file (parse errors are reported with line numbers and never replace the current network). The same control accepts a `<model>.runs.json` results sidecar, which attaches its runs to the open model instead of replacing it.
-- **Save results** – **Save** in the project outline's **Runs** section writes `<model>.runs.json` alone: the recorded runs with their config snapshots, results, and diaries. Results deliberately live outside the `.fn` file, which stays a model description.
-- **Discard results** – the **×** on a run row discards that run; **Discard** in the Runs section header drops them all. Both confirm first, naming what will go. Either way the browser-storage copy goes with them, so a reload does not resurrect discarded runs, and neither action is covered by Undo.
+- **Save results** – **Save** in the project outline's **Results** section writes `<model>.runs.json` alone: the recorded runs with their config snapshots, results, and diaries. Results deliberately live outside the `.fn` file, which stays a model description.
+- **Discard results** – the **×** on a run row discards that run; **Discard** in the Results section header drops them all. Both confirm first, naming what will go. Either way the browser-storage copy goes with them, so a reload does not resurrect discarded runs, and neither action is covered by Undo.
 - **Autosave** – every edit is autosaved to `localStorage`, and completed runs are mirrored there too; reloading the page restores your last network together with its results.
 - **Text tab** – the same text projection as a full-workspace source editor: keystrokes stay local until **Apply** (Cmd/Ctrl+Enter), which commits valid text as exactly one undoable history entry; invalid text is kept with line-level diagnostics and never reaches the model. Selection syncs with the diagram in both directions.
 
@@ -278,7 +278,7 @@ The **Sweep** tab is a session-only workspace for exploring one scalar parameter
 
 ### Solver Diary (Convergence Inspection)
 
-Every solve records a lightweight **convergence diary** (`src/ui/convergenceDiary.ts`) — a bounded log built only from evidence that crosses the worker boundary (the throttled progress stream plus the final result). The **Runs** tab shows the outcome (converged / not converged / stopped short / user-terminated / cancelled / error), a one-line digest, and the ordered event timeline with explicit retention accounting. Cancelled or errored runs keep a clearly-labeled _partial_ diary, selecting a historical run restores its diary, and exports (JSON / plain text) include the model name, solver-settings summary, and config hash. Stall warnings are phrased in throttled _progress samples_ (not solver iterations), and diaries synthesized from a bare final result say so (`finalEvidenceOnly`) instead of fabricating progress milestones.
+Every solve records a lightweight **convergence diary** (`src/ui/convergenceDiary.ts`) — a bounded log built only from evidence that crosses the worker boundary (the throttled progress stream plus the final result). The **Results** tab shows the outcome (converged / not converged / stopped short / user-terminated / cancelled / error), a one-line digest, and the ordered event timeline with explicit retention accounting. Cancelled or errored runs keep a clearly-labeled _partial_ diary, selecting a historical run restores its diary, and exports (JSON / plain text) include the model name, solver-settings summary, and config hash. Stall warnings are phrased in throttled _progress samples_ (not solver iterations), and diaries synthesized from a bare final result say so (`finalEvidenceOnly`) instead of fabricating progress milestones.
 
 ### Examples
 
@@ -944,7 +944,7 @@ The worker is spawned as a Vite-native module worker (`new Worker(new URL('./sol
 
 **Cancellation** — Because the solve loop is synchronous, a posted `'cancel'` message cannot be observed mid-iteration without `SharedArrayBuffer`. The app avoids `SharedArrayBuffer` (which requires `Cross-Origin-Opener-Policy` / `Cross-Origin-Embedder-Policy` headers). Instead, the client wrapper terminates the worker and respawns a fresh one on the next run. This is the simplest robust choice and is documented in `workerClient.ts`.
 
-**Live charts** — On run start the UI auto-switches to the Runs tab. `ResultsPanel` renders `TransientContent` from `liveResult` while `runStatus === 'running'`. `InteractiveChart` tolerates growing arrays without remounting: its internal `zoomDomain`, `hidden`, and `hoverIdx` states are local React state, so they persist across data-length changes. Zoom resets gracefully when the user double-clicks.
+**Live charts** — On run start the UI auto-switches to the Results tab. `ResultsPanel` renders `TransientContent` from `liveResult` while `runStatus === 'running'`. `InteractiveChart` tolerates growing arrays without remounting: its internal `zoomDomain`, `hidden`, and `hoverIdx` states are local React state, so they persist across data-length changes. Zoom resets gracefully when the user double-clicks.
 
 **Steady runs** — Steady-state solves also use the worker. The toolbar shows an indeterminate progress bar with live iteration count and residual. Results tables appear only on `done`.
 
@@ -984,7 +984,7 @@ The worker is spawned as a Vite-native module worker (`new Worker(new URL('./sol
 
 If this software contributes to your research, please cite it. See [CITATION.cff](CITATION.cff) for the current citation metadata, or use:
 
-> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.0). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
+> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.1). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
 
 ---
 

@@ -36,7 +36,12 @@ Dependencies should point inward:
    presentation.
 3. `src/ui/solverWorker.ts` is a transport boundary around core validation and
    solving; it should not contain solver physics.
-4. `src/App.tsx` and `src/main.tsx` compose the browser application.
+4. `src/App.tsx` and `src/main.tsx` compose the browser application. The
+   shipped chrome is `StudioShell` (`src/ui/shell/studio/`): a docked project
+   outline, center workspace tabs (Model, Setup, Sweep, Results), and a
+   selection-mounted inspector. Shared chrome (command palette, tab strip)
+   lives in `src/ui/shell/`. Manual run start/cancel goes through
+   `src/ui/runController.ts`.
 5. `scripts` may consume application contracts for local tooling, but runtime
    modules must not depend on scripts.
 6. `src/validation` and validation data evaluate scientific claims; production

@@ -1,5 +1,5 @@
 /**
- * resultPlots.ts — the plot model of the Runs tab.
+ * resultPlots.ts — the plot model of the Results tab.
  *
  * A plot is deliberately dumb: an x axis and a list of channels. That is the
  * whole model. Earlier versions offered named views (profile, breakdown,

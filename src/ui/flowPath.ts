@@ -2,7 +2,7 @@
  * flowPath.ts — flow paths through a solved network, and channel profiles
  * along them.
  *
- * The Runs view's system profile answers "where is my pressure going?", which
+ * The Results view's system profile answers "where is my pressure going?", which
  * needs the network read as a sequence rather than as a bag of values. That
  * sequence is not in the model: `type: "boundary"` marks a reservoir but never
  * says inlet or outlet, and a branch's declared `from → to` is only a sign

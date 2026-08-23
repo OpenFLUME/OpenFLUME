@@ -1,5 +1,5 @@
 /**
- * Channel formatting and search — the pure bits the Runs tab still needs.
+ * Channel formatting and search — the pure bits the Results tab still needs.
  *
  * No React, no store: these operate on the channel inventory of ui/channels.ts
  * plus plain values, so they stay unit-testable headless.

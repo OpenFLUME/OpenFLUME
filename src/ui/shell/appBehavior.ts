@@ -82,11 +82,11 @@ export function useLiveValidation(): void {
 export function viewName(tab: AppTab): string {
   switch (tab) {
     case "results":
-      return "Runs view";
+      return "Results view";
     case "sweep":
       return "Sweep view";
     case "config":
-      return "Configuration view";
+      return "Setup view";
     default:
       return "Canvas view";
   }

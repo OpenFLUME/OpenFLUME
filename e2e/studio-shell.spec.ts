@@ -55,7 +55,7 @@ test.describe("Studio shell", () => {
       page.locator('[data-testid="outline-config-fluids"]'),
     ).toBeVisible();
 
-    // A configuration row opens the Configuration tab on its section.
+    // A configuration row opens the Setup tab on its section.
     await page.locator('[data-testid="outline-config-solver"]').click();
     await expect(
       page.locator('[data-testid="configuration-view"]'),

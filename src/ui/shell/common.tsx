@@ -65,8 +65,8 @@ export function TabButton({
   );
 }
 
-/** The workspace tab strip: Model, any open subnetwork tabs, Configuration,
- *  Sweep, Runs. Identical markup/testids in every shell that shows tabs. */
+/** The workspace tab strip: Model, any open subnetwork tabs, Setup,
+ *  Sweep, Results. Identical markup/testids in every shell that shows tabs. */
 export function WorkspaceTabs({ className }: { className?: string }) {
   const activeTab = useStore((s) => s.activeTab);
   const activeGroupTab = useStore((s) => s.activeGroupTab);
@@ -116,11 +116,11 @@ export function WorkspaceTabs({ className }: { className?: string }) {
       })}
       <TabButton
         testid="config-tab"
-        title="Global configuration: solver, physics, fluids, species, units, extensibility"
+        title="Setup: solver, physics, fluids, species, units, extensibility"
         active={activeTab === "config"}
         onClick={() => setActiveTab("config")}
       >
-        Configuration
+        Setup
       </TabButton>
       <TabButton
         testid="sweep-tab"
@@ -132,18 +132,18 @@ export function WorkspaceTabs({ className }: { className?: string }) {
       </TabButton>
       <TabButton
         testid="results-tab"
-        title="Runs: plots, result tables, run history, solver diary"
+        title="Results: plots, result tables, run history, solver diary"
         active={activeTab === "results"}
         onClick={() => setActiveTab("results")}
       >
-        Runs
+        Results
       </TabButton>
     </div>
   );
 }
 
-/** The center workspace view for the active tab (canvas / configuration /
- *  sweep / runs), wrapped in the per-view error boundary. */
+/** The center workspace view for the active tab (canvas / setup /
+ *  sweep / results), wrapped in the per-view error boundary. */
 export function CenterView({
   onOpenModelView,
 }: {

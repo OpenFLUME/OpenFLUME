@@ -1,5 +1,5 @@
 /**
- * The Runs tab frame and its first plot — SSR markup (vitest runs in node with
+ * The Results tab frame and its first plot — SSR markup (vitest runs in node with
  * no DOM renderer, so we renderToString and assert on the output).
  *
  * The point of these is the FIRST PAINT: a fresh run must show a usable, EMPTY
@@ -128,7 +128,7 @@ function makeSteady(): SteadyResult {
 /* SSR smoke                                                           */
 /* ------------------------------------------------------------------ */
 
-describe("Runs tab frame (SSR)", () => {
+describe("Results tab frame (SSR)", () => {
   it("opens a transient result on an empty plot with a time axis", () => {
     const html = renderToString(
       <ChannelExplorer

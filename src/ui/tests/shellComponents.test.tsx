@@ -160,7 +160,7 @@ describe("ModelOutline", () => {
     expect(html).toContain("model-outline__status--error");
   });
 
-  it("lists run history under Runs and leaves a converged run unmarked", () => {
+  it("lists run history under Results and leaves a converged run unmarked", () => {
     stageState({
       runHistory: [
         {

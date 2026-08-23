@@ -1,5 +1,5 @@
 /**
- * ConfigurationView real-fluid picker tests — the searchable catalogue dropdown:
+ * Setup tab real-fluid picker tests — the searchable catalogue dropdown:
  * curated favorites optgroup first, all 124 HEOS fluids listed, ⚠ markers for
  * no-transport fluids, and a saved UNKNOWN fluid rendered visibly as invalid
  * rather than silently reverting to a default.
@@ -71,7 +71,7 @@ function renderDialog(fluidName?: string): string {
   return renderToString(<ConfigurationView />).replace(/<!-- -->/g, "");
 }
 
-describe("ConfigurationView real-fluid picker", () => {
+describe("Setup tab real-fluid picker", () => {
   beforeEach(() => {
     Object.assign(useStore.getInitialState(), {
       settingsTab: "solver",
