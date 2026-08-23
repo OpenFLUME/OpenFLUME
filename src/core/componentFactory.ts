@@ -37,7 +37,6 @@ import {
   FlowSource,
   Regulator,
   ReliefValve,
-  OrificeCompressible,
   CavitatingVenturi,
   HeatedPipe,
   DpTable,
@@ -123,8 +122,6 @@ export function buildBranchComponents(
       );
       inertia = c.inertia;
     } else if (c.type === "orifice") comp = new Orifice(c.area, c.cd);
-    else if (c.type === "orificeCompressible")
-      comp = new OrificeCompressible(c.area, c.cd);
     else if (c.type === "cavitatingVenturi")
       comp = new CavitatingVenturi(c.throatArea, c.cd, c.recoveryFactor ?? 0.0);
     else if (c.type === "resistance") comp = new FlowResistance(c.k, c.area);

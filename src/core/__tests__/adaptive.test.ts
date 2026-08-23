@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { NetworkConfig } from "../schema";
 import { solveTransient } from "../transient";
+import { Orifice } from "../components";
 
 function rk4Vec(
   f: (t: number, y: number[]) => number[],
@@ -90,11 +91,9 @@ function blowdownReference(endTime: number) {
   const A = 1e-4;
   const Cd = 0.6;
 
-  const orificeMdot = (P: number, T: number) => {
-    const rho = P / (R * T);
-    const dP = Math.max(P - Pout, 1e-6);
-    return Cd * A * Math.sqrt(2 * rho * dP);
-  };
+  const orifice = new Orifice(A, Cd);
+  const orificeMdot = (P: number, T: number) =>
+    orifice.massFlow(P, Pout, T, R, 1.4);
 
   const m0 = (P0 * V) / (R * T0);
   const U0 = m0 * cv * T0;

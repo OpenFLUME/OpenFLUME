@@ -106,19 +106,13 @@ export function validateBranches(
           `Pipe ${branch.id} diameterOut must be a positive finite number`,
         );
     } else if (comp.type === "orifice") {
+      // The compressible/incompressible closure is picked automatically
+      // from the branch's fluid model at solve time (components/orifice.ts,
+      // solver/kernel.ts) — there is no separate declared type to validate
+      // against a required fluid model.
       if (comp.area <= 0)
         errors.push(`Orifice ${branch.id} area must be positive`);
       if (comp.cd <= 0) errors.push(`Orifice ${branch.id} cd must be positive`);
-    } else if (comp.type === "orificeCompressible") {
-      if (comp.area <= 0)
-        errors.push(`Orifice compressible ${branch.id} area must be positive`);
-      if (comp.cd <= 0)
-        errors.push(`Orifice compressible ${branch.id} cd must be positive`);
-      if (branchFluidModel !== "idealGas") {
-        errors.push(
-          `Orifice compressible ${branch.id} requires idealGas fluid model`,
-        );
-      }
     } else if (comp.type === "cavitatingVenturi") {
       if (comp.throatArea <= 0)
         errors.push(

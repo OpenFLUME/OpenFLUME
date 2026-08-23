@@ -14,9 +14,9 @@
  *   pipe.ts                  Pipe — Darcy–Weisbach with Swamee–Jain friction.
  *   heatedPipe.ts             HeatedPipe — Pipe + wall heat transfer
  *                            (optionally via the Miropolskii correlation).
- *   orifice.ts                Orifice — ΔP = mdot²/(2ρ(CdA)²).
- *   orificeCompressible.ts    OrificeCompressible — ideal-gas choked/unchoked
- *                            isentropic mass-flux orifice.
+ *   orifice.ts                Orifice — ΔP = mdot²/(2ρ(CdA)²) for fluids
+ *                            without R/gamma; the ideal-gas choked/unchoked
+ *                            isentropic mass-flux relation otherwise.
  *   cavitatingVenturi.ts      CavitatingVenturi — real-fluid venturi with a
  *                            smooth choked/non-choked cavitation blend.
  *   flowResistance.ts        FlowResistance — generic constant-K resistance.
@@ -56,8 +56,12 @@ export {
 
 export { Pipe } from "./pipe";
 export { HeatedPipe } from "./heatedPipe";
-export { Orifice } from "./orifice";
-export { OrificeCompressible } from "./orificeCompressible";
+export {
+  Orifice,
+  expansibilityY,
+  criticalPressureRatio,
+  orificeKappa,
+} from "./orifice";
 export { CavitatingVenturi } from "./cavitatingVenturi";
 export { FlowResistance } from "./flowResistance";
 export { CustomResistance } from "./customResistance";

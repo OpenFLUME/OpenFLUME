@@ -261,6 +261,22 @@ function migrateLegacyElevation(node: Record<string, unknown>): void {
   node.position = pos;
 }
 
+/**
+ * Pre-unification configs authored a separate `orificeCompressible`
+ * component type. `orifice` now picks the same isentropic closure
+ * automatically from the branch's fluid model (components/orifice.ts), so
+ * the two types are behaviorally identical — this only renames the type
+ * string, run before validation so old saved networks keep loading.
+ */
+function migrateLegacyOrificeCompressible(
+  branch: Record<string, unknown>,
+): void {
+  const component = branch.component;
+  if (isRecord(component) && component.type === "orificeCompressible") {
+    component.type = "orifice";
+  }
+}
+
 function checkFluidSpec(spec: Record<string, unknown>, path: string): void {
   if (
     typeof spec.model !== "string" ||
@@ -423,6 +439,42 @@ function checkConductor(
         `${path}.type.correlation.params`,
         `expected an object, got ${describe(type.correlation.params)}`,
       );
+    }
+  }
+}
+
+/** Structural shape of one simulation variant (see core/variants.ts). */
+function checkVariant(variant: Record<string, unknown>, path: string): void {
+  if (typeof variant.name !== "string" || variant.name.length === 0) {
+    throw new ConfigDecodeError(
+      "invalid-type",
+      `${path}.name`,
+      `expected a non-empty string, got ${describe(variant.name)}`,
+    );
+  }
+  if (variant.patch === undefined) return;
+  const patch = requireObject(variant.patch, `${path}.patch`);
+  for (const key of [
+    "settings",
+    "fluid",
+    "nodes",
+    "branches",
+    "solidNodes",
+    "conductors",
+    "added",
+  ] as const) {
+    if (patch[key] !== undefined) optionalObject(patch[key], `${path}.${key}`);
+  }
+  if (patch.removed !== undefined) {
+    const removed = requireArray(patch.removed, `${path}.patch.removed`);
+    for (const [i, id] of removed.entries()) {
+      if (typeof id !== "string") {
+        throw new ConfigDecodeError(
+          "invalid-type",
+          `${path}.patch.removed[${i}]`,
+          `expected a string id, got ${describe(id)}`,
+        );
+      }
     }
   }
 }
@@ -624,6 +676,12 @@ export function decodeNetworkConfig(input: unknown): NetworkConfig {
     }
   }
   checkElements(requireArray(input.nodes, "nodes"), "nodes", checkNode);
+  const branchesIn = input.branches;
+  if (Array.isArray(branchesIn)) {
+    for (const branch of branchesIn) {
+      if (isRecord(branch)) migrateLegacyOrificeCompressible(branch);
+    }
+  }
   checkElements(
     requireArray(input.branches, "branches"),
     "branches",
@@ -639,6 +697,8 @@ export function decodeNetworkConfig(input: unknown): NetworkConfig {
   if (groups) checkElements(groups, "groups");
   const notes = optionalArray(input.notes, "notes");
   if (notes) checkElements(notes, "notes", checkNote);
+  const variants = optionalArray(input.variants, "variants");
+  if (variants) checkElements(variants, "variants", checkVariant);
   const logic = optionalArray(input.logic, "logic");
   if (logic) checkElements(logic, "logic");
   const controllers = optionalArray(input.controllers, "controllers");

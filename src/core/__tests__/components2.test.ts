@@ -3,7 +3,8 @@ import { NetworkConfig } from "../schema";
 import { solveSteady } from "../solver";
 import { solveTransient } from "../transient";
 import { validateNetwork } from "../validate";
-import { Bend, AreaChange, OrificeCompressible } from "../components";
+import { Bend, AreaChange, Orifice } from "../components";
+import { expansibilityY, criticalPressureRatio } from "../components/orifice";
 
 function makeConfig(overrides: Partial<NetworkConfig> = {}): NetworkConfig {
   return {
@@ -573,15 +574,15 @@ describe("ReliefValve", () => {
   });
 });
 
-// ─── OrificeCompressible ─────────────────────────────────────────────
-describe("OrificeCompressible", () => {
+// ─── Orifice (compressible closure, ideal gas) ─────────────────────────
+describe("Orifice, ideal gas (isentropic/choked closure)", () => {
   const R = 287;
   const gamma = 1.4;
   const T = 300;
   const A = 1e-4;
   const Cd = 0.6;
   const P_up = 5e5;
-  const oc = new OrificeCompressible(A, Cd);
+  const oc = new Orifice(A, Cd);
 
   it("unchoked point matches isentropic formula hand-calc within 0.5%", () => {
     const PR = 0.7;
@@ -613,7 +614,7 @@ describe("OrificeCompressible", () => {
           id: "oc",
           from: "A",
           to: "B",
-          component: { type: "orificeCompressible", area: A, cd: Cd },
+          component: { type: "orifice", area: A, cd: Cd },
         },
       ],
     });
@@ -654,7 +655,7 @@ describe("OrificeCompressible", () => {
           id: "oc",
           from: "A",
           to: "B",
-          component: { type: "orificeCompressible", area: A, cd: Cd },
+          component: { type: "orifice", area: A, cd: Cd },
         },
       ],
     });
@@ -683,7 +684,7 @@ describe("OrificeCompressible", () => {
           id: "oc",
           from: "A",
           to: "B",
-          component: { type: "orificeCompressible", area: A, cd: Cd },
+          component: { type: "orifice", area: A, cd: Cd },
         },
       ],
     });
@@ -727,7 +728,7 @@ describe("OrificeCompressible", () => {
           id: "oc",
           from: "A",
           to: "B",
-          component: { type: "orificeCompressible", area: A, cd: Cd },
+          component: { type: "orifice", area: A, cd: Cd },
         },
       ],
     });
@@ -738,7 +739,12 @@ describe("OrificeCompressible", () => {
     ).toBeLessThan(0.005);
   });
 
-  it("validation errors for incompressible fluid", () => {
+  it("falls back to the Bernoulli closure for a fluid with no R/gamma (incompressible liquid)", () => {
+    const rho = 1000;
+    const P_up_liq = 200000;
+    const P_down_liq = 190000;
+    const expectedMdot = Cd * A * Math.sqrt(2 * rho * (P_up_liq - P_down_liq));
+
     const config = makeConfig({
       fluid: { model: "incompressible", preset: "water" },
       nodes: [
@@ -747,7 +753,7 @@ describe("OrificeCompressible", () => {
           type: "boundary",
           x: 0,
           y: 0,
-          pressure: 200000,
+          pressure: P_up_liq,
           temperature: 300,
         },
         {
@@ -755,7 +761,7 @@ describe("OrificeCompressible", () => {
           type: "boundary",
           x: 1,
           y: 0,
-          pressure: 190000,
+          pressure: P_down_liq,
           temperature: 300,
         },
       ],
@@ -764,12 +770,122 @@ describe("OrificeCompressible", () => {
           id: "oc",
           from: "A",
           to: "B",
-          component: { type: "orificeCompressible", area: A, cd: Cd },
+          component: { type: "orifice", area: A, cd: Cd },
         },
       ],
     });
     const errs = validateNetwork(config);
-    expect(errs.some((e: string) => e.includes("idealGas"))).toBe(true);
+    expect(errs).toEqual([]);
+    const res = solveSteady(config);
+    expect(res.converged).toBe(true);
+    expect(
+      Math.abs(res.branches.oc.mdot - expectedMdot) / expectedMdot,
+    ).toBeLessThan(0.005);
+  });
+
+  it("compressible unchoked mdot converges to the Bernoulli value as ΔP/P → 0", () => {
+    const rho = P_up / (R * T);
+    const smallDP = P_up * 1e-4;
+    const P_down = P_up - smallDP;
+    const bernoulli = Cd * A * Math.sqrt(2 * rho * smallDP);
+    const compressible = oc.massFlow(P_up, P_down, T, R, gamma);
+    expect(Math.abs(compressible - bernoulli) / bernoulli).toBeLessThan(1e-3);
+  });
+});
+
+describe("Orifice expansibility Y", () => {
+  const A = 1e-4;
+  const Cd = 0.6;
+  const oc = new Orifice(A, Cd);
+
+  it("is 1 when kappa is omitted or r → 1", () => {
+    expect(expansibilityY(0.7)).toBe(1);
+    expect(expansibilityY(0.999999, 1.4)).toBeCloseTo(1, 5);
+    expect(expansibilityY(1, 1.4)).toBe(1);
+  });
+
+  it("recovers Bernoulli when kappa is omitted", () => {
+    const rho = 1000;
+    const pUp = 2e5;
+    const pDown = 1.9e5;
+    const expected = Cd * A * Math.sqrt(2 * rho * (pUp - pDown));
+    expect(oc.massFlowFromState(pUp, pDown, rho)).toBeCloseTo(expected, 12);
+  });
+
+  it("matches the ideal-gas massFlow convenience at the same state", () => {
+    const R = 287;
+    const gamma = 1.4;
+    const T = 300;
+    const pUp = 5e5;
+    const pDown = 3.5e5;
+    const rho = pUp / (R * T);
+    const viaY = oc.massFlowFromState(pUp, pDown, rho, gamma);
+    const viaIdeal = oc.massFlow(pUp, pDown, T, R, gamma);
+    expect(Math.abs(viaY - viaIdeal) / viaIdeal).toBeLessThan(1e-12);
+  });
+
+  it("chokes: further back-pressure drop does not change mdot", () => {
+    const kappa = 1.4;
+    const rho = 5.8;
+    const pUp = 5e5;
+    const rCrit = criticalPressureRatio(kappa);
+    const m1 = oc.massFlowFromState(pUp, pUp * rCrit * 0.9, rho, kappa);
+    const m2 = oc.massFlowFromState(pUp, pUp * rCrit * 0.2, rho, kappa);
+    expect(Math.abs(m1 - m2) / m1).toBeLessThan(1e-12);
+  });
+
+  it("lone gas orifice mdot is independent of momentumFlux and kineticEnergy", () => {
+    const flags = [
+      {},
+      { momentumFlux: true },
+      { kineticEnergy: true },
+      { momentumFlux: true, kineticEnergy: true },
+    ];
+    const mdots = flags.map((extra) => {
+      const res = solveSteady(
+        makeConfig({
+          settings: {
+            mode: "steady",
+            tolerance: 1e-9,
+            maxIterations: 200,
+            relaxation: 0.9,
+            ...extra,
+          },
+          fluid: { model: "idealGas", preset: "air" },
+          nodes: [
+            {
+              id: "A",
+              type: "boundary",
+              x: 0,
+              y: 0,
+              pressure: 5e5,
+              temperature: 300,
+            },
+            {
+              id: "B",
+              type: "boundary",
+              x: 1,
+              y: 0,
+              pressure: 101325,
+              temperature: 300,
+            },
+          ],
+          branches: [
+            {
+              id: "oc",
+              from: "A",
+              to: "B",
+              component: { type: "orifice", area: 1e-4, cd: 0.6 },
+            },
+          ],
+        }),
+      );
+      expect(res.converged).toBe(true);
+      return res.branches.oc.mdot;
+    });
+    for (const m of mdots) {
+      expect(Math.abs(m - mdots[0]) / mdots[0]).toBeLessThan(1e-9);
+    }
   });
 });
 
