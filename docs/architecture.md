@@ -15,7 +15,7 @@ algebraic pressure-drop relation by default. With `settings.momentumFlux` and
 `settings.kineticEnergy` enabled, the solver closes quasi-1-D compressible
 duct flow (Fanno friction choking, Rayleigh thermal choking, seeded
 converging–diverging nozzles) for any fluid model; sonic physics at
-restrictions is also available as point closures (`orificeCompressible`,
+restrictions is also available as point closures (`orifice` with $Y(r,\kappa)$,
 `cavitatingVenturi`). Supersonic shock capture, Rankine–Hugoniot jumps, and
 distributed acoustic wave propagation (water hammer) are out of scope; the
 README's Limitations section is the authoritative list. Features that would
@@ -97,6 +97,41 @@ version). Changes to persisted fields must update validation, examples,
 tests, and README schema documentation. A breaking persisted change requires
 an explicit migration strategy before the version is advanced.
 
+## Simulation variants
+
+`config.variants` holds named alternatives to the network in the file, each a
+sparse patch rather than a copy, so base edits keep flowing into every variant
+that does not override them. `src/core/variants.ts` owns the two pure
+functions, which are exact inverses over the shapes the editor can produce:
+
+- `applyVariant(base, spec)` — removals, then field overrides, then additions;
+  `variants` is stripped from the output, so a resolved config is an ordinary
+  solvable model and the solver never learns variants exist. Patch targets the
+  base no longer has are skipped and reported, never thrown: base edits and
+  variant patches are authored independently, so dangling references are
+  ordinary and must not prevent a model from opening.
+- `diffVariant(base, resolved)` — the inverse, used to record edits made while
+  a variant is active.
+
+The UI keeps this split in one place. `store.baseConfig` is the file (base
+network plus variant list) and is what the `.fn` text, Save, and the autosave
+all describe; `store.config` is the resolved active variant and is what every
+panel, the canvas, and the solver read, so the variant machinery costs the
+~59 existing `useStore` subscribers nothing. `commitConfig` routes an edit to
+the base or into the active variant's patch depending on which is active.
+
+Variants are authorship, not numerics: they are excluded from the provenance
+hash (like `notes`), so adding one cannot stale another's results. Entity
+array ORDER is excluded from that hash for the same reason — two configs that
+differ only in the order elements are listed describe the same network, so
+reordering the project outline must not invalidate a pinned baseline.
+
+Results are scoped to the model that produced them: each `RunRecord` carries a
+`variantId`, the ring-buffer cap applies per variant, and every wholesale model
+replacement clears the history. Results are not written to the `.fn` file —
+`src/ui/runsFile.ts` mirrors them into localStorage and exports a portable
+`<model>.runs.json` sidecar.
+
 ## Text projection (src/substrate)
 
 `src/substrate/textProjection.ts` is the bidirectional text projection of
@@ -106,7 +141,7 @@ network is a reviewable, diffable, hand-editable text artifact rather than an
 opaque JSON blob.
 
 - Layering: the substrate depends on `src/core` (the schema plus the `decodeNetworkConfig` / `validateNetwork` boundary pipeline, which it runs after structural assembly) and never on `src/ui`. The UI consumes it (the `.fn` save/load path and the Text tab) through `serializeText` / `parseText`, so the format stays usable from any host, including Node.js tooling.
-- The `.fn` save format uses one record per line (`network`, `node`, `solid`, `branch`, `conductor`, `group`, `note`, plus singleton field lines), LF newlines, and strict JSON for all values and data payloads. The projection is lossless: parsing serialized output reproduces the config exactly, including canvas geometry, group membership, and the absent-vs-empty distinction for the optional entity arrays. Fluid and solid `@ (x, y)` coordinates are canvas pixels. Physical metres live in `position {x,y,z}` inside the data payload (a legacy third `@` coordinate is still accepted as `position.z`). Parsing is strict and never throws: malformed input yields `ParseError` entries with line numbers, and decode/validation failures are attributed to the offending line where possible.
+- The `.fn` save format uses one record per line (`network`, `node`, `solid`, `branch`, `conductor`, `group`, `note`, plus singleton field lines — `settings`, `fluid`, `fluids`, `closureParams`, `species`, `registers`, `logic`, `controllers`, `junctions`, `componentLibrary`, `variants`), LF newlines, and strict JSON for all values and data payloads. The projection is lossless: parsing serialized output reproduces the config exactly, including canvas geometry, group membership, and the absent-vs-empty distinction for the optional entity arrays. Fluid and solid `@ (x, y)` coordinates are canvas pixels. Physical metres live in `position {x,y,z}` inside the data payload (a legacy third `@` coordinate is still accepted as `position.z`). Parsing is strict and never throws: malformed input yields `ParseError` entries with line numbers, and decode/validation failures are attributed to the offending line where possible.
 - Current limitation: the text is SI-only; numbers are always written and read in raw SI units with no unit labels. The `preset` option exists for UI unit-preset compatibility but is accepted and ignored, so SI values round-trip bit-exactly regardless of the display preset.
 
 ## Solver worker
@@ -128,9 +163,10 @@ boundary:
 - A second, session-only zustand store (`sweep/store.ts`) owns sweep jobs. Its
   only read of the canonical store is the config snapshot taken at job
   creation (a deep-frozen `structuredClone` with an FNV hash); its only write
-  back is the explicit Promote action, which appends one run record to
-  Analysis run history. Jobs never touch the model, text buffer, undo history,
-  or localStorage, and nothing is persisted.
+  back is the explicit Promote action, which creates a named simulation
+  variant carrying the swept field as its patch and files the promoted run
+  under it. Running a job never touches the model, text buffer, undo history,
+  or localStorage, and no job state is persisted.
 - Execution is strictly sequential through a generic, job-kind-agnostic solve
   queue (`sweep/runner.ts`): one worker per variant, per-variant
   status/result/error recording, continue-after-failure, and

@@ -8,14 +8,14 @@
  * docs/user-manual.md into docs/figures/user-manual/:
  *
  *   first-run-orifice.png       §2.3 fig 2-1  orifice sanity check, branch selected
- *   tank-blowdown-results.png   §2.3 fig 2-2  Analysis tab after the transient
+ *   tank-blowdown-results.png   §2.3 fig 2-2  Runs tab after the transient
  *   tank-blowdown-scrubber.png  §2.3 fig 2-3  canvas colored by pressure + scrubber
  *   regen-cooling-canvas.png    §6.3 fig 6-1  conjugate model by temperature
- *   settings-dialog.png         §6.6 fig 6-2  Global Settings over the same model
+ *   configuration-view.png      §6.6 fig 6-2  Configuration (Solver section) over the same model
  *   model-text-view.png         §6.10 fig 6-3 Model Text over the same model
  *
  * The figures are captured in ONE browser session, in the order the manual
- * presents them, so run numbering in the Analysis tab matches the walkthrough
+ * presents them, so run numbering in the Runs tab matches the walkthrough
  * (the tank blowdown is Run 2 because the orifice check was Run 1).
  *
  * Determinism notes: browser storage is cleared before the first example so an
@@ -187,13 +187,17 @@ async function capture(baseURL: string): Promise<void> {
     await parkPointer(page);
     await shoot(page, "regen-cooling-canvas");
 
-    // --- Figure 6-2: Global Settings over the same real-fluid model ----------
-    await testId(page, "toolbar-settings").click();
-    await testId(page, "settings-dialog").waitFor({ state: "visible" });
+    // --- Figure 6-2: Configuration over the same real-fluid model ------------
+    // The view opens on its Solver section, which is what the figure shows.
+    await testId(page, "config-tab").click();
+    await testId(page, "configuration-view").waitFor({ state: "visible" });
+    await testId(page, "settings-tab-panel-solver").waitFor({
+      state: "visible",
+    });
     await page.waitForTimeout(300);
-    await shoot(page, "settings-dialog");
-    await testId(page, "settings-close").click();
-    await testId(page, "settings-dialog").waitFor({ state: "hidden" });
+    await shoot(page, "configuration-view");
+    await testId(page, "editor-tab").click();
+    await testId(page, "configuration-view").waitFor({ state: "hidden" });
 
     // --- Figure 6-3: Model Text over the same model --------------------------
     await testId(page, "canvas-text-view").click();

@@ -66,7 +66,7 @@ closed forms hold exactly). Five cases are studied:
 
 Cases 1, 2, 4, and 5 use one tank — an internal node with volume — connected
 to a pressure boundary through a flow component (Figure 1). Case 1 vents
-through an `orificeCompressible` (isentropic mass flux with choking, C_d =
+through an `orifice` (expansibility $Y(r,\kappa)$ with choking, C_d =
 0.6, A = 10⁻⁴ m²) to a 1 bar boundary; the
 pressure ratio stays below the critical value 0.5283 for the
 whole 8 s transient (the final tank pressure is

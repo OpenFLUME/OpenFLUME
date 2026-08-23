@@ -69,7 +69,7 @@ Fluid-node `pressure`/`temperature`/`volume`/`heatInput`; solid-node
 `temperature`/`mass`/`heatInput`; every fluid/solid physical-coordinate axis
 `position.{x,y,z}`; `pipe`/`heatedPipe` `length`/`diameter`/`roughness`/
 `elevationChange` (+ `ua`/`wallTemperature` on heated pipes); `bend`
-`diameter`/`rOverD`/`roughness`; `orifice`/`orificeCompressible` `area`/`cd`;
+`diameter`/`rOverD`/`roughness`; `orifice` `area`/`cd`;
 `valve` `area`/`cd`/`position`; `checkValve` `area`/`cd`;
 `dynamicCheckValve` `area`/`cd`/`discArea`/`mass`/`springRate`/`preload`/
 `damping`/`stroke`/`initialPosition`; `reliefValve` `crackPressure`/

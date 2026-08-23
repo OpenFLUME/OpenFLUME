@@ -2,7 +2,7 @@
   <img src="../public/logo.svg" alt="OpenFLUME" width="320" />
 </p>
 
-# OpenFLUME, Version 0.1.0
+# OpenFLUME, Version 0.2.1
 
 _Open FLUid Model Environment_
 
@@ -12,7 +12,7 @@ John Rising
 
 ---
 
-**Document status.** This manual describes OpenFLUME v0.1.0. It is
+**Document status.** This manual describes OpenFLUME v0.2.1. It is
 maintained in-tree alongside the code it documents; where this manual and the
 source disagree, [`src/core/schema.ts`](../src/core/schema.ts) and
 [`src/core/validate.ts`](../src/core/validate.ts) are authoritative and this
@@ -20,7 +20,7 @@ manual is defective.
 
 **How to cite.** See [CITATION.cff](../CITATION.cff), or:
 
-> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (v0.1.0).
+> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (v0.2.1).
 > [https://github.com/OpenFLUME/OpenFLUME](https://github.com/OpenFLUME/OpenFLUME)
 
 ---
@@ -332,7 +332,7 @@ convective heat arriving from a wall is positive.
 | Equations of state      | Incompressible liquid, ideal gas, thermal-expansion liquid, real fluid (CoolProp, 124-fluid catalogue)                  |
 | Two-phase               | Transient homogeneous-equilibrium model for real fluids                                                                 |
 | Compressible duct flow  | Opt-in quasi-1-D (`momentumFlux` + `kineticEnergy`, any fluid model): Fanno/Rayleigh choking, seeded supersonic nozzles |
-| Branch components       | 18 types (Appendix A)                                                                                                   |
+| Branch components       | 17 types (Appendix A)                                                                                                   |
 | Conjugate heat transfer | Solid and ambient nodes; conduction, convection, radiation conductors                                                   |
 | Convection models       | Specified $h$ or expression, Dittus–Boelter, Miropolskii, Darr–Hartwig, TT-WF                                           |
 | Solid properties        | Constant, sourced material catalogue, table, equation, time table                                                       |
@@ -388,8 +388,8 @@ over-expanded and separated nozzle operation, shock position, and any case where
 the flow must pass supersonic → subsonic cannot be modeled. Thrust is likewise
 not computed; the solver returns the internal flow field, not a momentum balance
 on the vehicle. Point choking at restrictions is separately available through
-`orificeCompressible` (isentropic ideal-gas) and `cavitatingVenturi` (choked
-liquid). With the flags off (the default), branch momentum is the incompressible
+`orifice` (expansibility $Y(r,\kappa)$, any gas-capable fluid) and
+`cavitatingVenturi` (choked liquid). With the flags off (the default), branch momentum is the incompressible
 algebraic relation $\Delta P(\dot m)$ with no Mach number in the formulation, and
 a long gas line driven toward sonic velocity returns unphysical answers rather
 than friction-choking.
@@ -502,7 +502,7 @@ Then run a transient:
 
 1. Choose **Tank blowdown** from _Applications_ — a 0.1 m³ air tank at 500 kPa,
    300 K venting through an orifice to atmosphere over 5 s.
-2. Click **Run**. The view switches to the **Results** tab and charts build as the
+2. Click **Run**. The view switches to the **Runs** tab and charts build as the
    run progresses. Tank pressure should decay monotonically toward 101 325 Pa and
    tank temperature should fall well below its initial 300 K, since the expansion
    is adiabatic, not isothermal.
@@ -510,9 +510,9 @@ Then run a transient:
    drag it and, with **Color by** set to **Pressure**, watch the network recolor
    through the blowdown.
 
-![The Results tab after the tank blowdown transient, showing the tank pressure decay chart](figures/user-manual/tank-blowdown-results.png)
+![The Runs tab after the tank blowdown transient, showing the tank pressure decay chart](figures/user-manual/tank-blowdown-results.png)
 
-_Figure 2-2. The **Results** tab after the tank-blowdown transient: tank
+_Figure 2-2. The **Runs** tab after the tank-blowdown transient: tank
 pressure decays from 500 kPa toward atmosphere over the 5 s run, 501 accepted
 steps._
 
@@ -639,7 +639,7 @@ Every branch carries `id`, an optional `label`, `from`, `to`, and a `component`
 object whose `type` selects the momentum relation. Both endpoints must be fluid
 nodes, must resolve to the same named fluid, and must differ from each other.
 
-The eighteen component types are `pipe`, `orifice`, `orificeCompressible`,
+The seventeen component types are `pipe`, `orifice`,
 `cavitatingVenturi`, `resistance`, `valve`, `checkValve`, `dynamicCheckValve`,
 `reliefValve`, `pump`, `bend`, `areaChange`, `flowSource`, `regulator`,
 `heatedPipe`, `dpTable`, `customResistance`, and `userComponent`. Their
@@ -1060,18 +1060,28 @@ converging–diverging nozzle (section 4.1.4).
 
 ### 4.3.2 Orifice
 
+One restriction, one mass-flow law, for every fluid:
+
+$$\dot m = C_d A\, Y(r,\kappa)\,\sqrt{2\rho_\text{up}\Delta P}$$
+
+$Y$ is the ISO/AGA expansibility factor for a simple restriction ($\beta\to 0$):
+
+$$Y(r,\kappa)=\sqrt{\frac{\kappa}{\kappa-1}\frac{r^{2/\kappa}-r^{(\kappa+1)/\kappa}}{1-r}},\qquad r=\frac{P_\text{down}}{P_\text{up}}$$
+
+The isentropic exponent $\kappa$ comes from the branch fluid: the constant
+$\gamma$ for an ideal gas, $a^2\rho/P$ from the equation of state for a real
+fluid, and omitted ($Y=1$) for an incompressible liquid. $Y\to 1$ as
+$\Delta P/P\to 0$, so the incompressible Bernoulli inversion
+
 $$\Delta P = \frac{\dot m |\dot m|}{2\rho\left(C_d A\right)^2}$$
 
-### 4.3.3 Compressible Orifice
+is recovered automatically. When $r$ falls below the critical ratio
+$r_*=(2/(\kappa+1))^{\kappa/(\kappa-1)}$ the same formula is evaluated at
+$r_*$ and mass flow no longer depends on further back-pressure drop
+(choked). Legacy models authored as `orificeCompressible` load as this
+component.
 
-Isentropic ideal-gas flow with automatic transition to the choked limit at the
-critical pressure ratio, through the mass-flux function $M(P_r,\gamma)$:
-
-$$\dot m = C_d A P_\text{up}\sqrt{\frac{\gamma}{R T_\text{up}}}M(P_r,\gamma)$$
-
-Requires the `idealGas` model.
-
-### 4.3.4 Cavitating Venturi
+### 4.3.3 Cavitating Venturi
 
 An analytical choked-flow closure for real fluids, blending two regimes. When
 throat pressure reaches the saturation pressure $P_v(T_\text{up})$ the flow
@@ -1336,7 +1346,7 @@ under constant inflow against the analytical polytropic law. From
    so CoolProp calls scale with the number of nodes rather than nodes × columns.
    Finite differences remain only where the residual is genuinely
    non-differentiable — `pump`, `regulator`, `reliefValve`,
-   `orificeCompressible`, `cavitatingVenturi`, and `heatedPipe` branch heat get
+   `orifice` (when $Y$ is active), `cavitatingVenturi`, and `heatedPipe` branch heat get
    per-entry patches — and the whole matrix falls back to finite differences for
    unsupported configurations such as species transport. Setting
    `jacobian: 'fd'` forces the pure finite-difference path.
@@ -1582,11 +1592,16 @@ Beneath the toolbar, a tab strip selects the workspace:
 | ------------------- | ----------------------------------------------------------------------------------------------------------- |
 | **Model**           | The P&ID canvas — the default view                                                                          |
 | _(subnetwork tabs)_ | One closable tab per opened group, showing only its members plus ghost ports for cross-boundary connections |
+| **Configuration**   | Everything global about the model: solver, physics, fluids, species, units, extensibility                   |
 | **Sweep**           | Session-only parameter-sweep workspace                                                                      |
-| **Results**         | Analysis view: channels, result tables, run history, solver diary                                           |
+| **Runs**            | Channels explorer, result tables, run history, solver diary                                                 |
 
-A floating **Properties** panel appears over the canvas tabs whenever something
-is selected, and can be collapsed.
+To the left, the **Project outline** lists the whole project — the active
+variant's configuration and elements, plus every recorded run — and can be
+hidden with `Ctrl`+`\`. To the right, a docked **Properties** panel appears
+whenever something is selected and gives its width back to the canvas
+otherwise; drag its left edge to resize it. See §6.11 for the outline and
+§6.12 for simulation variants.
 
 ## 6.2 Toolbar
 
@@ -1595,7 +1610,13 @@ are unsaved changes. **New**, **Save**, and **Load** handle `.fn` files;
 **Undo** and **Redo** walk the history. **Examples ▾** lists the twelve shipped
 models in four groups. **Units ▾** selects the display preset — **SI**, **Metric
 engineering**, or **US customary** — and shows a disabled **Custom** entry when
-preferences match no preset. **Settings** opens the global settings dialog.
+preferences match no preset. **Commands** (or `Cmd`/`Ctrl`+`K`) opens the
+command palette, which can run the model, place elements, switch views, and
+jump to any element by id.
+
+When a simulation variant other than **Base** is active, its name appears as a
+pill beside the network name — so the variant you are editing stays visible
+even with the project outline hidden.
 
 **Run** starts a solve; while running the button becomes **Running…** with a
 **Cancel** beside it, and live progress reads `Iter … · residual …` for steady
@@ -1704,6 +1725,16 @@ conditions: **Pressure**, **Temperature**, **Volume** for internal nodes,
 **Temperature Schedule** tables. Diagram **X**/**Y** are separate from physical
 **Position (m)**.
 
+Real-fluid nodes add a **State variable** selector of **Temperature** or
+**Vapour quality**. The two are mutually exclusive (section 3.4), so choosing one
+replaces the other's field and clears its value; quality is not offered for the
+analytic fluid models, which have no saturation dome. When some convection
+conductor opts into cryogenic front transport, boundary nodes also gain
+**Cryogenic front inlet** on [0,1] — 1 marks a cryogenic inlet, blank or 0 a warm
+boundary. When the network declares species, every node gains a **Composition**
+group of one mass fraction per species with a running sum and a **Normalize to
+1** action; partial entry is allowed, and the sum has to reach 1 to solve.
+
 An internal node also exposes **Reacting junction (combustor)**. Enabling it
 selects the CEA propellant pair and efficiency, the named ideal-gas product
 fluid, and the oxidizer/fuel role of each inbound branch. Validation enforces
@@ -1715,9 +1746,28 @@ Input**. Ambient nodes add **Temperature Schedule**. The **cp** field exposes al
 five specific-heat modes, showing the source and validity range inline for
 catalogue materials.
 
-**Branch.** **Label**, **From**, **To**, and **Component Type** grouped as
-**Common**, **Advanced**, and **Custom**, followed by the parameters for the
-chosen type (Appendix A).
+**Branch.** **Label**, **From**, **To**, **Initial flow guess**, and **Component
+Type** grouped as **Common**, **Advanced**, and **Custom**, followed by the
+parameters for the chosen type (Appendix A). **Initial flow guess** is the
+Newton warm start `initialMdot`; left blank it reads _Auto (0.1 kg/s)_ and never
+constrains the converged solution.
+
+Pipes carry a **Friction** selector of **Correlation (Swamee–Jain)** or
+**Constant f**. The constant form is a separate mode rather than a bare number
+because absent and zero mean different things: `frictionFactor: 0` is a
+frictionless pipe, so an emptied field must not read as one. A **Tapered
+outlet** checkbox reveals **Outlet Diameter** (`diameterOut`); friction uses the
+mean diameter, and the hint says whether the endpoint areas are currently
+feeding the acceleration and kinetic-energy terms. Heated pipes add a **Boiling
+model** selector of **UA·ΔT only** or **Miropolskii film boiling**.
+
+A `customResistance` branch edits its K(Re) curve in place, as a Reynolds/K
+point grid beside a readout of the point count, the Reynolds span, and the K the
+last solve interpolated. A constant K can be promoted with **Make K depend on
+Reynolds** — seeded flat, so promotion changes the shape of the closure without
+changing K — and a table collapsed back with **Replace with constant K**. Only
+the table form needs **Diameter** (that is what makes Reynolds computable), so a
+constant-K branch offers **+ Add diameter** instead.
 
 **Conductor.** **Label**, **From**, **To**, and **Kind**, then kind-specific
 parameters. Convection conductors expose a heat-transfer-model editor with
@@ -1739,13 +1789,47 @@ tagged **stale** if the model has since changed.
 Formula-capable fields carry the **f(x)** button described in
 section 3.10.
 
-## 6.6 Global Settings
+## 6.6 Configuration
 
-**Settings** opens a dialog with four sections. **Solver** sets **Mode** (Steady
-/ Transient), **Tolerance**, **Max Iterations**, and **Relaxation**; in transient
-mode it adds the time-stepping choice of **Fixed dt** or **Adaptive**, with
-**Time Step** and **End Time** for fixed stepping and **Min dt**, **Max dt**,
-**Initial dt**, **Relative tolerance**, and **Safety factor** for adaptive.
+The **Configuration** tab holds everything global about the model — everything
+that is not the network itself — in six sections: **Solver**, **Physics**,
+**Fluids**, **Species**, **Units**, **Extensibility**. It always opens on
+**Solver**, and leaving the tab returns it there, so the basics are one click
+away and the advanced surfaces stay out of the way until you want them. Rows in
+the project outline's **Configuration** section open this tab directly on the
+section they name.
+
+These settings belong to the **active variant** (§6.12): editing them while a
+variant is active records the change into that variant, exactly as editing an
+element does.
+
+**Solver** sets **Mode** (Steady / Transient), **Tolerance**, **Max
+Iterations**, and **Relaxation**; in transient mode it adds the time-stepping
+choice of **Fixed dt** or **Adaptive**, with **Time Step** and **End Time** for
+fixed stepping and **Min dt**, **Max dt**, **Initial dt**, **Relative
+tolerance**, **Safety factor**, and the two absolute floors **Absolute pressure
+tolerance** and **Absolute temperature tolerance** for adaptive. An **Advanced
+numerics** disclosure holds the Newton strategy: **Steady solver**
+(pseudo-transient continuation or direct Newton, steady mode only),
+**Globalization** (trust region or line search), **Jacobian** (hybrid
+analytic/FD or finite difference), and the experimental **Re-certify after
+coupling**. The defaults suit every shipped example; reach for these only when a
+solve will not converge.
+
+**Physics** holds the compressible formulation. **Momentum flux** adds the
+convective-acceleration term and **Kinetic energy** switches branch transport to
+stagnation enthalpy; together they make the network quasi-1-D. A derived summary
+line names the formulation the current combination selects, so the interaction
+between the flags is visible rather than inferred. **Momentum-flux scheme**
+(limited upwind or central) is disabled until momentum flux is on, and the
+**Second-law admissibility audit** — on by default — is enabled only for the
+steady central-scheme case it applies to. A **Closure calibration** disclosure
+exposes the empirical constants of the Dittus–Boelter, Miropolskii, and
+Swamee–Jain correlations plus the `solidCpScale` material multiplier; each field
+shows its published default as a placeholder, and clearing a field returns the
+network to the published value rather than writing it in. Solver numerics are
+structurally unreachable from that surface (see `core/closureParams.ts`).
+
 **Fluids** is a single roster: the default fluid is the first card, and **+ Add
 fluid** appends named isolated continua. Every card — default and named alike —
 offers the same editor: a model of **Incompressible**, **Ideal Gas**,
@@ -1755,99 +1839,167 @@ seeds the preset's constants into editable fields (`rho`, `mu`, `cp` and the
 model's other parameters, plus arbitrary extra keys). Real fluids replace the
 preset with a searchable 124-fluid catalogue (favorites first, then search by
 name, alias, or CAS, with warnings for no-transport and unknown names).
-**Units** selects the display
-preset and per-quantity preferences. **Advanced Extensibility** holds the
-registers, logic-rules, and controllers JSON editors.
 
-Advanced compressible settings — `momentumFlux`, `kineticEnergy`,
-`momentumFluxScheme`, and `transonicAdmissibility` — are edited in **Model
-Text** or in a scripted `NetworkConfig`; the Settings dialog does not currently
-expose them.
+**Species** turns multi-species transport on and off. The roster is a table of
+species names and molecular weights, with optional whole-column properties for
+specific heat, formation enthalpy, and viscosity (whole-column because the
+solver rejects a ragged set). Beside it, the reaction list edits Arrhenius
+reactions: stoichiometry is entered per declared species, so a reaction can
+never name a species the roster does not have, and each card shows its equation
+as it is built. Removing the last species removes the block, and node mass
+fractions that named a departed species go with it. Species transport requires a
+single ideal-gas continuum; the tab says so when the network cannot support it.
 
-![The Global Settings dialog showing solver, fluid, units, and advanced extensibility sections](figures/user-manual/settings-dialog.png)
+**Units** selects the display preset and per-quantity preferences.
+**Extensibility** holds the registers, logic-rules, and controllers JSON
+editors.
 
-_Figure 6-2. The Global Settings dialog: solver mode and tolerances on the
-left, the fluid model with the searchable CoolProp catalogue in the center,
-per-quantity unit preferences on the right, and the registers, logic-rules,
-and controllers JSON editors below._
+![The Configuration tab on its Solver section](figures/user-manual/configuration-view.png)
+
+_Figure 6-2. The Configuration tab on its Solver section: the section tabs
+across the top, solution tolerances on the left, time stepping in the center,
+and the Advanced numerics disclosure on the right._
 
 ## 6.7 Running a Model
 
 Click **Run**. Validation runs first, and a model with issues will not solve —
 the status pill shows the count and opens a list in which each issue selects the
 offending element on the canvas. Progress appears in the toolbar and, for
-transients, live charts build in the **Results** tab as steps complete.
+transients, live charts build in the **Runs** tab as steps complete.
 **Cancel** terminates the run and keeps the partial trajectory, labeled as
 partial.
 
-## 6.8 Analysis (Results Tab)
+## 6.8 Analysis (Runs Tab)
 
-The **Results** tab is the Analysis view. A sticky run strip at the top carries the run title, mode, and outcome, plus
-**stale**, **partial**, and baseline pills, a **Run** selector offering **Latest
-run** and each historical run, and buttons for **Runs**, **Solver diary**, and
-**Details**. Banners announce a failed run, a stale result — _Results are from an
-earlier model state. Rerun before using these values for a design decision._ —
-or a cancelled partial.
+The **Runs** tab is where results are read. **The tab's title is the run
+selector**: it names the displayed run and switches between **Latest run** and
+each historical run, with the outcome badge, the run's evidence (iterations or
+accepted steps), and any **partial** or baseline pill beside it. There is no
+separate strip above it repeating the same facts. Banners announce a failed
+run, a stale result — _Results are from an earlier model state. Rerun before
+using these values for a design decision._ — or a cancelled partial.
 
-The primary view is the **Simulation channels** explorer. A **View** dropdown
-offers presets — node pressure, node and solid temperature, branch mass flow,
-conductor heat rate, node density, branch velocity / pressure drop / Reynolds
-number, branch Mach / mass flux / dynamic pressure, node enthalpy and internal
-energy, node transport and thermodynamic properties, conductor heat flux,
-conductor heat transfer coefficient, node gas volume, and quality and front and
-wetted fractions — and a **Custom channels** mode with filtering by element kind
-and a search box. Only presets the current result actually has data for are
-offered, so a run of an incompressible liquid network never shows a Mach view. A
-preset that spans several quantities is drawn as one axis per quantity rather
-than forced onto a shared scale. **Export CSV** writes the displayed channels
-with provenance; **Export all** writes every result channel, not just the
-current view (and not just the first 40 of a capped preset). A transient
-export is a plottable table — time is the first column, each channel is its
-own column headed by its label and unit, and a channel with no finite sample
-at some instant leaves that cell blank rather than shifting the column. A
-steady export, having no time axis, is one row per channel.
+Everything else about the run — the solve summary, the result tables, the
+solver diary and the run history — sits in the collapsible sections below the
+plots, each opened from its own header.
 
-Every quantity below is available to plot, to color the canvas by, to read in
-the result tables, and to export, in both steady and transient runs — subject
-only to whether the fluid model and the component geometry can supply it.
+### Plots
 
-| Element    | Quantities                                                                                                                                                              |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Node       | Pressure, temperature, density, enthalpy, internal energy, entropy, specific heat, viscosity, thermal conductivity, speed of sound, quality, gas volume, front fraction |
-| Branch     | Mass flow, pressure drop, velocity, volumetric flow, mass flux, dynamic pressure, Reynolds number, Mach number                                                          |
-| Solid node | Temperature                                                                                                                                                             |
-| Conductor  | Heat rate, heat flux, heat transfer coefficient, wetted fraction                                                                                                        |
+The Runs tab holds **plots**, one per tab. A plot is two things and nothing
+else: an **x axis** and a **list of channels**. Add as many plots as you like
+with **+ Plot** — pressure along the feed line in one tab, tank pressure over
+time in another — rename a tab by double-clicking it, and close it with its
+**×**. Plots survive leaving the Runs tab and are cleared when a different
+model is loaded.
 
-A quantity the run cannot supply is omitted rather than reported as zero, and an
-omitted quantity simply does not appear as a channel, a table column, or a
-**Color by** entry. Absolute entropy needs a reference state, so it is published
-for real (CoolProp) fluids only; speed of sound and hence Mach number need a
-fluid model that carries one, which excludes the incompressible liquid; mass
-flux and dynamic pressure need a component with a flow area. Inside the
-two-phase dome, real-fluid properties are evaluated on a pressure–enthalpy flash
-rather than pressure–temperature, which stays single-valued there.
+A new plot is **empty**. Nothing is pre-selected, because which of the several
+hundred channels a result carries matters to you is not something the tool can
+guess.
 
-Signs follow the branch and conductor conventions of section 3: mass flow,
-velocity, volumetric flow, mass flux, pressure drop, heat rate, and heat flux
-are signed with the element's from → to direction, so a negative value means
-the flow or heat runs the other way. Reynolds number, Mach number, and dynamic
-pressure are magnitudes and are always non-negative.
+### Choosing the x axis
 
-Four collapsible sections follow, closed by default. **Run details** sets display
-precision and shows overview cards — solve outcome, pressure envelope,
-temperature envelope, peak absolute mass flow, numerical evidence, and for steady
-runs a mass-balance card — plus, for transients, **Download complete time series
-(CSV)**. Fixed-step transients also publish per-step residual series
-(`stepResiduals` / `stepResidualsScaled`) on the result object; they are the
-record of steps that did not meet tolerance. **Result tables** (or **Final-state tables** for a transient) gives
-sortable **Nodes**, **Branches**, **Solid Nodes**, and **Conductors** tables with
-per-section **Copy CSV** and **Download CSV**, including delta columns against a
-pinned baseline. **Solver diary** shows the event timeline with **Download JSON**
-and **Download text**. **Run history** lists past runs with editable names, event
-counts, baseline pinning, and a **Comparison CSV**.
+| Axis                   | What runs along the bottom                            |
+| ---------------------- | ----------------------------------------------------- |
+| **Time**               | The transient sample axis (transient results only)    |
+| **Station along path** | Distance through the network along a chosen flow path |
+| **Position X / Y / Z** | The element's physical coordinate in metres           |
+| **Element order**      | Position in the model — the axis that always exists   |
 
-Every export carries the model name, solver-settings summary, and config hash, so
-a number can always be traced to the model state that produced it.
+The axis decides what a channel means on the plot, and the difference matters:
+
+- On **Time**, a channel is a _series_. Three node pressures draw three lines,
+  each tracing one element through the run.
+- On every other axis, a channel is a _point_. Three node pressures draw one
+  line across the network, because the thing varying along the axis is the
+  element, not the sample. Channels are grouped into a line per quantity, so
+  pressure and temperature are two lines on their own scales.
+
+Plotting node pressures against **Station along path** is therefore the
+hydraulic grade line: you see not just that pressure was lost but where. A
+**Path** selector appears with that axis, offering every route the solved flow
+supports — one per outlet of a tee, one per stream of a counterflow pair, or a
+closed loop where the network circulates.
+
+Flow direction is not declared in the model: a boundary node is a reservoir and
+a branch's drawn `from → to` is only a sign convention. OpenFLUME orients the
+network by the solved mass-flow signs and walks it downstream from wherever
+mass enters, so reverse flow is drawn the right way round.
+
+Quantities that belong to a _span_ rather than a point — a branch's mass flow
+or pressure drop — are drawn as stairs on a spatial axis, because a component's
+value does not vary along itself.
+
+The axis degrades honestly. **Station** is a real distance when every component
+on the path carries a length (or its endpoints carry physical positions), and a
+station index that says so when even one does not. **Element order** is always
+an index. An element with no coordinate on the chosen axis is left out and
+named, never placed at zero.
+
+### Choosing channels
+
+What the plot currently draws is listed in a **Plotted** block at the top of
+the picker, with each channel's value and an **×** to drop it, so the answer to
+"what am I looking at" is never somewhere down a scrolling list. **Clear**
+empties the plot.
+
+Below it, the picker lists **every** channel the result carries, narrowed by
+three controls on one line:
+
+- a **search box**;
+- **sort** (the bars glyph) — group the list **by quantity**, the default, or
+  **by element**;
+- **filter** (the funnel) — restrict it to fluid nodes, branches, solid nodes
+  or conductors, each option carrying the glyph the canvas draws for it.
+
+Each row shows its current value in your display units and its element's canvas
+glyph; clicking it adds or removes it from the plot and selects that element in
+the model. The **or plot a whole set…** control fills the plot with a whole
+family in one go — every node pressure, every branch mass flow, and the other
+sets listed in §6.8.
+
+### Comparing runs on one plot
+
+The question a design study asks is "which one was better?", and flipping
+between two runs a second apart cannot answer it. Above the chart, a **Runs**
+row names the run the plot is reading — the one chosen in the title dropdown —
+and **+ Compare run…** overlays another recorded run on the same axes. The same
+channels are resolved against each run, so adding a run doubles the lines
+rather than changing what is drawn.
+
+Overlaid runs are dashed and keep the colour of the channel they mirror, so the
+eye groups by quantity first and tells the runs apart second; every series is
+labelled with the run it came from. Each overlay is resolved against **its own
+captured model**, so a variant that moved a node or lengthened a pipe is
+plotted on the geometry it actually ran, and its values are interpolated onto
+the plot's axis rather than read off by sample index — two runs on different
+timesteps still line up. Where an overlay has no data (a coordinate the other
+run's axis never reaches, or a steady run on a time axis) the line simply
+stops; nothing is extrapolated.
+
+The comparison belongs to the plot, not the tab: one plot can hold a two-design
+comparison while the next reads the latest run on its own. Up to four runs can
+be overlaid on one plot. Drop one with the **×** on its chip. A pinned baseline
+run (§6.12) is overlaid on every plot the same way, without being added by
+hand.
+
+### Findings
+
+Under the plot, deterministic readings of the result appear when there is
+something to say — the component that dominates the pressure drop, branches
+running backwards, near-sonic or sonic flow, mass that does not balance at a
+steady junction, and any advisory the solver itself raised. Each states the
+numbers behind it and selects the element it is about. Nothing is shown when
+there is nothing to report; silence means the result reads cleanly.
+
+### Exports
+
+**Export CSV** writes the current plot's channels with provenance; **Export
+all** writes every result channel. A transient export is a plottable table —
+time is the first column, each channel is its own column headed by its label
+and unit, and a channel with no finite sample at some instant leaves that cell
+blank rather than shifting the column. A steady export, having no time axis, is
+one row per channel. Every chart also exports itself as PNG, SVG, or CSV with
+the run's provenance in the footer.
 
 ## 6.9 Parameter Sweeps
 
@@ -1891,13 +2043,103 @@ same lossless text projection used by `.fn` files, with **Apply** and
 **Table view** opens **Model Table**, a tabular listing of every element,
 including a searchable **Notes** table, with a validation summary pill.
 
-## 6.11 Keyboard Shortcuts
+## 6.11 Project Outline
+
+The left panel is a searchable tree over the whole project. `Ctrl`+`\` hides
+and shows it; a filter box narrows every section at once.
+
+At the top sits the **variant picker** (§6.12), which both switches the active
+variant and labels everything below it as belonging to that variant. Beneath
+it:
+
+- **Configuration** — Solver, Physics, Fluids (with one child row per named
+  fluid), Species, Units and Extensibility, each annotated with its current
+  value. Clicking a row opens the Configuration tab on that section.
+- **Element sections** — fluid nodes, branches, solid nodes, conductors,
+  subnetworks and notes. Each row carries the same symbol the canvas draws:
+  a circle for an internal node, a rounded square for a boundary, a diamond
+  for a solid (dashed when ambient), and the component's P&ID glyph for
+  branches and conductors. Clicking a row selects the element and brings it
+  into view on the canvas.
+- **Runs** — every recorded run, newest first, tagged with the variant that
+  produced it (§6.12).
+
+Hovering any element row opens an instant summary card: what the element is,
+its endpoints, the two or three parameters that define it, and — when a run is
+displayed — its solved values.
+
+A row that needs attention carries an icon at its right edge: an amber
+triangle when a readiness check flags it, a red circle when a validation error
+names the element. Healthy rows carry nothing — fine is the default state, so
+the panel reads as a quiet list with the problems standing out of it. A
+collapsed section shows the worst icon among its rows, so a problem is never
+hidden by collapsing.
+
+Elements can be **dragged into a different order** within their own section.
+Ordering is presentation: it round-trips through the `.fn` file and is
+undoable, but it never marks results stale, because listing the same network
+in a different order does not change the network. Reordering is disabled while
+the filter is active, since the visible rows are then not the full list.
+
+## 6.12 Simulation Variants
+
+A model file can carry named **variants** — alternative versions of the same
+network, differing in solver settings, parameters, or topology. The file body
+is the implicit **Base** variant; each additional variant is stored as a sparse
+patch recording only what it changes, so edits to the base flow through to
+every variant that does not override them.
+
+The variant picker at the top of the outline switches between them and offers
+**New variant from current**, plus rename, duplicate and delete on each row.
+Creating a variant while another is active branches from that one.
+
+While a variant is active, every edit is recorded into its patch and the base
+network is left untouched. Rows the variant overrides are marked **M**, with
+the base value in their hover card, and the picker shows how many changes the
+variant carries. Because the variant name also appears in the toolbar, the
+variant you are editing is visible whether or not the outline is open.
+
+Variants are saved inside the `.fn` file, so they travel with the model.
+
+**Runs and comparison.** Each run is filed under the variant that produced it
+and shown in the outline's **Runs** list with that variant's name. Click a run
+to display it; click the star beside another run to pin it as the comparison
+baseline, and that star stays gold for as long as the pin holds. The baseline
+may come from a _different_ variant, which is how variants are compared: the
+delta columns and the dashed chart overlay then show one variant against the
+other.
+
+Loading a different model clears the run list — results belong to the model
+that produced them.
+
+**Saving results.** Results are not stored in the `.fn` file — that file stays a
+model description. They are mirrored into browser storage so an ordinary reload
+keeps them, and they are written to a portable `<model>.runs.json` sidecar
+beside the model. **Save** in the toolbar writes both files whenever there are
+runs to save, so one action captures the whole session; **Save** in the Runs
+section header writes the sidecar alone. Loading a `.runs.json` through **Load**
+reattaches its runs to the open model.
+
+**Discarding results.** Click the **×** beside a run to discard that one, or
+**Discard** in the Runs section header to drop the whole list. Both ask for
+confirmation first, naming what will go, because discarding is permanent: it is
+not covered by Undo, and it clears the browser-storage copy too, so a reload
+will not bring the runs back. Save the sidecar first if the results matter. The
+model itself is never touched.
+
+**Promoting a sweep point.** **Promote** in the Sweep workspace (§6.9) turns an
+interesting sweep variant into a saved simulation variant named after the swept
+value, with the swept field as its patch, and files the run under it.
+
+## 6.13 Keyboard Shortcuts
 
 | Shortcut           | Scope         | Action                                               |
 | ------------------ | ------------- | ---------------------------------------------------- |
 | Ctrl/Cmd+Z         | Global        | Undo                                                 |
 | Ctrl/Cmd+Shift+Z   | Global        | Redo                                                 |
 | Ctrl/Cmd+D         | Global        | Duplicate selection                                  |
+| Ctrl/Cmd+K         | Global        | Open the command palette                             |
+| Ctrl/Cmd+\         | Global        | Show or hide the project outline                     |
 | Ctrl/Cmd+G         | Canvas        | Create subnetwork from selection                     |
 | Delete / Backspace | Canvas        | Delete selection                                     |
 | Escape             | Canvas        | Cancel connection chooser, picker, or pending action |
@@ -1908,7 +2150,7 @@ including a searchable **Notes** table, with a validation summary pill.
 Within a text field, Ctrl/Cmd+Z applies to that field rather than to model
 history.
 
-## 6.12 Validation Messages
+## 6.14 Validation Messages
 
 Validation runs continuously, debounced, on every model change, and again before
 any solve. Issues surface in four places: the toolbar status pill, whose popover
@@ -2331,8 +2573,8 @@ Tier composition and the rationale for each opt-in block are documented in
 ## 8.7 Result Provenance
 
 Every run hashes the configuration that produced it. Results computed from a
-model that has since been edited are marked **stale** in the run strip, the
-property panel, and the canvas, and the interface says plainly that a stale
+model that has since been edited are marked **stale** beside the run title, in
+the property panel, and on the canvas, and the interface says plainly that a stale
 number should be rerun before it informs a decision. Sweep jobs freeze and hash
 their snapshot at creation, so a later edit raises a staleness banner instead of
 silently changing the basis of a comparison. Channel exports, table exports,
@@ -2349,26 +2591,25 @@ invalidates a run.
 Interface labels are grouped **Common**, **Advanced**, and **Custom** in the
 **Component Type** selector. All areas are m², lengths m, pressures Pa.
 
-| `type`                | Label               | Parameters                                                                                           | Relation | Restrictions                                                   |
-| --------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------- |
-| `pipe`                | Pipe                | `length`, `diameter`, `roughness`, `elevationChange?`, `inertia?`, `frictionFactor?`, `diameterOut?` | §4.3.1   | `inertia` transient-only                                       |
-| `valve`               | Valve               | `area`, `cd`, `position`, `positionSchedule?`                                                        | §4.3.6   | `position` on [0,1]                                            |
-| `orifice`             | Orifice             | `area`, `cd`                                                                                         | §4.3.2   | —                                                              |
-| `pump`                | Pump                | `curve` as $(Q,\Delta P_\text{rise})$ pairs                                                          | §4.3.10  | rise must decrease monotonically                               |
-| `checkValve`          | Check Valve         | `area`, `cd`                                                                                         | §4.3.7   | —                                                              |
-| `dynamicCheckValve`   | Dynamic Check Valve | `area`, `cd`, `discArea?`, `mass`, `springRate`, `preload`, `damping`, `stroke`, `initialPosition?`  | §4.3.8   | `mass`, `springRate`, `stroke` > 0; `initialPosition` on [0,1] |
-| `reliefValve`         | Relief Valve        | `crackPressure`, `fullOpenPressure`, `area`, `cd`                                                    | §4.3.9   | full-open > crack                                              |
-| `flowSource`          | Flow Source         | `massFlow`, `massFlowSchedule?`                                                                      | §4.3.13  | —                                                              |
-| `orificeCompressible` | Comp Orifice        | `area`, `cd`                                                                                         | §4.3.3   | requires `idealGas`                                            |
-| `cavitatingVenturi`   | Cavitating Venturi  | `throatArea`, `cd`, `recoveryFactor?`                                                                | §4.3.4   | requires `realFluid`                                           |
-| `resistance`          | Resistance          | `k`, `area`                                                                                          | §4.3.5   | $k \ge 0$                                                      |
-| `bend`                | Bend                | `diameter`, `angle`, `rOverD`, `roughness?`                                                          | §4.3.11  | angle on (0,180]                                               |
-| `areaChange`          | Area Change         | `areaIn`, `areaOut`                                                                                  | §4.3.12  | both positive                                                  |
-| `regulator`           | Regulator           | `setPressure`, `maxCdA`                                                                              | §4.3.14  | both positive                                                  |
-| `heatedPipe`          | Heated Pipe         | pipe fields plus `ua`, `wallTemperature`, `boilingModel?`                                            | §4.3.15  | $UA \ge 0$                                                     |
-| `dpTable`             | Pressure Drop Table | `points`, `extrapolate?`                                                                             | §4.3.16  | ≥2 points, $\dot m$ increasing                                 |
-| `customResistance`    | Custom Resistance   | `k` or `{kTable}`, `area`, `diameter?`                                                               | §4.3.5   | `kTable` requires `diameter`                                   |
-| `userComponent`       | Local Component     | `component`, `params?`, `area?`                                                                      | §4.3.17  | must exist in the library                                      |
+| `type`              | Label               | Parameters                                                                                           | Relation | Restrictions                                                   |
+| ------------------- | ------------------- | ---------------------------------------------------------------------------------------------------- | -------- | -------------------------------------------------------------- |
+| `pipe`              | Pipe                | `length`, `diameter`, `roughness`, `elevationChange?`, `inertia?`, `frictionFactor?`, `diameterOut?` | §4.3.1   | `inertia` transient-only                                       |
+| `valve`             | Valve               | `area`, `cd`, `position`, `positionSchedule?`                                                        | §4.3.6   | `position` on [0,1]                                            |
+| `orifice`           | Orifice             | `area`, `cd`                                                                                         | §4.3.2   | $Y(r,\kappa)$ from the branch fluid; chokes when $r < r_*$     |
+| `pump`              | Pump                | `curve` as $(Q,\Delta P_\text{rise})$ pairs                                                          | §4.3.10  | rise must decrease monotonically                               |
+| `checkValve`        | Check Valve         | `area`, `cd`                                                                                         | §4.3.7   | —                                                              |
+| `dynamicCheckValve` | Dynamic Check Valve | `area`, `cd`, `discArea?`, `mass`, `springRate`, `preload`, `damping`, `stroke`, `initialPosition?`  | §4.3.8   | `mass`, `springRate`, `stroke` > 0; `initialPosition` on [0,1] |
+| `reliefValve`       | Relief Valve        | `crackPressure`, `fullOpenPressure`, `area`, `cd`                                                    | §4.3.9   | full-open > crack                                              |
+| `flowSource`        | Flow Source         | `massFlow`, `massFlowSchedule?`                                                                      | §4.3.13  | —                                                              |
+| `cavitatingVenturi` | Cavitating Venturi  | `throatArea`, `cd`, `recoveryFactor?`                                                                | §4.3.3   | requires `realFluid`                                           |
+| `resistance`        | Resistance          | `k`, `area`                                                                                          | §4.3.5   | $k \ge 0$                                                      |
+| `bend`              | Bend                | `diameter`, `angle`, `rOverD`, `roughness?`                                                          | §4.3.11  | angle on (0,180]                                               |
+| `areaChange`        | Area Change         | `areaIn`, `areaOut`                                                                                  | §4.3.12  | both positive                                                  |
+| `regulator`         | Regulator           | `setPressure`, `maxCdA`                                                                              | §4.3.14  | both positive                                                  |
+| `heatedPipe`        | Heated Pipe         | pipe fields plus `ua`, `wallTemperature`, `boilingModel?`                                            | §4.3.15  | $UA \ge 0$                                                     |
+| `dpTable`           | Pressure Drop Table | `points`, `extrapolate?`                                                                             | §4.3.16  | ≥2 points, $\dot m$ increasing                                 |
+| `customResistance`  | Custom Resistance   | `k` or `{kTable}`, `area`, `diameter?`                                                               | §4.3.5   | `kTable` requires `diameter`                                   |
+| `userComponent`     | Local Component     | `component`, `params?`, `area?`                                                                      | §4.3.17  | must exist in the library                                      |
 
 # Appendix B — Conductor Quick Reference
 
@@ -2432,7 +2673,7 @@ reservoir that anchors the network's pressure level.
 unknown.
 
 **Channel** — A named scalar time series or steady value in a result, the unit of
-selection and export in the Analysis view.
+selection and export in the Runs view.
 
 **Conductor** — Directed thermal link carrying heat by conduction, convection, or
 radiation.
