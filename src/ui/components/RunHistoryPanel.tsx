@@ -1,14 +1,20 @@
 /**
- * RunHistoryPanel — run history + baseline pinning (Analysis view).
+ * RunHistoryPanel — run history + baseline pinning (Runs view).
  *
  * The store ring-buffers the last 10 completed runs; running again never
  * destroys prior results. Each row: editable name, timestamp, mode, outcome,
- * config-hash prefix; actions to view, pin as comparison baseline, delete.
+ * config-hash prefix; actions to view, pin as comparison baseline, discard.
  * A pinned baseline drives delta columns in steady tables, dashed overlays
  * in transient charts, and the comparison CSV export.
+ *
+ * Discarding asks first (shared copy in runDiscard.ts) because it is
+ * permanent: outside the undo history, and it clears the browser-storage
+ * mirror so a reload will not bring the run back.
  */
 import React from "react";
 import { useStore } from "../store";
+import ConfirmDialog, { type ConfirmRequest } from "./ConfirmDialog";
+import { confirmDiscardRun } from "../runDiscard";
 import {
   RunRecord,
   checkRunCompatibility,
@@ -186,6 +192,8 @@ export default function RunHistoryPanel({
   const unitPrefs = useStore((s) => s.unitPreferences);
   const modelName = useStore((s) => s.config.meta.name);
 
+  const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
+
   const current = runHistory.find((r) => r.id === selectedRunId) ?? null;
   const baseline = runHistory.find((r) => r.id === baselineRunId) ?? null;
 
@@ -343,9 +351,11 @@ export default function RunHistoryPanel({
                 type="button"
                 data-testid="run-history-delete"
                 className="btn btn--ghost btn--sm"
-                aria-label={`Delete ${r.name}`}
-                title="Delete this run record (results are immutable until deleted)"
-                onClick={() => deleteRun(r.id)}
+                aria-label={`Discard ${r.name}`}
+                title="Discard this run (records are immutable until discarded)"
+                onClick={() =>
+                  setConfirm(confirmDiscardRun(r.name, () => deleteRun(r.id)))
+                }
               >
                 ×
               </button>
@@ -353,6 +363,9 @@ export default function RunHistoryPanel({
           );
         })}
       </ul>
+      {confirm && (
+        <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
+      )}
     </div>
   );
 }

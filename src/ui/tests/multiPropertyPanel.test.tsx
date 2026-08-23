@@ -96,6 +96,7 @@ function resetStore(config: NetworkConfig) {
   const text = serializeText(config);
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -109,7 +110,11 @@ function resetStore(config: NetworkConfig) {
 }
 
 function renderPanelSsr(config: NetworkConfig, selection: Selection): string {
-  Object.assign(useStore.getInitialState(), { config, selection });
+  Object.assign(useStore.getInitialState(), {
+    config,
+    baseConfig: config,
+    selection,
+  });
   return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
 }
 

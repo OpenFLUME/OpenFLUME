@@ -579,24 +579,25 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
             reason: err instanceof Error ? err.message : String(err),
           };
         }
+        // Promote graduates an interesting sweep point into a first-class,
+        // SAVED simulation variant: the swept field becomes the variant's
+        // patch, and the run is filed under it. That is what makes a sweep
+        // result survive the session and become comparable like any other
+        // variant.
+        const label = `${job.targetLabel} = ${record.valueLabel ?? record.value}`;
         const canonical = useStore.getState();
-        // Thread the variant's exact diary into the run record (and, via
-        // pushRunRecord's selection, the current displayed diary).
-        canonical.pushRunRecord({
+        const variantId = canonical.createVariantFrom(label, unit.config);
+        useStore.getState().pushRunRecord({
           result: record.result,
           config: unit.config,
           ...(record.diary ? { diary: record.diary } : {}),
         });
         // pushRunRecord selects the new record; selectRun additionally
-        // displays its result and recomputes staleness vs the live config.
+        // displays its result and recomputes staleness.
         const pushed = useStore.getState().runHistory.at(-1)!;
         useStore.getState().selectRun(pushed.id);
-        useStore
-          .getState()
-          .renameRun(
-            pushed.id,
-            `${job.targetLabel} = ${record.valueLabel ?? record.value}`,
-          );
+        useStore.getState().renameRun(pushed.id, label);
+        void variantId;
         return { ok: true, record: useStore.getState().runHistory.at(-1)! };
       },
 

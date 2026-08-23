@@ -5,9 +5,12 @@
  * showed an EMPTY field — nothing said a Reynolds table was present — and its
  * onChange wrote a scalar, so a single keystroke silently discarded the table
  * and an emptied field wrote `k: 0`, a frictionless branch that `validateNetwork`
- * accepts. These tests pin the replacement: the table form gets a read-only
- * summary, the scalar form keeps its editable input, and collapsing a table to a
- * constant is a deliberate action that preserves the K the solver was using.
+ * accepts. These tests pin the replacement: the table form gets its own summary
+ * of the curve and the K in use, the scalar form keeps its editable input, and
+ * collapsing a table to a constant is a deliberate action that preserves the K
+ * the solver was using.
+ *
+ * Point editing itself lives in `propertyPanelGaps.test.tsx`.
  */
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
@@ -86,7 +89,12 @@ function renderPanel(
   result: SteadyResult | null = null,
 ): string {
   const selection: Selection = { kind: "branch", id: "ch" };
-  Object.assign(useStore.getInitialState(), { config, selection, result });
+  Object.assign(useStore.getInitialState(), {
+    config,
+    baseConfig: config,
+    selection,
+    result,
+  });
   return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
 }
 
@@ -94,6 +102,7 @@ function resetStore(config: NetworkConfig) {
   const text = serializeText(config);
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "branch", id: "ch" },
     result: null,
     resultConfig: null,

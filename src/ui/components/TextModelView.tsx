@@ -70,7 +70,9 @@ function revealLine(
 }
 
 export default function TextModelView(): React.ReactElement {
-  const config = useStore((s) => s.config);
+  // The text projection is of the FILE (base network plus its variants), so
+  // the line map must be built from the same thing `modelText` serializes.
+  const config = useStore((s) => s.baseConfig);
   const modelText = useStore((s) => s.modelText);
   const textDraft = useStore((s) => s.textDraft);
   const diagnostics = useStore((s) => s.textDiagnostics);

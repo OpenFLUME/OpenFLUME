@@ -113,12 +113,6 @@ export const BRANCH_COMPONENTS: BranchComponentDef[] = [
     defaults: () => ({ type: "flowSource", massFlow: 0.1 }),
   },
   {
-    id: "orificeCompressible",
-    label: "Comp Orifice",
-    category: "advanced",
-    defaults: () => ({ type: "orificeCompressible", area: 0.001, cd: 0.6 }),
-  },
-  {
     id: "cavitatingVenturi",
     label: "Cavitating Venturi",
     category: "advanced",

@@ -387,7 +387,6 @@ function branchSummary(
       return `L ${fmtBindable(c.length, "length", prefs)} · UA ${uaText} W/K`;
     }
     case "orifice":
-    case "orificeCompressible":
       return `A ${fmtBindable(c.area, "area", prefs)} · Cd ${formatSig(c.cd, 2)}`;
     case "cavitatingVenturi":
       return `A_th ${fmtBindable(c.throatArea, "area", prefs)} · Cd ${formatSig(c.cd, 2)}`;

@@ -1,9 +1,14 @@
 import React, { useRef, useCallback } from "react";
-import { flushSync } from "react-dom";
 import { createPortal } from "react-dom";
 import { useStore } from "../store";
-import { downloadModelText, uploadModelFile, cloneConfig } from "../utils";
-import { exampleGroups, examples } from "../examples";
+import { downloadModelText, parseModelFile, cloneConfig } from "../utils";
+import {
+  downloadRunsFile,
+  isRunsFileText,
+  parseRunsFile,
+  RUNS_FILE_SUFFIX,
+} from "../runsFile";
+import { exampleGroups } from "../examples";
 import {
   validateNetwork,
   initRealFluids,
@@ -12,14 +17,12 @@ import {
 } from "../../core";
 import { PRESETS, activeUnitPreset } from "../units";
 import { formatSig } from "../format";
-import { getSolverWorkerClient } from "../workerClient";
-import {
-  createRunDiarySession,
-  type RunDiarySession,
-} from "../runDiarySession";
+import { startRun, cancelRun } from "../runController";
+import { matchSelectionFromError } from "../selectionFromError";
 import { useSweepStore } from "../sweep/store";
 import ConfirmDialog, { ConfirmRequest } from "./ConfirmDialog";
-import type { NetworkConfig, Selection } from "../types";
+import NewModelDialog from "./NewModelDialog";
+import type { Selection } from "../types";
 import { configHash } from "../provenance";
 import {
   compareEmbeddedComponents,
@@ -32,14 +35,13 @@ import {
 export default function Toolbar() {
   const config = useStore((s) => s.config);
   const setConfig = useStore((s) => s.setConfig);
-  const newNetwork = useStore((s) => s.newNetwork);
   const loadExample = useStore((s) => s.loadExample);
   const setResult = useStore((s) => s.setResult);
   const setValidationErrors = useStore((s) => s.setValidationErrors);
   const fluidError = useStore((s) => s.fluidError);
   const setFluidError = useStore((s) => s.setFluidError);
   const setActiveTab = useStore((s) => s.setActiveTab);
-  const setShowSettings = useStore((s) => s.setShowSettings);
+  const setShowCommandPalette = useStore((s) => s.setShowCommandPalette);
   const result = useStore((s) => s.result);
   const resultStale = useStore((s) => s.resultStale);
   const validationErrors = useStore((s) => s.validationErrors);
@@ -49,13 +51,7 @@ export default function Toolbar() {
   const unitPreferences = useStore((s) => s.unitPreferences);
   const setUnitPreset = useStore((s) => s.setUnitPreset);
   const setSelection = useStore((s) => s.setSelection);
-  const setRunStatus = useStore((s) => s.setRunStatus);
-  const setRunProgress = useStore((s) => s.setRunProgress);
-  const setLiveResult = useStore((s) => s.setLiveResult);
-  const setTimeIndex = useStore((s) => s.setTimeIndex);
   const updateMeta = useStore((s) => s.updateMeta);
-  const pushRunRecord = useStore((s) => s.pushRunRecord);
-  const setResultDiary = useStore((s) => s.setResultDiary);
   const dirty = useStore((s) => s.dirty);
   const markSaved = useStore((s) => s.markSaved);
   const preparingOperation = useStore((s) => s.preparingOperation);
@@ -72,26 +68,11 @@ export default function Toolbar() {
   );
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
   const pendingFileRef = useRef<File | null>(null);
-  // Diary session of the in-flight/latest manual run.  Replaces the bare
-  // cancelRequestedRef: the session carries the cancel guard AND the
-  // collector.  Null outside a run (and during preflight, which by design
-  // never produces a diary).
-  const runSessionRef = useRef<RunDiarySession | null>(null);
+  const importRuns = useStore((s) => s.importRuns);
 
   const activePreset = activeUnitPreset(unitPreferences);
   const usesRealFluid = networkUsesRealFluid(config);
-
-  const bundledComponentSources = React.useMemo(
-    () =>
-      new Set(
-        Object.values(examples).flatMap((example) =>
-          Object.values(example.componentLibrary ?? {}).map(
-            (entry) => entry.code,
-          ),
-        ),
-      ),
-    [],
-  );
+  const hasRuns = useStore((s) => s.runHistory.length > 0);
 
   React.useEffect(() => {
     let active = true;
@@ -140,7 +121,9 @@ export default function Toolbar() {
     if (!beginPreparation("save")) return;
     try {
       const library = await refreshComponentLibrary();
-      const current = useStore.getState().config;
+      // Save the FILE: the base network plus every variant, not just the
+      // variant currently resolved onto the canvas.
+      const current = useStore.getState().baseConfig;
       const savedHash = configHash(current);
       const saved = cloneConfig(current);
       const unavailable = embedReferencedComponents(saved, library.components);
@@ -154,6 +137,12 @@ export default function Toolbar() {
         return;
       }
       downloadModelText(saved);
+      // Results ride along as the `<model>.runs.json` sidecar, so one Save
+      // captures the whole session rather than leaving results behind in
+      // browser storage. Two files because results are bulky and
+      // regenerable — the `.fn` alone stays diffable and reviewable.
+      const runs = useStore.getState().runHistory;
+      if (runs.length > 0) downloadRunsFile(current, runs);
       markSaved(savedHash);
     } finally {
       endPreparation("save");
@@ -163,9 +152,24 @@ export default function Toolbar() {
   const loadFile = useCallback(
     async (file: File) => {
       try {
+        // A results sidecar attaches to the model already open rather than
+        // replacing it — the two files are loaded through one control.
+        const text = await file.text();
+        if (isRunsFileText(text)) {
+          try {
+            const parsed = parseRunsFile(text);
+            importRuns(parsed.runs);
+            setValidationErrors([]);
+          } catch (err) {
+            setValidationErrors([
+              `Failed to load results: ${err instanceof Error ? err.message : String(err)}`,
+            ]);
+          }
+          return;
+        }
         // Any parse failure throws here, leaving the current config
         // untouched (atomic load).
-        const loaded = await uploadModelFile(file);
+        const loaded = parseModelFile(text);
         const errs = validateNetwork(loaded);
         if (errs.length > 0) {
           setValidationErrors(errs);
@@ -215,14 +219,23 @@ export default function Toolbar() {
         setValidationErrors([`Failed to load file: ${err}`]);
       }
     },
-    [setConfig, setValidationErrors, setResult, setActiveTab, markSaved],
+    [
+      setConfig,
+      setValidationErrors,
+      setResult,
+      setActiveTab,
+      markSaved,
+      importRuns,
+    ],
   );
 
   const handleLoad = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (fileRef.current) fileRef.current.value = "";
     if (!file) return;
-    if (dirty) {
+    // A results sidecar adds to the open model, so it never needs the
+    // "this replaces your unsaved work" confirmation.
+    if (dirty && !file.name.endsWith(RUNS_FILE_SUFFIX)) {
       pendingFileRef.current = file;
       setConfirm({
         title: "Load network file",
@@ -239,15 +252,8 @@ export default function Toolbar() {
     await loadFile(file);
   };
 
-  const requestNew = useCallback(() => {
-    setConfirm({
-      title: "New network",
-      message:
-        "Start a new, empty network? This replaces the current model and its autosaved copy. You can undo afterwards with Ctrl/Cmd+Z.",
-      acceptLabel: "New network",
-      onAccept: () => newNetwork(),
-    });
-  }, [newNetwork]);
+  const [showNewModel, setShowNewModel] = React.useState(false);
+  const requestNew = useCallback(() => setShowNewModel(true), []);
 
   const requestLoadExample = useCallback(
     (name: string) => {
@@ -264,156 +270,6 @@ export default function Toolbar() {
     },
     [dirty, loadExample],
   );
-
-  const startRun = useCallback(async () => {
-    // Race guard: a sweep owns the (shared) solver client; the Run button is
-    // disabled while one runs, but re-check at the boundary so a stale click
-    // or keyboard activation can never interleave a manual run with a sweep.
-    if (useSweepStore.getState().isRunning()) return;
-    if (!beginPreparation("run")) return;
-    // New run: reset the diary session (cancel guard + collector) and clear
-    // any stale diary left by a previous cancelled/errored/historical run.
-    runSessionRef.current = null;
-    setResult(null);
-    setResultDiary(null);
-    setLiveResult(null);
-    setValidationErrors([]);
-    setRunProgress(null);
-    setTimeIndex(null);
-
-    let cloned: NetworkConfig;
-    try {
-      const library = await refreshComponentLibrary();
-      cloned = cloneConfig(useStore.getState().config);
-      const untrustedEmbedded = (
-        await compareEmbeddedComponents(
-          cloned.componentLibrary,
-          library.components,
-        )
-      ).filter((entry) => {
-        const source = cloned.componentLibrary?.[entry.key]?.code;
-        return (
-          entry.status !== "match" &&
-          !isComponentSourceTrusted(entry.embeddedHash) &&
-          !(source && bundledComponentSources.has(source))
-        );
-      });
-      if (untrustedEmbedded.length > 0) {
-        setValidationErrors([
-          `Run blocked: embedded component code is not trusted (${untrustedEmbedded.map((entry) => entry.key).join(", ")}). ` +
-            "Load the model file and approve its component code before running.",
-        ]);
-        setRunStatus("error");
-        return;
-      }
-      const unavailable = embedReferencedComponents(cloned, library.components);
-      if (unavailable.length > 0) {
-        setValidationErrors(
-          unavailable.map(
-            (key) =>
-              `User component "${key}" is not embedded and is unavailable from the local component library.`,
-          ),
-        );
-        setRunStatus("error");
-        return;
-      }
-      const errs = validateNetwork(cloned);
-      if (errs.length > 0) {
-        setValidationErrors(errs);
-        setRunStatus("error");
-        return;
-      }
-      setRunStatus("running");
-    } catch (error) {
-      setValidationErrors([
-        error instanceof Error ? error.message : String(error),
-      ]);
-      setRunStatus("error");
-      return;
-    } finally {
-      endPreparation("run");
-    }
-
-    flushSync(() => {}); // ensure cancel button is in the DOM before worker can finish
-
-    // One diary collector per run, created only AFTER the validated immutable
-    // config snapshot exists (preflight validation/trust failures above never
-    // produce a diary).
-    const session = createRunDiarySession(cloned);
-    runSessionRef.current = session;
-
-    const client = getSolverWorkerClient();
-
-    try {
-      await client.run(cloned, cloned.settings.mode as "steady" | "transient", {
-        onStatusChange: (status) => {
-          setRunStatus(status);
-        },
-        onProgress: (progress) => {
-          setRunProgress(progress);
-          session.onProgress(progress);
-        },
-        onLiveResult: (partial) => {
-          if (partial) setLiveResult(partial);
-        },
-        onDone: (res) => {
-          const fin = session.finalizeDone(res);
-          if (fin.outcome === "cancelled") {
-            // Cancel guard was set: expose the partial cancelled diary with
-            // the cancelled state; never fabricate a completed RunRecord.
-            setRunStatus("cancelled");
-            setResultDiary(fin.diary);
-            return;
-          }
-          setResult(res);
-          // Ring-buffer the completed run so re-runs never destroy history;
-          // pushRunRecord also makes the run's diary the current one.
-          pushRunRecord({ result: res, config: cloned, diary: fin.diary });
-          setLiveResult(null);
-        },
-        onError: (msg) => {
-          const fin = session.finalizeWorkerError(msg);
-          if (fin.outcome === "cancelled") {
-            setRunStatus("cancelled");
-            setResultDiary(fin.diary);
-            return;
-          }
-          // Worker error after execution began: expose the partial error
-          // diary alongside the error state (no RunRecord).
-          setResultDiary(fin.diary);
-          setValidationErrors([msg]);
-          setLiveResult(null);
-        },
-      });
-    } catch (err: any) {
-      const fin = session.finalizeRejection(err);
-      setResultDiary(fin.diary);
-      if (fin.outcome === "cancelled") {
-        setRunStatus("cancelled");
-      } else {
-        setValidationErrors([err?.message ?? String(err)]);
-        setRunStatus("error");
-      }
-    }
-  }, [
-    beginPreparation,
-    bundledComponentSources,
-    endPreparation,
-    setLiveResult,
-    setResult,
-    setResultDiary,
-    setRunProgress,
-    setRunStatus,
-    setValidationErrors,
-    setTimeIndex,
-    pushRunRecord,
-  ]);
-
-  const cancelRun = useCallback(() => {
-    runSessionRef.current?.requestCancel();
-    const client = getSolverWorkerClient();
-    client.cancel();
-  }, []);
 
   const isRunning = running;
   const isPreparingRun = preparingOperation === "run";
@@ -453,6 +309,7 @@ export default function Toolbar() {
           value={config.meta.name}
           onCommit={(name) => updateMeta({ name: name || "Untitled network" })}
         />
+        <ActiveVariantPill />
         <span className="toolbar__divider" aria-hidden="true" />
         <button
           data-testid="toolbar-new"
@@ -468,7 +325,11 @@ export default function Toolbar() {
           className="btn"
           onClick={handleSave}
           disabled={operationBusy}
-          title="Save model (.fn)"
+          title={
+            hasRuns
+              ? "Save model (.fn) and results (.runs.json)"
+              : "Save model (.fn)"
+          }
         >
           <SaveIcon />
           <span className="btn__label">Save</span>
@@ -477,7 +338,7 @@ export default function Toolbar() {
           data-testid="toolbar-load-trigger"
           className="btn"
           onClick={() => fileRef.current?.click()}
-          title="Load model (.fn)"
+          title="Load model (.fn) or results (.runs.json)"
         >
           <LoadIcon />
           <span className="btn__label">Load</span>
@@ -486,7 +347,7 @@ export default function Toolbar() {
           data-testid="toolbar-load-input"
           ref={fileRef}
           type="file"
-          accept=".fn"
+          accept=".fn,.json"
           onChange={handleLoad}
           style={{ display: "none" }}
         />
@@ -556,14 +417,18 @@ export default function Toolbar() {
           ))}
         </select>
         <button
-          data-testid="toolbar-settings"
+          data-testid="toolbar-commands"
           className="btn"
-          onClick={() => setShowSettings(true)}
-          title="Global settings"
+          onClick={() => setShowCommandPalette(true)}
+          title="Command palette (Cmd/Ctrl+K)"
         >
-          <SettingsIcon />
-          <span className="btn__label">Settings</span>
+          <CommandsIcon />
+          <span className="btn__label">Commands</span>
         </button>
+      </div>
+      {/* Its own group: the actions group clips from the right, and these two
+          are the last thing that may go. */}
+      <div className="toolbar__group toolbar__run">
         <button
           data-testid="toolbar-run"
           onClick={runBlocked ? undefined : startRun}
@@ -651,6 +516,9 @@ export default function Toolbar() {
       {confirm && (
         <ConfirmDialog request={confirm} onClose={() => setConfirm(null)} />
       )}
+      {showNewModel && (
+        <NewModelDialog onClose={() => setShowNewModel(false)} />
+      )}
     </div>
   );
 }
@@ -703,11 +571,40 @@ function LoadIcon() {
   );
 }
 
-function SettingsIcon() {
+/**
+ * Which variant is being edited, beside the model name.
+ *
+ * Only shown off Base: the outline's picker is the primary control, but it
+ * can be hidden with Ctrl+\, and "I edited the wrong variant" is the failure
+ * this qualifier exists to prevent.
+ */
+function ActiveVariantPill() {
+  const activeVariantId = useStore((s) => s.activeVariantId);
+  const variants = useStore((s) => s.baseConfig.variants);
+  const setShowCommandPalette = useStore((s) => s.setShowCommandPalette);
+  if (activeVariantId === null) return null;
+  const variant = (variants ?? []).find((v) => v.id === activeVariantId);
+  if (!variant) return null;
+  return (
+    <button
+      type="button"
+      className="pill pill--info toolbar-variant"
+      data-testid="toolbar-variant"
+      title="Editing a simulation variant — Ctrl+K to switch"
+      onClick={() => setShowCommandPalette(true)}
+    >
+      {variant.name}
+    </button>
+  );
+}
+
+/** Terminal prompt chevron — the conventional "command" mark. */
+function CommandsIcon() {
   return (
     <ToolbarIcon>
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z" />
-      <circle cx="12" cy="12" r="3" />
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="m7 10 2.5 2L7 14" />
+      <path d="M12.5 14.5h4" />
     </ToolbarIcon>
   );
 }
@@ -790,39 +687,6 @@ function NetworkNameInput({
       )}
     </span>
   );
-}
-
-/** Match validation-error text to a concrete element id so clicking an issue
- *  selects the offender. validate.ts emits plain strings like
- *  "Boundary node N1 missing pressure" — best-effort word-boundary match. */
-function matchSelectionFromError(
-  message: string,
-  config: ReturnType<typeof useStore.getState>["config"],
-): Selection | null {
-  const candidates: { id: string; kind: Selection["kind"] }[] = [
-    ...config.nodes.map((n) => ({ id: n.id, kind: "node" as const })),
-    ...config.branches.map((b) => ({ id: b.id, kind: "branch" as const })),
-    ...(config.solidNodes ?? []).map((n) => ({
-      id: n.id,
-      kind: "solidNode" as const,
-    })),
-    ...(config.conductors ?? []).map((c) => ({
-      id: c.id,
-      kind: "conductor" as const,
-    })),
-    ...(config.groups ?? []).map((g) => ({ id: g.id, kind: "group" as const })),
-  ];
-  let best: { index: number; sel: Selection } | null = null;
-  for (const c of candidates) {
-    const re = new RegExp(
-      `\\b${c.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`,
-    );
-    const m = re.exec(message);
-    if (m && (best === null || m.index < best.index)) {
-      best = { index: m.index, sel: { kind: c.kind, id: c.id } as Selection };
-    }
-  }
-  return best?.sel ?? null;
 }
 
 function HealthPill({

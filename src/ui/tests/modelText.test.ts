@@ -65,6 +65,7 @@ function resetStore(config: NetworkConfig = cfg("Test")) {
   const text = serializeText(config);
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,

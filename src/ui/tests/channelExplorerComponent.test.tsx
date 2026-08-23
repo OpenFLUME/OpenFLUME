@@ -1,13 +1,26 @@
 /**
- * ChannelExplorer — SSR smoke tests (vitest runs in a node environment with
- * no DOM renderer, so we renderToString and assert on the markup).
- * Interaction is covered by the pure policy tests (channelExplorer.test.ts,
- * channelViews.test.ts); e2e coverage lands with the ResultsPanel integration
- * task.
+ * The Runs tab frame and its first plot — SSR markup (vitest runs in node with
+ * no DOM renderer, so we renderToString and assert on the output).
+ *
+ * The point of these is the FIRST PAINT: a fresh run must show a usable, EMPTY
+ * plot — an axis and an invitation — without a blank frame flashing first.
+ * That is why the first plot is derived during render rather than created in
+ * an effect: effects do not run under renderToString, and a test that passed
+ * only because an effect filled things in later would not catch the flash.
+ *
+ * Nothing is pre-selected on purpose. Seeding the plot with node pressures
+ * would assume the analyst came to look at pressure.
+ *
+ * Plot editing itself is pinned purely in resultPlots.test.ts; interaction is
+ * covered by the e2e specs.
  */
 import { describe, it, expect } from "vitest";
-import { renderToString } from "react-dom/server";
+import { renderToString as reactRenderToString } from "react-dom/server";
 import ChannelExplorer from "../components/ChannelExplorer";
+
+/** SSR splices comment markers around interpolations; they only obscure text. */
+const renderToString = (node: Parameters<typeof reactRenderToString>[0]) =>
+  reactRenderToString(node).replace(/<!-- -->/g, "");
 import { listChannels } from "../channels";
 import type { NetworkConfig, SteadyResult, TransientResult } from "../types";
 
@@ -115,155 +128,102 @@ function makeSteady(): SteadyResult {
 /* SSR smoke                                                           */
 /* ------------------------------------------------------------------ */
 
-describe("ChannelExplorer (SSR)", () => {
-  it("transient: defaults to the aggregate node-pressure chart with the view dropdown and NO time bar", () => {
-    const config = makeConfig();
-    const result = makeTransient();
+describe("Runs tab frame (SSR)", () => {
+  it("opens a transient result on an empty plot with a time axis", () => {
     const html = renderToString(
       <ChannelExplorer
-        displayConfig={config}
-        result={result}
-        runContext="Run 1 · converged · 3 steps"
+        displayConfig={makeConfig()}
+        result={makeTransient()}
+        run={{
+          runName: "Run 1",
+          mode: "transient",
+          outcome: "converged",
+          outcomeDetail: "3 steps",
+          runs: [{ id: "r1", name: "Run 1" }],
+          selectedRunId: "r1",
+          onSelectRun: () => {},
+        }}
         configHash="abc123"
       />,
     );
-    // Header
+    // Frame: title, mode, run context, exports.
     expect(html).toContain("channel-explorer");
-    expect(html).toContain("Simulation channels");
-    expect(html).toContain("Run 1 · converged · 3 steps");
-    expect(html).toContain('data-testid="channel-explorer-mode"');
-    expect(html).toContain("transient");
-    // View dropdown: labeled select listing applicable presets + Custom.
-    expect(html).toContain('data-testid="channel-explorer-view"');
-    expect(html).toContain('aria-label="Channel view"');
-    expect(html).toContain('for="channel-explorer-view"');
-    expect(html).toContain(
-      '<option value="node-pressure" selected="">Node pressure</option>',
-    );
-    expect(html).toContain(
-      '<option value="node-solid-temperature">Node &amp; solid temperature</option>',
-    );
-    expect(html).toContain(
-      '<option value="branch-mdot">Branch mass flow</option>',
-    );
-    expect(html).toContain(">Custom channels</option>");
-    // "Showing N of M" status.
-    expect(html).toContain('data-testid="channel-explorer-showing"');
-    expect(html).toContain("Showing 2 of 2 channels");
-    // Aggregate preset chart (default = all node pressures), one axis only.
-    expect(html).toContain('data-testid="channel-explorer-aggregate"');
-    expect(html).toContain('data-testid="channel-explorer-chart"');
-    expect(html).not.toContain('data-testid="channel-explorer-chart-1"');
-    // Aggregate series render as legend chips; both node pressures present.
-    expect(html).toContain("Feed Tank · Pressure");
-    expect(html).toContain("n2 · Pressure");
-    // No time bar in Analysis: hovering the chart shows values at any time,
-    // so the slider/stepper/Final controls are gone entirely.  The readout
-    // (values at the shared cursor) stays.
-    expect(html).not.toContain('data-testid="channel-explorer-time"');
-    expect(html).not.toContain("channel-explorer-time-slider");
-    expect(html).not.toContain("channel-explorer-time-back");
-    expect(html).not.toContain("channel-explorer-time-forward");
-    expect(html).not.toContain("channel-explorer-time-final");
-    expect(html).toContain('data-testid="channel-explorer-readout"');
-    // Chart SVG is keyboard-focusable with an arrow-key hint (onCursorCommit).
-    expect(html).toContain("arrow keys to move the time cursor");
-    // Legend locate actions are preserved on the aggregate chart.
-    expect(html).toContain("chart-legend-locate-");
-    // Context diagram is hidden in ordinary preset browsing.
-    expect(html).not.toContain('data-testid="channel-explorer-context"');
-    expect(html).not.toContain(
-      'data-testid="channel-explorer-context-details"',
-    );
-    // Custom-only controls stay out of the toolbar in preset mode.
-    expect(html).not.toContain('data-testid="channel-explorer-search"');
-    expect(html).not.toContain('data-testid="channel-explorer-list"');
-    // CSV export of the displayed view AND of the full inventory + status region.
+    // The heading IS the run selector: no separate strip repeating it.
+    expect(html).toContain('data-testid="run-title-select"');
+    expect(html).toContain("Run 1");
+    expect(html).toContain('data-testid="run-title-outcome"');
+    expect(html).toContain("converged");
+    expect(html).toContain('data-testid="run-title-detail"');
+    expect(html).toContain("3 steps");
     expect(html).toContain('data-testid="channel-explorer-export-csv"');
     expect(html).toContain('data-testid="channel-explorer-export-all-csv"');
-    expect(html).toContain(">Export all</button>");
-    expect(html).toContain('data-testid="channel-explorer-status"');
-    expect(html).toContain('role="status"');
-  });
 
-  it("steady: defaults to the aggregate node-pressure bar/value list with baseline deltas", () => {
-    const config = makeSteadyConfig();
-    const result = makeSteady();
-    const baselineResult = makeSteady();
-    baselineResult.nodes.n1.pressure = 100000;
-    const html = renderToString(
-      <ChannelExplorer
-        displayConfig={config}
-        result={result}
-        baseline={{ name: "Base run", config, result: baselineResult }}
-      />,
-    );
-    // Default view is still the node-pressure preset.
+    // One plot, active, with no close button (the last plot cannot be closed)
+    // and a + to add another.
+    expect(html).toContain('data-testid="result-plots"');
+    expect(html).toContain('aria-selected="true"');
+    expect(html).toContain("New plot");
+    expect(html).not.toContain('data-testid="plot-close-');
+    expect(html).toContain('data-testid="plot-add"');
+
+    // Plot tabs are the app's ordinary tabs, not a bespoke control.
+    expect(html).toContain('role="tab"');
+    expect(html).toContain('class="tab"');
+
+    // Nothing is plotted until the analyst says what they came for.
+    expect(html).toContain('data-testid="plot-no-channels"');
+    expect(html).toContain("Pick channels on the left");
+    expect(html).not.toContain('data-testid="plot-chart"');
+
+    // The axis is a plain choice, defaulting to time for a transient result.
+    expect(html).toContain('data-testid="plot-x-axis"');
     expect(html).toContain(
-      '<option value="node-pressure" selected="">Node pressure</option>',
+      '<option value="time" title="The transient sample axis"',
     );
-    // Accessible bar list: buttons carry label + value text (+ delta).
-    expect(html).toContain('data-testid="channel-explorer-bars"');
-    expect(html).toContain('role="group"');
-    expect(html).toContain('aria-label="Aggregate channel values"');
-    expect(html).toContain('data-testid="channel-bar-');
-    // 101325 Pa auto-scales to kPa; values appear in the row text.
-    expect(html).toContain("kPa");
-    expect(html).toContain("Feed Tank · Pressure");
-    expect(html).toContain("delta ");
-    expect(html).toContain("Base run");
-    // No time controls or transient chart in steady mode.
+    expect(html).toContain('value="station"');
+    expect(html).toContain('value="positionX"');
+    expect(html).toContain('value="index"');
+
+    // No time bar: hovering a chart reads any instant.
+    expect(html).not.toContain('data-testid="channel-explorer-time"');
     expect(html).not.toContain("channel-explorer-time-slider");
-    expect(html).not.toContain('data-testid="channel-explorer-chart"');
-    // Context diagram hidden in preset mode.
-    expect(html).not.toContain('data-testid="channel-explorer-context"');
   });
 
-  it("sparse transient inventory: default falls back to the first available preset (node pressure still wins)", () => {
-    const config = makeConfig();
-    const result: TransientResult = {
-      converged: true,
-      times: [0, 1],
-      nodes: { n1: { pressure: [1, 2], temperature: [3, 4], density: [5, 6] } },
-      branches: {},
-    };
+  it("drops the time axis for a steady result", () => {
+    const config = makeSteadyConfig();
     const html = renderToString(
-      <ChannelExplorer displayConfig={config} result={result} />,
+      <ChannelExplorer displayConfig={config} result={makeSteady()} />,
     );
-    // Only the single matching channel is charted; "Showing 1 of 1".
-    expect(html).toContain(
-      '<option value="node-pressure" selected="">Node pressure</option>',
-    );
-    expect(html).toContain("Showing 1 of 1 channel");
-    expect(html).toContain('data-testid="channel-explorer-chart"');
+    // A steady result has no sample axis to plot against.
+    expect(html).not.toContain('<option value="time"');
+    expect(html).toContain('value="station"');
+    expect(html).toContain('value="index"');
+    expect(html).toContain('data-testid="plot-no-channels"');
   });
 
-  it("falls back to the next preset when node pressure has no channels (temperature default)", () => {
-    const config = makeConfig();
-    const result: TransientResult = {
-      converged: true,
-      times: [0, 1],
-      nodes: {
-        n1: {
-          pressure: [101325, 101325],
-          temperature: [3, 4],
-          density: [5, 6],
-        },
-      },
-      branches: {},
-      solidNodes: { s1: { temperature: [300, 301] } },
-    };
-    // Remove pressure after the fact so the pressure preset has no channels.
-    // (TransientResult requires pressure arrays, so build a valid result and
-    //  point the explorer at an inventory filtered by the result itself.)
-    delete (result.nodes.n1 as { pressure?: number[] }).pressure;
+  it("lists the whole inventory in the picker, filterable three ways", () => {
     const html = renderToString(
-      <ChannelExplorer displayConfig={config} result={result} />,
+      <ChannelExplorer displayConfig={makeConfig()} result={makeTransient()} />,
     );
-    expect(html).toContain(
-      '<option value="node-solid-temperature" selected="">Node &amp; solid temperature</option>',
-    );
-    expect(html).toContain('data-testid="channel-explorer-chart"');
+    expect(html).toContain('data-testid="plot-channel-picker"');
+    // Search, sort and filter on one line, with the familiar glyphs behind
+    // the two menus rather than a row of bare toggles.
+    expect(html).toContain('data-testid="plot-channel-search"');
+    expect(html).toContain('data-testid="plot-channel-sort"');
+    expect(html).toContain('data-testid="plot-channel-filter"');
+    // Grouping defaults to quantity, filtering to everything.
+    expect(html).toContain("Group by: Quantity");
+    expect(html).toContain("Filter by element type: All types");
+    // What is plotted is stated up front, not buried in the list.
+    expect(html).toContain("Plotted (0)");
+    // Every channel of the inventory is addressable from the picker.
+    const channels = listChannels(makeConfig(), makeTransient());
+    expect(channels.length).toBeGreaterThan(5);
+    for (const d of channels)
+      expect(html).toContain(`data-testid="plot-channel-${d.key}"`);
+    // Presets are a compact shortcut, not a wall of chips above the list.
+    expect(html).toContain('data-testid="plot-channel-preset"');
+    expect(html).toContain("Node pressure");
   });
 
   it("renders the empty state without a result", () => {
@@ -271,82 +231,72 @@ describe("ChannelExplorer (SSR)", () => {
       <ChannelExplorer displayConfig={makeConfig()} result={null} />,
     );
     expect(html).toContain('data-testid="channel-explorer-empty"');
-    expect(html).toContain("Run a simulation to explore its channels");
-    expect(html).not.toContain("channel-explorer-list");
-    expect(html).not.toContain("channel-explorer-view");
+    expect(html).toContain("Run a simulation to plot its channels.");
+    expect(html).not.toContain("result-plots");
+    expect(html).not.toContain("plot-channel-picker");
   });
 
   it("shows the stale banner and live badge when flagged", () => {
-    const config = makeConfig();
     const html = renderToString(
       <ChannelExplorer
-        displayConfig={config}
+        displayConfig={makeConfig()}
         result={makeTransient()}
         stale
         live
       />,
     );
     expect(html).toContain('data-testid="channel-explorer-stale"');
+    expect(html).toContain("Results are from an earlier model state");
     expect(html).toContain('data-testid="channel-explorer-live"');
   });
 
-  it("renders a notice instead of a chart when no preset channel resolves (all non-finite)", () => {
-    const config = makeConfig();
-    const result: TransientResult = {
-      converged: true,
-      times: [0, 1],
-      nodes: {
-        n1: {
-          pressure: [NaN, NaN],
-          temperature: [300, 301],
-          density: [1000, 1000],
-        },
-      },
-      branches: {},
-    };
+  it("reports the deterministic findings alongside the plot", () => {
+    // 0.5 kg/s in and nothing out: the internal node cannot conserve mass.
     const html = renderToString(
-      <ChannelExplorer displayConfig={config} result={result} />,
+      <ChannelExplorer
+        displayConfig={makeSteadyConfig()}
+        result={makeSteady()}
+      />,
     );
-    // node-pressure is the default preset but its only channel is all-NaN.
-    expect(html).toContain('data-testid="channel-explorer-skipped-note"');
-    expect(html).toContain('data-testid="channel-explorer-unresolved"');
-    expect(html).not.toContain('data-testid="channel-explorer-chart"');
+    expect(html).toContain('data-testid="findings-strip"');
+    expect(html).toContain('data-testid="finding-mass-imbalance"');
   });
 
-  it("keeps the Custom channels option and its control markup available", () => {
-    const config = makeConfig();
+  it("offers the other recorded runs as overlays on the plot", () => {
+    // A design study asks "which one was better?", which no amount of
+    // flipping between two runs a second apart can answer.
     const html = renderToString(
-      <ChannelExplorer displayConfig={config} result={makeTransient()} />,
+      <ChannelExplorer
+        displayConfig={makeConfig()}
+        result={makeTransient()}
+        run={{ runName: "Run 2", selectedRunId: "r2" }}
+        comparableRuns={[
+          {
+            id: "r1",
+            name: "Baseline orifice",
+            config: makeConfig(),
+            result: makeTransient(),
+          },
+        ]}
+      />,
     );
-    // The Custom option is always in the dropdown; custom controls render
-    // when that view is active (interaction covered by e2e/policy tests).
-    expect(html).toContain(">Custom channels</option>");
-    expect(html).toContain('aria-label="Channel view"');
+    expect(html).toContain('data-testid="plot-compare"');
+    // The displayed run is named as the plot's own, and cannot be removed.
+    expect(html).toContain('data-testid="plot-compare-primary"');
+    expect(html).toContain("Run 2");
+    expect(html).toContain('data-testid="plot-compare-add"');
+    expect(html).toContain("Baseline orifice");
+    expect(html).not.toContain('data-testid="plot-compare-remove-r1"');
   });
 
-  it("aggregate readout lists every charted channel value at the cursor", () => {
+  it("hides the run comparison entirely when there is nothing to compare", () => {
     const html = renderToString(
-      <ChannelExplorer displayConfig={makeConfig()} result={makeTransient()} />,
+      <ChannelExplorer
+        displayConfig={makeConfig()}
+        result={makeTransient()}
+        run={{ runName: "Run 1" }}
+      />,
     );
-    const readoutStart = html.indexOf('data-testid="channel-explorer-readout"');
-    expect(readoutStart).toBeGreaterThan(-1);
-    const readout = html.slice(readoutStart, readoutStart + 1200);
-    expect(readout).toContain("Feed Tank · Pressure");
-    expect(readout).toContain("n2 · Pressure");
-  });
-});
-
-describe("ChannelExplorer custom mode (SSR via listChannels inventory)", () => {
-  it("every inventory channel is addressable by the custom picker (reversible keys)", () => {
-    // The picker renders in Custom mode only; assert the inventory the
-    // component would list is complete and every key parses back.
-    const config = makeConfig();
-    const result = makeTransient();
-    const channels = listChannels(config, result);
-    expect(channels.length).toBeGreaterThan(0);
-    for (const d of channels) {
-      expect(d.label).toContain(d.elementLabel);
-      expect(d.channel.id.length).toBeGreaterThan(0);
-    }
+    expect(html).not.toContain('data-testid="plot-compare"');
   });
 });

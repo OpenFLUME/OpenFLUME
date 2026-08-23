@@ -4,10 +4,11 @@ import { NetworkConfig } from "../types";
 import type {
   CombustionPropellants,
   JunctionConfig,
+  NumberOrExpression,
   PhysicalPosition,
   SolidPropertySpec,
 } from "../../core";
-import { listCombustionPropellants } from "../../core";
+import { listCombustionPropellants, resolveFluidSpec } from "../../core";
 import UnitInput from "./UnitInput";
 import NumberField from "./NumberField";
 import FormulaUnitInput from "./FormulaUnitInput";
@@ -640,14 +641,204 @@ function JunctionSection({
 }
 
 /**
- * Read-only view of the `{ kTable }` form of `customResistance.k`.
+ * Per-species mass fractions for a node, shown only once the network declares
+ * species. Validation requires the set to sum to 1, but partial entry has to
+ * stay possible, so the sum is reported with a normalize action rather than
+ * enforced on every keystroke.
+ */
+function MassFractionsField({
+  names,
+  fractions,
+  onChange,
+}: {
+  names: string[];
+  fractions: Record<string, number> | undefined;
+  onChange: (fractions: Record<string, number> | undefined) => void;
+}) {
+  const set = (name: string, value: number | undefined) => {
+    const next = { ...(fractions ?? {}) };
+    if (value === undefined) delete next[name];
+    else next[name] = value;
+    onChange(Object.keys(next).length === 0 ? undefined : next);
+  };
+  const entries = Object.entries(fractions ?? {});
+  const sum = entries.reduce((total, [, y]) => total + y, 0);
+  const balanced = entries.length > 0 && Math.abs(sum - 1) <= 1e-6;
+  return (
+    <>
+      <div className="micro-label property-panel__group">Composition</div>
+      {names.map((name) => (
+        <NumberField
+          key={name}
+          label={name}
+          dataTestId={`node-mass-fraction-${name}`}
+          value={fractions?.[name]}
+          step={0.01}
+          min={0}
+          max={1}
+          onChange={(v) => set(name, v)}
+        />
+      ))}
+      {entries.length === 0 ? (
+        <div className="field__hint">
+          Unset — the node inherits its composition from the flow reaching it.
+        </div>
+      ) : (
+        <>
+          <div className="field__hint" data-testid="mass-fraction-sum">
+            Sum {formatSig(sum, 6)}
+            {balanced ? "" : " — must be 1 to solve"}
+          </div>
+          {!balanced && sum > 0 && (
+            <button
+              type="button"
+              className="btn btn--sm"
+              data-testid="mass-fraction-normalize"
+              onClick={() =>
+                onChange(
+                  Object.fromEntries(entries.map(([n, y]) => [n, y / sum])),
+                )
+              }
+            >
+              Normalize to 1
+            </button>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Friction closure for a pipe: the Swamee–Jain correlation, or a constant Darcy
+ * factor that bypasses it at every Reynolds number.
+ *
+ * The mode needs its own control because absent and zero are different
+ * configurations: `frictionFactor: 0` is a frictionless pipe, so a bare numeric
+ * field could not express "use the correlation" and an emptied field would read
+ * as frictionless rather than as a cleared override.
+ */
+function FrictionModeField({
+  frictionFactor,
+  onChange,
+}: {
+  frictionFactor: number | undefined;
+  onChange: (frictionFactor: number | undefined) => void;
+}) {
+  const constant = frictionFactor !== undefined;
+  return (
+    <>
+      <FieldSelect
+        label="Friction"
+        dataTestId="pipe-friction-mode"
+        value={constant ? "constant" : "correlation"}
+        onChange={(mode) => onChange(mode === "constant" ? 0.02 : undefined)}
+      >
+        <option value="correlation">Correlation (Swamee–Jain)</option>
+        <option value="constant">Constant f</option>
+      </FieldSelect>
+      {constant ? (
+        <>
+          <NumberField
+            label="Darcy friction factor f"
+            dataTestId="pipe-friction-factor"
+            step={0.001}
+            min={0}
+            value={frictionFactor}
+            onChange={(v) => onChange(v ?? 0)}
+          />
+          <div className="field__hint">
+            {frictionFactor === 0
+              ? "Zero f is a frictionless pipe."
+              : "Used at every Reynolds number, matching the constant-f convention of textbook Fanno and Rayleigh problems."}
+          </div>
+        </>
+      ) : (
+        <div className="field__hint">
+          Swamee–Jain above the transition, 64/Re laminar, smoothly blended
+          between.
+        </div>
+      )}
+    </>
+  );
+}
+
+/**
+ * Linear pipe taper (`diameterOut`): one segment of a quasi-1-D
+ * converging–diverging nozzle. Off unless explicitly enabled, because a taper
+ * changes what the friction and acceleration terms mean.
+ */
+function TaperField({
+  branchId,
+  diameter,
+  diameterOut,
+  quasi1d,
+  onChange,
+}: {
+  branchId: string;
+  diameter: NumberOrExpression;
+  diameterOut: number | undefined;
+  /** Both compressible settings on, i.e. the endpoint areas actually feed the
+   *  acceleration and kinetic-energy terms. */
+  quasi1d: boolean;
+  onChange: (diameterOut: number | undefined) => void;
+}) {
+  const tapered = diameterOut !== undefined;
+  return (
+    <>
+      <div className="field">
+        <label className="field__label check-label">
+          <input
+            type="checkbox"
+            data-testid="pipe-taper-toggle"
+            checked={tapered}
+            onChange={(e) =>
+              onChange(
+                e.target.checked
+                  ? typeof diameter === "number"
+                    ? diameter
+                    : 0.01
+                  : undefined,
+              )
+            }
+            style={{ cursor: "pointer" }}
+          />
+          Tapered outlet
+        </label>
+      </div>
+      {tapered && (
+        <>
+          <FormulaUnitInput
+            label="Outlet Diameter"
+            quantityKind="length"
+            value={diameterOut}
+            step={0.001}
+            path={`branch '${branchId}'.diameterOut`}
+            dataTestId="pipe-diameter-out"
+            onChange={(v) => onChange(v as number | undefined)}
+          />
+          <div className="field__hint">
+            Friction uses the mean diameter.{" "}
+            {quasi1d
+              ? "The endpoint areas feed the acceleration and kinetic-energy terms."
+              : "Enable Momentum flux and Kinetic energy in Settings → Physics for the endpoint areas to drive the acceleration and kinetic-energy terms."}
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
+/**
+ * Editor for the `{ kTable }` form of `customResistance.k`: the K(Re) points
+ * plus a live readout of the interpolated K at the solved Reynolds number.
  *
  * A scalar input cannot represent a Reynolds table, and letting one try was
  * worse than useless: the field rendered blank, so nothing indicated a table
  * was there at all, and any keystroke silently replaced the whole table with a
  * constant — an emptied field wrote `k: 0`, a frictionless branch that
- * validation accepts. So the table gets its own display and collapsing it to a
- * constant is an explicit, labelled action.
+ * validation accepts. So the table gets the same grid the other curves use and
+ * collapsing it to a constant is an explicit, labelled action.
  *
  * K is interpolated with the solver's own `CustomResistance.kAtRe`, so the value
  * shown here cannot drift from the one the solve used.
@@ -655,10 +846,12 @@ function JunctionSection({
 function KTableField({
   branchId,
   table,
+  onChange,
   onCollapseToConstant,
 }: {
   branchId: string;
   table: Array<[number, number]>;
+  onChange: (table: Array<[number, number]>) => void;
   onCollapseToConstant: (k: number) => void;
 }) {
   const config = useStore((s) => s.config);
@@ -688,6 +881,18 @@ function KTableField({
     [table, validTable],
   );
 
+  const grid = (
+    <ScheduleEditor
+      testid="ktable-points"
+      rows={table as ScheduleRow[]}
+      onChange={(rows) => onChange(rows as Array<[number, number]>)}
+      leftKind="dimensionless"
+      rightKind="dimensionless"
+      leftLabel="Reynolds"
+      rightLabel="K"
+    />
+  );
+
   if (!validTable || !interpolator) {
     return (
       <div className="field">
@@ -698,8 +903,10 @@ function KTableField({
             <span className="kv__value">empty or malformed</span>
           </div>
         </div>
+        {grid}
         <div className="field__hint">
-          The K(Re) table has no usable points — edit it in the model text view.
+          The K(Re) table has no usable points yet — add at least one Reynolds/K
+          pair.
         </div>
       </div>
     );
@@ -739,9 +946,10 @@ function KTableField({
           </div>
         )}
       </div>
+      {grid}
       <div className="field__hint">
-        Edit the points in the model text view. Replacing the table with a
-        constant discards it.
+        K is held flat outside the first and last knot. Replacing the table with
+        a constant discards it.
       </div>
       <button
         type="button"
@@ -1005,6 +1213,16 @@ export default function PropertyPanel() {
     const node = config.nodes.find((n) => n.id === selection.id);
     if (!node) return null;
     const groups = config.groups ?? [];
+    // Quality is a realFluid-only state variable, and it is mutually exclusive
+    // with temperature (core/validate/nodes.ts).
+    const realFluid = resolveFluidSpec(config, node).model === "realFluid";
+    const usesQuality = node.quality !== undefined;
+    // The front tracer only exists once some ttWf conductor opts in, so the
+    // boundary marker stays hidden on ordinary networks.
+    const frontTransport = (config.conductors ?? []).some(
+      (c) => c.type.kind === "convection" && c.type.correlation?.fluidFront,
+    );
+    const speciesNames = config.species?.names ?? [];
     return (
       <div {...PANEL_ROOT_PROPS}>
         <div className="property-panel__title">Node: {node.id}</div>
@@ -1071,16 +1289,57 @@ export default function PropertyPanel() {
             updateNode(node.id, formulaPatch<NodeConfig>({ pressure: v }))
           }
         />
-        <FormulaUnitInput
-          label="Temperature"
-          quantityKind="temperature"
-          value={node.temperature}
-          step={1}
-          path={`node '${node.id}'.temperature`}
-          onChange={(v) =>
-            updateNode(node.id, formulaPatch<NodeConfig>({ temperature: v }))
-          }
-        />
+        {realFluid && (
+          <FieldSelect
+            label="State variable"
+            dataTestId="node-state-variable"
+            value={usesQuality ? "quality" : "temperature"}
+            onChange={(v) =>
+              // Mutually exclusive: setting one clears the other.
+              updateNode(
+                node.id,
+                v === "quality"
+                  ? { quality: 0, temperature: undefined }
+                  : {
+                      temperature: siNumber(node.temperature) ?? 300,
+                      quality: undefined,
+                    },
+              )
+            }
+          >
+            <option value="temperature">Temperature</option>
+            <option value="quality">Vapour quality</option>
+          </FieldSelect>
+        )}
+        {usesQuality ? (
+          <>
+            <NumberField
+              label="Vapour quality"
+              unitNote="0 = saturated liquid, 1 = saturated vapour"
+              dataTestId="node-quality"
+              value={node.quality}
+              step={0.01}
+              min={0}
+              max={1}
+              onChange={(v) => updateNode(node.id, { quality: v ?? 0 })}
+            />
+            <div className="field__hint">
+              The saturated state at this pressure. Temperature is derived, so
+              the two cannot both be set.
+            </div>
+          </>
+        ) : (
+          <FormulaUnitInput
+            label="Temperature"
+            quantityKind="temperature"
+            value={node.temperature}
+            step={1}
+            path={`node '${node.id}'.temperature`}
+            onChange={(v) =>
+              updateNode(node.id, formulaPatch<NodeConfig>({ temperature: v }))
+            }
+          />
+        )}
         <FormulaUnitInput
           label="Volume"
           quantityKind="volume"
@@ -1205,7 +1464,33 @@ export default function PropertyPanel() {
               leftLabel="Time"
               rightLabel="Temperature"
             />
+            {frontTransport && (
+              <>
+                <NumberField
+                  label="Cryogenic front inlet"
+                  unitNote="0–1"
+                  dataTestId="node-fluid-front-inlet"
+                  value={node.fluidFrontInlet}
+                  step={0.1}
+                  min={0}
+                  max={1}
+                  onChange={(v) => updateNode(node.id, { fluidFrontInlet: v })}
+                />
+                <div className="field__hint">
+                  Front fraction carried by flow ENTERING through this boundary:
+                  1 marks a cryogenic inlet, blank or 0 a warm one. Outflow
+                  always carries the internal upwind node&apos;s value.
+                </div>
+              </>
+            )}
           </>
+        )}
+        {speciesNames.length > 0 && (
+          <MassFractionsField
+            names={speciesNames}
+            fractions={node.massFractions}
+            onChange={(massFractions) => updateNode(node.id, { massFractions })}
+          />
         )}
         <SelectionResults selection={selection} />
       </div>
@@ -1527,9 +1812,16 @@ export default function PropertyPanel() {
 
   const comp = branch.component;
 
+  /** Patch the branch component; a key set to undefined is REMOVED, so
+   *  clearing an optional parameter (a constant friction factor, a taper) puts
+   *  the component back to the shape it had before the field was ever set. */
   const updateComp = (patch: Record<string, unknown>) => {
+    const merged: Record<string, unknown> = { ...comp, ...patch };
+    for (const key of Object.keys(merged)) {
+      if (merged[key] === undefined) delete merged[key];
+    }
     updateBranch(branch.id, {
-      component: { ...comp, ...patch } as BranchConfig["component"],
+      component: merged as BranchConfig["component"],
     });
   };
 
@@ -1572,6 +1864,19 @@ export default function PropertyPanel() {
         onChange={(v) => updateBranch(branch.id, { to: v })}
         dataTestId="branch-to-select"
       />
+      <UnitInput
+        label="Initial flow guess"
+        quantityKind="massFlow"
+        value={branch.initialMdot}
+        step={0.01}
+        dataTestId="branch-initial-mdot"
+        onChange={(v) => updateBranch(branch.id, { initialMdot: v })}
+      />
+      <div className="field__hint">
+        {branch.initialMdot === undefined
+          ? "Auto (0.1 kg/s). A warm start only — it never constrains the converged solution."
+          : "Warm start only. Near-choked networks may need a guess close to the expected flow to keep Newton on the subsonic branch."}
+      </div>
       <FieldSelect
         label="Component Type"
         dataTestId="branch-type-select"
@@ -1638,6 +1943,19 @@ export default function PropertyPanel() {
             path={`branch '${branch.id}'.elevationChange`}
             onChange={(v) => updateComp({ elevationChange: v })}
           />
+          <FrictionModeField
+            frictionFactor={comp.frictionFactor}
+            onChange={(frictionFactor) => updateComp({ frictionFactor })}
+          />
+          <TaperField
+            branchId={branch.id}
+            diameter={comp.diameter}
+            diameterOut={comp.diameterOut}
+            quasi1d={
+              !!config.settings.momentumFlux && !!config.settings.kineticEnergy
+            }
+            onChange={(diameterOut) => updateComp({ diameterOut })}
+          />
           <div className="field">
             <label className="field__label check-label">
               <input
@@ -1669,26 +1987,11 @@ export default function PropertyPanel() {
             path={`branch '${branch.id}'.cd`}
             onChange={(v) => updateComp({ cd: v })}
           />
-        </>
-      )}
-      {comp.type === "orificeCompressible" && (
-        <>
-          <FormulaUnitInput
-            label="Area"
-            quantityKind="area"
-            value={comp.area}
-            step={0.0001}
-            path={`branch '${branch.id}'.area`}
-            onChange={(v) => updateComp({ area: v })}
-          />
-          <FormulaUnitInput
-            label="Discharge Coeff"
-            quantityKind="dimensionless"
-            value={comp.cd}
-            step={0.01}
-            path={`branch '${branch.id}'.cd`}
-            onChange={(v) => updateComp({ cd: v })}
-          />
+          <div className="field__hint">
+            ṁ = Cd·A·Y·√(2ρ ΔP). Y is 1 for liquids and the isentropic
+            expansibility factor (choking included) for gases, using γ or the
+            real-fluid sound speed.
+          </div>
         </>
       )}
       {comp.type === "cavitatingVenturi" && (
@@ -2098,6 +2401,24 @@ export default function PropertyPanel() {
             path={`branch '${branch.id}'.wallTemperature`}
             onChange={(v) => updateComp({ wallTemperature: v })}
           />
+          <FieldSelect
+            label="Boiling model"
+            dataTestId="heated-pipe-boiling-model"
+            value={comp.boilingModel ?? ""}
+            onChange={(v) =>
+              updateComp({
+                boilingModel: v === "miropolskii" ? "miropolskii" : undefined,
+              })
+            }
+          >
+            <option value="">UA·ΔT only</option>
+            <option value="miropolskii">Miropolskii film boiling</option>
+          </FieldSelect>
+          <div className="field__hint">
+            {comp.boilingModel === "miropolskii"
+              ? "Dispersed-flow film boiling. Needs the realFluid model to engage — it falls back to UA·ΔT otherwise."
+              : "UA·ΔT is a crude two-phase treatment. Miropolskii adds dispersed-flow film boiling for cryogenic chilldown."}
+          </div>
         </>
       )}
       {comp.type === "dpTable" && (
@@ -2131,17 +2452,40 @@ export default function PropertyPanel() {
       {comp.type === "customResistance" && (
         <>
           {typeof comp.k === "number" ? (
-            <UnitInput
-              label="K factor"
-              quantityKind="dimensionless"
-              value={comp.k}
-              step={0.1}
-              onChange={(v) => updateComp({ k: v ?? 0 })}
-            />
+            <>
+              <UnitInput
+                label="K factor"
+                quantityKind="dimensionless"
+                value={comp.k}
+                step={0.1}
+                onChange={(v) => updateComp({ k: v ?? 0 })}
+              />
+              <button
+                type="button"
+                className="btn btn--sm"
+                data-testid="ktable-promote"
+                onClick={() =>
+                  // Seed a flat table at the current constant, so promoting
+                  // changes the shape of the closure without changing K.
+                  updateComp({
+                    k: {
+                      kTable: [
+                        [2000, comp.k as number],
+                        [1e5, comp.k as number],
+                      ],
+                    },
+                    diameter: comp.diameter ?? 0.01,
+                  })
+                }
+              >
+                Make K depend on Reynolds
+              </button>
+            </>
           ) : (
             <KTableField
               branchId={branch.id}
               table={comp.k.kTable}
+              onChange={(kTable) => updateComp({ k: { kTable } })}
               onCollapseToConstant={(k) => updateComp({ k })}
             />
           )}
@@ -2153,17 +2497,27 @@ export default function PropertyPanel() {
             path={`branch '${branch.id}'.area`}
             onChange={(v) => updateComp({ area: v ?? 0 })}
           />
-          {/* Diameter only matters for the kTable form; it was previously
-              text-only — expose it (formula-capable) when present. */}
-          {comp.diameter !== undefined && (
+          {/* Diameter is what makes Reynolds computable, so the kTable form
+              needs it; a constant K does not. */}
+          {typeof comp.k !== "number" || comp.diameter !== undefined ? (
             <FormulaUnitInput
               label="Diameter"
               quantityKind="length"
               value={comp.diameter}
               step={0.001}
               path={`branch '${branch.id}'.diameter`}
+              dataTestId="custom-resistance-diameter"
               onChange={(v) => updateComp({ diameter: v })}
             />
+          ) : (
+            <button
+              type="button"
+              className="btn btn--ghost btn--sm"
+              data-testid="custom-resistance-add-diameter"
+              onClick={() => updateComp({ diameter: 0.01 })}
+            >
+              + Add diameter
+            </button>
           )}
         </>
       )}

@@ -47,7 +47,9 @@ export default class ViewErrorBoundary extends React.Component<
   handleSaveModel = (): void => {
     try {
       const s = useStore.getState();
-      downloadModelText(s.config);
+      // The whole file, variants included — a crash must not silently drop
+      // the alternatives the user built.
+      downloadModelText(s.baseConfig);
       s.markSaved();
     } catch (err) {
       console.error("[ViewErrorBoundary] Save model failed:", err);

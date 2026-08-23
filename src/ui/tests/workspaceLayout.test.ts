@@ -11,7 +11,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { showCanvasSidebars } from "../workspaceLayout";
 import { useStore, type AppTab } from "../store";
 
-const NON_CANVAS_TABS: AppTab[] = ["sweep", "results"];
+const NON_CANVAS_TABS: AppTab[] = ["config", "sweep", "results"];
 
 describe("showCanvasSidebars", () => {
   afterEach(() => {

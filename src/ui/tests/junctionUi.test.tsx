@@ -120,6 +120,7 @@ const testJunction = (): JunctionConfig => ({
 function resetStore(config: NetworkConfig = baseConfig()) {
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -134,7 +135,6 @@ function resetStore(config: NetworkConfig = baseConfig()) {
     dirty: false,
     resultStale: false,
     preparingOperation: null,
-    showSettings: false,
     validationErrors: [],
     modelText: serializeText(config),
     textDraft: serializeText(config),
@@ -143,7 +143,11 @@ function resetStore(config: NetworkConfig = baseConfig()) {
 }
 
 function renderPanel(config: NetworkConfig, selection: Selection): string {
-  Object.assign(useStore.getInitialState(), { config, selection });
+  Object.assign(useStore.getInitialState(), {
+    config,
+    baseConfig: config,
+    selection,
+  });
   return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
 }
 

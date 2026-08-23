@@ -339,6 +339,7 @@ function resetStore(config: NetworkConfig) {
   const text = serializeText(config);
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -361,7 +362,11 @@ function renderSsr(
   config: NetworkConfig,
   selection: Selection,
 ): string {
-  Object.assign(useStore.getInitialState(), { config, selection });
+  Object.assign(useStore.getInitialState(), {
+    config,
+    baseConfig: config,
+    selection,
+  });
   const html =
     view === "panel"
       ? renderToString(<PropertyPanel />)

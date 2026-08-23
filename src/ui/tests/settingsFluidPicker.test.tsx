@@ -1,5 +1,5 @@
 /**
- * SettingsDialog real-fluid picker tests — the searchable catalogue dropdown:
+ * ConfigurationView real-fluid picker tests — the searchable catalogue dropdown:
  * curated favorites optgroup first, all 124 HEOS fluids listed, ⚠ markers for
  * no-transport fluids, and a saved UNKNOWN fluid rendered visibly as invalid
  * rather than silently reverting to a default.
@@ -9,7 +9,7 @@
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
-import SettingsDialog from "../components/SettingsDialog";
+import ConfigurationView from "../components/ConfigurationView";
 import { useStore } from "../store";
 import {
   FLUID_CATALOGUE,
@@ -61,17 +61,21 @@ function baseConfig(fluidName?: string): NetworkConfig {
 
 function renderDialog(fluidName?: string): string {
   // SSR convention in this repo (zustand's server snapshot is the INITIAL
-  // state): mutate getInitialState() before renderToString.
+  // state): mutate getInitialState() before renderToString. The picker lives
+  // on the Fluids tab, so the section has to be selected up front.
   Object.assign(useStore.getInitialState(), {
     config: baseConfig(fluidName),
-    showSettings: true,
+    baseConfig: baseConfig(fluidName),
+    settingsTab: "fluids",
   });
-  return renderToString(<SettingsDialog />).replace(/<!-- -->/g, "");
+  return renderToString(<ConfigurationView />).replace(/<!-- -->/g, "");
 }
 
-describe("SettingsDialog real-fluid picker", () => {
+describe("ConfigurationView real-fluid picker", () => {
   beforeEach(() => {
-    Object.assign(useStore.getInitialState(), { showSettings: false });
+    Object.assign(useStore.getInitialState(), {
+      settingsTab: "solver",
+    });
   });
 
   it("lists the curated favorites first and every HEOS catalogue fluid", () => {

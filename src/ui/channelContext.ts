@@ -324,6 +324,34 @@ export function buildContextGraph(
   }
 }
 
+/**
+ * The WHOLE placeable network as a context graph, for the Runs view's path
+ * schematic: every node with finite coordinates, and every branch/conductor
+ * whose endpoints both resolve. Same invariant as buildContextGraph (no
+ * dangling edges), same shape, so `layoutContextGraph` positions either.
+ *
+ * `focused` / `neighbor` are left false: which elements matter here is decided
+ * by the caller's flow path, not by a selection.
+ */
+export function buildNetworkGraph(
+  config: NetworkConfig | null | undefined,
+): ChannelContextGraph {
+  try {
+    const index = indexConfig(config);
+    const nodes: ContextGraphNode[] = [];
+    for (const el of index.points.values())
+      nodes.push(toGraphNode(el, false, false));
+    const edges: ContextGraphEdge[] = [];
+    for (const e of [...index.branches, ...index.conductors]) {
+      if (!index.byId.has(e.from) || !index.byId.has(e.to)) continue;
+      edges.push(toGraphEdge(e, false));
+    }
+    return { focusedKey: null, nodes, edges };
+  } catch {
+    return emptyGraph();
+  }
+}
+
 /* ------------------------------------------------------------------ */
 /* Normalized viewport / layout                                        */
 /* ------------------------------------------------------------------ */

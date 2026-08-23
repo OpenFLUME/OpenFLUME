@@ -1,0 +1,899 @@
+/* ==========================================================================
+   Studio shell styles (docked IDE layout) plus the assistance surfaces
+   (outline hover cards, suggested settings, new-model templates, command
+   palette).  Component-level styling stays in index.css; this file owns the
+   window-level layout regions.
+   ========================================================================== */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Shared: suggested solver settings
+   -------------------------------------------------------------------------- */
+.suggested-settings {
+  grid-column: 1 / -1;
+  border: 1px solid var(--accent);
+  border-radius: var(--r-2);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  background: var(--accent-subtle);
+}
+
+.suggested-settings__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.suggested-settings__title {
+  font-size: var(--fs-cap);
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.suggested-settings__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.suggested-settings__item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.suggested-settings__what {
+  font-size: var(--fs-body);
+  color: var(--text-1);
+  font-weight: 600;
+}
+
+.suggested-settings__why {
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+}
+
+/* --------------------------------------------------------------------------
+   Shared: new-model template picker
+   -------------------------------------------------------------------------- */
+.dialog--new-model {
+  width: min(720px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow: auto;
+}
+
+.new-model__hint {
+  font-size: var(--fs-body);
+  color: var(--text-2);
+  margin-bottom: var(--sp-3);
+}
+
+.new-model__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.new-model-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-3);
+  background: var(--bg-1);
+  border: 1px solid var(--bg-3);
+  border-radius: var(--r-2);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.new-model-card:hover {
+  border-color: var(--text-3);
+}
+
+.new-model-card--selected,
+.new-model-card--selected:hover {
+  border-color: var(--accent);
+  outline: 1px solid var(--accent);
+}
+
+.new-model-card__label {
+  font-weight: 600;
+  color: var(--text-1);
+  font-size: var(--fs-body);
+}
+
+.new-model-card__desc {
+  font-size: var(--fs-cap);
+  color: var(--text-2);
+}
+
+.new-model-card__seeds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.new-model-card__seed {
+  font-size: 10px;
+  color: var(--text-2);
+  border: 1px solid var(--bg-3);
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Studio shell (docked IDE)
+   -------------------------------------------------------------------------- */
+.shell-studio {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.shell-studio__body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.shell-studio__outline {
+  flex: none;
+  width: 224px;
+  min-width: 180px;
+  border-right: 1px solid var(--bg-3);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.shell-studio__main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.shell-studio__center {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-studio__center > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.shell-studio__inspector {
+  flex: none;
+  border-left: 1px solid var(--bg-3);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.shell-studio__inspector-resize {
+  position: absolute;
+  left: -3px;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 5;
+}
+
+.shell-studio__inspector-resize:hover {
+  background: var(--accent-subtle);
+}
+
+.shell-studio__panel-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+  border-bottom: 1px solid var(--bg-3);
+}
+
+.shell-studio__inspector-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: var(--sp-2);
+}
+
+/* Docked host: neutralize the floating card look of .property-panel. */
+.shell-studio__inspector-scroll .property-panel {
+  width: 100%;
+  max-height: none;
+  border: none;
+  box-shadow: none;
+  background: transparent;
+}
+
+/* Configuration workspace view */
+.shell-studio__settings-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Never allow a horizontal scrollbar: with `auto` the section strip's
+     negative margins made the scrollbar flicker in and out every frame,
+     oscillating the layout under the pointer. */
+  overflow-x: hidden;
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* The page is a scroll container: its children must keep their natural
+   height instead of flex-shrinking (the tab strip otherwise collapses to
+   nothing once the active panel is taller than the viewport).
+ *
+ * They are also capped in width. The settings grids lay out `auto-fit`
+ * columns, so on a wide monitor an unconstrained page stretches a handful of
+ * short fields across the entire workspace with the labels acres apart from
+ * their inputs. 1040px is the width this content was designed for (it was the
+ * old settings dialog's), and the column stays flush left so it lines up under
+ * the workspace tab strip rather than drifting away from it. */
+.shell-studio__settings-page > * {
+  flex: none;
+  width: 100%;
+  max-width: 1040px;
+}
+
+/* The section strip's negative margins were authored to bleed across a
+   dialog's padding; in the view they only overflow the scroll container. */
+.shell-studio__settings-page .settings-tabs {
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Variant picker (switches the active variant AND labels the tree below it)
+   -------------------------------------------------------------------------- */
+.variant-picker {
+  flex: none;
+  padding: var(--sp-2) var(--sp-2) 0;
+}
+
+.variant-picker__button {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-1) var(--sp-2);
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.variant-picker__button:hover {
+  border-color: var(--text-3);
+}
+
+.variant-picker__name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-picker__changes {
+  font-size: var(--fs-micro);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.variant-picker__count {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.variant-menu {
+  z-index: 140;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: var(--sp-1);
+  display: flex;
+  flex-direction: column;
+  max-width: 340px;
+}
+
+.variant-menu__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  border-radius: var(--r-1);
+}
+
+.variant-menu__row--active {
+  background: var(--accent-subtle);
+}
+
+.variant-menu__row:hover {
+  background: var(--bg-3);
+}
+
+.variant-menu__pick {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  background: none;
+  border: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  padding: var(--sp-1) var(--sp-2);
+  cursor: pointer;
+}
+
+.variant-menu__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.variant-menu__meta {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.variant-menu__meta .model-outline__status {
+  margin-left: 0;
+}
+
+.variant-menu__actions {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.variant-menu__name-input {
+  flex: 1;
+  min-width: 0;
+  margin: 2px var(--sp-1);
+  font-size: var(--fs-body);
+}
+
+.variant-menu__new {
+  margin-top: var(--sp-1);
+  border: none;
+  border-top: 1px solid var(--line-1);
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-cap);
+  text-align: left;
+  padding: var(--sp-2);
+  cursor: pointer;
+}
+
+.variant-menu__new:hover {
+  color: var(--accent-hover);
+}
+
+.toolbar-variant {
+  cursor: pointer;
+}
+
+/* Project outline (Studio) */
+.model-outline {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.model-outline__search {
+  flex: none;
+  padding: var(--sp-2) var(--sp-2) 0;
+}
+
+.model-outline__search .input {
+  width: 100%;
+}
+
+.model-outline__scroll {
+  flex: 1;
+  overflow: auto;
+  padding: var(--sp-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.model-outline__hint {
+  flex: none;
+  padding: var(--sp-1) var(--sp-2);
+  border-top: 1px solid var(--bg-3);
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+}
+
+.model-outline__hint kbd {
+  font-family: inherit;
+  border: 1px solid var(--line-1);
+  border-radius: 3px;
+  padding: 0 3px;
+}
+
+.model-outline__chevron {
+  flex: none;
+  color: var(--text-3);
+  transition: transform 120ms ease;
+}
+
+.model-outline__chevron--open {
+  transform: rotate(90deg);
+}
+
+.model-outline__heading:hover .model-outline__chevron {
+  color: var(--text-1);
+}
+
+.model-outline__heading-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+/* The heading ROW owns the hover surface and the horizontal insets, so the
+   highlight spans the whole panel rather than stopping where the section's
+   actions begin. */
+.model-outline__heading-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3) 0 var(--sp-1);
+  border-radius: var(--r-1);
+}
+
+.model-outline__heading-row:hover {
+  background: var(--bg-2);
+}
+
+.model-outline__heading-row .model-outline__heading {
+  flex: 1;
+  min-width: 0;
+}
+
+.model-outline__heading-action {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-size: var(--fs-micro);
+  padding: var(--sp-1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.model-outline__heading-action:hover:not(:disabled) {
+  color: var(--accent-hover);
+}
+
+.model-outline__heading-action:disabled {
+  color: var(--text-3);
+  cursor: default;
+}
+
+/* Row + trailing action (baseline pin) share one hover surface. */
+.model-outline__row-wrap {
+  display: flex;
+  align-items: center;
+  padding-right: var(--sp-3);
+  border-radius: var(--r-1);
+}
+
+.model-outline__row-wrap:hover {
+  background: var(--bg-2);
+}
+
+.model-outline__row-wrap--selected,
+.model-outline__row-wrap--selected:hover {
+  background: var(--select-subtle);
+}
+
+.model-outline__row-wrap .model-outline__item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The wrapper paints the surface for these rows; a second background on the
+   button would end short of the trailing actions. */
+.model-outline__row-wrap .model-outline__item:hover,
+.model-outline__row-wrap .model-outline__item--selected {
+  background: none;
+}
+
+.model-outline__row-action {
+  flex: none;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  font-size: 12px;
+  line-height: 1;
+  padding: 2px var(--sp-1);
+  cursor: pointer;
+}
+
+.model-outline__row-action:hover {
+  color: var(--select);
+}
+
+/* An engaged action (the pinned comparison baseline) stays lit, so the pin is
+   legible at a glance instead of only while the pointer is on it. */
+.model-outline__row-action--active,
+.model-outline__row-action--active:hover {
+  color: var(--select);
+  font-size: 14px;
+}
+
+.model-outline__row-action--danger:hover {
+  color: var(--danger);
+}
+
+/* "Overridden by the active variant" mark. */
+.model-outline__modified {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  padding: 0 3px;
+  line-height: 1.4;
+}
+
+/* Status is drawn as an icon (see StatusIcon) and only for trouble: the colors
+   live here, the shapes in the SVG. There is no --ok rule because a healthy
+   row draws nothing at all. */
+.model-outline__status {
+  flex: none;
+  display: block;
+  margin-left: auto;
+}
+
+.model-outline__item .model-outline__status {
+  margin-left: var(--sp-1);
+}
+
+.model-outline__status--warn {
+  color: var(--warn);
+}
+
+.model-outline__status--error {
+  color: var(--danger);
+}
+
+.model-outline__heading-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.model-outline__item--child {
+  padding-left: calc(var(--sp-4) + var(--sp-3));
+}
+
+.model-outline__item-annotation {
+  display: block;
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-studio__outline-reopen {
+  flex: none;
+  width: 18px;
+  border: none;
+  border-right: 1px solid var(--bg-3);
+  background: var(--bg-1);
+  color: var(--text-3);
+  cursor: pointer;
+  font-size: 10px;
+}
+
+.shell-studio__outline-reopen:hover {
+  color: var(--text-1);
+  background: var(--bg-2);
+}
+
+.model-outline__section {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-outline__heading {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-2);
+  font: inherit;
+  font-size: var(--fs-cap);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  /* Roomier than a text row: this is the primary collapse target. The row
+     supplies the horizontal inset. */
+  padding: var(--sp-2) 0;
+  cursor: pointer;
+}
+
+.model-outline__count {
+  font-weight: 500;
+  color: var(--text-3);
+}
+
+.model-outline__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  /* The right inset keeps counts, status icons and result values off the
+     panel edge; rows inside a row-wrap add its padding on top. */
+  padding: 4px var(--sp-3) 4px var(--sp-4);
+  cursor: pointer;
+  border-radius: var(--r-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-outline__item:hover {
+  background: var(--bg-2);
+}
+
+.model-outline__item--selected,
+.model-outline__item--selected:hover {
+  background: var(--select-subtle);
+  color: var(--text-1);
+}
+
+/* Drag-reorder insertion line. Drawn as an inset shadow so it never changes
+   the row's box and therefore never makes the list jitter under the cursor. */
+.model-outline__item--drop-before {
+  box-shadow: inset 0 2px 0 0 var(--accent);
+}
+
+.model-outline__item--drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--accent);
+}
+
+.model-outline__item-glyph {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   Hover summary card (portaled beside an outline row)
+   -------------------------------------------------------------------------- */
+.hover-card {
+  z-index: 150;
+  pointer-events: none;
+  background: var(--bg-2);
+  border: 1px solid var(--line-1);
+  border-radius: var(--r-2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-body);
+  color: var(--text-1);
+}
+
+.hover-card__header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding-bottom: var(--sp-1);
+  margin-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line-1);
+}
+
+.hover-card__title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hover-card__subtitle {
+  margin-left: auto;
+  flex: none;
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.hover-card__section {
+  margin: var(--sp-2) 0 var(--sp-1);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+
+.hover-card__rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px var(--sp-3);
+  margin: 0;
+}
+
+.hover-card__rows dt {
+  color: var(--text-2);
+  white-space: nowrap;
+}
+
+.hover-card__rows dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-outline__item-kind {
+  flex: none;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-3);
+  border: 1px solid var(--bg-3);
+  border-radius: 3px;
+  padding: 0 3px;
+  letter-spacing: 0.04em;
+}
+
+.model-outline__item-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.model-outline__empty {
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+  padding: 0 var(--sp-2) var(--sp-1) var(--sp-4);
+}
+
+/* Command palette */
+.command-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 12vh;
+  z-index: 200;
+}
+
+.command-palette {
+  width: min(560px, calc(100vw - 48px));
+  background: var(--bg-1);
+  border: 1px solid var(--bg-3);
+  border-radius: var(--r-2);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.command-palette__input {
+  width: 100%;
+  border: none;
+  border-bottom: 1px solid var(--bg-3);
+  background: transparent;
+  color: var(--text-1);
+  font: inherit;
+  font-size: 14px;
+  padding: var(--sp-3);
+  outline: none;
+}
+
+.command-palette__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-1);
+  max-height: 320px;
+  overflow: auto;
+}
+
+.command-palette__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  background: none;
+  border: none;
+  border-radius: var(--r-1);
+  color: var(--text-1);
+  font: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  padding: var(--sp-2) var(--sp-3);
+  cursor: pointer;
+}
+
+.command-palette__item--active {
+  background: var(--accent-subtle);
+}
+
+.command-palette__item-hint {
+  margin-left: auto;
+  font-size: var(--fs-cap);
+  color: var(--text-3);
+}
+
+.command-palette__empty {
+  padding: var(--sp-3);
+  font-size: var(--fs-body);
+  color: var(--text-3);
+}

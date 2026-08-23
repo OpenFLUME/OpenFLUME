@@ -104,7 +104,6 @@ const COMPONENT_FIELDS: Record<string, FieldMeta[]> = {
     ROUGHNESS,
   ],
   orifice: [AREA, CD],
-  orificeCompressible: [AREA, CD],
   cavitatingVenturi: [
     {
       key: "throatArea",

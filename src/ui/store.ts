@@ -36,7 +36,15 @@ import {
   makeRunRecord,
 } from "./runHistory";
 import type { RunDiary } from "./convergenceDiary";
+import { newPlot, type ResultPlot } from "./resultPlots";
 import { configHash } from "./provenance";
+import {
+  saveRunsToLocalStorage,
+  loadRunsFromLocalStorage,
+  clearRunsLocalStorage,
+} from "./runsFile";
+import { applyVariant, diffVariant } from "../core/variants";
+import type { VariantSpec } from "../core";
 import { normalizeCanvasLayout } from "./canvasLayout";
 import {
   getComponentLibrarySnapshot,
@@ -53,14 +61,29 @@ import type { ColorBy, ColorDomainOverrides } from "./colorData";
 
 export type { ColorBy };
 
-export type AppTab = "editor" | "results" | "sweep";
+/** Workspace views, in tab-strip order. `config` is the global-configuration
+ *  page — a center view like the others, not a modal. */
+export type AppTab = "editor" | "config" | "sweep" | "results";
+
+/** Horizontal sections of the Global Settings dialog. `solver` is the landing
+ *  tab, so opening the dialog always shows the basics first. */
+export type SettingsTabId =
+  "solver" | "physics" | "fluids" | "species" | "units" | "extensibility";
+
+/** Addressable groups of `config.closureParams`. `solidCpScale` is a bare
+ *  scalar (a material-property nuisance parameter, not a closure constant). */
+export type ClosureParamGroup =
+  "dittusBoelter" | "miropolskii" | "swameeJain" | "solidCpScale";
 
 /** Schematic pixels (the P&ID) vs. projected physical metres (the 3D view). */
 export type CanvasView = "2d" | "3d";
 
 /** Undo/redo history entry. Config already carries canvas positions (x/y). */
 interface HistoryEntry {
+  /** The FILE config (base network carrying its variant list). */
   config: NetworkConfig;
+  /** Which variant was active, so undo restores the view as well. */
+  activeVariantId: string | null;
 }
 
 const HISTORY_CAP = 100;
@@ -97,7 +120,27 @@ interface StoreState {
   fluidError: string | null;
   running: boolean;
   activeTab: AppTab;
-  showSettings: boolean;
+  settingsTab: SettingsTabId;
+  /**
+   * The Runs tab's plots, one per tab, and which is showing.
+   *
+   * Session UI state, not model data: it lives here rather than in the Runs
+   * view so switching to the canvas and back does not throw away the plots the
+   * user built. Cleared with the rest of the session when a different model is
+   * loaded, because a plot names channels of the model it was made for.
+   */
+  resultPlots: ResultPlot[];
+  activePlotId: string | null;
+  addResultPlot: (mode: "steady" | "transient") => string;
+  removeResultPlot: (id: string) => void;
+  setActiveResultPlot: (id: string) => void;
+  /** Patch one plot; unknown ids are ignored. */
+  updateResultPlot: (id: string, patch: Partial<ResultPlot>) => void;
+  /** Seed the first plot from the displayed result's inventory. */
+  seedResultPlot: (plot: ResultPlot) => void;
+  /** Command palette visibility. In the store rather than the shell so any
+   *  surface (toolbar button, Cmd/Ctrl+K, a command itself) can drive it. */
+  showCommandPalette: boolean;
   branchTool: string | null; // component type when adding a branch
   conductorTool: string | null; // conductor kind when adding a conductor
   pendingSourceNodeId: string | null; // for click-click branch creation
@@ -218,6 +261,8 @@ interface StoreState {
   selectRun: (id: string | null) => void;
   renameRun: (id: string, name: string) => void;
   deleteRun: (id: string) => void;
+  /** Drop every recorded run and the displayed result with them. */
+  discardRuns: () => void;
   setBaselineRunId: (id: string | null) => void;
   requestCanvasFocus: (kind: Selection["kind"], id: string) => void;
   clearCanvasFocusRequest: () => void;
@@ -235,6 +280,33 @@ interface StoreState {
   /** True when config differs from the last New/Load/Save baseline. */
   dirty: boolean;
   preparingOperation: "save" | "run" | null;
+  /**
+   * The file as saved: the base network plus its variant list.
+   *
+   * `config` is the RESOLVED active variant — what the canvas, panels and
+   * solver all read and edit. Editing while a variant is active is recorded
+   * back into that variant's patch rather than into the base, so the base
+   * only changes when Base is the active variant. See core/variants.ts.
+   */
+  baseConfig: NetworkConfig;
+  /** Null means the implicit Base variant (the file body itself). */
+  activeVariantId: string | null;
+  /** Switch which variant `config` resolves to. */
+  setActiveVariant: (id: string | null) => void;
+  /** Attach runs loaded from a `<model>.runs.json` sidecar. */
+  importRuns: (runs: RunRecord[]) => void;
+  /** New variant seeded from the active one; returns its id. */
+  createVariant: (name: string) => string;
+  /**
+   * New variant whose patch is the difference between the base network and
+   * `config` — how a promoted sweep point becomes a saved variant.
+   * Activates it, so a following pushRunRecord files the run under it.
+   */
+  createVariantFrom: (name: string, config: NetworkConfig) => string;
+  renameVariant: (id: string, name: string) => void;
+  /** Copy an existing variant (or Base when id is null). */
+  duplicateVariant: (id: string | null) => string;
+  deleteVariant: (id: string) => void;
   past: HistoryEntry[];
   future: HistoryEntry[];
   undo: () => void;
@@ -244,6 +316,9 @@ interface StoreState {
   endPreparation: (operation: "save" | "run") => void;
   loadExample: (name: string) => void;
   newNetwork: () => void;
+  /** Replace the model with a freshly built problem-template config (same
+   *  lifecycle as newNetwork: history push, clean dirty state, autosave). */
+  newNetworkFrom: (config: NetworkConfig) => void;
   setConfig: (config: NetworkConfig) => void;
   updateMeta: (patch: Partial<NetworkConfig["meta"]>) => void;
   updateNode: (
@@ -277,6 +352,18 @@ interface StoreState {
    *  committed and no undo step is burned. */
   updateEntities: (updates: EntityUpdate[]) => void;
   updateSettings: (patch: Partial<NetworkConfig["settings"]>) => void;
+  /** Set or clear ONE closure-calibration constant. Clearing the last member
+   *  of a group drops the group, and dropping the last group removes
+   *  `closureParams` entirely — an unspecified config must stay bit-identical
+   *  to one that never carried the field (core/closureParams.ts). */
+  setClosureParam: (
+    group: ClosureParamGroup,
+    key: string | null,
+    value: number | undefined,
+  ) => void;
+  /** Replace `config.species`. Passing undefined (or an empty roster) removes
+   *  the block and every node `massFractions` that named its species. */
+  updateSpecies: (species: NetworkConfig["species"] | undefined) => void;
   updateFluid: (patch: Partial<NetworkConfig["fluid"]>) => void;
   /** Create or replace the named fluid `name` (multi-fluid networks). */
   setNamedFluid: (name: string, fluid: NetworkConfig["fluid"]) => void;
@@ -323,7 +410,8 @@ interface StoreState {
   setFluidError: (msg: string | null) => void;
   setRunning: (v: boolean) => void;
   setActiveTab: (tab: AppTab) => void;
-  setShowSettings: (v: boolean) => void;
+  setSettingsTab: (tab: SettingsTabId) => void;
+  setShowCommandPalette: (v: boolean) => void;
   setBranchTool: (t: string | null) => void;
   setConductorTool: (t: string | null) => void;
   setPendingSourceNodeId: (id: string | null) => void;
@@ -345,6 +433,17 @@ interface StoreState {
   updateNote: (
     id: string,
     patch: Partial<NonNullable<NetworkConfig["notes"]>[number]>,
+  ) => void;
+  /**
+   * Move one element within its own array (project-outline drag-reorder).
+   * Presentation only: array order round-trips through the `.fn` text and is
+   * undoable, but it is canonicalized out of the provenance hash, so a
+   * reorder never marks results stale.
+   */
+  reorderEntity: (
+    kind: "node" | "branch" | "solidNode" | "conductor" | "note",
+    fromIndex: number,
+    toIndex: number,
   ) => void;
   moveNodesToGroup: (nodeIds: string[], groupId: string | undefined) => void;
   moveSolidNodesToGroup: (
@@ -391,6 +490,56 @@ const initialConfig = persisted
 const initialUnitPreferences =
   loadUnitPreferences() ?? getDefaultUnitPreferences();
 const initialModelText = serializeText(initialConfig);
+/** Mirrored results, reattached only when they belong to this model. */
+const initialRuns = loadRunsFromLocalStorage(initialConfig);
+
+/**
+ * Session state for the newest restored run, so a reload lands where the last
+ * solve left off. Staleness is judged against the run's own snapshot hash, as
+ * `selectRun` does — the autosaved model may have moved on since.
+ */
+function restoredSelection(runs: readonly RunRecord[]) {
+  const latest = runs[runs.length - 1];
+  if (!latest) {
+    return {
+      selectedRunId: null,
+      baselineRunId: null,
+      result: null,
+      resultConfig: null,
+      resultStale: false,
+    };
+  }
+  return {
+    selectedRunId: latest.id,
+    baselineRunId: null,
+    result: latest.result,
+    resultConfig: latest.config,
+    resultStale: latest.configHash !== configHash(initialConfig),
+  };
+}
+
+/**
+ * Copy of `value` with every `undefined`-valued key dropped, at any depth.
+ *
+ * Optional config fields are absent or set, never present-and-undefined: a
+ * patch merge that clears a field has to remove the key. The persisted form
+ * already works this way — `cloneConfig` is a JSON round-trip and the text
+ * projection writes strict JSON — so doing it at the edit rather than at the
+ * next clone keeps the in-memory config equal to what a reload would produce.
+ * Nested payloads (a branch `component`, a conductor `type`, a node
+ * `gasCushion`) follow the same rule, hence the recursion.
+ */
+function withoutUndefined<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutUndefined) as T;
+  if (value === null || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [key, member] of Object.entries(
+    value as Record<string, unknown>,
+  )) {
+    if (member !== undefined) out[key] = withoutUndefined(member);
+  }
+  return out as T;
+}
 
 /** True when a selection still refers to an entity present in `cfg`. */
 function selectionExistsIn(sel: Selection, cfg: NetworkConfig): boolean {
@@ -417,13 +566,31 @@ function selectionExistsIn(sel: Selection, cfg: NetworkConfig): boolean {
 }
 
 export const useStore = create<StoreState>((set, get) => {
-  /** Snapshot the pre-mutation config onto the undo stack. */
+  /** Snapshot the pre-mutation FILE onto the undo stack. */
   const pushHistory = () => {
-    const { past, config } = get();
-    const next = [...past, { config: cloneConfig(config) }];
+    const { past, baseConfig, activeVariantId } = get();
+    const next = [
+      ...past,
+      { config: cloneConfig(baseConfig), activeVariantId },
+    ];
     if (next.length > HISTORY_CAP) next.shift();
     set({ past: next, future: [] });
   };
+
+  /** The active variant's spec, or null when Base is active. */
+  const activeVariant = (
+    base: NetworkConfig,
+    id: string | null,
+  ): VariantSpec | null =>
+    id === null
+      ? null
+      : ((base.variants ?? []).find((v) => v.id === id) ?? null);
+
+  /** Resolve the network the UI should be editing for a given file+variant. */
+  const resolveActive = (
+    base: NetworkConfig,
+    id: string | null,
+  ): NetworkConfig => applyVariant(base, activeVariant(base, id));
 
   /**
    * Derived-text sync, applied by EVERY successful config-mutation path
@@ -431,8 +598,8 @@ export const useStore = create<StoreState>((set, get) => {
    * canonical text is reserialized from the new config, and any pending
    * invalid text draft + its diagnostics are dropped as stale.
    */
-  const syncText = (cfg: NetworkConfig) => {
-    const text = serializeText(cfg);
+  const syncText = (fileCfg: NetworkConfig) => {
+    const text = serializeText(fileCfg);
     return {
       modelText: text,
       textDraft: text,
@@ -441,29 +608,119 @@ export const useStore = create<StoreState>((set, get) => {
   };
 
   /**
+   * Replace the whole session: a new file becomes the base, Base becomes the
+   * active variant, and the derived text/persistence follow.  Used by every
+   * wholesale replacement (new / load / example / template).
+   */
+  const adoptFile = (fileCfg: NetworkConfig) => {
+    saveToLocalStorage(fileCfg);
+    return {
+      baseConfig: fileCfg,
+      activeVariantId: null as string | null,
+      config: resolveActive(fileCfg, null),
+      ...syncText(fileCfg),
+    };
+  };
+
+  /**
+   * Everything a new model must forget.  Run history is scoped to the loaded
+   * model: leaving it alone used to mix runs from the previous file into the
+   * new one's Runs tab, which is indistinguishable from a wrong answer.
+   */
+  const clearedSession = () => {
+    clearRunsLocalStorage();
+    return clearedSessionState();
+  };
+
+  /** The results half of a cleared session, shared with `discardRuns`. */
+  const clearedRunState = () => ({
+    result: null,
+    resultConfig: null,
+    resultDiary: null,
+    resultStale: false,
+    runHistory: [] as RunRecord[],
+    runSeq: 0,
+    selectedRunId: null as string | null,
+    baselineRunId: null as string | null,
+  });
+
+  const clearedSessionState = () => ({
+    ...clearedRunState(),
+    // A plot names channels of the model it was built for.
+    resultPlots: [] as ResultPlot[],
+    activePlotId: null as string | null,
+    selection: { kind: "none" } as Selection,
+    validationErrors: [] as string[],
+    openGroupTabs: [] as string[],
+    activeGroupTab: null as string | null,
+    activeTab: "editor" as AppTab,
+    dirty: false,
+  });
+
+  /**
+   * Mirror history after any edit to it, so the browser-storage copy can never
+   * resurrect a run the user deleted or restore a stale name.  An empty
+   * history removes the key rather than writing an empty file.
+   */
+  const persistRuns = (base: NetworkConfig, history: readonly RunRecord[]) => {
+    if (history.length === 0) clearRunsLocalStorage();
+    else saveRunsToLocalStorage(base, history);
+  };
+
+  /**
    * Common tail for every config mutation: persist + dirty + stale + text sync.
    *
-   * `stale: false` is reserved for annotation-only edits (canvas notes), which
-   * provably cannot change a solver answer — the solver never reads them and
-   * they are excluded from the provenance hash.  Marking results stale for a
-   * typo fix would train users to ignore the staleness signal.
+   * `cfg` is the RESOLVED network being edited. When a variant is active the
+   * edit is diffed back into that variant's patch, leaving the base network
+   * untouched; when Base is active it becomes the new base. Either way the
+   * `.fn` text and the autosave always describe the whole file.
+   *
+   * `stale: false` is reserved for edits that provably cannot change a solver
+   * answer — canvas notes, and pure reordering, both of which are excluded
+   * from the provenance hash. Marking results stale for those would train
+   * users to ignore the staleness signal.
    */
   const commitConfig = (cfg: NetworkConfig, options?: { stale?: boolean }) => {
     const stale = options?.stale ?? true;
+    const { baseConfig, activeVariantId } = get();
+    let nextBase: NetworkConfig;
+
+    if (activeVariantId === null) {
+      // Editing Base: the edited network IS the new file body; carry the
+      // variant list across (it is not part of the resolved config).
+      nextBase = cfg;
+      if (baseConfig.variants !== undefined)
+        nextBase.variants = baseConfig.variants;
+    } else {
+      // Editing a variant: re-record its patch against the unchanged base.
+      const baseOnly = applyVariant(baseConfig, null);
+      const patch = diffVariant(baseOnly, cfg);
+      nextBase = cloneConfig(baseConfig);
+      nextBase.variants = (nextBase.variants ?? []).map((v) =>
+        v.id === activeVariantId
+          ? patch === undefined
+            ? { id: v.id, name: v.name }
+            : { ...v, patch }
+          : v,
+      );
+    }
+
     set({
+      baseConfig: nextBase,
       config: cfg,
       dirty: true,
       ...(stale ? { resultStale: true } : {}),
-      ...syncText(cfg),
+      ...syncText(nextBase),
     });
-    saveToLocalStorage(cfg);
+    saveToLocalStorage(nextBase);
   };
 
   return {
-    config: initialConfig,
+    baseConfig: initialConfig,
+    activeVariantId: null,
+    // Boot on Base, so the resolved config is the file body itself.
+    config: applyVariant(initialConfig, null),
     selection: { kind: "none" },
-    result: null,
-    resultConfig: null,
     validationErrors: [],
     fluidError: null,
     running: false,
@@ -471,7 +728,8 @@ export const useStore = create<StoreState>((set, get) => {
     runProgress: null,
     liveResult: null,
     activeTab: "editor",
-    showSettings: false,
+    settingsTab: "solver",
+    showCommandPalette: false,
     branchTool: null,
     conductorTool: null,
     pendingSourceNodeId: null,
@@ -482,7 +740,6 @@ export const useStore = create<StoreState>((set, get) => {
     colorBy: "none",
     colorDomainOverrides: {},
     timeIndex: null,
-    resultStale: false,
     resultSigFigs: loadSigFigs() ?? 4,
     canvasViewport: { x: 0, y: 0, zoom: 1 },
     showLabels: loadShowLabels(),
@@ -494,10 +751,19 @@ export const useStore = create<StoreState>((set, get) => {
     textDraft: initialModelText,
     textDiagnostics: [],
     configEpoch: 0,
-    runHistory: [],
-    runSeq: 0,
-    selectedRunId: null,
-    baselineRunId: null,
+    // Rehydrate the mirrored results alongside the autosaved model, so a
+    // reload resumes the session rather than discarding its runs.
+    runHistory: initialRuns,
+    runSeq: initialRuns.length,
+    // Plots are seeded by the Runs view from the displayed result's inventory,
+    // which is not known here.
+    resultPlots: [],
+    activePlotId: null,
+    // Resume on the newest restored run, exactly as finishing a solve leaves
+    // it selected. Leaving nothing selected showed a list whose rows all
+    // looked inert: pinning a comparison baseline needs a displayed run to
+    // compare against, so the pin silently did nothing after every reload.
+    ...restoredSelection(initialRuns),
     resultDiary: null,
     canvasFocusRequest: null,
     duplicateNotice: "",
@@ -507,16 +773,18 @@ export const useStore = create<StoreState>((set, get) => {
     future: [],
 
     undo: () => {
-      const { past, future, config } = get();
+      const { past, future, baseConfig, activeVariantId } = get();
       if (past.length === 0) return;
       const prev = past[past.length - 1];
       set({
         past: past.slice(0, -1),
-        future: [{ config: cloneConfig(config) }, ...future].slice(
-          0,
-          HISTORY_CAP,
-        ),
-        config: prev.config,
+        future: [
+          { config: cloneConfig(baseConfig), activeVariantId },
+          ...future,
+        ].slice(0, HISTORY_CAP),
+        baseConfig: prev.config,
+        activeVariantId: prev.activeVariantId,
+        config: resolveActive(prev.config, prev.activeVariantId),
         selection: { kind: "none" },
         resultStale: true,
         dirty: true,
@@ -526,13 +794,18 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     redo: () => {
-      const { past, future, config } = get();
+      const { past, future, baseConfig, activeVariantId } = get();
       if (future.length === 0) return;
       const next = future[0];
       set({
-        past: [...past, { config: cloneConfig(config) }].slice(-HISTORY_CAP),
+        past: [
+          ...past,
+          { config: cloneConfig(baseConfig), activeVariantId },
+        ].slice(-HISTORY_CAP),
         future: future.slice(1),
-        config: next.config,
+        baseConfig: next.config,
+        activeVariantId: next.activeVariantId,
+        config: resolveActive(next.config, next.activeVariantId),
         selection: { kind: "none" },
         resultStale: true,
         dirty: true,
@@ -542,8 +815,196 @@ export const useStore = create<StoreState>((set, get) => {
     },
 
     markSaved: (savedHash) => {
-      if (savedHash === undefined || configHash(get().config) === savedHash)
+      if (savedHash === undefined || configHash(get().baseConfig) === savedHash)
         set({ dirty: false });
+    },
+
+    importRuns: (runs) => {
+      if (runs.length === 0) return;
+      const existing = new Set(get().runHistory.map((r) => r.id));
+      const incoming = runs.filter((r) => !existing.has(r.id));
+      if (incoming.length === 0) return;
+      const history = [...get().runHistory, ...incoming].sort(
+        (a, b) => a.timestamp - b.timestamp,
+      );
+      set({
+        runHistory: history,
+        // Highest sequence seen, so new runs keep unique default names.
+        runSeq: Math.max(
+          get().runSeq,
+          ...history.map((r) => {
+            const m = /^Run (\d+)$/.exec(r.name);
+            return m ? Number(m[1]) : 0;
+          }),
+        ),
+      });
+      persistRuns(get().baseConfig, history);
+    },
+
+    setActiveVariant: (id) => {
+      const { baseConfig, activeVariantId } = get();
+      if (id === activeVariantId) return;
+      if (id !== null && !(baseConfig.variants ?? []).some((v) => v.id === id))
+        return;
+      const config = resolveActive(baseConfig, id);
+      set({
+        activeVariantId: id,
+        config,
+        // The displayed result belongs to whichever variant produced it, so
+        // switching clears it rather than showing another variant's numbers
+        // against this network.
+        result: null,
+        resultConfig: null,
+        resultDiary: null,
+        selectedRunId: null,
+        resultStale: false,
+        selection: selectionExistsIn(get().selection, config)
+          ? get().selection
+          : { kind: "none" },
+        configEpoch: get().configEpoch + 1,
+      });
+    },
+
+    createVariant: (name) => {
+      pushHistory();
+      const { baseConfig, activeVariantId, config } = get();
+      const id = createId(
+        "VAR",
+        new Set((baseConfig.variants ?? []).map((v) => v.id)),
+      );
+      // Seeded from what is on screen: creating a variant while one is
+      // active branches from that variant, not from Base.
+      const patch = diffVariant(applyVariant(baseConfig, null), config);
+      const next = cloneConfig(baseConfig);
+      next.variants = [
+        ...(next.variants ?? []),
+        { id, name, ...(patch ? { patch } : {}) },
+      ];
+      set({
+        baseConfig: next,
+        activeVariantId: id,
+        config: resolveActive(next, id),
+        dirty: true,
+        result: null,
+        resultConfig: null,
+        resultDiary: null,
+        selectedRunId: null,
+        resultStale: false,
+        ...syncText(next),
+      });
+      saveToLocalStorage(next);
+      void activeVariantId;
+      return id;
+    },
+
+    createVariantFrom: (name, config) => {
+      pushHistory();
+      const { baseConfig } = get();
+      const id = createId(
+        "VAR",
+        new Set((baseConfig.variants ?? []).map((v) => v.id)),
+      );
+      const patch = diffVariant(applyVariant(baseConfig, null), config);
+      const next = cloneConfig(baseConfig);
+      next.variants = [
+        ...(next.variants ?? []),
+        { id, name, ...(patch ? { patch } : {}) },
+      ];
+      set({
+        baseConfig: next,
+        activeVariantId: id,
+        config: resolveActive(next, id),
+        dirty: true,
+        ...syncText(next),
+      });
+      saveToLocalStorage(next);
+      return id;
+    },
+
+    renameVariant: (id, name) => {
+      const trimmed = name.trim();
+      const { baseConfig } = get();
+      const existing = (baseConfig.variants ?? []).find((v) => v.id === id);
+      if (!existing || trimmed.length === 0 || trimmed === existing.name)
+        return;
+      pushHistory();
+      const next = cloneConfig(baseConfig);
+      next.variants = (next.variants ?? []).map((v) =>
+        v.id === id ? { ...v, name: trimmed } : v,
+      );
+      set({ baseConfig: next, dirty: true, ...syncText(next) });
+      saveToLocalStorage(next);
+    },
+
+    duplicateVariant: (id) => {
+      pushHistory();
+      const { baseConfig } = get();
+      const source = (baseConfig.variants ?? []).find((v) => v.id === id);
+      const newId = createId(
+        "VAR",
+        new Set((baseConfig.variants ?? []).map((v) => v.id)),
+      );
+      const next = cloneConfig(baseConfig);
+      next.variants = [
+        ...(next.variants ?? []),
+        {
+          id: newId,
+          name: `${source?.name ?? "Base"} copy`,
+          ...(source?.patch ? { patch: structuredClone(source.patch) } : {}),
+        },
+      ];
+      set({
+        baseConfig: next,
+        activeVariantId: newId,
+        config: resolveActive(next, newId),
+        dirty: true,
+        result: null,
+        resultConfig: null,
+        resultDiary: null,
+        selectedRunId: null,
+        resultStale: false,
+        ...syncText(next),
+      });
+      saveToLocalStorage(next);
+      return newId;
+    },
+
+    deleteVariant: (id) => {
+      const { baseConfig, activeVariantId, runHistory } = get();
+      if (!(baseConfig.variants ?? []).some((v) => v.id === id)) return;
+      pushHistory();
+      const next = cloneConfig(baseConfig);
+      const remaining = (next.variants ?? []).filter((v) => v.id !== id);
+      if (remaining.length > 0) next.variants = remaining;
+      else delete next.variants;
+      // Its runs go with it: a run whose variant no longer exists cannot be
+      // reproduced or meaningfully compared.
+      const history = runHistory.filter((r) => r.variantId !== id);
+      const wasActive = activeVariantId === id;
+      const nextActive = wasActive ? null : activeVariantId;
+      set({
+        baseConfig: next,
+        activeVariantId: nextActive,
+        config: resolveActive(next, nextActive),
+        runHistory: history,
+        selectedRunId: history.some((r) => r.id === get().selectedRunId)
+          ? get().selectedRunId
+          : null,
+        baselineRunId: history.some((r) => r.id === get().baselineRunId)
+          ? get().baselineRunId
+          : null,
+        ...(wasActive
+          ? {
+              result: null,
+              resultConfig: null,
+              resultDiary: null,
+              resultStale: false,
+            }
+          : {}),
+        dirty: true,
+        ...syncText(next),
+      });
+      saveToLocalStorage(next);
     },
     beginPreparation: (operation) => {
       if (get().preparingOperation || get().running) return false;
@@ -563,43 +1024,30 @@ export const useStore = create<StoreState>((set, get) => {
       // validation models carry meters in x) to a readable canvas pitch.
       const cloned = normalizeCanvasLayout(cloneConfig(ex));
       set({
-        config: cloned,
-        selection: { kind: "none" },
-        result: null,
-        resultConfig: null,
-        resultDiary: null,
-        selectedRunId: null,
-        validationErrors: [],
-        openGroupTabs: [],
-        activeGroupTab: null,
-        activeTab: "editor",
-        resultStale: false,
-        dirty: false,
+        ...adoptFile(cloned),
+        ...clearedSession(),
         configEpoch: get().configEpoch + 1,
-        ...syncText(cloned),
       });
-      saveToLocalStorage(cloned);
     },
 
     newNetwork: () => {
       pushHistory();
       const cfg = cloneConfig(defaultConfig);
       set({
-        config: cfg,
-        selection: { kind: "none" },
-        result: null,
-        resultConfig: null,
-        resultDiary: null,
-        validationErrors: [],
-        openGroupTabs: [],
-        activeGroupTab: null,
-        activeTab: "editor",
-        resultStale: false,
-        dirty: false,
+        ...adoptFile(cfg),
+        ...clearedSession(),
         configEpoch: get().configEpoch + 1,
-        ...syncText(cfg),
       });
-      saveToLocalStorage(cfg);
+    },
+
+    newNetworkFrom: (config) => {
+      pushHistory();
+      const cfg = normalizeCanvasLayout(cloneConfig(config));
+      set({
+        ...adoptFile(cfg),
+        ...clearedSession(),
+        configEpoch: get().configEpoch + 1,
+      });
     },
 
     setConfig: (config) => {
@@ -608,13 +1056,13 @@ export const useStore = create<StoreState>((set, get) => {
       // canvasLayout.ts); fixes legacy saved files with physical-scale x.
       const laidOut = normalizeCanvasLayout(config);
       set({
-        config: laidOut,
-        resultStale: true,
+        ...adoptFile(laidOut),
+        // Loading a file is a new model session: its runs are the only ones
+        // that belong in Analysis.
+        ...clearedSession(),
         dirty: true,
         configEpoch: get().configEpoch + 1,
-        ...syncText(laidOut),
       });
-      saveToLocalStorage(laidOut);
     },
 
     setModelText: (text) => {
@@ -656,8 +1104,18 @@ export const useStore = create<StoreState>((set, get) => {
         patch.openGroupTabs = tabs;
         patch.activeGroupTab = activeGroupTab;
       }
+      // The text IS the file, so it replaces the base network and its
+      // variant list. Keep the active variant only if the new text still
+      // defines it; run history survives (staleness is judged by hash).
+      const activeVariantId =
+        get().activeVariantId !== null &&
+        (parsed.variants ?? []).some((v) => v.id === get().activeVariantId)
+          ? get().activeVariantId
+          : null;
       set({
-        config: parsed,
+        baseConfig: parsed,
+        activeVariantId,
+        config: resolveActive(parsed, activeVariantId),
         resultStale: true,
         dirty: true,
         modelText: canonical,
@@ -692,7 +1150,7 @@ export const useStore = create<StoreState>((set, get) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
       const idx = cfg.nodes.findIndex((n) => n.id === id);
-      cfg.nodes[idx] = { ...cfg.nodes[idx], ...patch };
+      cfg.nodes[idx] = withoutUndefined({ ...cfg.nodes[idx], ...patch });
       commitConfig(cfg);
     },
 
@@ -701,7 +1159,7 @@ export const useStore = create<StoreState>((set, get) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
       const idx = cfg.branches.findIndex((b) => b.id === id);
-      cfg.branches[idx] = { ...cfg.branches[idx], ...patch };
+      cfg.branches[idx] = withoutUndefined({ ...cfg.branches[idx], ...patch });
       commitConfig(cfg);
     },
 
@@ -711,7 +1169,10 @@ export const useStore = create<StoreState>((set, get) => {
       const cfg = cloneConfig(get().config);
       if (!cfg.solidNodes) cfg.solidNodes = [];
       const idx = cfg.solidNodes.findIndex((n) => n.id === id);
-      cfg.solidNodes[idx] = { ...cfg.solidNodes[idx], ...patch };
+      cfg.solidNodes[idx] = withoutUndefined({
+        ...cfg.solidNodes[idx],
+        ...patch,
+      });
       commitConfig(cfg);
     },
 
@@ -721,7 +1182,10 @@ export const useStore = create<StoreState>((set, get) => {
       const cfg = cloneConfig(get().config);
       if (!cfg.conductors) cfg.conductors = [];
       const idx = cfg.conductors.findIndex((c) => c.id === id);
-      cfg.conductors[idx] = { ...cfg.conductors[idx], ...patch };
+      cfg.conductors[idx] = withoutUndefined({
+        ...cfg.conductors[idx],
+        ...patch,
+      });
       commitConfig(cfg);
     },
 
@@ -786,7 +1250,58 @@ export const useStore = create<StoreState>((set, get) => {
     updateSettings: (patch) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
-      cfg.settings = { ...cfg.settings, ...patch };
+      // A cleared control drops the key so the text projection, the provenance
+      // hash, and solver defaulting all see the same config a network that
+      // never carried the field would produce.
+      cfg.settings = withoutUndefined({ ...cfg.settings, ...patch });
+      commitConfig(cfg);
+    },
+
+    setClosureParam: (group, key, value) => {
+      if (group !== "solidCpScale" && key === null) return;
+      pushHistory();
+      const cfg = cloneConfig(get().config);
+      const closure: Record<string, unknown> = { ...(cfg.closureParams ?? {}) };
+      if (group === "solidCpScale") {
+        if (value === undefined) delete closure.solidCpScale;
+        else closure.solidCpScale = value;
+      } else {
+        const members: Record<string, number> = {
+          ...((closure[group] as Record<string, number> | undefined) ?? {}),
+        };
+        if (value === undefined) delete members[key!];
+        else members[key!] = value;
+        if (Object.keys(members).length === 0) delete closure[group];
+        else closure[group] = members;
+      }
+      if (Object.keys(closure).length === 0) delete cfg.closureParams;
+      else cfg.closureParams = closure as NetworkConfig["closureParams"];
+      commitConfig(cfg);
+    },
+
+    updateSpecies: (species) => {
+      pushHistory();
+      const cfg = cloneConfig(get().config);
+      // Node mass fractions name species by key, so a removed or renamed
+      // species must not leave an orphaned fraction behind.
+      const known =
+        species && species.names.length > 0 ? new Set(species.names) : null;
+      if (known) cfg.species = species;
+      else delete cfg.species;
+      cfg.nodes = cfg.nodes.map((node) => {
+        if (!node.massFractions) return node;
+        const next = { ...node };
+        const kept = known
+          ? Object.fromEntries(
+              Object.entries(node.massFractions).filter(([name]) =>
+                known.has(name),
+              ),
+            )
+          : {};
+        if (Object.keys(kept).length === 0) delete next.massFractions;
+        else next.massFractions = kept;
+        return next;
+      });
       commitConfig(cfg);
     },
 
@@ -1015,8 +1530,55 @@ export const useStore = create<StoreState>((set, get) => {
     setValidationErrors: (errs) => set({ validationErrors: errs }),
     setFluidError: (msg) => set({ fluidError: msg }),
     setRunning: (v) => set({ running: v }),
-    setActiveTab: (tab) => set({ activeTab: tab, activeGroupTab: null }),
-    setShowSettings: (v) => set({ showSettings: v }),
+    setActiveTab: (tab) =>
+      set({
+        activeTab: tab,
+        activeGroupTab: null,
+        // Leaving Configuration returns it to its landing section, so it
+        // always opens on Solver rather than wherever you last were.
+        ...(tab === "config" ? {} : { settingsTab: "solver" as SettingsTabId }),
+      }),
+    setSettingsTab: (tab) => set({ settingsTab: tab }),
+
+    addResultPlot: (mode) => {
+      const plot = newPlot(mode);
+      set({
+        resultPlots: [...get().resultPlots, plot],
+        activePlotId: plot.id,
+      });
+      return plot.id;
+    },
+
+    removeResultPlot: (id) => {
+      const plots = get().resultPlots;
+      const index = plots.findIndex((p) => p.id === id);
+      if (index < 0) return;
+      const next = plots.filter((p) => p.id !== id);
+      // Closing the active tab lands on its neighbour, not on nothing.
+      const active =
+        get().activePlotId === id
+          ? ((next[index] ?? next[index - 1])?.id ?? null)
+          : get().activePlotId;
+      set({ resultPlots: next, activePlotId: active });
+    },
+
+    setActiveResultPlot: (id) => {
+      if (!get().resultPlots.some((p) => p.id === id)) return;
+      set({ activePlotId: id });
+    },
+
+    updateResultPlot: (id, patch) =>
+      set({
+        resultPlots: get().resultPlots.map((p) =>
+          p.id === id ? { ...p, ...patch, id: p.id } : p,
+        ),
+      }),
+
+    seedResultPlot: (plot) => {
+      if (get().resultPlots.length > 0) return;
+      set({ resultPlots: [plot], activePlotId: plot.id });
+    },
+    setShowCommandPalette: (v) => set({ showCommandPalette: v }),
     setBranchTool: (t) =>
       set({
         branchTool:
@@ -1180,6 +1742,34 @@ export const useStore = create<StoreState>((set, get) => {
       commitConfig(cfg, { stale: false });
     },
 
+    reorderEntity: (kind, fromIndex, toIndex) => {
+      const key = (
+        {
+          node: "nodes",
+          branch: "branches",
+          solidNode: "solidNodes",
+          conductor: "conductors",
+          note: "notes",
+        } as const
+      )[kind];
+      const current = get().config[key];
+      if (!Array.isArray(current)) return;
+      if (
+        fromIndex === toIndex ||
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= current.length ||
+        toIndex >= current.length
+      )
+        return;
+      pushHistory();
+      const cfg = cloneConfig(get().config);
+      const list = cfg[key] as unknown[];
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+      commitConfig(cfg, { stale: false });
+    },
+
     moveNodesToGroup: (nodeIds, groupId) => {
       pushHistory();
       const cfg = cloneConfig(get().config);
@@ -1228,7 +1818,7 @@ export const useStore = create<StoreState>((set, get) => {
       set({ unitPreferences: prefs });
       saveUnitPreferences(prefs);
     },
-    persist: () => saveToLocalStorage(get().config),
+    persist: () => saveToLocalStorage(get().baseConfig),
     setRunStatus: (status) => {
       const running = status === "loadingFluids" || status === "running";
       set({ runStatus: status, running });
@@ -1242,20 +1832,26 @@ export const useStore = create<StoreState>((set, get) => {
       // Deep-clone the diary on intake (diaries are plain JSON data), same
       // intake-clone semantics as the config snapshot: later caller-side
       // mutation can never alias into the record.
+      const variantId = get().activeVariantId;
       const record = makeRunRecord(
         seq,
         cloneConfig(config),
         result,
         Date.now(),
         diary ? (structuredClone(diary) as RunDiary) : undefined,
+        variantId,
       );
       let history = [...get().runHistory, record];
       let baselineRunId = get().baselineRunId;
-      if (history.length > RUN_HISTORY_CAP) {
-        const dropped = history.slice(0, history.length - RUN_HISTORY_CAP);
-        history = history.slice(-RUN_HISTORY_CAP);
-        if (baselineRunId && dropped.some((r) => r.id === baselineRunId))
-          baselineRunId = null;
+      // The cap is per variant: a variant you are iterating on hard must not
+      // evict the runs of the variant you are comparing it against.
+      const ownRuns = history.filter((r) => r.variantId === variantId);
+      if (ownRuns.length > RUN_HISTORY_CAP) {
+        const dropped = new Set(
+          ownRuns.slice(0, ownRuns.length - RUN_HISTORY_CAP).map((r) => r.id),
+        );
+        history = history.filter((r) => !dropped.has(r.id));
+        if (baselineRunId && dropped.has(baselineRunId)) baselineRunId = null;
       }
       const baseline = baselineRunId
         ? history.find((item) => item.id === baselineRunId)
@@ -1271,6 +1867,9 @@ export const useStore = create<StoreState>((set, get) => {
         // Pushing selects the new record — its diary becomes current.
         resultDiary: record.diary ?? null,
       });
+      // Mirror to localStorage so a reload keeps the session's results; the
+      // portable copy is the `.runs.json` file that Save writes.
+      persistRuns(get().baseConfig, history);
     },
 
     selectRun: (id) => {
@@ -1285,14 +1884,17 @@ export const useStore = create<StoreState>((set, get) => {
       const baseline = get().baselineRunId
         ? get().runHistory.find((r) => r.id === get().baselineRunId)
         : null;
+      // Staleness is judged against the record's OWN variant as it stands
+      // now, not against whatever variant happens to be active: viewing a
+      // run from another variant for comparison must not brand it stale.
+      const owningConfig = resolveActive(get().baseConfig, record.variantId);
       set({
         selectedRunId: id,
         result: record.result,
         resultConfig: record.config,
         // Restore the record's diary (legacy records have none → null).
         resultDiary: record.diary ?? null,
-        // Stale when the historical run's config differs from the live one.
-        resultStale: record.configHash !== configHash(get().config),
+        resultStale: record.configHash !== configHash(owningConfig),
         baselineRunId:
           baseline && checkRunCompatibility(record, baseline).ok
             ? baseline.id
@@ -1303,11 +1905,11 @@ export const useStore = create<StoreState>((set, get) => {
     renameRun: (id, name) => {
       const trimmed = name.trim();
       if (!trimmed) return;
-      set({
-        runHistory: get().runHistory.map((r) =>
-          r.id === id ? { ...r, name: trimmed } : r,
-        ),
-      });
+      const history = get().runHistory.map((r) =>
+        r.id === id ? { ...r, name: trimmed } : r,
+      );
+      set({ runHistory: history });
+      persistRuns(get().baseConfig, history);
     },
 
     deleteRun: (id) => {
@@ -1331,6 +1933,18 @@ export const useStore = create<StoreState>((set, get) => {
             }
           : {}),
       });
+      persistRuns(get().baseConfig, history);
+    },
+
+    /**
+     * Discard every run. Results are regenerable and now survive a reload, so
+     * without this the only way to clear an accumulated history was to load a
+     * different model. The displayed result goes too: leaving it on screen
+     * with no record behind it is the confusing half-state.
+     */
+    discardRuns: () => {
+      clearRunsLocalStorage();
+      set(clearedRunState());
     },
 
     setBaselineRunId: (id) => {

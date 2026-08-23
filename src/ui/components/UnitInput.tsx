@@ -15,6 +15,7 @@ interface UnitInputProps {
   step?: number;
   quantityKind: QuantityKind;
   disabled?: boolean;
+  dataTestId?: string;
 }
 
 export default function UnitInput({
@@ -24,6 +25,7 @@ export default function UnitInput({
   step = 1,
   quantityKind,
   disabled,
+  dataTestId,
 }: UnitInputProps) {
   const id = React.useId();
   const unitId = useStore((s) => s.unitPreferences[quantityKind]);
@@ -117,6 +119,7 @@ export default function UnitInput({
       </label>
       <input
         id={id}
+        data-testid={dataTestId}
         className="input"
         type="text"
         inputMode="decimal"

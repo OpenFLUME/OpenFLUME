@@ -104,12 +104,6 @@ function richConfig(): NetworkConfig {
         component: { type: "orifice", area: 1e-4, cd: 0.6 },
       },
       {
-        id: "borificeC",
-        from: "in",
-        to: "n1",
-        component: { type: "orificeCompressible", area: 1e-4, cd: 0.6 },
-      },
-      {
         id: "bventuri",
         from: "in",
         to: "n1",
@@ -446,7 +440,6 @@ describe("listSweepTargets", () => {
       "elevationChange",
     ]);
     expectFields("borifice", "Orifice", ["area", "cd"]);
-    expectFields("borificeC", "Comp Orifice", ["area", "cd"]);
     expectFields("bventuri", "Cavitating Venturi", [
       "throatArea",
       "cd",

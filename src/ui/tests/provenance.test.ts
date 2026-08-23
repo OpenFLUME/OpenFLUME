@@ -68,13 +68,32 @@ describe("provenance", () => {
 
   it("configHash ignores key order but reacts to content", () => {
     const base = cfg();
-    const reordered: NetworkConfig = JSON.parse(JSON.stringify(base));
-    // swap node order in the array — that IS a content change for arrays
     expect(configHash(base)).toBe(configHash(JSON.parse(JSON.stringify(base))));
     const modified = cfg();
     modified.nodes[0].pressure = 999;
     expect(configHash(modified)).not.toBe(configHash(base));
+  });
+
+  it("configHash ignores entity ARRAY order — a reorder is not a new model", () => {
+    // Listing the same elements in a different order describes the same
+    // network: the solver publishes the same id-keyed results, so dragging
+    // rows around the project outline must not stale a pinned baseline.
+    const base = cfg();
+    const reordered: NetworkConfig = JSON.parse(JSON.stringify(base));
+    expect(reordered.nodes.length).toBeGreaterThan(1);
+    reordered.nodes.reverse();
     expect(configHash(reordered)).toBe(configHash(base));
+
+    if (reordered.branches.length > 1) {
+      const swapped: NetworkConfig = JSON.parse(JSON.stringify(base));
+      swapped.branches.reverse();
+      expect(configHash(swapped)).toBe(configHash(base));
+    }
+
+    // Renaming an element is still a content change, order-insensitivity or not.
+    const renamed: NetworkConfig = JSON.parse(JSON.stringify(base));
+    renamed.nodes[0].id = `${renamed.nodes[0].id}-x`;
+    expect(configHash(renamed)).not.toBe(configHash(base));
   });
 
   it("configSha256 returns a 64-char hex digest when Web Crypto is available", async () => {

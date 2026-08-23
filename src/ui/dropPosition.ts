@@ -16,11 +16,12 @@ function blockedScreenRects(
   globalMapOpen: boolean,
 ): FlowRect[] {
   const rects: FlowRect[] = [
-    // Floating creation rail plus the adjacent Add Elements panel.
-    { x0: -20, y0: -20, x1: 428, y1: paneH + 20 },
-    // Top-right view controls and contextual property panel. Reserving this
-    // full edge avoids a new node appearing behind a panel after selection.
-    { x0: paneW - 300, y0: -20, x1: paneW + 20, y1: paneH + 20 },
+    // Floating creation rail (icon-only). In the Studio shell the canvas
+    // pane is flanked by the outline and inspector DOCKS, which sit outside
+    // the pane — only the rail itself overlays it on the left.
+    { x0: -20, y0: -20, x1: 96, y1: paneH + 20 },
+    // Top-right view controls (color-by chip, 3D controls).
+    { x0: paneW - 260, y0: -20, x1: paneW + 20, y1: paneH + 20 },
   ];
   if (globalMapOpen) {
     // Expanded global map card (MiniMap ~200x150 + header + padding)
