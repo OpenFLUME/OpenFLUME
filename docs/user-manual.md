@@ -114,73 +114,73 @@ incidental gaps but consequences of the method.
 
 ## Nomenclature
 
-| Symbol        | Quantity                                                                                         | Unit      |
-| ------------- | ------------------------------------------------------------------------------------------------ | --------- |
-| $A$           | flow or heat transfer area                                                                       | m²        |
-| $a$           | speed of sound                                                                                   | m/s       |
-| $C$           | quadratic loss coefficient, $1/(2\rho C_d^2 A^2)$                                                | 1/(kg·m)  |
-| $C_d$         | discharge coefficient                                                                            | —         |
-| $d$           | orifice or pipe bore (diameter ratio $\beta = d/D$)                                              | m         |
-| $c$           | damping coefficient (dynamic check valve)                                                        | N·s/m     |
-| $c_p$         | specific heat at constant pressure                                                               | J/(kg·K)  |
-| $c_v$         | specific heat at constant volume                                                                 | J/(kg·K)  |
-| $D$           | diameter (hydraulic)                                                                             | m         |
-| $F$           | radiation view factor; also force ($F_\text{preload}$)                                           | —; N      |
-| $f$           | Darcy friction factor                                                                            | —         |
-| $G$           | mass flux                                                                                        | kg/(m²·s) |
-| $g$           | gravitational acceleration, 9.80665                                                              | m/s²      |
-| $h$           | specific enthalpy; also liquid height (hydrostatic-column check)                                 | J/kg; m   |
-| $h_0$         | stagnation enthalpy, $h + \tfrac12 v^2$                                                          | J/kg      |
-| $h_c$         | convection heat transfer coefficient (property panel: **Specified h**)                           | W/(m²·K)  |
-| $\mathbf{J}$  | Jacobian of the residual                                                                         | —         |
-| $K$           | loss coefficient, including $K_{90}$, $K_\text{bend}$, $K_\text{exp}$, $K_\text{con}$            | —         |
-| $k$           | thermal conductivity; also spring stiffness                                                      | W/(m·K); N/m |
-| $L$           | length                                                                                           | m         |
-| $M$           | Mach number, $v/a$                                                                               | —         |
-| $\dot m$      | mass flow rate                                                                                   | kg/s      |
-| $m$           | mass                                                                                             | kg        |
-| $\mathrm{Nu}$ | Nusselt number                                                                                   | —         |
-| $n$           | polytropic index                                                                                 | —         |
-| $O/F$         | oxidizer-to-fuel mass ratio                                                                      | —         |
-| $P$           | pressure                                                                                         | Pa        |
-| $P_v$         | saturation (vapor) pressure                                                                      | Pa        |
-| $\mathrm{Pr}$ | Prandtl number                                                                                   | —         |
-| $p$           | valve or poppet fractional opening                                                               | —         |
-| $Q$           | volumetric flow rate                                                                             | m³/s      |
-| $\dot Q$      | heat transfer rate                                                                               | W         |
-| $R$           | specific gas constant; also reverse-flow resistance $R(\dot m)$                                  | J/(kg·K); Pa·s/kg |
-| $\mathbf{R}$  | residual vector                                                                                  | —         |
-| $\mathrm{Re}$ | Reynolds number                                                                                  | —         |
-| $r$           | pressure ratio $P_\text{down}/P_\text{up}$; also venturi recovery factor                         | —         |
-| $r_*$         | critical (choke) pressure ratio, $(2/(\kappa+1))^{\kappa/(\kappa-1)}$                            | —         |
-| $T$           | temperature                                                                                      | K         |
-| $T_0$         | stagnation temperature; also EOS reference temperature                                           | K         |
-| $t$           | time                                                                                             | s         |
-| $UA$          | overall conductance                                                                              | W/K       |
-| $u$           | specific internal energy                                                                         | J/kg      |
-| $V$           | volume                                                                                           | m³        |
-| $v$           | velocity                                                                                         | m/s       |
-| $\mathbf{x}$  | Newton unknown vector                                                                            | —         |
-| $x$           | vapor quality; also poppet travel                                                                | —; m      |
-| $Y$           | ISO/AGA expansibility factor; also Miropolskii two-phase factor; also species mass fraction      | —         |
-| $z$           | elevation (positive up)                                                                          | m         |
-| $\beta$       | volumetric thermal expansion coefficient; also orifice diameter ratio ($d/D$)                    | 1/K; —    |
-| $\gamma$      | ratio of specific heats                                                                          | —         |
-| $\Delta P$    | pressure drop, $P_\text{from} - P_\text{to}$                                                     | Pa        |
-| $\Delta T$    | temperature difference                                                                           | K         |
-| $\Delta t$    | time step                                                                                        | s         |
-| $\Delta z$    | elevation change, $z_\text{to} - z_\text{from}$                                                  | m         |
-| $\varepsilon$ | pipe roughness; also effectiveness; also emissivity                                              | m; —; —   |
-| $\epsilon$    | smoothing scale in $\tanh$ switches                                                              | kg/s      |
-| $\eta$        | energy-release efficiency (reacting junction)                                                    | —         |
-| $\kappa$      | isentropic exponent ($\gamma$ for an ideal gas; $a^2\rho/P$ for a real fluid)                    | —         |
-| $\mu$         | dynamic viscosity                                                                                | Pa·s      |
-| $\rho$        | density                                                                                          | kg/m³     |
-| $\rho_0$      | reference density (expandable-liquid EOS)                                                        | kg/m³     |
-| $\sigma$      | Stefan–Boltzmann constant, 5.670374×10⁻⁸                                                         | W/(m²·K⁴) |
-| $\tau$        | time constant                                                                                    | s         |
-| $\theta$      | bend angle                                                                                       | deg       |
-| $\omega$      | under-relaxation factor                                                                          | —         |
+| Symbol        | Quantity                                                                                    | Unit              |
+| ------------- | ------------------------------------------------------------------------------------------- | ----------------- |
+| $A$           | flow or heat transfer area                                                                  | m²                |
+| $a$           | speed of sound                                                                              | m/s               |
+| $C$           | quadratic loss coefficient, $1/(2\rho C_d^2 A^2)$                                           | 1/(kg·m)          |
+| $C_d$         | discharge coefficient                                                                       | —                 |
+| $d$           | orifice or pipe bore (diameter ratio $\beta = d/D$)                                         | m                 |
+| $c$           | damping coefficient (dynamic check valve)                                                   | N·s/m             |
+| $c_p$         | specific heat at constant pressure                                                          | J/(kg·K)          |
+| $c_v$         | specific heat at constant volume                                                            | J/(kg·K)          |
+| $D$           | diameter (hydraulic)                                                                        | m                 |
+| $F$           | radiation view factor; also force ($F_\text{preload}$)                                      | —; N              |
+| $f$           | Darcy friction factor                                                                       | —                 |
+| $G$           | mass flux                                                                                   | kg/(m²·s)         |
+| $g$           | gravitational acceleration, 9.80665                                                         | m/s²              |
+| $h$           | specific enthalpy; also liquid height (hydrostatic-column check)                            | J/kg; m           |
+| $h_0$         | stagnation enthalpy, $h + \tfrac12 v^2$                                                     | J/kg              |
+| $h_c$         | convection heat transfer coefficient (property panel: **Specified h**)                      | W/(m²·K)          |
+| $\mathbf{J}$  | Jacobian of the residual                                                                    | —                 |
+| $K$           | loss coefficient, including $K_{90}$, $K_\text{bend}$, $K_\text{exp}$, $K_\text{con}$       | —                 |
+| $k$           | thermal conductivity; also spring stiffness                                                 | W/(m·K); N/m      |
+| $L$           | length                                                                                      | m                 |
+| $M$           | Mach number, $v/a$                                                                          | —                 |
+| $\dot m$      | mass flow rate                                                                              | kg/s              |
+| $m$           | mass                                                                                        | kg                |
+| $\mathrm{Nu}$ | Nusselt number                                                                              | —                 |
+| $n$           | polytropic index                                                                            | —                 |
+| $O/F$         | oxidizer-to-fuel mass ratio                                                                 | —                 |
+| $P$           | pressure                                                                                    | Pa                |
+| $P_v$         | saturation (vapor) pressure                                                                 | Pa                |
+| $\mathrm{Pr}$ | Prandtl number                                                                              | —                 |
+| $p$           | valve or poppet fractional opening                                                          | —                 |
+| $Q$           | volumetric flow rate                                                                        | m³/s              |
+| $\dot Q$      | heat transfer rate                                                                          | W                 |
+| $R$           | specific gas constant; also reverse-flow resistance $R(\dot m)$                             | J/(kg·K); Pa·s/kg |
+| $\mathbf{R}$  | residual vector                                                                             | —                 |
+| $\mathrm{Re}$ | Reynolds number                                                                             | —                 |
+| $r$           | pressure ratio $P_\text{down}/P_\text{up}$; also venturi recovery factor                    | —                 |
+| $r_*$         | critical (choke) pressure ratio, $(2/(\kappa+1))^{\kappa/(\kappa-1)}$                       | —                 |
+| $T$           | temperature                                                                                 | K                 |
+| $T_0$         | stagnation temperature; also EOS reference temperature                                      | K                 |
+| $t$           | time                                                                                        | s                 |
+| $UA$          | overall conductance                                                                         | W/K               |
+| $u$           | specific internal energy                                                                    | J/kg              |
+| $V$           | volume                                                                                      | m³                |
+| $v$           | velocity                                                                                    | m/s               |
+| $\mathbf{x}$  | Newton unknown vector                                                                       | —                 |
+| $x$           | vapor quality; also poppet travel                                                           | —; m              |
+| $Y$           | ISO/AGA expansibility factor; also Miropolskii two-phase factor; also species mass fraction | —                 |
+| $z$           | elevation (positive up)                                                                     | m                 |
+| $\beta$       | volumetric thermal expansion coefficient; also orifice diameter ratio ($d/D$)               | 1/K; —            |
+| $\gamma$      | ratio of specific heats                                                                     | —                 |
+| $\Delta P$    | pressure drop, $P_\text{from} - P_\text{to}$                                                | Pa                |
+| $\Delta T$    | temperature difference                                                                      | K                 |
+| $\Delta t$    | time step                                                                                   | s                 |
+| $\Delta z$    | elevation change, $z_\text{to} - z_\text{from}$                                             | m                 |
+| $\varepsilon$ | pipe roughness; also effectiveness; also emissivity                                         | m; —; —           |
+| $\epsilon$    | smoothing scale in $\tanh$ switches                                                         | kg/s              |
+| $\eta$        | energy-release efficiency (reacting junction)                                               | —                 |
+| $\kappa$      | isentropic exponent ($\gamma$ for an ideal gas; $a^2\rho/P$ for a real fluid)               | —                 |
+| $\mu$         | dynamic viscosity                                                                           | Pa·s              |
+| $\rho$        | density                                                                                     | kg/m³             |
+| $\rho_0$      | reference density (expandable-liquid EOS)                                                   | kg/m³             |
+| $\sigma$      | Stefan–Boltzmann constant, 5.670374×10⁻⁸                                                    | W/(m²·K⁴)         |
+| $\tau$        | time constant                                                                               | s                 |
+| $\theta$      | bend angle                                                                                  | deg               |
+| $\omega$      | under-relaxation factor                                                                     | —                 |
 
 **Subscripts.** `from`, `to` — branch or conductor endpoints in declared
 orientation. `up`, `down`/`dn` — upstream, downstream by sign of $\dot m$.
