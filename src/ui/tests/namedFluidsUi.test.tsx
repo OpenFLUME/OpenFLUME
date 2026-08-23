@@ -5,7 +5,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
 import { useStore } from "../store";
-import SettingsDialog from "../components/SettingsDialog";
+import ConfigurationView from "../components/ConfigurationView";
 import PropertyPanel from "../components/PropertyPanel";
 import {
   defaultFluidLabel,
@@ -58,6 +58,7 @@ function baseConfig(): NetworkConfig {
 function resetStore(config: NetworkConfig = baseConfig()) {
   useStore.setState({
     config,
+    baseConfig: config,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -72,21 +73,26 @@ function resetStore(config: NetworkConfig = baseConfig()) {
     dirty: false,
     resultStale: false,
     preparingOperation: null,
-    showSettings: false,
     validationErrors: [],
   });
 }
 
 function renderSettings(config: NetworkConfig): string {
+  // The fluid roster is the Fluids tab of the dialog.
   Object.assign(useStore.getInitialState(), {
     config,
-    showSettings: true,
+    baseConfig: config,
+    settingsTab: "fluids",
   });
-  return renderToString(<SettingsDialog />).replace(/<!-- -->/g, "");
+  return renderToString(<ConfigurationView />).replace(/<!-- -->/g, "");
 }
 
 function renderPanel(config: NetworkConfig, selection: Selection): string {
-  Object.assign(useStore.getInitialState(), { config, selection });
+  Object.assign(useStore.getInitialState(), {
+    config,
+    baseConfig: config,
+    selection,
+  });
   return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
 }
 

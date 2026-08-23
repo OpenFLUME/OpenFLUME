@@ -52,7 +52,9 @@ export type { BranchComponent } from "./components";
 export {
   Pipe,
   Orifice,
-  OrificeCompressible,
+  expansibilityY,
+  criticalPressureRatio,
+  orificeKappa,
   CavitatingVenturi,
   FlowResistance,
   Valve,
@@ -96,6 +98,7 @@ export type {
   JunctionInletConfig,
   JunctionModelConfig,
   JunctionSummary,
+  VariantSpec,
 } from "./schema";
 export {
   DEFAULT_GRAVITY,
@@ -158,10 +161,49 @@ export {
 export { CUSTOM_H_SCOPE_IDENTIFIERS } from "./correlations";
 export { validateNetwork } from "./validate";
 export {
+  applyVariant,
+  resolveVariant,
+  diffVariant,
+  countVariantChanges,
+  describeVariantChanges,
+} from "./variants";
+export type { VariantResolution } from "./variants";
+export { suggestSolverSettings, assessModelReadiness } from "./modelAdvisor";
+export type {
+  SettingsSuggestion,
+  ReadinessCheck,
+  ReadinessStatus,
+  ReadinessTarget,
+} from "./modelAdvisor";
+export { assessResult } from "./resultFindings";
+export type {
+  ResultFinding,
+  FindingSeverity,
+  FindingTarget,
+} from "./resultFindings";
+export {
   withDerivedGeometry,
   derivedAxialPosition,
   physicalPosition,
+  branchAxialLength,
 } from "./geometry";
+export {
+  buildAdjacency,
+  connectedComponent,
+  cumulativeStations,
+  degreeOf,
+  hopBetween,
+  hopsFrom,
+  orderSimplePath,
+  simplePathEndpoints,
+} from "./graph";
+export type {
+  Adjacency,
+  GraphLink,
+  Hop,
+  StationAxis,
+  StationAxisKind,
+} from "./graph";
 export {
   decodeNetworkConfig,
   decodeAndValidateNetwork,

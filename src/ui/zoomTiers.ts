@@ -14,8 +14,14 @@
 
 export type ZoomTier = "full" | "names" | "sparse" | "hidden";
 
-/** zoom >= FULL: names + live result chips + secondary metrics. */
-export const ZOOM_TIER_FULL = 0.75;
+/** zoom >= FULL: names + live result chips + secondary metrics.
+ *  Small models keep full detail further out than dense ones: the docked
+ *  Studio layout narrows the canvas pane, so a fit-to-view of a modest
+ *  network lands well below the old single 0.75 threshold — and for a
+ *  handful of elements the readout chips ARE the drawing. Dense models keep
+ *  the conservative threshold so an overview zoom is not a wall of chips. */
+export const ZOOM_TIER_FULL = 0.6;
+const ZOOM_TIER_FULL_DENSE = 0.75;
 /** zoom >= NAMES: component/node names only (compact chips, no readouts). */
 const ZOOM_TIER_NAMES = 0.45;
 /** Dense-graph names threshold (models above DENSE_ELEMENT_COUNT). */
@@ -28,7 +34,8 @@ const ZOOM_TIER_SPARSE = 0.3;
 export const DENSE_ELEMENT_COUNT = 50;
 
 export function zoomTier(zoom: number, dense = false): ZoomTier {
-  if (zoom >= ZOOM_TIER_FULL) return "full";
+  const fullThreshold = dense ? ZOOM_TIER_FULL_DENSE : ZOOM_TIER_FULL;
+  if (zoom >= fullThreshold) return "full";
   const namesThreshold = dense ? ZOOM_TIER_NAMES_DENSE : ZOOM_TIER_NAMES;
   if (zoom >= namesThreshold) return "names";
   if (zoom >= ZOOM_TIER_SPARSE) return "sparse";

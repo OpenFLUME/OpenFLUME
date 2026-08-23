@@ -1,7 +1,7 @@
 {
   "name": "openflume",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "OpenFLUME (Open FLUid Model Environment): open-source thermal-fluid network solver with steady/transient analysis, parameter sweeps, and a visual P&ID editor",
   "keywords": [
     "thermal-fluid",

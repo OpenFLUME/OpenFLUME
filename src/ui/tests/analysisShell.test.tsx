@@ -10,16 +10,12 @@
 import { describe, it, expect } from "vitest";
 import { renderToString } from "react-dom/server";
 import AnalysisDisclosure from "../components/AnalysisDisclosure";
-import AnalysisRunStrip, {
-  type RunStripRunOption,
-} from "../components/AnalysisRunStrip";
 import {
   analysisDisclosureIds,
   runStripOutcomeText,
   runStripOutcomeTone,
   runStripTitle,
   runStripView,
-  type RunStripState,
 } from "../analysisShell";
 
 /* ------------------------------------------------------------------ */
@@ -176,136 +172,5 @@ describe("AnalysisDisclosure (SSR)", () => {
     const html = renderDisclosure({ title: "<img src=x onerror=alert(1)>" });
     expect(html).not.toContain("<img");
     expect(html).toContain("&lt;img");
-  });
-});
-
-/* ------------------------------------------------------------------ */
-/* AnalysisRunStrip (SSR)                                              */
-/* ------------------------------------------------------------------ */
-
-const RUNS: RunStripRunOption[] = [
-  { id: "run-1", name: "Run 1", meta: "steady · converged" },
-  { id: "run-2", name: "Run 2", meta: "steady · NOT converged" },
-];
-
-const renderStrip = (
-  state: RunStripState = {},
-  extra: Partial<Parameters<typeof AnalysisRunStrip>[0]> = {},
-) => renderToString(<AnalysisRunStrip {...state} {...extra} />);
-
-describe("AnalysisRunStrip (SSR)", () => {
-  it('zero history, idle: "Latest run" only, no select/pills, null-state status text', () => {
-    const html = renderStrip();
-    expect(html).toContain('data-testid="run-strip"');
-    expect(html).toContain('role="region"');
-    expect(html).toContain('aria-label="Current run"');
-    expect(html).toContain('data-testid="run-strip-title"');
-    expect(html).toContain("Latest run");
-    expect(html).not.toContain("run-strip-select");
-    expect(html).not.toContain("run-strip-outcome");
-    expect(html).not.toContain("run-strip-stale");
-    expect(html).toContain('role="status"');
-    expect(html).toContain("Showing Latest run.");
-  });
-
-  it("live running run: mode + running outcome pill, latest-run title", () => {
-    const html = renderStrip({
-      mode: "transient",
-      outcome: "running",
-      outcomeDetail: "t = 42.00 s",
-    });
-    expect(html).toContain("Latest run");
-    expect(html).toContain("transient");
-    expect(html).toContain("pill pill--info");
-    expect(html).toContain(">running</span>");
-    expect(html).toContain("t = 42.00 s");
-  });
-
-  it("cancelled partial: outcome + partial pill announced as partial data", () => {
-    const html = renderStrip({
-      runName: "Run 2",
-      mode: "steady",
-      outcome: "cancelled",
-      partial: true,
-    });
-    expect(html).toContain("pill pill--muted");
-    expect(html).toContain(">cancelled</span>");
-    expect(html).toContain('data-testid="run-strip-partial"');
-    expect(html).toContain(">partial</span>");
-    expect(html).toContain("partial data");
-  });
-
-  it("error state: danger tone pill", () => {
-    const html = renderStrip({
-      outcome: "error",
-      outcomeDetail: "fluid lookup failed",
-    });
-    expect(html).toContain("pill pill--danger");
-    expect(html).toContain(">error</span>");
-    expect(html).toContain("fluid lookup failed");
-  });
-
-  it("stale converged record with baseline: warn pill + baseline pill", () => {
-    const html = renderStrip({
-      runName: "Run 3",
-      mode: "steady",
-      outcome: "converged",
-      outcomeDetail: "12 iter · res 3.2e-9",
-      stale: true,
-      baselineName: "Run 1",
-    });
-    expect(html).toContain("pill pill--ok");
-    expect(html).toContain('data-testid="run-strip-stale"');
-    expect(html).toContain(">stale</span>");
-    expect(html).toContain('data-testid="run-strip-baseline"');
-    expect(html).toContain("Baseline: Run 1");
-    expect(html).toContain("stale — rerun before design use");
-  });
-
-  it("renders the run switcher select with options and selection state", () => {
-    const html = renderStrip(
-      { runName: "Run 2", runCount: 2 },
-      { runs: RUNS, selectedRunId: "run-2", onSelectRun: () => {} },
-    );
-    expect(html).toContain('data-testid="run-strip-select"');
-    expect(html).toContain('aria-label="Switch displayed run"');
-    expect(html).toContain("Latest run");
-    expect(html).toContain(
-      '<option value="run-1">Run 1 · steady · converged</option>',
-    );
-    // The selected option is marked in the SSR markup.
-    expect(html).toContain(
-      '<option value="run-2" selected="">Run 2 · steady · NOT converged</option>',
-    );
-  });
-
-  it("falls back to the Latest run option when the selected id is unknown", () => {
-    const html = renderStrip(
-      {},
-      { runs: RUNS, selectedRunId: "run-gone", onSelectRun: () => {} },
-    );
-    expect(html).toContain('<option value="" selected="">Latest run</option>');
-  });
-
-  it("renders action buttons with count badges when callbacks are provided", () => {
-    const html = renderStrip(
-      { runCount: 3, diaryEventCount: 12, diaryWarningCount: 1 },
-      { onShowRuns: () => {}, onShowDiary: () => {}, onShowDetails: () => {} },
-    );
-    expect(html).toContain('data-testid="run-strip-runs"');
-    expect(html).toContain('data-testid="run-strip-runs-badge">3</span>');
-    expect(html).toContain('data-testid="run-strip-diary"');
-    expect(html).toContain("run-strip__badge run-strip__badge--warn");
-    expect(html).toContain('data-testid="run-strip-diary-badge">12</span>');
-    expect(html).toContain('data-testid="run-strip-details"');
-    expect(html).toContain(">Details</button>");
-  });
-
-  it("omits buttons/select entirely when callbacks are absent", () => {
-    const html = renderStrip({ runCount: 3, diaryEventCount: 5 });
-    expect(html).not.toContain('run-strip-runs"');
-    expect(html).not.toContain('run-strip-diary"');
-    expect(html).not.toContain('run-strip-details"');
-    expect(html).not.toContain("run-strip-select");
   });
 });

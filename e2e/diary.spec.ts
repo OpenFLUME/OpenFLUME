@@ -72,7 +72,7 @@ test.describe("Solver diary", () => {
     );
 
     // The Solver diary is a closed disclosure in the redesigned Analysis
-    // view; open it via its header (the run-strip button does the same).
+    // view; open it via its disclosure header.
     await page.locator('[data-testid="results-tab"]').click();
     await openAnalysisSection(page, "diary");
     const diary = page.locator('[data-testid="solver-diary"]');
@@ -511,17 +511,10 @@ test.describe("Solver diary", () => {
     await expect(page.locator('[data-testid="cancelled-banner"]')).toBeVisible({
       timeout: 10000,
     });
-    // The partial cancelled diary lives behind the closed diary disclosure —
-    // the strip's Solver diary button opens and focuses it.
-    await expect(page.locator('[data-testid="run-strip-diary"]')).toBeVisible();
-    await page.locator('[data-testid="run-strip-diary"]').click();
-    await expect(page.locator('[data-testid="diary-toggle"]')).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
+    // The partial cancelled diary lives behind the closed diary disclosure.
+    await openAnalysisSection(page, "diary");
     const diary = page.locator('[data-testid="solver-diary"]');
     await expect(diary).toBeVisible();
-    await expect(diary).toBeFocused();
     await expect(
       page.locator('[data-testid="solver-diary-outcome"]'),
     ).toHaveText("cancelled");

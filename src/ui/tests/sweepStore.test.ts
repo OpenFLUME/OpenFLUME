@@ -210,6 +210,7 @@ function makeFactory(behaviors: FakeBehavior[]): FakeFactory {
 function resetCanonicalStore() {
   useStore.setState({
     config: baseConfig(),
+    baseConfig: baseConfig(),
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -1063,10 +1064,9 @@ describe("promoteVariant", () => {
 
     const beforeHistory = useStore.getState().runHistory.length;
     const beforeConfig = useStore.getState().config;
-    const beforeText = useStore.getState().modelText;
+    const beforeBase = useStore.getState().baseConfig;
 
-    // Promote variant 0 (position 0.1 ≠ the live config's 0.5, so the
-    // promoted run is stale vs the editor).
+    // Promote variant 0 (position 0.1 ≠ the live config's 0.5).
     const promoted = store.getState().promoteVariant("j1", 0);
     expect(promoted.ok).toBe(true);
     if (!promoted.ok) return;
@@ -1087,16 +1087,38 @@ describe("promoteVariant", () => {
     expect(record.config).not.toBe(beforeConfig);
     expect((record.result as SteadyResult).nodes["in"].pressure).toBe(190e3);
     expect(record.name).toBe("Valve b1 · position = 0.1");
-    // The displayed result was selected and is stale vs the live config
-    // (the variant config differs from the editor's).
     expect(s.result).toBe(record.result);
     expect(s.resultConfig).toBe(record.config);
-    expect(s.resultStale).toBe(true);
-    // Canonical model itself untouched.
-    expect(s.config).toBe(beforeConfig);
-    expect(s.modelText).toBe(beforeText);
-    expect(s.dirty).toBe(false);
-    expect(s.past).toHaveLength(0);
+
+    // Promote graduates the point into a SAVED simulation variant: the
+    // swept field becomes that variant's patch, the variant is activated,
+    // and the run is filed under it.
+    const variants = s.baseConfig.variants!;
+    expect(variants).toHaveLength(1);
+    expect(variants[0].name).toBe("Valve b1 · position = 0.1");
+    expect(variants[0].patch).toEqual({
+      branches: {
+        b1: {
+          component: { type: "valve", area: 0.0001, cd: 0.6, position: 0.1 },
+        },
+      },
+    });
+    expect(s.activeVariantId).toBe(variants[0].id);
+    expect(record.variantId).toBe(variants[0].id);
+
+    // The variant reproduces the promoted run exactly, so it is NOT stale.
+    expect(s.resultStale).toBe(false);
+    // The base network is untouched — only the variant list grew — and the
+    // whole thing is one undoable edit.
+    expect(s.baseConfig.branches[0].component).toMatchObject({
+      position: 0.5,
+    });
+    expect(beforeBase.branches[0].component).toMatchObject({ position: 0.5 });
+    expect(beforeConfig.branches[0].component).toMatchObject({
+      position: 0.5,
+    });
+    expect(s.dirty).toBe(true);
+    expect(s.past).toHaveLength(1);
   });
 
   it("refuses variants without a completed result and unknown jobs/variants", async () => {

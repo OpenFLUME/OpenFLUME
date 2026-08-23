@@ -45,17 +45,41 @@ export function fnv1a64Hex(str: string): string {
   return h.toString(16).padStart(16, "0");
 }
 
+/** Entity arrays whose ORDER is presentation, not physics. */
+const ORDERED_ENTITY_KEYS = [
+  "nodes",
+  "branches",
+  "solidNodes",
+  "conductors",
+  "groups",
+] as const;
+
 /**
- * The config as it matters to the numbers.  Canvas annotations (`notes`) are
- * stripped: the hash claims "these settings produced these numbers", and a
- * note the solver never reads cannot change them.  Keeping notes out means
- * documenting a model does not invalidate a pinned run-history baseline or
- * make two otherwise-identical exports disagree.
+ * The config as it matters to the numbers.
+ *
+ * Two things are canonicalized away:
+ *
+ *   - `notes` are stripped.  The hash claims "these settings produced these
+ *     numbers", and a note the solver never reads cannot change them, so
+ *     documenting a model must not invalidate a pinned baseline.
+ *   - entity arrays are sorted by id.  Two configs that differ only in the
+ *     order elements are listed describe the same network — the solver
+ *     solves the same equations and publishes the same id-keyed results —
+ *     so reordering the project outline must not mark results stale either.
+ *     (Array order still round-trips through the `.fn` text; it is simply
+ *     not part of the model's identity.)
  */
 function hashableConfig(config: NetworkConfig): unknown {
-  if (config.notes === undefined) return config;
-  const { notes: _notes, ...rest } = config;
-  return rest;
+  const out: Record<string, unknown> = { ...config };
+  delete out.notes;
+  for (const key of ORDERED_ENTITY_KEYS) {
+    const list = out[key];
+    if (!Array.isArray(list)) continue;
+    out[key] = [...(list as { id: string }[])].sort((a, b) =>
+      a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+    );
+  }
+  return out;
 }
 
 /** Synchronous stable config hash (FNV-1a/64). Used for run-record labels. */

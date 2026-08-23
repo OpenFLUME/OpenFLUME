@@ -1046,6 +1046,91 @@ describe("named fluids map", () => {
   });
 });
 
+describe("simulation variants", () => {
+  it("round-trips the variants field as a singleton line", () => {
+    const config = minimalConfig();
+    config.variants = [
+      {
+        id: "cold",
+        name: "Cold day",
+        patch: {
+          settings: { tolerance: 1e-9 },
+          nodes: { [config.nodes[0].id]: { temperature: 250 } },
+          removed: ["nope"],
+        },
+      },
+      { id: "asis", name: "As designed" },
+    ];
+    const { text } = serializeTextWithLineMap(config);
+    expect(text).toContain("variants: ");
+    expect(text).toContain('"Cold day"');
+    const parsed = parseText(text);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.config).toStrictEqual(config);
+  });
+
+  it("is emitted last, after componentLibrary", () => {
+    const config = minimalConfig();
+    config.registers = { x: 1 };
+    config.variants = [{ id: "v", name: "V" }];
+    const { text } = serializeTextWithLineMap(config);
+    const lines = text.split("\n");
+    expect(lines.findIndex((l) => l.startsWith("variants: "))).toBeGreaterThan(
+      lines.findIndex((l) => l.startsWith("registers: ")),
+    );
+  });
+
+  it("leaves files without variants byte-identical", () => {
+    // The field is optional and absent by default, so every model written
+    // before variants existed still serializes exactly as it did.
+    const config = minimalConfig();
+    expect(serializeText(config)).not.toContain("variants");
+    const withEmpty = { ...config, variants: [] };
+    // A present-but-empty list is a real (if unusual) state and survives.
+    const parsed = parseText(serializeText(withEmpty));
+    expect(parsed.config).toStrictEqual(withEmpty);
+  });
+
+  it("re-serializes stably", () => {
+    const config = minimalConfig();
+    config.variants = [
+      {
+        id: "v",
+        name: "V",
+        patch: {
+          added: {
+            nodes: [
+              {
+                id: "extra",
+                type: "boundary",
+                x: 9,
+                y: 9,
+                pressure: 1e5,
+                temperature: 300,
+              },
+            ],
+          },
+        },
+      },
+    ];
+    const first = serializeTextWithLineMap(config);
+    const parsed = parseText(first.text);
+    expect(parsed.errors).toEqual([]);
+    expect(serializeTextWithLineMap(parsed.config!).text).toBe(first.text);
+  });
+
+  it("rejects a structurally invalid variant at the decode boundary", () => {
+    const config = minimalConfig();
+    const text = serializeText(config).replace(
+      "}\n",
+      'variants: [{"id":"v"}]\n}\n',
+    );
+    const parsed = parseText(text);
+    expect(parsed.errors.length).toBeGreaterThan(0);
+    expect(parsed.config).toBeUndefined();
+  });
+});
+
 /* ------------------------------------------------------------------ */
 /* 8. Never-throw robustness                                           */
 /* ------------------------------------------------------------------ */

@@ -36,9 +36,10 @@ import {
   Pipe,
   FlowSource,
   Regulator,
-  OrificeCompressible,
+  Orifice,
   CavitatingVenturi,
 } from "../components";
+import { orificeKappa } from "../components/orifice";
 import type { FluidModel } from "../fluids";
 import { RealFluid } from "../fluids/realFluid";
 import { componentPressureDrop } from "./pressureDrop";
@@ -264,10 +265,25 @@ export function branchDerivedProperties(
         : 1;
   const Re = (rho * Math.abs(v) * charLen) / mu;
 
+  // An Orifice branch whose fluid supplies an isentropic exponent (γ or
+  // a²ρ/P) uses the Y-factor ṁ residual, so reported dP is the converged
+  // endpoint drop — not a re-evaluation of the Bernoulli pressureDrop.
+  const qUp = state.nodeQuality?.get(upNode);
+  const twoPhaseUp = qUp !== undefined && qUp > 0 && qUp < 1;
+  const orificeUsesY =
+    b.component instanceof Orifice &&
+    !twoPhaseUp &&
+    orificeKappa(
+      ctx.fluidAssignment.node(upNode),
+      state.nodeP.get(upNode)!,
+      state.nodeT.get(upNode)!,
+      rho,
+    ) !== undefined;
+
   let dP: number;
   if (
     b.component instanceof FlowSource ||
-    b.component instanceof OrificeCompressible ||
+    orificeUsesY ||
     b.component instanceof CavitatingVenturi ||
     b.component instanceof Regulator
   ) {

@@ -3,6 +3,7 @@ import { NetworkConfig } from "../schema";
 import { solveSteady } from "../solver";
 import { solveTransient } from "../transient";
 import { validateNetwork } from "../validate";
+import { Orifice } from "../components";
 
 function makeConfig(overrides: Partial<NetworkConfig> = {}): NetworkConfig {
   return {
@@ -196,7 +197,7 @@ describe("Species transport (no reactions)", () => {
     const Cd = 0.6;
     const dP = 50000;
     const rho = P / (R * T);
-    const mdot = Cd * A * Math.sqrt(2 * rho * dP);
+    const mdot = new Orifice(A, Cd).massFlow(P, P - dP, T, R, 1.4);
     const tau = (rho * V) / mdot;
     const dt = tau / 50;
     const endTime = 3 * tau;

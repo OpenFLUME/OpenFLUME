@@ -9,7 +9,11 @@
  *
  * Any record can be pinned as the comparison baseline when it is compatible
  * with the currently displayed run: same solve mode and enough shared element
- * ids to make deltas/overlays meaningful.
+ * ids to make deltas/overlays meaningful.  Baselines may come from a
+ * DIFFERENT variant — comparing variants is the point of having them.
+ *
+ * Records are scoped to the loaded model: every wholesale model replacement
+ * clears the buffer, and each record remembers the variant that produced it.
  */
 import type { NetworkConfig, SteadyResult, TransientResult } from "./types";
 import { configHash } from "./provenance";
@@ -17,12 +21,16 @@ import { configHash } from "./provenance";
 // isTransientResult from this module, so a runtime import would cycle).
 import type { RunDiary } from "./convergenceDiary";
 
+/** Ring-buffer capacity, applied PER VARIANT so a busy variant cannot
+ *  evict another's history. */
 export const RUN_HISTORY_CAP = 10;
 
 export interface RunRecord {
   id: string;
   /** User-editable display name (default "Run N"). */
   name: string;
+  /** Variant that produced the run; null for the Base network. */
+  variantId: string | null;
   /** Epoch ms. */
   timestamp: number;
   mode: "steady" | "transient";
@@ -66,10 +74,12 @@ export function makeRunRecord(
   result: SteadyResult | TransientResult,
   now = Date.now(),
   diary?: RunDiary,
+  variantId: string | null = null,
 ): RunRecord {
   return {
     id: `run-${now.toString(36)}-${seq}`,
     name: `Run ${seq}`,
+    variantId,
     timestamp: now,
     mode: isTransientResult(result) ? "transient" : "steady",
     configHash: configHash(config),

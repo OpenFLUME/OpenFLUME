@@ -129,10 +129,6 @@ const COMPONENT_FIELDS: {
     area: { quantity: "area", bounds: POSITIVE },
     cd: { quantity: "dimensionless", bounds: POSITIVE },
   },
-  orificeCompressible: {
-    area: { quantity: "area", bounds: POSITIVE },
-    cd: { quantity: "dimensionless", bounds: POSITIVE },
-  },
   cavitatingVenturi: {
     throatArea: { quantity: "area", bounds: POSITIVE },
     cd: { quantity: "dimensionless", bounds: POSITIVE },

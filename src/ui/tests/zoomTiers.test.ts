@@ -29,14 +29,18 @@ describe("zoomTier", () => {
   it("steps down through the density ladder as zoom falls", () => {
     expect(zoomTier(1.5)).toBe("full");
     expect(zoomTier(ZOOM_TIER_FULL)).toBe("full");
-    expect(zoomTier(0.6)).toBe("names");
+    expect(zoomTier(0.5)).toBe("names");
     expect(zoomTier(0.35)).toBe("sparse");
     expect(zoomTier(0.1)).toBe("hidden");
   });
 
-  it("escalates the names threshold for dense graphs", () => {
-    // 0.5 still shows names on a small model but is already too crowded once
-    // the model passes DENSE_ELEMENT_COUNT elements.
+  it("escalates the full and names thresholds for dense graphs", () => {
+    // Small models keep full detail (readout chips) further out — the docked
+    // layout narrows the canvas, so a fit-to-view of a modest network sits
+    // below the dense threshold. Past DENSE_ELEMENT_COUNT elements the same
+    // zoom is already too crowded for chips, then for names.
+    expect(zoomTier(0.65, false)).toBe("full");
+    expect(zoomTier(0.65, true)).toBe("names");
     expect(zoomTier(0.5, false)).toBe("names");
     expect(zoomTier(0.5, true)).toBe("sparse");
     expect(DENSE_ELEMENT_COUNT).toBe(50);

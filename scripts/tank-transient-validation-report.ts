@@ -83,7 +83,8 @@ function rk4Trace(
 }
 
 /** Isentropic compressible-orifice mass flux with choking — mirrors
- *  OrificeCompressible.massFlow (src/core/components/orificeCompressible.ts). */
+ *  Orifice.massFlow (src/core/components/orifice.ts), the closure used
+ *  automatically for an `orifice` branch on an ideal-gas fluid. */
 const CRIT_PR = Math.pow(2 / (GAMMA + 1), GAMMA / (GAMMA - 1));
 const CHOKED_FLUX =
   Math.sqrt(GAMMA) * Math.pow(2 / (GAMMA + 1), (GAMMA + 1) / (2 * (GAMMA - 1)));
@@ -461,7 +462,7 @@ function fig1TankSchematic(): string {
 <circle cx="${bx}" cy="${yc}" r="28" fill="#fdf2e3" stroke="#333" stroke-width="1.6"/>
 <text x="${bx}" y="${yc - 2}" text-anchor="middle" font-size="12">boundary</text>
 <text x="${bx}" y="${yc + 14}" text-anchor="middle" font-size="12">P<tspan font-size="9" dy="3">b</tspan><tspan dy="-3">, T</tspan><tspan font-size="9" dy="3">b</tspan></text>
-<text x="${tx}" y="${ty + th + 34}" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orificeCompressible C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
+<text x="${tx}" y="${ty + th + 34}" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orifice (compressible) C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
 <text x="${tx}" y="${ty + th + 52}" font-size="12">Case 4 (charge): 5 bar / 300 K supply boundary → resistance (K = 10, A = 10⁻³ m²) → tank initially at 1 bar</text>
 <text x="${tx}" y="${ty + th + 70}" font-size="12">Case 5 (schedule): tank at 5 bar → valve (position ramps 0 → 1 over 2 s) → orifice → 1 bar boundary</text>
 <text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="12">Figure 1. Lumped tank connected to a pressure boundary through a flow component.</text>
@@ -620,7 +621,7 @@ function blowdownConfig(dt: number): NetworkConfig {
         id: "o1",
         from: "tank",
         to: "out",
-        component: { type: "orificeCompressible", area: BD.A, cd: BD.Cd },
+        component: { type: "orifice", area: BD.A, cd: BD.Cd },
       },
     ],
   };
@@ -1604,7 +1605,8 @@ closed forms hold exactly). Five cases are studied:
 
 Cases 1, 2, 4, and 5 use one tank — an internal node with volume — connected
 to a pressure boundary through a flow component (Figure 1). Case 1 vents
-through an \`orificeCompressible\` (isentropic mass flux with choking, C_d =
+through an \`orifice\` on an ideal-gas fluid (isentropic mass flux with
+choking, applied automatically — see [orifice.ts](../../src/core/components/orifice.ts), C_d =
 ${BD.Cd}, A = 10⁻⁴ m²) to a ${toBar(BD.Pout).toFixed(0)} bar boundary; the
 pressure ratio stays below the critical value ${CRIT_PR.toFixed(4)} for the
 whole ${BD.endTime} s transient (the final tank pressure is

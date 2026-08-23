@@ -3,18 +3,15 @@ import { useStore } from "../store";
 import { SteadyResult, TransientResult, NetworkConfig } from "../types";
 import RunHistoryPanel from "./RunHistoryPanel";
 import ConvergenceDiarySection from "./ConvergenceDiarySection";
-import ChannelExplorer from "./ChannelExplorer";
+import ChannelExplorer, {
+  type ChannelExplorerRunOption,
+} from "./ChannelExplorer";
+import type { ComparableRun } from "./ResultPlots";
 import AnalysisDisclosure from "./AnalysisDisclosure";
-import AnalysisRunStrip, { type RunStripRunOption } from "./AnalysisRunStrip";
 import { analysisDisclosureIds, type RunStripOutcome } from "../analysisShell";
 import { diaryIndicatorText } from "../diaryPresentation";
 import { fluidsSummary } from "../fluidsUi";
-import {
-  QuantityKind,
-  getUnitDef,
-  type UnitId,
-  type UnitPreferences,
-} from "../units";
+import { QuantityKind, getUnitDef, type UnitPreferences } from "../units";
 import { channelFieldInfo } from "../channels";
 import {
   resolveScale,
@@ -235,37 +232,66 @@ export default function ResultsView() {
       : isRunning
         ? config.settings.mode
         : null;
-  // Every history record is switchable from the strip's native select.
-  const runOptions: RunStripRunOption[] = useMemo(
+  /**
+   * Every history record is switchable from the title dropdown. The meta is
+   * only the timestamp: mode and outcome sit in the badge beside the title,
+   * and the selected option IS that title, so repeating them there would
+   * make the heading a sentence.
+   */
+  const runOptions: ChannelExplorerRunOption[] = useMemo(
     () =>
       runHistory.map((r) => ({
         id: r.id,
         name: r.name,
-        meta: `${fmtTime(r.timestamp)} · ${r.mode} · ${r.summary}`,
+        meta: fmtTime(r.timestamp),
       })),
     [runHistory],
   );
 
-  const runStrip = (onShowDiary?: () => void, onShowDetails?: () => void) => (
-    <AnalysisRunStrip
-      runName={selectedRecord?.name ?? null}
-      mode={stripMode}
-      outcome={stripOutcome}
-      outcomeDetail={stripDetail}
-      stale={resultStale && !!displayedFinal}
-      partial={isCancelled}
-      baselineName={baselineRecord?.name ?? null}
-      runCount={runHistory.length}
-      diaryEventCount={resultDiary ? resultDiary.events.length : null}
-      diaryWarningCount={resultDiary ? resultDiary.summary.warningCount : 0}
-      runs={runOptions}
-      selectedRunId={selectedRunId}
-      onSelectRun={selectRun}
-      onShowRuns={hasRunHistory ? () => openSection("runs") : undefined}
-      onShowDiary={onShowDiary}
-      onShowDetails={onShowDetails}
-    />
+  /**
+   * Every OTHER recorded run, offered to each plot as an overlay. Comparing a
+   * design against its predecessor is the reason run history exists, and
+   * flipping between two runs a second apart cannot answer "which is better".
+   * Each carries its own captured config so a variant is plotted on the
+   * geometry it actually ran.
+   */
+  const comparableRuns: ComparableRun[] = useMemo(
+    () =>
+      runHistory
+        // Identity, not just the id: with no record selected the displayed
+        // result IS the newest record, and a run overlaid on itself is a
+        // second line drawn exactly on the first.
+        .filter((r) => r.id !== selectedRunId && r.result !== shownResult)
+        .map((r) => ({
+          id: r.id,
+          name: r.name,
+          config: r.config,
+          result: r.result,
+        })),
+    [runHistory, selectedRunId, shownResult],
   );
+
+  /**
+   * The displayed run, handed to the plots panel to render AS ITS TITLE. It
+   * used to be a sticky strip of its own above the plots; a heading that says
+   * "Plots" over a bar that says which run is a line of chrome spent saying
+   * nothing.
+   */
+  const runProps = {
+    runName: selectedRecord?.name ?? null,
+    mode: stripMode,
+    outcome: stripOutcome,
+    outcomeDetail: stripDetail,
+    stale: resultStale && !!displayedFinal,
+    partial: isCancelled,
+    baselineName: baselineRecord?.name ?? null,
+    runCount: runHistory.length,
+    diaryEventCount: resultDiary ? resultDiary.events.length : null,
+    diaryWarningCount: resultDiary ? resultDiary.summary.warningCount : 0,
+    runs: runOptions,
+    selectedRunId,
+    onSelectRun: selectRun,
+  };
 
   const runsDisclosure = hasRunHistory ? (
     <AnalysisDisclosure
@@ -349,7 +375,6 @@ export default function ResultsView() {
         <div className="analysis-page">
           <h1 className="visually-hidden">Analysis</h1>
           {statusBanners}
-          {runStrip(resultDiary ? () => openSection("diary") : undefined)}
           {resultDiary && (
             <AnalysisDisclosure
               id="diary"
@@ -383,10 +408,6 @@ export default function ResultsView() {
       <div className="analysis-page">
         <h1 className="visually-hidden">Analysis</h1>
         {statusBanners}
-        {runStrip(
-          hasDiarySection ? () => openSection("diary") : undefined,
-          hasResultData ? () => openSection("summary") : undefined,
-        )}
         {/* Primary channel explorer (captured config/result; never live config) */}
         {shownResult && (
           <ChannelExplorer
@@ -409,14 +430,8 @@ export default function ResultsView() {
                 ? runHistory.find((r) => r.id === selectedRunId)?.configHash
                 : undefined
             }
-            runContext={
-              selectedRunId
-                ? (runHistory.find((r) => r.id === selectedRunId)?.name ??
-                  undefined)
-                : transientLive && !transientFinal
-                  ? "Live run"
-                  : "Current result"
-            }
+            run={runProps}
+            comparableRuns={comparableRuns}
           />
         )}
         {shownResult && (
@@ -427,12 +442,6 @@ export default function ResultsView() {
             onToggle={toggleSection("summary")}
           >
             {(steadyFinal || transientFinal) && <PrecisionSelector />}
-            {steadyFinal && (
-              <ResultsOverview result={steadyFinal} config={displayConfig} />
-            )}
-            {transientFinal && (
-              <ResultsOverview result={transientFinal} config={displayConfig} />
-            )}
             <RunSummary result={shownResult} config={displayConfig} />
             {transientFinal && (
               <DownloadTimeSeries
@@ -496,227 +505,6 @@ function PrecisionSelector() {
       <span className="text-3">sig figs</span>
     </div>
   );
-}
-
-function ResultsOverview({
-  result,
-  config,
-}: {
-  result: SteadyResult | TransientResult;
-  config: Config;
-}) {
-  const prefs = useStore((s) => s.unitPreferences);
-  const labels = useLabelMap(config);
-  const { pressures, temperatures, peakAbsFlow } = useMemo(() => {
-    const nodes =
-      "times" in result
-        ? Object.values(result.nodes).flatMap((n) =>
-            n.pressure.map((pressure, i) => ({
-              pressure,
-              temperature: n.temperature[i],
-            })),
-          )
-        : Object.values(result.nodes);
-    const branches =
-      "times" in result
-        ? Object.values(result.branches).flatMap((b) => b.mdot)
-        : Object.values(result.branches).map((b) => b.mdot);
-    return {
-      pressures: nodes.map((n) => n.pressure),
-      temperatures: nodes.map((n) => n.temperature),
-      peakAbsFlow: branches.length
-        ? branches.reduce((peak, mdot) => Math.max(peak, Math.abs(mdot)), 0)
-        : null,
-    };
-  }, [result]);
-  const isTransient = "times" in result;
-  const sigFigs = useStore((s) => s.resultSigFigs);
-  const pressureRange = pressures.length
-    ? formatRangeScaled(pressures, "pressure", prefs.pressure, sigFigs)
-    : "No nodes";
-  const temperatureRange = temperatures.length
-    ? formatRangeScaled(temperatures, "temperature", prefs.temperature, sigFigs)
-    : "No nodes";
-  const peakFlow =
-    peakAbsFlow !== null
-      ? formatWithUnit(peakAbsFlow, "massFlow", prefs, sigFigs)
-      : "No branches";
-  const cautious =
-    ("stats" in result && !!result.stats?.dtAtMinCount) || !result.converged;
-  const status = result.converged
-    ? cautious
-      ? "Converged with caution"
-      : "Converged"
-    : "Not converged";
-  const statusColor = result.converged
-    ? cautious
-      ? "var(--warn)"
-      : "var(--ok)"
-    : "var(--danger)";
-  const runDetail =
-    "times" in result
-      ? `${result.times.length} accepted steps`
-      : `${result.iterations} iterations`;
-  return (
-    <div className="results-overview">
-      <div className="result-card" style={{ borderColor: statusColor }}>
-        <div className="result-card-label">Solve outcome</div>
-        <div className="result-card-value" style={{ color: statusColor }}>
-          {status}
-        </div>
-        <div className="result-card-detail">
-          {runDetail} · {fluidsSummary(config)}
-        </div>
-      </div>
-      <MetricCard
-        label="Pressure envelope"
-        value={pressureRange}
-        detail={isTransient ? "All saved times and nodes" : "Across all nodes"}
-      />
-      <MetricCard
-        label="Temperature envelope"
-        value={temperatureRange}
-        detail={isTransient ? "All saved times and nodes" : "Across all nodes"}
-      />
-      <MetricCard
-        label="Peak |mass flow|"
-        value={peakFlow}
-        detail={
-          isTransient ? "All saved times and branches" : "Across all branches"
-        }
-      />
-      <MetricCard
-        label="Numerical evidence"
-        value={
-          "residual" in result
-            ? result.residual.toExponential(2)
-            : `${result.stats?.rejectedSteps ?? 0} rejected`
-        }
-        detail={
-          "residual" in result
-            ? `Target ${config.settings.tolerance.toExponential(1)}`
-            : `${result.stats?.dtAtMinCount ?? 0} minimum-step hits`
-        }
-      />
-      {!isTransient && (
-        <MassBalanceCard
-          result={result as SteadyResult}
-          config={config}
-          labels={labels}
-        />
-      )}
-    </div>
-  );
-}
-
-/**
- * GFSSP-style conservation credibility cue: net Σṁ at every internal node
- * (steady results only — per-step transient imbalances are expected while
- * nodes accumulate/deplete).
- */
-function MassBalanceCard({
-  result,
-  config,
-  labels,
-}: {
-  result: SteadyResult;
-  config: Config;
-  labels: Map<string, string>;
-}) {
-  const prefs = useStore((s) => s.unitPreferences);
-  const { maxImbalance, maxNode, inflow, outflow, peak } = useMemo(() => {
-    const net = new Map<string, number>();
-    for (const n of config.nodes) net.set(n.id, 0);
-    let peak = 0;
-    for (const b of config.branches) {
-      const r = result.branches[b.id];
-      if (!r) continue;
-      peak = Math.max(peak, Math.abs(r.mdot));
-      net.set(b.from, (net.get(b.from) ?? 0) - r.mdot);
-      net.set(b.to, (net.get(b.to) ?? 0) + r.mdot);
-    }
-    let maxImbalance = 0;
-    let maxNode = "—";
-    let inflow = 0;
-    let outflow = 0;
-    for (const n of config.nodes) {
-      const v = net.get(n.id) ?? 0;
-      if (n.type === "boundary") {
-        if (v > 0) outflow += v;
-        else inflow += -v;
-      } else if (Math.abs(v) > maxImbalance) {
-        maxImbalance = Math.abs(v);
-        maxNode = labels.get(n.id) ?? n.id;
-      }
-    }
-    return { maxImbalance, maxNode, inflow, outflow, peak };
-  }, [result, config, labels]);
-  // Headline as a RELATIVE imbalance: "1e-13 g/s" means nothing to an
-  // analyst; "0.0000001% of peak flow" certifies conservation at a glance.
-  // The absolute value stays available in the tooltip + detail line.
-  const absStr = formatWithUnit(maxImbalance, "massFlow", prefs, 4);
-  const value =
-    peak > 0
-      ? `${formatSig((maxImbalance / peak) * 100, 2)}% of peak flow`
-      : absStr;
-  const detail = `|Σṁ|max ${absStr} · worst node: ${maxNode} · in ${formatWithUnit(inflow, "massFlow", prefs, 3)} / out ${formatWithUnit(outflow, "massFlow", prefs, 3)}`;
-  return (
-    <MetricCard
-      wide
-      label="Mass balance max |Σṁ|"
-      value={value}
-      detail={detail}
-      title={`Absolute imbalance: ${absStr} at ${maxNode}`}
-    />
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-  title,
-  wide,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  title?: string;
-  /** Span two grid columns (for cards whose detail line is a full sentence). */
-  wide?: boolean;
-}) {
-  return (
-    <div
-      className={wide ? "result-card result-card--wide" : "result-card"}
-      title={title}
-    >
-      <div className="result-card-label">{label}</div>
-      <div className="result-card-value">{value}</div>
-      <div className="result-card-detail">{detail}</div>
-    </div>
-  );
-}
-
-/** Envelope "min - max unit" in ONE resolved display unit (auto-scaled). */
-function formatRangeScaled(
-  values: number[],
-  kind: QuantityKind,
-  unitId: UnitId,
-  sigFigs: number,
-): string {
-  if (values.length === 0) return "—";
-  let min = Infinity;
-  let max = -Infinity;
-  for (const value of values) {
-    if (value < min) min = value;
-    if (value > max) max = value;
-  }
-  const scale = resolveScale([min, max], kind, unitId);
-  const lo = formatSig(scale.convert(min), sigFigs);
-  const hi = formatSig(scale.convert(max), sigFigs);
-  return min === max
-    ? `${lo} ${scale.unitLabel}`
-    : `${lo} - ${hi} ${scale.unitLabel}`;
 }
 
 function RunSummary({

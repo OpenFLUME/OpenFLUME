@@ -66,6 +66,8 @@ const steady = (p: number): SteadyResult => ({
 function resetStore() {
   useStore.setState({
     config: cfg("Test"),
+    baseConfig: cfg("Test"),
+    activeVariantId: null,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,
@@ -159,31 +161,30 @@ describe("run history store", () => {
 describe("graph removal invariants", () => {
   beforeEach(() => {
     resetStore();
-    useStore.setState({
-      config: {
-        ...cfg("Graph"),
-        solidNodes: [
-          {
-            id: "S",
-            type: "solid",
-            x: 200,
-            y: 0,
-            temperature: 300,
-            mass: 1,
-            cp: 500,
-          },
-        ],
-        conductors: [
-          {
-            id: "c1",
-            from: "A",
-            to: "S",
-            type: { kind: "convection", h: 10, area: 1 },
-          },
-        ],
-        groups: [{ id: "g1", label: "Group", x: 0, y: 0 }],
-      },
-    });
+    const graph: NetworkConfig = {
+      ...cfg("Graph"),
+      solidNodes: [
+        {
+          id: "S",
+          type: "solid",
+          x: 200,
+          y: 0,
+          temperature: 300,
+          mass: 1,
+          cp: 500,
+        },
+      ],
+      conductors: [
+        {
+          id: "c1",
+          from: "A",
+          to: "S",
+          type: { kind: "convection", h: 10, area: 1 },
+        },
+      ],
+      groups: [{ id: "g1", label: "Group", x: 0, y: 0 }],
+    };
+    useStore.setState({ config: graph, baseConfig: graph });
   });
 
   it("removing a fluid node also removes attached conductors and their selection", () => {
@@ -536,7 +537,7 @@ describe("maintainability regressions", () => {
     config.componentLibrary = {
       needle: { code: embedded, format: "defineComponent" },
     };
-    useStore.setState({ config, past: [], future: [] });
+    useStore.setState({ config, baseConfig: config, past: [], future: [] });
     const local = parseLocalComponent({
       path: "needle.js",
       source: localSource,
@@ -747,5 +748,196 @@ describe("color legend domain overrides", () => {
     expect(configHash(s().config)).toBe(before);
     expect(s().dirty).toBe(false);
     expect(s().resultStale).toBe(false);
+  });
+});
+
+describe("simulation variants", () => {
+  beforeEach(resetStore);
+
+  it("creates a variant seeded from what is on screen and activates it", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("Cold day");
+    expect(s().activeVariantId).toBe(id);
+    expect(s().baseConfig.variants).toHaveLength(1);
+    expect(s().baseConfig.variants![0].name).toBe("Cold day");
+    // Seeded from an unmodified Base, so it starts with no patch at all.
+    expect(s().baseConfig.variants![0].patch).toBeUndefined();
+  });
+
+  it("routes edits into the active variant, leaving the base untouched", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("Cold day");
+    s().updateNode("A", { temperature: 250 });
+
+    // What you see is the variant.
+    expect(s().config.nodes[0].temperature).toBe(250);
+    // The file's base network still says 300.
+    expect(s().baseConfig.nodes[0].temperature).toBe(300);
+    // …and the difference is recorded as this variant's patch.
+    expect(s().baseConfig.variants![0].patch).toEqual({
+      nodes: { A: { temperature: 250 } },
+    });
+
+    // Switching back to Base shows the unmodified network again.
+    s().setActiveVariant(null);
+    expect(s().config.nodes[0].temperature).toBe(300);
+    s().setActiveVariant(id);
+    expect(s().config.nodes[0].temperature).toBe(250);
+  });
+
+  it("propagates base edits into variants that do not override them", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().updateNode("A", { temperature: 250 });
+    s().setActiveVariant(null);
+    // Change something the variant does NOT patch.
+    s().updateNode("B", { pressure: 5e4 });
+    s().setActiveVariant(id);
+    expect(s().config.nodes[1].pressure).toBe(5e4);
+    expect(s().config.nodes[0].temperature).toBe(250);
+  });
+
+  it("writes variants into the .fn text so they travel with the model", () => {
+    const s = () => useStore.getState();
+    s().createVariant("Cold day");
+    s().updateNode("A", { temperature: 250 });
+    expect(s().modelText).toContain("variants: ");
+    expect(s().modelText).toContain('"Cold day"');
+    // The base node line is unchanged — only the patch carries 250.
+    const nodeLine = s()
+      .modelText.split("\n")
+      .find((l) => l.startsWith('node "A"'))!;
+    expect(nodeLine).toContain('"temperature":300');
+  });
+
+  it("undo restores both the file and the active variant", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().updateNode("A", { temperature: 250 });
+    s().undo();
+    expect(s().config.nodes[0].temperature).toBe(300);
+    expect(s().activeVariantId).toBe(id);
+    s().undo();
+    expect(s().baseConfig.variants).toBeUndefined();
+    expect(s().activeVariantId).toBeNull();
+  });
+
+  it("adding a variant does not stale another variant's results", () => {
+    const s = () => useStore.getState();
+    s().pushRunRecord({ result: steady(2e5), config: s().config });
+    expect(s().resultStale).toBe(false);
+    s().createVariant("V");
+    // Switching variants clears the displayed result rather than staling it.
+    expect(s().result).toBeNull();
+    s().setActiveVariant(null);
+    s().selectRun(s().runHistory[0].id);
+    expect(s().resultStale).toBe(false);
+  });
+
+  it("stamps runs with their variant and keeps the cap per variant", () => {
+    const s = () => useStore.getState();
+    s().pushRunRecord({ result: steady(2e5), config: s().config });
+    const id = s().createVariant("V");
+    s().pushRunRecord({ result: steady(3e5), config: s().config });
+
+    expect(s().runHistory.map((r) => r.variantId)).toEqual([null, id]);
+
+    // Fill this variant past the cap; the Base run must survive.
+    for (let i = 0; i < RUN_HISTORY_CAP + 2; i++)
+      s().pushRunRecord({ result: steady(1e5 + i), config: s().config });
+    const own = s().runHistory.filter((r) => r.variantId === id);
+    expect(own).toHaveLength(RUN_HISTORY_CAP);
+    expect(s().runHistory.some((r) => r.variantId === null)).toBe(true);
+  });
+
+  it("deleting a variant removes its runs and falls back to Base", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().pushRunRecord({ result: steady(3e5), config: s().config });
+    expect(s().runHistory).toHaveLength(1);
+
+    s().deleteVariant(id);
+    expect(s().activeVariantId).toBeNull();
+    expect(s().baseConfig.variants).toBeUndefined();
+    expect(s().runHistory).toHaveLength(0);
+  });
+
+  it("renames and duplicates variants", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().renameVariant(id, "Renamed");
+    expect(s().baseConfig.variants![0].name).toBe("Renamed");
+
+    s().updateNode("A", { temperature: 250 });
+    const copy = s().duplicateVariant(id);
+    expect(s().baseConfig.variants).toHaveLength(2);
+    expect(s().activeVariantId).toBe(copy);
+    expect(s().config.nodes[0].temperature).toBe(250);
+    // The copy is independent: editing it leaves the original alone.
+    s().updateNode("A", { temperature: 200 });
+    s().setActiveVariant(id);
+    expect(s().config.nodes[0].temperature).toBe(250);
+  });
+
+  it("clears runs and variants when a different model is loaded", () => {
+    const s = () => useStore.getState();
+    s().createVariant("V");
+    s().pushRunRecord({ result: steady(2e5), config: s().config });
+
+    s().setConfig(cfg("Other model"));
+    expect(s().runHistory).toEqual([]);
+    expect(s().selectedRunId).toBeNull();
+    expect(s().activeVariantId).toBeNull();
+    expect(s().config.meta.name).toBe("Other model");
+  });
+});
+
+describe("reorderEntity", () => {
+  beforeEach(resetStore);
+
+  it("moves an element within its array and is undoable", () => {
+    const s = () => useStore.getState();
+    expect(s().config.nodes.map((n) => n.id)).toEqual(["A", "B"]);
+
+    s().reorderEntity("node", 0, 1);
+    expect(s().config.nodes.map((n) => n.id)).toEqual(["B", "A"]);
+
+    s().undo();
+    expect(s().config.nodes.map((n) => n.id)).toEqual(["A", "B"]);
+  });
+
+  it("marks the file dirty but never stales results", () => {
+    const s = () => useStore.getState();
+    // A run whose config is the current one: reordering must not unpin it.
+    const before = configHash(s().config);
+    s().pushRunRecord({ result: steady(2e5), config: s().config });
+    expect(s().resultStale).toBe(false);
+
+    s().reorderEntity("node", 0, 1);
+    expect(s().dirty).toBe(true);
+    expect(s().resultStale).toBe(false);
+    // Same model, different listing order → same provenance identity.
+    expect(configHash(s().config)).toBe(before);
+  });
+
+  it("round-trips through the .fn text projection in the new order", () => {
+    const s = () => useStore.getState();
+    s().reorderEntity("node", 0, 1);
+    const lines = s()
+      .modelText.split("\n")
+      .filter((l) => l.startsWith("node "));
+    expect(lines[0]).toContain('"B"');
+    expect(lines[1]).toContain('"A"');
+  });
+
+  it("ignores out-of-range and no-op moves", () => {
+    const s = () => useStore.getState();
+    const historyBefore = s().past.length;
+    s().reorderEntity("node", 0, 0);
+    s().reorderEntity("node", 0, 5);
+    s().reorderEntity("node", -1, 1);
+    s().reorderEntity("conductor", 0, 1); // no conductors on this model
+    expect(s().config.nodes.map((n) => n.id)).toEqual(["A", "B"]);
+    expect(s().past.length).toBe(historyBefore);
   });
 });

@@ -1,21 +1,19 @@
 /**
- * e2e/workspace-sidebars.spec.ts — Diagram-only canvas tools.
+ * e2e/workspace-sidebars.spec.ts — Diagram-only canvas tools (Studio shell).
  *
- * The model-builder rail and contextual property panel render only while an
- * editable FlowCanvas is active. Text, Model Table, Sweep and Analysis
- * unmount the canvas tools.
+ * The model-builder rail renders only while an editable FlowCanvas is the
+ * active center content, and the Properties inspector additionally requires
+ * a selection. Sweep and Analysis unmount both; the project outline is
+ * layout chrome and stays on every tab:
  *
- *   - the center column expands to the full workspace width (no blank
- *     left/right rails),
+ *   - the rail and inspector are absent from the DOM (not merely hidden) on
+ *     non-canvas tabs, so hidden controls can never retain keyboard focus,
  *   - the page never gains horizontal overflow (desktop and ~700px), and
- *   - hidden sidebar controls can never retain or receive keyboard focus.
+ *   - selection survives the round trip in the zustand store.
  *
- * Selection survives the round trip in the zustand store.
- *
- * The workspace tab strip is a full-width sibling ABOVE the sidebar row
- * (Toolbar → tabs → sidebars+content), so the tabs never move when the
- * rails mount/unmount — every tab switch keeps the strip's bounding box
- * pixel-identical.
+ * The workspace tab strip lives inside the main column between the outline
+ * and inspector docks, so mounting/unmounting the inspector must not move
+ * the strip's origin.
  */
 import { test, expect, Page } from "@playwright/test";
 
@@ -36,41 +34,26 @@ function attachConsoleWatcher(page: Page) {
 
 const RAIL = '[aria-label="Model builder tools"]';
 const PANEL = '[data-testid="property-panel"]';
-const CENTER = '[data-testid="workspace-center"]';
-const WORKSPACE = ".workspace";
+const INSPECTOR = '[data-testid="studio-inspector"]';
+const OUTLINE = '[data-testid="studio-outline"]';
 const TABS = '[data-testid="workspace-tabs"]';
 
 /** Non-canvas workspace tabs: tab testid + the root testid of the view they host. */
 const NON_CANVAS_TABS = [
+  { tab: "config-tab", view: "configuration-view", name: "Setup" },
   { tab: "sweep-tab", view: "sweep-panel", name: "Sweep" },
-  { tab: "results-tab", view: "results-view", name: "Analysis" },
+  { tab: "results-tab", view: "results-view", name: "Results" },
 ] as const;
 
-/** Both sidebars are unmounted — absent from the DOM, not merely hidden. */
-async function expectSidebarsAbsent(page: Page) {
+/** Rail and inspector are unmounted — absent from the DOM, not hidden. */
+async function expectCanvasToolsAbsent(page: Page) {
   await expect(page.locator(RAIL)).toHaveCount(0);
+  await expect(page.locator(INSPECTOR)).toHaveCount(0);
   await expect(page.locator(PANEL)).toHaveCount(0);
 }
 
 async function expectCanvasRailPresent(page: Page) {
   await expect(page.locator(RAIL)).toBeVisible();
-}
-
-/** The center column spans the workspace edge to edge (no blank rails). */
-async function expectCenterFullWidth(page: Page) {
-  const center = await page.locator(CENTER).boundingBox();
-  const workspace = await page.locator(WORKSPACE).boundingBox();
-  expect(center, "center column box").not.toBeNull();
-  expect(workspace, "workspace box").not.toBeNull();
-  // 2px tolerance for borders/sub-pixel rounding.
-  expect(center!.x, "no empty left rail").toBeGreaterThanOrEqual(
-    workspace!.x - 1,
-  );
-  expect(center!.x, "no empty left rail").toBeLessThanOrEqual(workspace!.x + 2);
-  expect(
-    center!.x + center!.width,
-    "no empty right rail",
-  ).toBeGreaterThanOrEqual(workspace!.x + workspace!.width - 2);
 }
 
 /** No document-level horizontal overflow at the current viewport. */
@@ -86,32 +69,25 @@ async function expectNoHorizontalOverflow(page: Page) {
   ).toBeLessThanOrEqual(1);
 }
 
-/** Bounding box of the workspace tab strip (must never move between tabs). */
+/** Bounding box of the workspace tab strip. */
 async function tabStripBox(page: Page) {
   const box = await page.locator(TABS).boundingBox();
   expect(box, "tab strip box").not.toBeNull();
   return box!;
 }
 
-/**
- * The tab strip sits OUTSIDE the sidebar row: switching views mounts/unmounts
- * the rails below it, but the strip keeps the exact same box.
- */
+/** The strip's origin never moves when panels mount/unmount beside it. */
 async function expectTabStripStable(
   page: Page,
-  reference: { x: number; y: number; width: number },
+  reference: { x: number; y: number },
   context: string,
 ) {
   const box = await tabStripBox(page);
   expect(box.x, `tab strip x stable (${context})`).toBeCloseTo(reference.x, 0);
   expect(box.y, `tab strip y stable (${context})`).toBeCloseTo(reference.y, 0);
-  expect(box.width, `tab strip width stable (${context})`).toBeCloseTo(
-    reference.width,
-    0,
-  );
 }
 
-test.describe("Workspace canvas sidebars (Diagram-only)", () => {
+test.describe("Workspace canvas panels (Diagram-only)", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
     // Reset units to SI defaults, matching the other specs' isolation.
@@ -121,7 +97,7 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     await page.reload();
   });
 
-  test("1. sidebars are Diagram-only: unmounted + full-width on other tabs, state survives the round trip", async ({
+  test("1. canvas tools are Diagram-only: unmounted on other tabs, outline persists, state survives the round trip", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -132,13 +108,14 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
       "true",
     );
     await expectCanvasRailPresent(page);
+    // The inspector is contextual: nothing selected, nothing docked.
+    await expect(page.locator(INSPECTOR)).toHaveCount(0);
     await expect(page.locator(PANEL)).toHaveCount(0);
-    await expectCenterFullWidth(page);
 
-    // Reference box for the tab strip: it must be identical on every tab.
+    // Reference origin for the tab strip.
     const diagramTabs = await tabStripBox(page);
 
-    // --- Step 2: selecting an entity mounts its contextual panel -----------
+    // --- Step 2: selecting an entity fills the contextual panel ------------
     await page.locator('[data-testid="add-boundary-node"]').click();
     await page.waitForTimeout(200);
     await page.locator('[data-testid="node-B1"]').click();
@@ -152,21 +129,19 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
         `${name} view visible`,
       ).toBeVisible();
 
-      await expectSidebarsAbsent(page);
-      await expectCenterFullWidth(page);
+      await expectCanvasToolsAbsent(page);
+      // The project outline is layout chrome: it stays on every tab.
+      await expect(page.locator(OUTLINE)).toBeVisible();
       await expectNoHorizontalOverflow(page);
-      // Tabs never move: same strip box as on the Diagram (sidebars shown).
       await expectTabStripStable(page, diagramTabs, `Diagram → ${name}`);
 
       // ~700px: still no rails, still no horizontal overflow.
       await page.setViewportSize({ width: 700, height: 720 });
       await page.waitForTimeout(150);
-      await expectSidebarsAbsent(page);
-      await expectCenterFullWidth(page);
+      await expectCanvasToolsAbsent(page);
       await expectNoHorizontalOverflow(page);
       await page.setViewportSize({ width: 1280, height: 720 });
       await page.waitForTimeout(150);
-      // Restoring the viewport restores the reference strip box exactly.
       await expectTabStripStable(page, diagramTabs, `${name} @1280px`);
     }
 
@@ -174,7 +149,6 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     await page.locator('[data-testid="editor-tab"]').click();
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
     await expectCanvasRailPresent(page);
-    await expectCenterFullWidth(page);
     await expectTabStripStable(page, diagramTabs, "back to Diagram");
 
     // Selection survived the unmount: the property editor is still on B1.
@@ -183,7 +157,7 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("2. group/subnetwork canvas tab keeps both sidebars", async ({
+  test("2. group/subnetwork canvas tab keeps the canvas tools", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -217,9 +191,10 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
     await expect(groupTab).toHaveAttribute("aria-selected", "true");
 
     // The group canvas is an editable FlowCanvas: its rail stays mounted.
+    // (Whether the inspector is docked depends on the selection, which
+    // studio-shell.spec covers directly.)
     await expect(page.locator('[data-testid="flow-canvas"]')).toBeVisible();
     await expectCanvasRailPresent(page);
-    await expectCenterFullWidth(page);
     const groupTabs = await tabStripBox(page);
 
     // Opening Text keeps the group canvas selected behind the modal.
@@ -260,7 +235,7 @@ test.describe("Workspace canvas sidebars (Diagram-only)", () => {
         const el = document.activeElement as HTMLElement | null;
         return {
           inSidebar: !!el?.closest(
-            '.canvas-rail, [data-testid="property-panel"]',
+            '.canvas-rail, [data-testid="property-panel"], [data-testid="model-outline"]',
           ),
           testid: el?.getAttribute("data-testid"),
         };

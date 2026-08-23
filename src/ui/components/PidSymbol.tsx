@@ -106,16 +106,6 @@ function paths(kind: string): React.ReactNode {
           <line x1="10.5" y1="4" x2="10.5" y2="14" />
         </>
       );
-    case "orificeCompressible":
-      // Orifice plate + compressibility (gas-wave) cue.
-      return (
-        <>
-          <line x1="1" y1="10.5" x2="17" y2="10.5" />
-          <line x1="7.5" y1="6" x2="7.5" y2="15" />
-          <line x1="10.5" y1="6" x2="10.5" y2="15" />
-          <path d="M5 3.2 q2 -1.8 4 0 q2 1.8 4 0" />
-        </>
-      );
     case "cavitatingVenturi":
       // Converging–diverging (venturi) nozzle with a cavitation bubble cue.
       return (
@@ -239,7 +229,6 @@ export function hasPidSymbol(kind: string): boolean {
     case "pump":
     case "flowSource":
     case "orifice":
-    case "orificeCompressible":
     case "cavitatingVenturi":
     case "resistance":
     case "bend":

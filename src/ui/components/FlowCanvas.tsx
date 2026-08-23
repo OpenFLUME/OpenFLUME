@@ -22,13 +22,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useStore } from "../store";
-import {
-  createId,
-  loadGlobalMapOpen,
-  saveGlobalMapOpen,
-  DEFAULT_CANVAS_VISIBILITY,
-  type CanvasVisibility,
-} from "../utils";
+import { createId, loadGlobalMapOpen, saveGlobalMapOpen } from "../utils";
 import { canvasDropPosition } from "../dropPosition";
 import {
   LabelLayoutContext,
@@ -110,7 +104,7 @@ import {
   topologyOf,
 } from "../connectionRules";
 import { arrayMin, arrayMax } from "../arrayMinMax";
-import { canvasElementFromDrop, startCanvasElementDrag } from "../canvasDnd";
+import { canvasElementFromDrop } from "../canvasDnd";
 import { physicalLayout, projectLayout } from "../physicalLayout";
 import {
   DEFAULT_CAMERA,
@@ -119,6 +113,7 @@ import {
   type Camera3D,
 } from "../projection3d";
 import Canvas3DControls from "./Canvas3DControls";
+import CanvasRail from "./CanvasRail";
 import CustomNode from "./CustomNode";
 import CustomEdge from "./CustomEdge";
 import CustomSolidNode from "./CustomSolidNode";
@@ -149,309 +144,8 @@ const EMPTY_NOTES: NonNullable<NetworkConfig["notes"]> = [];
  *  so the prefix keeps them from ever colliding with a node id. */
 const NOTE_NODE_PREFIX = "note-";
 
-type DraggableNodeKind =
-  "fluid:internal" | "fluid:boundary" | "solid:solid" | "solid:ambient";
-
-/**
- * Name that unfurls beside an icon-only rail button on hover/focus. The
- * button's aria-label carries the same text, so this stays aria-hidden.
- */
-function RailTip({
-  label,
-  domain,
-  hint,
-}: {
-  label: string;
-  domain?: string;
-  hint?: string;
-}) {
-  return (
-    <span className="canvas-rail__tip" aria-hidden="true">
-      <span className="canvas-rail__tip-line">
-        <span className="canvas-rail__tip-label">{label}</span>
-        {domain ? <span className="canvas-rail__tip-tag">{domain}</span> : null}
-      </span>
-      {hint ? <span className="canvas-rail__tip-hint">{hint}</span> : null}
-    </span>
-  );
-}
-
-function RailButton({
-  label,
-  hint,
-  testId,
-  pressed,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  testId?: string;
-  pressed?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      className="canvas-rail__btn"
-      data-testid={testId}
-      aria-label={label}
-      aria-pressed={pressed}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {children}
-      <RailTip label={label} hint={hint} />
-    </button>
-  );
-}
-
-/** Which side of the drawing a visibility checkbox belongs to, purely for
- *  grouping the menu into "Elements" (nodes) and "Connections" (edges). */
-const VIEW_OPTION_SECTIONS: Array<{
-  heading: string;
-  options: Array<{ key: keyof CanvasVisibility; label: string }>;
-}> = [
-  {
-    heading: "Elements",
-    options: [
-      { key: "fluidNodes", label: "Fluid nodes" },
-      { key: "thermalNodes", label: "Thermal nodes" },
-    ],
-  },
-  {
-    heading: "Connections",
-    options: [
-      { key: "fluidBranches", label: "Fluid branches" },
-      { key: "conduction", label: "Conduction ties" },
-      { key: "convection", label: "Convection ties" },
-      { key: "radiation", label: "Radiation ties" },
-    ],
-  },
-];
-
-/**
- * "View" rail control — a checkbox menu that lets the user isolate one part
- * of the system (e.g. only the thermal network, or only radiation ties)
- * without touching the model. Unlike the labels toggle this is a menu, not a
- * single on/off button, so it manages its own open state and closes on an
- * outside click or Escape rather than the hover-only RailTip.
- */
-function ViewOptionsControl({
-  visibility,
-  onChange,
-}: {
-  visibility: CanvasVisibility;
-  onChange: (patch: Partial<CanvasVisibility>) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: MouseEvent) => {
-      const target = e.target;
-      // `Node` here would resolve to React Flow's node type (imported above),
-      // not the DOM one `contains` expects — spelled out via globalThis.
-      if (
-        target instanceof globalThis.Node &&
-        wrapRef.current &&
-        !wrapRef.current.contains(target)
-      ) {
-        setOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open]);
-
-  const allShown = Object.values(visibility).every(Boolean);
-
-  return (
-    <div className="canvas-rail__view-wrap" ref={wrapRef}>
-      <button
-        type="button"
-        className="canvas-rail__btn"
-        data-testid="canvas-view-options-toggle"
-        aria-label="View options"
-        aria-haspopup="true"
-        aria-expanded={open}
-        aria-pressed={!allShown}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <ViewOptionsIcon />
-        <RailTip
-          label="View options"
-          hint="Show only one part of the system at a time"
-        />
-      </button>
-      {open && (
-        <div
-          className="canvas-rail__view-menu"
-          data-testid="canvas-view-options-menu"
-          role="group"
-          aria-label="View options"
-        >
-          {VIEW_OPTION_SECTIONS.map((section) => (
-            <div
-              className="canvas-rail__view-menu-section"
-              key={section.heading}
-            >
-              <span className="canvas-rail__view-menu-heading">
-                {section.heading}
-              </span>
-              {section.options.map((option) => (
-                <label key={option.key}>
-                  <input
-                    type="checkbox"
-                    checked={visibility[option.key]}
-                    onChange={() =>
-                      onChange({ [option.key]: !visibility[option.key] })
-                    }
-                  />
-                  {option.label}
-                </label>
-              ))}
-            </div>
-          ))}
-          {!allShown && (
-            <button
-              type="button"
-              className="canvas-rail__view-menu-reset"
-              data-testid="canvas-view-options-reset"
-              onClick={() => onChange(DEFAULT_CANVAS_VISIBILITY)}
-            >
-              Show all
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function RailNodeTool({
-  kind,
-  label,
-  domain,
-  testId,
-  onClick,
-}: {
-  kind: DraggableNodeKind;
-  label: string;
-  /** 'Fluid' or 'Thermal' — the rail has no room for section headings, so the
-   *  network each node belongs to rides along in its name and tooltip. */
-  domain: string;
-  testId: string;
-  onClick: () => void;
-}) {
-  const isFluid = kind.startsWith("fluid:");
-  const isBoundary = kind === "fluid:boundary";
-  const isAmbient = kind === "solid:ambient";
-
-  return (
-    <button
-      type="button"
-      className="canvas-rail__btn canvas-rail__btn--element"
-      data-testid={testId}
-      draggable
-      aria-label={`${label} — ${domain} network`}
-      onDragStart={(event) => startCanvasElementDrag(event, kind)}
-      onClick={onClick}
-    >
-      {/* Same shapes and fills the canvas uses, so the rail reads as a legend.
-          Ambient keeps its dashed outline, drawn light here because the
-          canvas' near-black stroke would vanish against the rail. */}
-      <svg
-        className="canvas-rail__glyph"
-        viewBox="0 0 32 32"
-        aria-hidden="true"
-      >
-        {isFluid &&
-          (isBoundary ? (
-            <rect
-              x="5"
-              y="5"
-              width="22"
-              height="22"
-              rx="4"
-              fill={fluidNodeColor("boundary")}
-            />
-          ) : (
-            <circle cx="16" cy="16" r="11" fill={fluidNodeColor("internal")} />
-          ))}
-        {!isFluid && (
-          <polygon
-            points="16,4 28,16 16,28 4,16"
-            fill={solidNodeColor(isAmbient ? "ambient" : "solid")}
-            stroke={isAmbient ? solidNodeColor("solid") : "none"}
-            strokeWidth="2.5"
-            strokeDasharray={isAmbient ? "5 3" : undefined}
-          />
-        )}
-      </svg>
-      <RailTip label={label} domain={domain} hint="Drag or click to place" />
-    </button>
-  );
-}
-
-/** Text-note tool. Deliberately no domain tag: a note belongs to neither the
- *  fluid nor the thermal network — it annotates the drawing. */
-function RailNoteTool({
-  testId,
-  onClick,
-}: {
-  testId: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className="canvas-rail__btn canvas-rail__btn--element"
-      data-testid={testId}
-      draggable
-      aria-label="Text note — canvas annotation"
-      onDragStart={(event) => startCanvasElementDrag(event, "note")}
-      onClick={onClick}
-    >
-      {/* A lined card in the note's own paper and edge colors, so the rail
-          keeps reading as a legend. Set through style rather than the fill and
-          stroke attributes, which cannot resolve var(). */}
-      <svg
-        className="canvas-rail__glyph"
-        viewBox="0 0 32 32"
-        aria-hidden="true"
-      >
-        <rect
-          x="5"
-          y="6"
-          width="22"
-          height="20"
-          rx="3"
-          strokeWidth="2"
-          style={{ fill: "var(--note-paper)", stroke: "var(--note-edge)" }}
-        />
-        <path
-          d="M10 13h12M10 17h12M10 21h7"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          style={{ stroke: "var(--note-edge)", fill: "none" }}
-        />
-      </svg>
-      <RailTip label="Text note" hint="Drag or click to place" />
-    </button>
-  );
-}
+// Rail chrome (RailButton, node tools, view-options menu, icons) lives in
+// CanvasRail.tsx so shells can host the rail outside the canvas.
 
 // Rendered node sizes and the centers derived from them live in
 // canvasGeometry.ts (shared with CustomNode / CustomSolidNode /
@@ -2819,148 +2513,23 @@ export default function FlowCanvas({
           <Background id="grid-minor" gap={15} size={1} color={GRID_MINOR} />
           <Background id="grid-major" gap={90} size={2} color={GRID_MAJOR} />
           <Panel position="top-left" className="node-actions-panel">
-            <div
-              id="canvas-node-actions"
-              className="canvas-rail"
-              role="group"
-              aria-label="Model builder tools"
-            >
-              <div
-                className="canvas-rail__group"
-                role="group"
-                aria-label="Canvas tools"
-              >
-                <RailButton
-                  label="Select"
-                  hint="Drag a marquee to multi-select"
-                  pressed={multiSelectActive}
-                  onClick={() => setMultiSelectActive(true)}
-                >
-                  <SelectToolIcon />
-                </RailButton>
-                <RailButton
-                  label="Pan"
-                  hint="Drag to move the canvas"
-                  pressed={!multiSelectActive}
-                  onClick={() => setMultiSelectActive(false)}
-                >
-                  <PanToolIcon />
-                </RailButton>
-                <RailButton
-                  label="Inspect properties"
-                  hint={
-                    canInspectResult
-                      ? "Read values off the selection"
-                      : "Needs a converged run"
-                  }
-                  pressed={inspectMode}
-                  disabled={!canInspectResult}
-                  onClick={() => setInspectMode((active) => !active)}
-                >
-                  <InspectModeIcon />
-                </RailButton>
-                <RailButton
-                  label={view3d ? "Schematic view" : "3D view"}
-                  hint={
-                    view3d
-                      ? "Back to the P&ID layout"
-                      : "Place elements by physical position"
-                  }
-                  testId="canvas-3d-toggle"
-                  pressed={view3d}
-                  onClick={() => setCanvasView(view3d ? "2d" : "3d")}
-                >
-                  <View3DIcon />
-                </RailButton>
-                <RailButton
-                  label={showLabels ? "Hide labels" : "Show labels"}
-                  hint="All names and readouts on the drawing"
-                  testId="canvas-labels-toggle"
-                  pressed={!showLabels}
-                  onClick={() => setShowLabels(!showLabels)}
-                >
-                  <LabelsIcon hidden={!showLabels} />
-                </RailButton>
-                <ViewOptionsControl
-                  visibility={canvasVisibility}
-                  onChange={setCanvasVisibility}
-                />
-              </div>
-              <div className="canvas-rail__divider" />
-              <div
-                className="canvas-rail__group"
-                role="group"
-                aria-label="Fluid nodes"
-              >
-                <RailNodeTool
-                  kind="fluid:internal"
-                  label="Internal node"
-                  domain="Fluid"
-                  testId="add-internal-node"
-                  onClick={() => handleAddNode("internal")}
-                />
-                <RailNodeTool
-                  kind="fluid:boundary"
-                  label="Boundary node"
-                  domain="Fluid"
-                  testId="add-boundary-node"
-                  onClick={() => handleAddNode("boundary")}
-                />
-              </div>
-              <div className="canvas-rail__divider" />
-              <div
-                className="canvas-rail__group"
-                role="group"
-                aria-label="Thermal nodes"
-              >
-                <RailNodeTool
-                  kind="solid:solid"
-                  label="Solid node"
-                  domain="Thermal"
-                  testId="add-solid-node"
-                  onClick={() => handleAddSolidNode("solid")}
-                />
-                <RailNodeTool
-                  kind="solid:ambient"
-                  label="Ambient node"
-                  domain="Thermal"
-                  testId="add-ambient-node"
-                  onClick={() => handleAddSolidNode("ambient")}
-                />
-              </div>
-              <div className="canvas-rail__divider" />
-              <div
-                className="canvas-rail__group"
-                role="group"
-                aria-label="Annotations"
-              >
-                <RailNoteTool
-                  testId="add-note"
-                  onClick={() => handleAddNote()}
-                />
-              </div>
-              <div className="canvas-rail__divider" />
-              <div
-                className="canvas-rail__group"
-                role="group"
-                aria-label="Model views"
-              >
-                <RailButton
-                  label="Text view"
-                  testId="canvas-text-view"
-                  onClick={() => onOpenModelView("text")}
-                >
-                  <TextViewIcon />
-                </RailButton>
-                <RailButton
-                  label="Table view"
-                  testId="canvas-table-view"
-                  onClick={() => onOpenModelView("table")}
-                >
-                  <TableViewIcon />
-                </RailButton>
-              </div>
-            </div>
+            <CanvasRail
+              multiSelectActive={multiSelectActive}
+              setMultiSelectActive={setMultiSelectActive}
+              inspectMode={inspectMode}
+              toggleInspectMode={() => setInspectMode((active) => !active)}
+              canInspectResult={canInspectResult}
+              view3d={view3d}
+              setCanvasView={setCanvasView}
+              showLabels={showLabels}
+              setShowLabels={setShowLabels}
+              canvasVisibility={canvasVisibility}
+              setCanvasVisibility={setCanvasVisibility}
+              onAddNode={handleAddNode}
+              onAddSolidNode={handleAddSolidNode}
+              onAddNote={() => handleAddNote()}
+              onOpenModelView={onOpenModelView}
+            />
           </Panel>
           <Panel position="top-right">
             <div
@@ -3441,110 +3010,6 @@ function ConnectionChoiceSection({
       <div className="connection-chooser__section-label">{label}</div>
       <div className="connection-chooser__options">{children}</div>
     </div>
-  );
-}
-
-// Rail icons share a 24-unit box and a 1.8 stroke so they carry the same
-// optical weight next to the filled node glyphs.
-function RailIcon({ children }: { children: React.ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      {children}
-    </svg>
-  );
-}
-
-function SelectToolIcon() {
-  return (
-    <RailIcon>
-      <path d="M13 4h3a2 2 0 0 1 2 2v3" />
-      <path d="M13 20h3a2 2 0 0 0 2-2v-3" />
-      <path d="M4 13v3a2 2 0 0 0 2 2h3" />
-      <path d="M4 11V6a2 2 0 0 1 2-2h3" />
-      <path d="m9 9 5 12 1.8-5.2L21 14Z" />
-    </RailIcon>
-  );
-}
-
-function PanToolIcon() {
-  return (
-    <RailIcon>
-      <path d="M18 11V6a2 2 0 0 0-4 0" />
-      <path d="M14 10V4a2 2 0 0 0-4 0v2" />
-      <path d="M10 10.5V6a2 2 0 0 0-4 0v8" />
-      <path d="M18 8a2 2 0 0 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-6-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
-    </RailIcon>
-  );
-}
-
-function InspectModeIcon() {
-  return (
-    <RailIcon>
-      <path d="M4 4v15a1 1 0 0 0 1 1h15" />
-      <path d="m19 9-5 5-3.5-3.5L7 14" />
-    </RailIcon>
-  );
-}
-
-/** A cube in three-quarter view: the axonometric box every CAD tool uses for
- *  "look at this in space". */
-function View3DIcon() {
-  return (
-    <RailIcon>
-      <path d="M12 3 3 7.5v9L12 21l9-4.5v-9L12 3Z" />
-      <path d="M3 7.5 12 12l9-4.5" />
-      <path d="M12 12v9" />
-    </RailIcon>
-  );
-}
-
-/** A name tag, struck through once the names are off. */
-function LabelsIcon({ hidden }: { hidden: boolean }) {
-  return (
-    <RailIcon>
-      <path d="M3.5 8.5a2 2 0 0 1 2-2h7l6 5.5-6 5.5h-7a2 2 0 0 1-2-2Z" />
-      <path d="M7.5 12h.01" />
-      {hidden && <path d="M4 20 20 4" />}
-    </RailIcon>
-  );
-}
-
-/** Stacked layers — isolating one part of the drawing reads as peeling a
- *  layer off the stack. */
-function ViewOptionsIcon() {
-  return (
-    <RailIcon>
-      <path d="m12 3.5 8.5 4.5-8.5 4.5-8.5-4.5L12 3.5Z" />
-      <path d="m3.5 12 8.5 4.5 8.5-4.5" />
-      <path d="m3.5 15.5 8.5 4.5 8.5-4.5" />
-    </RailIcon>
-  );
-}
-
-function TextViewIcon() {
-  return (
-    <RailIcon>
-      <path d="M14 3H6.5A1.5 1.5 0 0 0 5 4.5v15A1.5 1.5 0 0 0 6.5 21h11a1.5 1.5 0 0 0 1.5-1.5V8Z" />
-      <path d="M14 3v5h5" />
-      <path d="M8.5 13h7M8.5 17h4.5" />
-    </RailIcon>
-  );
-}
-
-function TableViewIcon() {
-  return (
-    <RailIcon>
-      <rect x="3.5" y="4.5" width="17" height="15" rx="1.5" />
-      <path d="M3.5 9.5h17M3.5 14.5h17M10 9.5v10" />
-    </RailIcon>
   );
 }
 

@@ -479,6 +479,40 @@ export interface JunctionConfig {
   productFluid: string;
 }
 
+/**
+ * One named alternative to the network in the file, stored as a SPARSE
+ * patch rather than a copy: only what differs is recorded, so edits to the
+ * base network keep flowing into every variant and the file stays readable
+ * as a diff.
+ *
+ * Resolution order in `applyVariant` is removals → field overrides →
+ * additions, which makes a patch order-independent to author.
+ */
+export interface VariantSpec {
+  id: string;
+  name: string;
+  patch?: {
+    /** Solver settings overrides, merged field-wise over the base. */
+    settings?: Partial<NetworkConfig["settings"]>;
+    /** Whole-value replacement of the default fluid. */
+    fluid?: FluidSpec;
+    /** Per-entity field overrides, keyed by element id. */
+    nodes?: Record<string, Record<string, unknown>>;
+    branches?: Record<string, Record<string, unknown>>;
+    solidNodes?: Record<string, Record<string, unknown>>;
+    conductors?: Record<string, Record<string, unknown>>;
+    /** Elements that exist only in this variant. */
+    added?: {
+      nodes?: NetworkConfig["nodes"];
+      branches?: NetworkConfig["branches"];
+      solidNodes?: SolidNode[];
+      conductors?: Conductor[];
+    };
+    /** Base element ids this variant suppresses. */
+    removed?: string[];
+  };
+}
+
 export interface NetworkConfig {
   /**
    * Schema version marker.  Version 2 is the canonical (and only) supported
@@ -718,6 +752,17 @@ export interface NetworkConfig {
    * from the provenance hash, so adding or editing a note leaves results and
    * run-history comparisons untouched.
    */
+  /**
+   * Named simulation variants: sparse patches over THIS network.
+   *
+   * The file body is the implicit "Base" variant; each entry describes what
+   * one alternative changes (settings, per-entity fields, or added/removed
+   * elements).  Variants are authorship, not numerics: the solver never sees
+   * them (`applyVariant` strips the field when resolving), and they are
+   * excluded from the provenance hash, so adding one cannot stale another's
+   * results.  See core/variants.ts.
+   */
+  variants?: VariantSpec[];
   notes?: Array<{
     id: string;
     /** Note body.  May contain newlines. */
@@ -770,8 +815,20 @@ export interface NetworkConfig {
            *  and kinetic-energy terms.  Omit for a constant-diameter pipe. */
           diameterOut?: number;
         }
+      /**
+       * Flow restriction with area `area` and discharge coefficient `cd`.
+       * One mass-flow law for every fluid:
+       *
+       *   ṁ = C_d A Y(r, κ) √(2 ρ_up ΔP)
+       *
+       * Y is the ISO/AGA expansibility factor. κ is the fluid's isentropic
+       * exponent (constant γ for ideal gas; a²ρ/P from the EOS for a real
+       * fluid; omitted — Y = 1 — for incompressible liquids). Below the
+       * critical pressure ratio the same formula is evaluated at r* so the
+       * restriction chokes. Legacy configs authored as `orificeCompressible`
+       * load as this type.
+       */
       | { type: "orifice"; area: NumberOrExpression; cd: number }
-      | { type: "orificeCompressible"; area: NumberOrExpression; cd: number }
       | {
           type: "cavitatingVenturi";
           throatArea: NumberOrExpression;

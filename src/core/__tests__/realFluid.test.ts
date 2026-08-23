@@ -17,6 +17,7 @@ import {
 import { solveSteady } from "../solver";
 import { solveTransient } from "../transient";
 import { validateNetwork } from "../validate";
+import { Orifice } from "../components";
 
 beforeAll(async () => {
   await initRealFluids();
@@ -274,7 +275,6 @@ describe("RealFluid solver-level: N2 high-pressure orifice", () => {
     const fluidReal = new RealFluid("Nitrogen");
     const rhoReal = fluidReal.density(P1, T);
     const R = 297; // approximate for N2
-    const rhoIdeal = P1 / (R * T);
 
     const configReal: NetworkConfig = {
       meta: { name: "test", version: 2 },
@@ -333,18 +333,58 @@ describe("RealFluid solver-level: N2 high-pressure orifice", () => {
     const mdotReal = real.branches.o1.mdot;
     const mdotIdeal = ideal.branches.o1.mdot;
 
-    // Real-gas density is lower than ideal at 10 MPa (Z < 1 for N2 at these conditions)
-    // mdot should scale roughly with sqrt(rho) for orifice flow.
-    const ratio = mdotReal / mdotIdeal;
-    const densityRatio = rhoReal / rhoIdeal;
-    expect(ratio).toBeGreaterThan(0.8);
-    expect(ratio).toBeLessThan(1.2);
-    // Direction check: if real density < ideal, real mdot should be < ideal
-    if (densityRatio < 1) {
-      expect(ratio).toBeLessThan(1.0);
-    } else {
-      expect(ratio).toBeGreaterThan(1.0);
-    }
+    const oc = new Orifice(A, Cd);
+    const aReal = fluidReal.speedOfSound(P1, T);
+    const kappaReal = (aReal * aReal * rhoReal) / P1;
+    const expectedReal = oc.massFlowFromState(P1, P2, rhoReal, kappaReal);
+    const expectedIdeal = oc.massFlow(P1, P2, T, R, 1.4);
+    expect(Math.abs(mdotReal - expectedReal) / expectedReal).toBeLessThan(
+      0.005,
+    );
+    expect(Math.abs(mdotIdeal - expectedIdeal) / expectedIdeal).toBeLessThan(
+      0.005,
+    );
+  });
+
+  it("real-N2 orifice chokes: mdot independent of P_down below r*", () => {
+    const P1 = 10e6;
+    const T = 300;
+    const A = 1e-4;
+    const Cd = 0.6;
+    const fluid = new RealFluid("Nitrogen");
+    const a = fluid.speedOfSound(P1, T);
+    const rho = fluid.density(P1, T);
+    const kappa = (a * a * rho) / P1;
+    const rCrit = Math.pow(2 / (kappa + 1), kappa / (kappa - 1));
+    const make = (P2: number): NetworkConfig => ({
+      meta: { name: "test", version: 2 },
+      settings: {
+        mode: "steady",
+        tolerance: 1e-9,
+        maxIterations: 500,
+        relaxation: 0.9,
+      },
+      fluid: { model: "realFluid", params: { fluidName: "Nitrogen" } },
+      nodes: [
+        { id: "A", type: "boundary", x: 0, y: 0, pressure: P1, temperature: T },
+        { id: "B", type: "boundary", x: 1, y: 0, pressure: P2, temperature: T },
+      ],
+      branches: [
+        {
+          id: "o1",
+          from: "A",
+          to: "B",
+          component: { type: "orifice", area: A, cd: Cd },
+        },
+      ],
+    });
+    const hi = solveSteady(make(P1 * rCrit * 0.8));
+    const lo = solveSteady(make(P1 * rCrit * 0.3));
+    expect(hi.converged).toBe(true);
+    expect(lo.converged).toBe(true);
+    expect(
+      Math.abs(hi.branches.o1.mdot - lo.branches.o1.mdot) / hi.branches.o1.mdot,
+    ).toBeLessThan(0.002);
   });
 });
 
@@ -369,11 +409,13 @@ describe("RealFluid solver-level: N2 tank blowdown transient", () => {
     const cp = getCoolProp();
     const state = cp.factory("HEOS", "Nitrogen");
 
+    const orifice = new Orifice(A, Cd);
     const orificeMdot = (P: number, T: number) => {
       state.update(cp.input_pairs.PT_INPUTS, P, T);
       const rho = state.rhomass();
-      const dP = Math.max(P - Pout, 1e-6);
-      return Cd * A * Math.sqrt(2 * rho * dP);
+      const a = state.speed_sound();
+      const kappa = (a * a * rho) / P;
+      return orifice.massFlowFromState(P, Pout, rho, kappa);
     };
 
     const ode = (_t: number, y: number[]) => {

@@ -84,6 +84,24 @@ describe("decodeNetworkConfig", () => {
     expect(config).toBe(input);
   });
 
+  it("renames a legacy orificeCompressible branch to orifice", () => {
+    const input = validConfig();
+    (input.branches as Record<string, unknown>[])[0] = {
+      id: "o1",
+      from: "a",
+      to: "b",
+      component: { type: "orificeCompressible", area: 1e-4, cd: 0.6 },
+    };
+    const config = decodeNetworkConfig(input);
+    expect(config.branches[0].component.type).toBe("orifice");
+    expect(
+      (config.branches[0].component as { area: number; cd: number }).area,
+    ).toBe(1e-4);
+    expect(
+      (config.branches[0].component as { area: number; cd: number }).cd,
+    ).toBe(0.6);
+  });
+
   it("folds a legacy nodes[].z / solidNodes[].z into position.z and drops z", () => {
     const input = validConfig();
     const nodes = input.nodes as Record<string, unknown>[];

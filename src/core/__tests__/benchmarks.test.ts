@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { NetworkConfig } from "../schema";
 import { solveSteady } from "../solver";
 import { solveTransient } from "../transient";
-import { Pipe, Valve, Pump } from "../components";
+import { Pipe, Valve, Pump, Orifice } from "../components";
 import { IdealGas } from "../fluids";
 
 // ─── Dense linear solver (Gauss elimination) ─────────────────────────
@@ -709,6 +709,7 @@ describe("B4: Two-tank transient equalization", () => {
     const P2_0 = 2e5;
     const A_orifice = 1e-4;
     const Cd = 0.6;
+    const orifice = new Orifice(A_orifice, Cd);
     const endTime = 3.0;
     const dtSolver = 0.05;
     const dtRef = dtSolver / 100; // 0.0005
@@ -727,9 +728,9 @@ describe("B4: Two-tank transient equalization", () => {
       const P2 = (m2 * R * T2) / V2;
       const dp = P1 - P2;
       const T_up = dp > 0 ? T1 : T2;
-      const rhoUp = Math.max(P1, P2) / (R * T_up);
-      const mdot =
-        Cd * A_orifice * Math.sqrt(2 * rhoUp * Math.abs(dp)) * Math.sign(dp);
+      const pUp = dp > 0 ? P1 : P2;
+      const pDown = dp > 0 ? P2 : P1;
+      const mdot = orifice.massFlow(pUp, pDown, T_up, R, 1.4) * Math.sign(dp);
       return [-mdot, -mdot * cp * T_up, +mdot, +mdot * cp * T_up];
     };
 
@@ -1022,22 +1023,23 @@ describe("B6: Blowdown through valve schedule", () => {
     const dtSolver = 0.05;
 
     const CdA_v = Cd * A_valve;
-    const CdA_o = Cd * A_orifice;
 
     function valvePos(t: number): number {
       return t <= 2.0 ? t / 2.0 : 1.0;
     }
 
-    // Bisection: solve series valve+orifice for mdot given tank (P,T)
+    // Bisection: series valve (Bernoulli) + orifice (Y-factor) for mdot
+    const seriesOrifice = new Orifice(A_orifice, Cd);
     function mdotFromPT(P_tank: number, T_tank: number, pos: number): number {
       if (P_tank <= Pamb) return 0;
       const rho_tank = P_tank / (R * T_tank);
       const effCdA_v = Math.max(CdA_v * pos, 1e-9);
       const residual = (m: number) => {
-        const disc = Pamb * Pamb + (2 * m * m * R * T_tank) / (CdA_o * CdA_o);
-        const P_mid = (Pamb + Math.sqrt(disc)) / 2;
         const dp_valve = (m * m) / (2 * rho_tank * effCdA_v * effCdA_v);
-        return P_tank - P_mid - dp_valve;
+        const P_mid = P_tank - dp_valve;
+        if (P_mid <= Pamb) return -m - 1;
+        const rho_mid = P_mid / (R * T_tank);
+        return seriesOrifice.massFlowFromState(P_mid, Pamb, rho_mid, 1.4) - m;
       };
       let hi = effCdA_v * Math.sqrt(2 * rho_tank * (P_tank - Pamb));
       for (let e = 0; e < 60; e++) {
@@ -1107,9 +1109,9 @@ describe("B6: Blowdown through valve schedule", () => {
         mode: "transient",
         dt: dtSolver,
         endTime,
-        tolerance: 1e-9,
-        maxIterations: 500,
-        relaxation: 0.9,
+        tolerance: 1e-6,
+        maxIterations: 800,
+        relaxation: 0.8,
       },
       fluid: { model: "idealGas", preset: "air" },
       nodes: [
@@ -1127,9 +1129,9 @@ describe("B6: Blowdown through valve schedule", () => {
           type: "internal",
           x: 1,
           y: 0,
-          pressure: P0,
+          pressure: Pamb,
           temperature: T0,
-          volume: 1e-6,
+          volume: 1e-3,
         },
         {
           id: "amb",
@@ -1192,14 +1194,14 @@ describe("B6: Blowdown through valve schedule", () => {
     expect(finalT).toBeLessThan(T0);
 
     let maxBranchDiff = 0;
-    // Valve and orifice mdots agree (<0.5% relative; tiny mid volume causes minor mismatch)
+    // Valve and orifice mdots agree to ~1%: the mid node needs a little
+    // volume for the Y-factor orifice residual to settle, so it stores a
+    // small amount of mass.
     for (let i = 1; i < res.times.length; i++) {
+      const denom = Math.max(Math.abs(res.branches.o1.mdot[i]), 1e-8);
       const diff = Math.abs(res.branches.v1.mdot[i] - res.branches.o1.mdot[i]);
-      maxBranchDiff = Math.max(
-        maxBranchDiff,
-        diff / Math.abs(res.branches.o1.mdot[i]),
-      );
-      expect(diff / Math.abs(res.branches.o1.mdot[i])).toBeLessThan(0.005);
+      maxBranchDiff = Math.max(maxBranchDiff, diff / denom);
+      expect(diff / denom).toBeLessThan(0.015);
     }
     // (logs removed)
   });

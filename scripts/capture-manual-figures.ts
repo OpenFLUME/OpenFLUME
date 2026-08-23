@@ -8,15 +8,15 @@
  * docs/user-manual.md into docs/figures/user-manual/:
  *
  *   first-run-orifice.png       §2.3 fig 2-1  orifice sanity check, branch selected
- *   tank-blowdown-results.png   §2.3 fig 2-2  Analysis tab after the transient
+ *   tank-blowdown-results.png   §2.3 fig 2-2  Results tab: Node pressure vs time
  *   tank-blowdown-scrubber.png  §2.3 fig 2-3  canvas colored by pressure + scrubber
  *   regen-cooling-canvas.png    §6.3 fig 6-1  conjugate model by temperature
- *   settings-dialog.png         §6.6 fig 6-2  Global Settings over the same model
+ *   configuration-view.png      §6.6 fig 6-2  Setup (Solver section) over the same model
  *   model-text-view.png         §6.10 fig 6-3 Model Text over the same model
  *
  * The figures are captured in ONE browser session, in the order the manual
- * presents them, so run numbering in the Analysis tab matches the walkthrough
- * (the tank blowdown is Run 2 because the orifice check was Run 1).
+ * presents them. Loading an example resets run history, so each model starts
+ * at Run 1.
  *
  * Determinism notes: browser storage is cleared before the first example so an
  * autosaved model can never leak in, the pointer is parked over empty canvas
@@ -63,23 +63,30 @@ async function parkPointer(page: Page): Promise<void> {
   await page.waitForTimeout(150);
 }
 
-/**
- * Click an edge on the canvas by its element id. React Flow draws edges in a
- * transformed SVG layer, so the click goes through the pointer at the centre
- * of the edge's client rect rather than through the locator's own hit test.
- */
-async function selectOnCanvas(page: Page, edgeId: string): Promise<void> {
-  const rect = await page.evaluate((id) => {
-    const path = document.querySelector<SVGPathElement>(
-      `[data-testid="rf__edge-${id}"] .react-flow__edge-interaction`,
-    );
-    if (!path) return null;
-    const { x, y, width, height } = path.getBoundingClientRect();
-    return { x, y, width, height };
-  }, edgeId);
-  if (!rect) throw new Error(`Edge "${edgeId}" is not on the canvas.`);
-  await page.mouse.click(rect.x + rect.width / 2, rect.y + rect.height / 2);
-  await page.waitForTimeout(200);
+/** Floating Duplicate/Delete chrome is a selection overlay, not the figure. */
+async function hideSelectionOverlays(page: Page): Promise<void> {
+  await page.addStyleTag({
+    content: ".selection-menu { display: none !important; }",
+  });
+}
+
+/** Open Results and fill the empty plot with node pressure versus time. */
+async function plotNodePressureVsTime(page: Page): Promise<void> {
+  await testId(page, "results-tab").click();
+  await testId(page, "plot-x-axis").waitFor({ state: "visible" });
+  await page.waitForFunction(() => {
+    const el = document.querySelector(
+      '[data-testid="plot-x-axis"]',
+    ) as HTMLSelectElement | null;
+    return el?.value === "time";
+  });
+  await testId(page, "plot-channel-preset").selectOption("node-pressure");
+  await testId(page, "plot-chart").waitFor({
+    state: "visible",
+    timeout: 20_000,
+  });
+  await page.locator('[data-testid="plot-chart"] polyline').first().waitFor();
+  await page.waitForTimeout(400);
 }
 
 async function loadExample(page: Page, name: string): Promise<void> {
@@ -146,24 +153,20 @@ async function capture(baseURL: string): Promise<void> {
       state: "visible",
       timeout: 30_000,
     });
+    await hideSelectionOverlays(page);
 
     // --- Figure 2-1: orifice sanity check, orifice branch selected -----------
     await loadExample(page, "Sanity: orifice hand-calc");
     await runToCompletion(page, STEADY_TIMEOUT);
-    await selectOnCanvas(page, "o");
+    await testId(page, "outline-item-o").click();
     await testId(page, "property-panel").waitFor({ state: "visible" });
     await parkPointer(page);
     await shoot(page, "first-run-orifice");
 
-    // --- Figure 2-2: Analysis tab after the tank-blowdown transient ----------
+    // --- Figure 2-2: Results tab after the tank-blowdown transient ------------
     await loadExample(page, "Tank blowdown");
     await runToCompletion(page, STEADY_TIMEOUT);
-    await testId(page, "results-tab").click();
-    await testId(page, "channel-explorer-chart").waitFor({
-      state: "visible",
-      timeout: 20_000,
-    });
-    await page.waitForTimeout(400);
+    await plotNodePressureVsTime(page);
     await shoot(page, "tank-blowdown-results");
 
     // --- Figure 2-3: canvas colored by pressure, with the time scrubber ------
@@ -187,13 +190,17 @@ async function capture(baseURL: string): Promise<void> {
     await parkPointer(page);
     await shoot(page, "regen-cooling-canvas");
 
-    // --- Figure 6-2: Global Settings over the same real-fluid model ----------
-    await testId(page, "toolbar-settings").click();
-    await testId(page, "settings-dialog").waitFor({ state: "visible" });
+    // --- Figure 6-2: Setup over the same real-fluid model ------------
+    // The view opens on its Solver section, which is what the figure shows.
+    await testId(page, "config-tab").click();
+    await testId(page, "configuration-view").waitFor({ state: "visible" });
+    await testId(page, "settings-tab-panel-solver").waitFor({
+      state: "visible",
+    });
     await page.waitForTimeout(300);
-    await shoot(page, "settings-dialog");
-    await testId(page, "settings-close").click();
-    await testId(page, "settings-dialog").waitFor({ state: "hidden" });
+    await shoot(page, "configuration-view");
+    await testId(page, "editor-tab").click();
+    await testId(page, "configuration-view").waitFor({ state: "hidden" });
 
     // --- Figure 6-3: Model Text over the same model --------------------------
     await testId(page, "canvas-text-view").click();

@@ -31,6 +31,14 @@ export interface Series {
   opacity?: number;
   /** Lock this series' color to another series (baseline ↔ primary pairing). */
   matchColorOf?: string;
+  /**
+   * Draw as stairs rather than a connected line: value i is held from x[i] to
+   * x[i+1] before jumping. For a quantity that belongs to the SPAN between two
+   * x samples rather than to a sample itself — a component's mass flow or
+   * pressure drop along a flow path — a sloped line between stations would
+   * imply a gradient the value does not have.
+   */
+  step?: boolean;
 }
 
 interface InteractiveChartProps {
@@ -50,6 +58,13 @@ interface InteractiveChartProps {
    */
   yUnitLabel?: string;
   xQuantityKind?: QuantityKind;
+  /**
+   * Interactive control rendered in the x-axis label's place, so choosing what
+   * the axis means happens AT the axis rather than in a toolbar elsewhere.
+   * When supplied the SVG label is omitted; exports still name the axis in
+   * their title line, so nothing is lost from a downloaded image.
+   */
+  xAxisControl?: React.ReactNode;
   height?: number;
   cursorTime?: number;
   /** Testid prefix for export buttons (e.g. "chart" → chart-export-png). */
@@ -78,7 +93,7 @@ interface InteractiveChartProps {
   provenanceConfig?: NetworkConfig;
 }
 
-const MARGIN = { top: 16, right: 16, bottom: 40, left: 64 };
+const MARGIN = { top: 16, right: 16, bottom: 40, left: 80 };
 
 /* Literal colors inside the SVG so it serializes standalone for export.
    Values mirror the CSS tokens. */
@@ -265,6 +280,7 @@ export default function InteractiveChart({
   yQuantityKind,
   yUnitLabel,
   xQuantityKind = "time",
+  xAxisControl,
   height = 300,
   cursorTime,
   exportTestid,
@@ -550,12 +566,23 @@ export default function InteractiveChart({
 
   const polylines = useMemo(() => {
     return visibleSeries.map((s) => {
-      const points = s.disp
-        .map((v, i) => `${xScale(dispTimes[i])},${yScale(v)}`)
-        .join(" ");
+      // Non-finite samples are skipped rather than emitted: one "NaN,NaN"
+      // invalidates the whole `points` attribute and the series vanishes.
+      // The line therefore bridges a gap instead of breaking at it.
+      const pts: string[] = [];
+      for (let i = 0; i < s.disp.length; i++) {
+        const v = s.disp[i];
+        const x = dispTimes[i];
+        if (!Number.isFinite(v) || !Number.isFinite(x)) continue;
+        pts.push(`${xScale(x)},${yScale(v)}`);
+        if (s.step) {
+          const nextX = dispTimes[i + 1];
+          if (Number.isFinite(nextX)) pts.push(`${xScale(nextX)},${yScale(v)}`);
+        }
+      }
       return {
         id: s.id,
-        points,
+        points: pts.join(" "),
         color: s.color,
         dashed: s.dashed,
         opacity: s.opacity,
@@ -709,15 +736,6 @@ export default function InteractiveChart({
           marginBottom: 4,
         }}
       >
-        <span
-          className="chart-title"
-          style={{ fontSize: 12, fontWeight: 600, color: "var(--text-1)" }}
-        >
-          {yLabel} ({yUnitText}){" "}
-          <span style={{ color: "var(--text-3)", fontWeight: 400 }}>
-            vs {xLabel} ({xScaleChoice.unitLabel})
-          </span>
-        </span>
         <span style={{ flex: 1 }} />
         {zoomDomain && (
           <button
@@ -851,14 +869,29 @@ export default function InteractiveChart({
           </text>
         ))}
         <text
-          x={MARGIN.left + innerWidth / 2}
-          y={height - 6}
+          className="chart-y-axis-label"
+          data-testid={`${exportPrefix}-y-axis-label`}
+          transform={`rotate(-90 14 ${MARGIN.top + innerHeight / 2})`}
+          x={14}
+          y={MARGIN.top + innerHeight / 2}
           fill={C.text}
           fontSize={11}
           textAnchor="middle"
+          dominantBaseline="hanging"
         >
-          {xLabel} ({xScaleChoice.unitLabel})
+          {yLabel} ({yUnitText})
         </text>
+        {xAxisControl === undefined && (
+          <text
+            x={MARGIN.left + innerWidth / 2}
+            y={height - 6}
+            fill={C.text}
+            fontSize={11}
+            textAnchor="middle"
+          >
+            {xLabel} ({xScaleChoice.unitLabel})
+          </text>
+        )}
         {polylines.map((p) => (
           <polyline
             key={p.id}
@@ -906,6 +939,17 @@ export default function InteractiveChart({
           />
         )}
       </svg>
+
+      {/* The x-axis label's place, made interactive. Indented by the plot's
+          left margin so it centres on the axis, not on the component. */}
+      {xAxisControl !== undefined && (
+        <div
+          className="chart-x-axis-control"
+          style={{ paddingLeft: MARGIN.left, paddingRight: MARGIN.right }}
+        >
+          {xAxisControl}
+        </div>
+      )}
 
       {tooltipData && mousePos && (
         <div

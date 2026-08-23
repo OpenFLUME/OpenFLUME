@@ -10,7 +10,7 @@ catalogue** of every fluid in the shipped coolprop-wasm build's HEOS backend:
 Flashing an `AbstractState` can abort the WASM heap for some fluids. An abort can poison every subsequent CoolProp call in the process (this is the failure mode `realFluid.ts` defends against for NitrousOxide). A runtime probe of "is this fluid supported / does it have transport?" is therefore unsafe. Instead:
 
 - The catalogue is generated **offline** by `scripts/build-fluid-catalogue.ts` (`npm run gen:fluid-catalogue`), which reads `get_global_param_string('fluids_list')` plus per-fluid `get_fluid_param_string(name, 'CAS' | 'aliases' | 'pure')` (safe, string-only calls). It probes transport-model availability **in one isolated child process per fluid**. This ensures a heap-corrupting abort can never affect another fluid's verdict.
-- Runtime code (validation, the Settings picker, the solver worker) reads only the generated TypeScript file. `validateNetwork` stays synchronous and never requires the CoolProp WASM module to be initialized (this is pinned by a test in `src/core/__tests__/fluidCatalogue.test.ts`).
+- Runtime code (validation, the Setup fluid picker, the solver worker) reads only the generated TypeScript file. `validateNetwork` stays synchronous and never requires the CoolProp WASM module to be initialized (this is pinned by a test in `src/core/__tests__/fluidCatalogue.test.ts`).
 - `npm run check:fluid-catalogue` re-derives the catalogue and diffs it
   against the committed file (exit 1 on drift). It is intentionally **not**
   part of the test suite: it needs the WASM module and takes ~a minute.
@@ -30,7 +30,7 @@ no arbitrary mixture strings (`"Water[0.5]&Ammonia[0.5]"` is rejected).
 
 ## Validation semantics (`core/validate.ts`)
 
-1. **Unknown name** (not a canonical name or unambiguous alias) → error: _"… is not a CoolProp HEOS fluid."_ The Settings picker renders such a saved value as a visible invalid option instead of silently reverting.
+1. **Unknown name** (not a canonical name or unambiguous alias) → error: _"… is not a CoolProp HEOS fluid."_ The Setup fluid picker renders such a saved value as a visible invalid option instead of silently reverting.
 2. **Catalogue fluid without a viscosity model** (`'no'`/`'unknown'`) → error. The solver would otherwise silently run with zero transport (no Darcy friction, no convection). These fluids remain **discoverable** in the picker, marked _"⚠ no transport model"_.
    - **Exception:** the curated favorites (`SUPPORTED_REAL_FLUIDS`, the historical 9-fluid allowlist) are grandfathered. NitrousOxide is the only favorite without a transport model, and its inviscid-limit behavior is long-standing and covered by existing tests.
 3. **Missing conductivity only** (viscosity present) → allowed. Convection correlations already fall back when `k` is unavailable. The picker notes it.

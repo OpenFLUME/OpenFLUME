@@ -26,7 +26,6 @@ export const BINDABLE_COMPONENT_FIELDS: Readonly<
   ],
   bend: ["diameter", "rOverD", "roughness"],
   orifice: ["area", "cd"],
-  orificeCompressible: ["area", "cd"],
   cavitatingVenturi: ["throatArea", "cd", "recoveryFactor"],
   resistance: ["k", "area"],
   valve: ["area", "cd", "position"],

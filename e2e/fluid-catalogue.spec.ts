@@ -8,10 +8,21 @@ import { test, expect } from "@playwright/test";
 
 const CATALOGUE_COUNT = 124;
 
+async function openFluidsTab(page: import("@playwright/test").Page) {
+  await page.locator('[data-testid="config-tab"]').click();
+  await expect(
+    page.locator('[data-testid="configuration-view"]'),
+  ).toBeVisible();
+  // The dialog opens on Solver; the fluid roster is its own section.
+  await page.locator('[data-testid="settings-tab-fluids"]').click();
+  await expect(
+    page.locator('[data-testid="settings-tab-panel-fluids"]'),
+  ).toBeVisible();
+}
+
 async function openRealFluidSettings(page: import("@playwright/test").Page) {
   await page.goto("/");
-  await page.locator('[data-testid="toolbar-settings"]').click();
-  await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
+  await openFluidsTab(page);
   await page
     .locator('[data-testid="settings-fluid-model"]')
     .selectOption("realFluid");
@@ -84,9 +95,9 @@ test("no-transport fluids are marked and flagged invalid when selected", async (
 
   await select.selectOption("OrthoHydrogen");
   await expect(select).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator('[data-testid="settings-dialog"]')).toContainText(
-    "has no viscosity or thermal-conductivity model",
-  );
+  await expect(
+    page.locator('[data-testid="configuration-view"]'),
+  ).toContainText("has no viscosity or thermal-conductivity model");
 });
 
 test("a saved unknown fluid renders as a visible invalid value", async ({
@@ -144,15 +155,14 @@ test("a saved unknown fluid renders as a visible invalid value", async ({
   });
   await page.reload();
 
-  await page.locator('[data-testid="toolbar-settings"]').click();
-  await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
+  await openFluidsTab(page);
 
   const select = page.locator('[data-testid="settings-real-fluid-name"]');
   await expect(select).toHaveValue("Unobtanium");
   await expect(select).toHaveAttribute("aria-invalid", "true");
-  await expect(page.locator('[data-testid="settings-dialog"]')).toContainText(
-    "⚠ Unknown fluid: Unobtanium",
-  );
+  await expect(
+    page.locator('[data-testid="configuration-view"]'),
+  ).toContainText("⚠ Unknown fluid: Unobtanium");
 
   // Picking a real fluid clears the invalid state.
   await select.selectOption("Nitrogen");

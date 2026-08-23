@@ -11,6 +11,15 @@ import type {
   PhysicalPosition,
   SolidNode,
 } from "./schema";
+import {
+  buildAdjacency,
+  connectedComponent,
+  hopBetween,
+  hopsFrom,
+  orderSimplePath,
+  simplePathEndpoints,
+  type Adjacency,
+} from "./graph";
 
 type FluidNode = NetworkConfig["nodes"][number];
 type Branch = NetworkConfig["branches"][number];
@@ -59,57 +68,6 @@ function euclidean(
   return Math.hypot(dx, dy, dz);
 }
 
-interface Hop {
-  other: string;
-  branch: Branch;
-}
-
-function pipeGraph(config: NetworkConfig): Map<string, Hop[]> {
-  const graph = new Map<string, Hop[]>();
-  const add = (from: string, hop: Hop) => {
-    const list = graph.get(from);
-    if (list) list.push(hop);
-    else graph.set(from, [hop]);
-  };
-  for (const branch of config.branches) {
-    if (!PIPE_TYPES.has(branch.component.type)) continue;
-    add(branch.from, { other: branch.to, branch });
-    add(branch.to, { other: branch.from, branch });
-  }
-  return graph;
-}
-
-function componentOf(
-  start: string,
-  graph: Map<string, Hop[]>,
-): string[] | undefined {
-  if (!graph.has(start)) return undefined;
-  const seen = new Set<string>([start]);
-  const queue = [start];
-  for (let i = 0; i < queue.length; i++) {
-    for (const hop of graph.get(queue[i]) ?? []) {
-      if (seen.has(hop.other)) continue;
-      seen.add(hop.other);
-      queue.push(hop.other);
-    }
-  }
-  return queue;
-}
-
-function pathEndpoints(
-  nodes: string[],
-  graph: Map<string, Hop[]>,
-): [string, string] | undefined {
-  const deg1: string[] = [];
-  for (const id of nodes) {
-    const deg = graph.get(id)?.length ?? 0;
-    if (deg === 0 || deg > 2) return undefined;
-    if (deg === 1) deg1.push(id);
-  }
-  if (nodes.length >= 2 && deg1.length === 2) return [deg1[0]!, deg1[1]!];
-  return undefined;
-}
-
 function pickOrigin(
   endpoints: [string, string],
   nodeOf: Map<string, FluidNode>,
@@ -131,35 +89,25 @@ function pickOrigin(
   return undefined;
 }
 
-function orderedPath(
-  origin: string,
-  other: string,
-  graph: Map<string, Hop[]>,
-): string[] | undefined {
-  const ordered = [origin];
-  let prev: string | undefined;
-  let cur = origin;
-  while (cur !== other) {
-    const hops = graph.get(cur) ?? [];
-    const next = hops.find((h) => h.other !== prev);
-    if (!next) return undefined;
-    prev = cur;
-    cur = next.other;
-    ordered.push(cur);
-    if (ordered.length > graph.size + 1) return undefined;
-  }
-  return ordered;
-}
-
-function hopLength(
-  from: FluidNode | undefined,
-  to: FluidNode | undefined,
+/**
+ * Axial length of one branch, in metres: its authored `length` when the
+ * component carries one, else the straight-line distance between its
+ * endpoints' physical positions.
+ *
+ * Undefined when neither is available — a formula-bound length (resolved
+ * later, against the static model) or a component with no length at all
+ * (orifice, valve, `flowSource`). Callers must treat that as "no distance
+ * axis for this step" rather than substituting zero.
+ */
+export function branchAxialLength(
   branch: Branch,
+  from: { position?: PhysicalPosition; z?: number } | undefined,
+  to: { position?: PhysicalPosition; z?: number } | undefined,
 ): number | undefined {
-  const comp = branch.component as PipeLike;
-  const stored = finiteNumber(comp.length);
+  const length = (branch.component as { length?: unknown }).length;
+  const stored = finiteNumber(length);
   if (stored !== undefined && stored >= 0) return stored;
-  if (isExpression(comp.length)) return undefined;
+  if (isExpression(length)) return undefined;
   const a = physicalPosition(from);
   const b = physicalPosition(to);
   if (!a || !b) return undefined;
@@ -176,18 +124,24 @@ interface GeometryIndex {
   nodeOf: Map<string, FluidNode>;
   solidOf: Map<string, SolidNode>;
   fluidIds: Set<string>;
-  graph: Map<string, Hop[]>;
+  /** Pipe subgraph only: derived geometry is a property of the pipe run. */
+  graph: Adjacency;
+  branchOf: Map<string, Branch>;
   pathByFluid: Map<string, PathStations | null>;
 }
 
 function geometryIndex(config: NetworkConfig): GeometryIndex {
+  const pipes = config.branches.filter((branch) =>
+    PIPE_TYPES.has(branch.component.type),
+  );
   return {
     nodeOf: new Map(config.nodes.map((node) => [node.id, node])),
     solidOf: new Map(
       (config.solidNodes ?? []).map((solid) => [solid.id, solid]),
     ),
     fluidIds: new Set(config.nodes.map((node) => node.id)),
-    graph: pipeGraph(config),
+    graph: buildAdjacency(pipes),
+    branchOf: new Map(pipes.map((branch) => [branch.id, branch])),
     pathByFluid: new Map(),
   };
 }
@@ -199,32 +153,31 @@ function pathStationsFor(
   const cached = index.pathByFluid.get(fluidId);
   if (cached !== undefined) return cached ?? undefined;
 
-  const component = componentOf(fluidId, index.graph);
+  const component = connectedComponent(index.graph, fluidId);
   if (!component) return undefined;
   const cache = (path: PathStations | null): PathStations | undefined => {
     for (const id of component) index.pathByFluid.set(id, path);
     return path ?? undefined;
   };
-  const ends = pathEndpoints(component, index.graph);
+  const ends = simplePathEndpoints(index.graph, component);
   if (!ends) return cache(null);
   const origin = pickOrigin(ends, index.nodeOf);
   if (!origin) return cache(null);
   const other = ends[0] === origin ? ends[1] : ends[0];
-  const ordered = orderedPath(origin, other, index.graph);
+  const ordered = orderSimplePath(index.graph, origin, other);
   if (!ordered) return cache(null);
   const stations = new Map<string, number>([[ordered[0]!, 0]]);
   const hops = new Map<string, number>();
   for (let i = 1; i < ordered.length; i++) {
     const a = ordered[i - 1]!;
     const b = ordered[i]!;
-    const hop = (index.graph.get(a) ?? []).find(
-      (candidate) => candidate.other === b,
-    );
-    if (!hop) return cache(null);
-    const length = hopLength(
+    const hop = hopBetween(index.graph, a, b);
+    const branch = hop ? index.branchOf.get(hop.edgeId) : undefined;
+    if (!branch) return cache(null);
+    const length = branchAxialLength(
+      branch,
       index.nodeOf.get(a),
       index.nodeOf.get(b),
-      hop.branch,
     );
     if (length === undefined) return cache(null);
     hops.set(`${a}|${b}`, length);
@@ -262,7 +215,7 @@ function derivedConvectionGeometry(
       ? solidX! - originX!
       : path.stations.get(ends.fluidId);
 
-  const hops = index.graph.get(ends.fluidId) ?? [];
+  const hops = hopsFrom(index.graph, ends.fluidId);
   const lengths = hops
     .map((h) => path.hops.get(`${ends.fluidId}|${h.other}`))
     .filter((v): v is number => v !== undefined);

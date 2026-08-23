@@ -540,13 +540,15 @@ describe("Network solve consistency: hybrid vs pure-FD", () => {
   });
 });
 
-describe("OrificeCompressible momentum row carries its enthalpy coupling", () => {
-  /** Ideal-gas duct with an orificeCompressible between two INTERNAL nodes,
-   *  under settings.kineticEnergy so every internal node owns an h unknown
-   *  and the momentum/energy rows are solved as one coupled system. */
+describe("Orifice (ideal-gas closure) momentum row carries its enthalpy coupling", () => {
+  /** Ideal-gas duct with an orifice between two INTERNAL nodes, under
+   *  settings.kineticEnergy so every internal node owns an h unknown and the
+   *  momentum/energy rows are solved as one coupled system. The branch
+   *  fluid supplies R/gamma, so this orifice uses the isentropic/choked
+   *  closure automatically (components/orifice.ts). */
   function buildConfig(): NetworkConfig {
     return {
-      meta: { name: "orificeCompressible h-coupling", version: 2 },
+      meta: { name: "orifice h-coupling", version: 2 },
       settings: {
         mode: "steady",
         tolerance: 1e-8,
@@ -608,7 +610,7 @@ describe("OrificeCompressible momentum row carries its enthalpy coupling", () =>
           id: "oc",
           from: "m1",
           to: "m2",
-          component: { type: "orificeCompressible", area: 1e-4, cd: 0.6 },
+          component: { type: "orifice", area: 1e-4, cd: 0.6 },
         },
         {
           id: "pOut",

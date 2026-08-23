@@ -22,7 +22,7 @@
  *   fieldLine    ::= fieldKey ": " jsonValue
  *   fieldKey     ::= "settings" | "fluid" | "fluids" | "closureParams" | "species"
  *                  | "registers" | "logic" | "controllers" | "junctions"
- *                  | "componentLibrary"
+ *                  | "componentLibrary" | "variants"
  *   markerLine   ::= markerKey ": []"
  *   markerKey    ::= "solidNodes" | "conductors" | "groups" | "notes"
  *   nodeRec      ::= "node " jsonString " " nodeType
@@ -184,7 +184,6 @@ type ComponentTypeName = NetworkConfig["branches"][number]["component"]["type"];
 const COMPONENT_TYPE_NAMES: Record<ComponentTypeName, true> = {
   pipe: true,
   orifice: true,
-  orificeCompressible: true,
   cavitatingVenturi: true,
   resistance: true,
   valve: true,
@@ -243,6 +242,11 @@ const FIELD_ORDER = [
   "controllers",
   "junctions",
   "componentLibrary",
+  // Named alternatives to this network, as sparse patches (core/variants.ts).
+  // Emitted last: they are authorship metadata about the model rather than
+  // part of it, and a file with no variants is byte-identical to one written
+  // before the field existed.
+  "variants",
 ] as const;
 type FieldKey = (typeof FIELD_ORDER)[number];
 const FIELD_KEYS: ReadonlySet<string> = new Set(FIELD_ORDER);
@@ -1218,6 +1222,7 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
     if (fields.junctions !== undefined) assembled.junctions = fields.junctions;
     if (fields.componentLibrary !== undefined)
       assembled.componentLibrary = fields.componentLibrary;
+    if (fields.variants !== undefined) assembled.variants = fields.variants;
     assembled.nodes = nodes;
     if (solidNodes.length > 0 || emptyMarkers.has("solidNodes"))
       assembled.solidNodes = solidNodes;
