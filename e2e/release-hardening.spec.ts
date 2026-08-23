@@ -97,15 +97,15 @@ test.describe("Release hardening", () => {
     );
 
     // The app shell survived: toolbar + tabs + charts all still render.
-    // Full-network charts are the explorer's aggregate presets now — switch
-    // the view dropdown to temperatures (no disclosure to open).
+    // Charts come from a plot the analyst composes — pick the temperature
+    // preset into it (no disclosure to open).
     await expect(page.locator('[data-testid="toolbar"]')).toBeVisible();
     await expect(page.locator('[data-testid="toolbar-run"]')).toBeVisible();
     await expect(page.locator('[data-testid="results-view"]')).toBeVisible();
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("node-solid-temperature");
-    const tempChart = page.locator('[data-testid="channel-explorer-chart"]');
+    const tempChart = page.locator('[data-testid="plot-chart"]');
     await expect(tempChart).toBeVisible();
     // Temperature series rendered (polylines exist, ticks finite).
     await expect(tempChart.locator("polyline").first()).toBeAttached();
@@ -134,7 +134,7 @@ test.describe("Release hardening", () => {
       "toolbar-redo",
       "toolbar-examples",
       "toolbar-unit-preset",
-      "toolbar-settings",
+      "toolbar-commands",
       "toolbar-run",
       "toolbar-health",
     ];

@@ -195,24 +195,18 @@ test.describe("OpenFLUME E2E", () => {
       "Converged",
     );
 
-    // Run no longer auto-switches tabs; full-network charts are the
-    // explorer's aggregate presets — the default node-pressure view needs
-    // no disclosure once we're on the Results tab.
+    // Run no longer auto-switches tabs. A plot starts empty — it does not
+    // presume what you came to look at — so the channels are chosen here.
     await page.locator('[data-testid="results-tab"]').click();
-    const pressureChart = page.locator(
-      '[data-testid="channel-explorer-chart"]',
-    );
-    await expect(pressureChart).toBeVisible();
-    // The branch mass-flow view is one dropdown switch away.
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("branch-mdot");
-    await expect(
-      page.locator('[data-testid="channel-explorer-chart"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="plot-chart"]')).toBeVisible();
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("node-pressure");
+    const pressureChart = page.locator('[data-testid="plot-chart"]');
+    await expect(pressureChart).toBeVisible();
 
     // Combined charts contain at least one polyline with >10 points
     const polylines = pressureChart.locator("polyline");
@@ -451,8 +445,10 @@ test.describe("OpenFLUME E2E", () => {
     const consoleWatcher = attachConsoleWatcher(page);
 
     // Open settings
-    await page.locator('[data-testid="toolbar-settings"]').click();
-    await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
+    await page.locator('[data-testid="config-tab"]').click();
+    await expect(
+      page.locator('[data-testid="configuration-view"]'),
+    ).toBeVisible();
 
     // Switch to transient, set dt and endTime
     await page
@@ -466,15 +462,17 @@ test.describe("OpenFLUME E2E", () => {
     await page.locator('label:has-text("End Time") + input').fill("2.5");
     await page.locator('label:has-text("End Time") + input').blur();
 
-    // Close via Escape
-    await page.keyboard.press("Escape");
+    // Leave for the model canvas
+    await page.locator('[data-testid="editor-tab"]').click();
     await expect(
-      page.locator('[data-testid="settings-dialog"]'),
+      page.locator('[data-testid="configuration-view"]'),
     ).not.toBeVisible();
 
     // Reopen and assert values persisted
-    await page.locator('[data-testid="toolbar-settings"]').click();
-    await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
+    await page.locator('[data-testid="config-tab"]').click();
+    await expect(
+      page.locator('[data-testid="configuration-view"]'),
+    ).toBeVisible();
     await expect(page.locator('[data-testid="settings-mode"]')).toHaveValue(
       "transient",
     );
@@ -573,12 +571,14 @@ test.describe("OpenFLUME E2E", () => {
     expect(ambientData.pressure).toBeCloseTo(20 * 6894.757293168, 0);
 
     // Run steady (example is transient, switch to steady)
-    await page.locator('[data-testid="toolbar-settings"]').click();
-    await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
-    await page.locator('[data-testid="settings-mode"]').selectOption("steady");
-    await page.keyboard.press("Escape");
+    await page.locator('[data-testid="config-tab"]').click();
     await expect(
-      page.locator('[data-testid="settings-dialog"]'),
+      page.locator('[data-testid="configuration-view"]'),
+    ).toBeVisible();
+    await page.locator('[data-testid="settings-mode"]').selectOption("steady");
+    await page.locator('[data-testid="editor-tab"]').click();
+    await expect(
+      page.locator('[data-testid="configuration-view"]'),
     ).not.toBeVisible();
     await page.waitForTimeout(200);
 
@@ -641,17 +641,16 @@ test.describe("OpenFLUME E2E", () => {
       "Converged",
     );
 
-    // Full-network charts are the explorer's aggregate presets; the default
-    // node-pressure view renders without opening any disclosure.
+    // A plot starts empty; the preset control fills it with node pressures.
     await page.locator('[data-testid="results-tab"]').click();
-    const pressureChart = page.locator(
-      '[data-testid="channel-explorer-chart"]',
-    );
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    const pressureChart = page.locator('[data-testid="plot-chart"]');
     await expect(pressureChart).toBeVisible();
 
-    // Chart header shows the resolved unit: "Pressure (psi) vs Time (s)"
-    // (Wave 2: axis title moved out of the SVG tick column into the header)
-    await expect(pressureChart.locator(".chart-title")).toContainText(
+    // The y axis is labelled with the resolved unit: "Pressure (psi)".
+    await expect(pressureChart.locator(".chart-y-axis-label")).toContainText(
       "Pressure (psi)",
     );
 
@@ -1015,9 +1014,13 @@ test.describe("OpenFLUME E2E", () => {
     test.setTimeout(120000);
     const consoleWatcher = attachConsoleWatcher(page);
 
-    // Open settings and select real fluid
-    await page.locator('[data-testid="toolbar-settings"]').click();
-    await expect(page.locator('[data-testid="settings-dialog"]')).toBeVisible();
+    // Open Configuration and select real fluid (the fluid roster is its own
+    // section)
+    await page.locator('[data-testid="config-tab"]').click();
+    await expect(
+      page.locator('[data-testid="configuration-view"]'),
+    ).toBeVisible();
+    await page.locator('[data-testid="settings-tab-fluids"]').click();
 
     await page
       .locator('[data-testid="settings-fluid-model"]')
@@ -1030,10 +1033,10 @@ test.describe("OpenFLUME E2E", () => {
       .selectOption("Hydrogen");
     await page.waitForTimeout(200);
 
-    // Close settings
-    await page.keyboard.press("Escape");
+    // Back to the model canvas
+    await page.locator('[data-testid="editor-tab"]').click();
     await expect(
-      page.locator('[data-testid="settings-dialog"]'),
+      page.locator('[data-testid="configuration-view"]'),
     ).not.toBeVisible();
 
     // Observe loading state resolves (generous timeout for WASM fetch)
@@ -1068,17 +1071,16 @@ test.describe("OpenFLUME E2E", () => {
       "Converged",
     );
 
-    // Charts render (explorer aggregate presets)
+    // Charts render once channels are chosen for the plot.
     await page.locator('[data-testid="results-tab"]').click();
-    await expect(
-      page.locator('[data-testid="channel-explorer-chart"]'),
-    ).toBeVisible();
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    await expect(page.locator('[data-testid="plot-chart"]')).toBeVisible();
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("branch-mdot");
-    await expect(
-      page.locator('[data-testid="channel-explorer-chart"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="plot-chart"]')).toBeVisible();
 
     consoleWatcher.assertNoErrors();
   });
@@ -1144,12 +1146,27 @@ test.describe("OpenFLUME E2E", () => {
     const progressBar = page.locator('[data-testid="toolbar-progress-bar"]');
     await expect(progressBar).toBeVisible({ timeout: 5000 });
 
-    // The explorer's default aggregate preset charts the live partial as
-    // soon as the first progress update arrives — no disclosure to open.
+    // Cancel is the only way to stop a run this long, so the in-flight
+    // readout must never eat into it: at a width narrow enough for the
+    // toolbar to clip, Run and Cancel are still whole.
+    await page.setViewportSize({ width: 1180, height: 720 });
+    await expect(progressBar).toBeVisible();
+    const runGroup = await page
+      .locator(".toolbar__run")
+      .evaluate((el: HTMLElement) => ({
+        visible: el.clientWidth,
+        content: el.scrollWidth,
+      }));
+    expect(runGroup.visible).toBeGreaterThanOrEqual(runGroup.content);
+    await page.setViewportSize({ width: 1280, height: 720 });
+
+    // The plot charts the live partial as soon as the first progress update
+    // arrives — no disclosure to open.
     await page.locator('[data-testid="results-tab"]').click();
-    const pressureChart = page.locator(
-      '[data-testid="channel-explorer-chart"]',
-    );
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    const pressureChart = page.locator('[data-testid="plot-chart"]');
     await expect(pressureChart).toBeVisible();
     const polylines = pressureChart.locator("polyline");
     await expect(polylines).toHaveCount(2);
@@ -1343,14 +1360,17 @@ test.describe("OpenFLUME E2E", () => {
     await page.reload();
     await page.waitForTimeout(500);
 
-    // Click Run and wait for the cancel button; the explorer's default
-    // aggregate preset mounts the live chart with the first partial — no
-    // disclosure to open first.
+    // Click Run and wait for the cancel button, then fill a plot so the live
+    // chart mounts with the first partial — no disclosure to open first.
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="toolbar-cancel"]')).toBeVisible({
       timeout: 5000,
     });
+
     await page.locator('[data-testid="results-tab"]').click();
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
 
     // Wait inside the browser for the chart to show partial data (≥3 points),
     // then cancel.  Using a single evaluate with rAF polling minimises
@@ -1368,7 +1388,7 @@ test.describe("OpenFLUME E2E", () => {
         const deadline = performance.now() + 5000;
         const check = () => {
           const el = document.querySelector(
-            '[data-testid="channel-explorer-chart"] polyline',
+            '[data-testid="plot-chart"] polyline',
           );
           if (el) {
             const pts =
@@ -1398,9 +1418,7 @@ test.describe("OpenFLUME E2E", () => {
 
     // Assert charts still show partial data with >3 points (poll because
     // liveResult may render slightly after the cancelled status transition).
-    const pressureChart = page.locator(
-      '[data-testid="channel-explorer-chart"]',
-    );
+    const pressureChart = page.locator('[data-testid="plot-chart"]');
     await expect(pressureChart).toBeVisible();
     const polylines = pressureChart.locator("polyline");
     await expect(polylines).toHaveCount(6); // 6 nodes

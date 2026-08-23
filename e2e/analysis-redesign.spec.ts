@@ -1,23 +1,25 @@
 /**
  * e2e/analysis-redesign.spec.ts — the redesigned Analysis workspace:
  *
- *   1. Fast steady run: the ChannelExplorer opens aggregate-first (the
- *      default node-pressure preset renders the full-width value list);
- *      Runs / Diary / Details / Result tables are closed disclosures opened
- *      via the sticky run strip (or their header); Custom channels mode
- *      drives the scalar + on-demand context diagram, and Show on Diagram
- *      returns to the canvas with the element selected.
+ *   1. Fast steady run: the Runs tab opens on ONE EMPTY plot — an axis and an
+ *      invitation, because nothing here should presume what the analyst came
+ *      to look at; Runs / Diary / Details / Result tables are closed
+ *      disclosures opened via the sticky run strip (or their header).
  *   2. Two historical runs: the strip selector switches the displayed run
  *      and its captured context (stale flag follows); the Runs disclosure
  *      still supports rename / pin-baseline / delete.
- *   3. Fast transient run: the default aggregate preset charts every node
- *      pressure full-width; the view dropdown switches quantity (temperatures,
- *      mass flow) with full-network series + labels; there is NO time bar
- *      (slider/stepper/Final) — hovering the chart reads values at any time
- *      via its tooltip; Final-state tables stay behind their disclosure.
- *      The legacy "Full-network charts" disclosure is gone.
+ *   3. Fast transient run: the plot opens on a time axis and the preset
+ *      control fills it (node pressures, temperatures, mass flow) with
+ *      full-network series + labels; there is NO time bar (slider/stepper/
+ *      Final) — hovering the chart reads values at any time via its tooltip;
+ *      Final-state tables stay behind their disclosure.
  *   4. Exploring channels and inspecting time (hover/click on the chart)
  *      never mutates the model, the autosave, or the dirty flag.
+ *   5. The topology-aware kinds: a Profile plots the chosen flow path with its
+ *      stations and schematic, a Breakdown accounts for each component's
+ *      share, and Distribution still offers the unordered bars.
+ *   6. Plots are independent documents: several tabs coexist, each with its own
+ *      kind and channels, renameable and closeable, surviving a tab switch.
  */
 import { test, expect, Page } from "@playwright/test";
 import * as fs from "fs";
@@ -51,13 +53,33 @@ function attachConsoleWatcher(page: Page) {
   };
 }
 
-/** Select a run-strip option whose text starts with the run name. */
-async function selectStripRun(page: Page, name: string) {
-  const select = page.locator('[data-testid="run-strip-select"]');
+/** The panel title IS the run selector; pick the option naming this run. */
+async function selectRunFromTitle(page: Page, name: string) {
+  const select = page.locator('[data-testid="run-title-select"]');
   const option = select.locator("option", { hasText: name }).first();
   const value = await option.getAttribute("value");
-  expect(value, `run-strip option for ${name}`).not.toBeNull();
+  expect(value, `run option for ${name}`).not.toBeNull();
   await select.selectOption(value!);
+}
+
+/** The displayed run, read off the title dropdown's selected option. */
+async function expectRunTitle(page: Page, name: string) {
+  const label = await page
+    .locator('[data-testid="run-title-select"]')
+    .evaluate(
+      (el) => (el as HTMLSelectElement).selectedOptions[0]?.textContent,
+    );
+  expect(label ?? "").toContain(name);
+}
+
+/** The x axis, read off the selector that sits where its label would go. */
+async function expectXAxisLabel(page: Page, label: string) {
+  const text = await page
+    .locator('[data-testid="plot-x-axis"]')
+    .evaluate(
+      (el) => (el as HTMLSelectElement).selectedOptions[0]?.textContent,
+    );
+  expect(text ?? "").toContain(label);
 }
 
 const readAutosave = (page: Page) =>
@@ -73,18 +95,14 @@ test.describe("Analysis redesign", () => {
     await page.reload();
   });
 
-  test("1. Steady run: explorer first (aggregate default), disclosures closed, strip jumps, Custom pick, Show on Diagram", async ({
+  test("1. Steady run: an empty plot first, disclosures closed, each opens from its header", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
 
-    // Pre-run empty state: concise — the strip alone, one hint line, and no
-    // disclosures (no history yet).
+    // Pre-run empty state: concise — one hint line and no disclosures
+    // (no history yet).
     await page.locator('[data-testid="results-tab"]').click();
-    await expect(page.locator('[data-testid="run-strip"]')).toBeVisible();
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Latest run",
-    );
     await expect(page.locator('[data-testid="results-view"]')).toContainText(
       "Run a simulation to see results",
     );
@@ -109,36 +127,39 @@ test.describe("Analysis redesign", () => {
     // independent of Run); Run itself no longer auto-switches, so come back.
     await page.locator('[data-testid="results-tab"]').click();
 
-    // The strip answers "what am I looking at?": title, mode, outcome pill,
-    // plus an accessible status sentence.
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Run 1",
-    );
-    await expect(page.locator('[data-testid="run-strip-mode"]')).toHaveText(
-      "steady",
-    );
-    await expect(page.locator('[data-testid="run-strip-outcome"]')).toHaveText(
+    // The panel's TITLE answers "what am I looking at?" and switches runs;
+    // there is no separate strip repeating it.
+    await expect(page.locator('[data-testid="run-strip"]')).toHaveCount(0);
+    await expectRunTitle(page, "Run 1");
+    await expect(page.locator('[data-testid="run-title-outcome"]')).toHaveText(
       "converged",
     );
     await expect(
-      page.locator('[data-testid="run-strip-status"]'),
+      page.locator('[data-testid="run-title-status"]'),
     ).toContainText("Showing Run 1 · steady · converged");
 
-    // Channel explorer is visible FIRST, aggregate-first: the default
-    // node-pressure preset renders the steady value list; the Custom-only
-    // scalar/context stay unmounted until the view switches.
+    // Channel explorer is visible FIRST: the rail carries the whole
+    // inventory, the node-pressure preset is the default channel set, and a
+    // steady run opens on the Profile. Distribution's bars and Focus's
+    // scalar stay unmounted until those views are chosen.
     await expect(
       page.locator('[data-testid="channel-explorer"]'),
     ).toBeVisible();
     await expect(
-      page.locator('[data-testid="channel-explorer-view"]'),
-    ).toHaveValue("node-pressure");
-    await expect(
-      page.locator('[data-testid="channel-explorer-bars"]'),
+      page.locator('[data-testid="plot-channel-picker"]'),
     ).toBeVisible();
     await expect(
-      page.locator('[data-testid="channel-explorer-scalar"]'),
-    ).toHaveCount(0);
+      page.locator('[data-testid^="plot-tab-"]').first(),
+    ).toContainText("New plot");
+    // Nothing is pre-selected: the plot does not presume what you came for.
+    await expect(
+      page.locator('[data-testid="plot-no-channels"]'),
+    ).toBeVisible();
+    await expect(page.locator('[data-testid="plot-chart"]')).toHaveCount(0);
+    // A steady result has no time axis to offer.
+    await expect(page.locator('[data-testid="plot-x-axis"]')).toHaveValue(
+      "station",
+    );
     // All secondary sections are closed disclosures with nothing mounted
     // inside; the legacy Full-network charts disclosure is gone entirely.
     for (const key of ["summary", "final", "diary", "runs"] as const) {
@@ -155,25 +176,22 @@ test.describe("Analysis redesign", () => {
     await expect(page.locator('[data-testid="solver-diary"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="run-history"]')).toHaveCount(0);
 
-    // Strip buttons open + focus their sections (diary focuses the diary
-    // itself, not just the disclosure region).
-    await page.locator('[data-testid="run-strip-details"]').click();
+    // Each secondary section opens from its own disclosure header.
+    await openAnalysisSection(page, "summary");
     await expect(
       page.locator('[data-testid="summary-toggle"]'),
     ).toHaveAttribute("aria-expanded", "true");
-    await expect(page.locator('[data-testid="summary-content"]')).toBeFocused();
 
-    await page.locator('[data-testid="run-strip-diary"]').click();
+    await openAnalysisSection(page, "diary");
     await expect(page.locator('[data-testid="diary-toggle"]')).toHaveAttribute(
       "aria-expanded",
       "true",
     );
-    await expect(page.locator('[data-testid="solver-diary"]')).toBeFocused();
     await expect(
       page.locator('[data-testid="solver-diary-outcome"]'),
     ).toHaveText("converged");
 
-    await page.locator('[data-testid="run-strip-runs"]').click();
+    await openAnalysisSection(page, "runs");
     await expect(page.locator('[data-testid="runs-toggle"]')).toHaveAttribute(
       "aria-expanded",
       "true",
@@ -188,84 +206,21 @@ test.describe("Analysis redesign", () => {
       page.locator('[data-testid="steady-branches-table"]'),
     ).toBeVisible();
 
-    // Custom channels mode: channel selection updates the focused scalar.
-    // Default primary: first inventory channel (Inlet pressure).
-    await page
-      .locator('[data-testid="channel-explorer-view"]')
-      .selectOption({ label: "Custom channels" });
-    await expect(
-      page.locator('[data-testid="channel-explorer-custom"]'),
-    ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="channel-explorer-primary-label"]'),
-    ).toHaveText("Inlet · Pressure");
-    const inletScalar = await page
-      .locator('[data-testid="channel-explorer-scalar-value"]')
-      .textContent();
-    await page
-      .locator('[data-testid^="channel-item-"]', {
-        hasText: "Pipe 1 · Mass flow",
-      })
-      .click();
-    await expect(
-      page.locator('[data-testid="channel-explorer-primary-label"]'),
-    ).toHaveText("Pipe 1 · Mass flow");
-    const pipeScalar = await page
-      .locator('[data-testid="channel-explorer-scalar-value"]')
-      .textContent();
-    expect(pipeScalar).not.toBe(inletScalar);
-
-    // Diagram context is on demand: the SVG stays hidden inside its closed
-    // details until the analyst asks for it, then re-centres on the picked
-    // element (SVG title + accessible summary).
-    await expect(
-      page.locator('[data-testid="channel-explorer-context"]'),
-    ).toBeHidden();
-    await page
-      .locator('[data-testid="channel-explorer-context-details"] summary')
-      .click();
-    const contextSvg = page.locator('[data-testid="channel-explorer-context"]');
-    await expect(contextSvg).toBeVisible();
-    await expect(contextSvg.locator("title")).toHaveText(
-      "Topology context around Pipe 1",
-    );
-    await expect(contextSvg).toHaveAttribute("aria-label", /branch "b1"/);
-
-    // Show on Diagram returns to the canvas with the branch selected.
-    await page
-      .locator('[data-testid="channel-explorer-show-on-diagram"]')
-      .click();
-    await expect(page.locator('[data-testid="editor-tab"]')).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
+    // Picking a channel adds it to THIS plot and selects its element, so the
+    // canvas and the properties panel follow the analyst's attention.
+    const branchRow = page
+      .locator('[data-testid^="plot-channel-ch"]', { hasText: "Mass flow" })
+      .first();
+    await branchRow.click();
+    await expect(branchRow).toHaveAttribute("aria-pressed", "true");
+    await page.locator('[data-testid="editor-tab"]').click();
     await expect(page.locator('[data-testid="property-panel"]')).toContainText(
       "Branch: b1",
     );
-
-    // Narrow width: the strip wraps, the explorer stacks, and nothing
-    // overflows the results view horizontally.
     await page.locator('[data-testid="results-tab"]').click();
 
-    // Sticky strip: with a short viewport the results view scrolls and the
-    // strip stays pinned to the scrollport top.
-    await page.setViewportSize({ width: 900, height: 420 });
-    const resultsView = page.locator('[data-testid="results-view"]');
-    await resultsView.evaluate((el: HTMLElement) => {
-      el.scrollTop = el.scrollHeight;
-    });
-    const stripBox = await page
-      .locator('[data-testid="run-strip"]')
-      .boundingBox();
-    const viewBox = await resultsView.boundingBox();
-    expect(stripBox).not.toBeNull();
-    expect(stripBox!.y).toBeLessThanOrEqual(viewBox!.y + 2);
-    await resultsView.evaluate((el: HTMLElement) => {
-      el.scrollTop = 0;
-    });
-
+    // Narrow viewport: the panel still fits without horizontal overflow.
     await page.setViewportSize({ width: 700, height: 600 });
-    await expect(page.locator('[data-testid="run-strip"]')).toBeVisible();
     await expect(
       page.locator('[data-testid="channel-explorer"]'),
     ).toBeVisible();
@@ -278,7 +233,7 @@ test.describe("Analysis redesign", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("2. Two runs: strip selector switches run + captured context; Runs disclosure rename/pin/delete", async ({
+  test("2. Two runs: the title dropdown switches run + captured context; Runs disclosure rename/pin/delete", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -309,66 +264,55 @@ test.describe("Analysis redesign", () => {
       { timeout: 15000 },
     );
 
-    // The strip shows the newest run and offers every historical run.
+    // The title shows the newest run and offers every historical run.
     await page.locator('[data-testid="results-tab"]').click();
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Run 2",
-    );
-    await expect(
-      page.locator('[data-testid="channel-explorer-run-context"]'),
-    ).toHaveText("Run 2");
+    await expectRunTitle(page, "Run 2");
 
-    // Custom mode: the focused scalar tracks the displayed (captured) run.
-    await page
-      .locator('[data-testid="channel-explorer-view"]')
-      .selectOption({ label: "Custom channels" });
-    const run2Scalar = await page
-      .locator('[data-testid="channel-explorer-scalar-value"]')
+    // The picker's values track the displayed (captured) run.
+    const run2Value = await page
+      .locator('[data-testid^="plot-channel-ch"]')
+      .first()
       .textContent();
 
-    // Switch to Run 1 from the strip select: title, explorer context, and
-    // the captured scalar follow; the displayed run is now stale (its config
-    // differs from the live model).
-    await selectStripRun(page, "Run 1");
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Run 1",
-    );
-    await expect(
-      page.locator('[data-testid="channel-explorer-run-context"]'),
-    ).toHaveText("Run 1");
-    const run1Scalar = await page
-      .locator('[data-testid="channel-explorer-scalar-value"]')
+    // Switch to Run 1 from the title dropdown: the title and the captured
+    // scalar follow; the displayed run is now stale (its config differs from
+    // the live model).
+    await selectRunFromTitle(page, "Run 1");
+    await expectRunTitle(page, "Run 1");
+    const run1Value = await page
+      .locator('[data-testid^="plot-channel-ch"]')
+      .first()
       .textContent();
-    expect(run1Scalar).not.toBe(run2Scalar);
-    await expect(page.locator('[data-testid="run-strip-stale"]')).toBeVisible();
+    expect(run1Value).not.toBe(run2Value);
+    await expect(
+      page.locator('[data-testid="channel-explorer-stale"]'),
+    ).toBeVisible();
     await expect(
       page.locator('[data-testid="results-stale-banner"]'),
     ).toBeVisible();
-    // The critical banner renders ABOVE the sticky strip (never obscured).
+    // The critical banner renders ABOVE the plots panel (never obscured).
     const bannerBox = await page
       .locator('[data-testid="results-stale-banner"]')
       .boundingBox();
-    const stripBox2 = await page
-      .locator('[data-testid="run-strip"]')
+    const panelBox = await page
+      .locator('[data-testid="channel-explorer"]')
       .boundingBox();
     expect(bannerBox).not.toBeNull();
-    expect(stripBox2).not.toBeNull();
+    expect(panelBox).not.toBeNull();
     expect(bannerBox!.y + bannerBox!.height).toBeLessThanOrEqual(
-      stripBox2!.y + 1,
+      panelBox!.y + 1,
     );
 
     // Back to Run 2; stale clears.
-    await selectStripRun(page, "Run 2");
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Run 2",
-    );
+    await selectRunFromTitle(page, "Run 2");
+    await expectRunTitle(page, "Run 2");
     await expect(
       page.locator('[data-testid="results-stale-banner"]'),
     ).toHaveCount(0);
 
-    // Runs disclosure: rename the newest run (strip title follows the
-    // selection), pin the older run as baseline (strip baseline pill), and
-    // delete the renamed run (strip falls back to the remaining run).
+    // Runs disclosure: rename the newest run (the title follows the
+    // selection), pin the older run as baseline (title baseline pill), and
+    // delete the renamed run (the title falls back to the remaining run).
     await openAnalysisSection(page, "runs");
     const items = page.locator('[data-testid="run-history-item"]');
     await expect(items).toHaveCount(2);
@@ -376,38 +320,38 @@ test.describe("Analysis redesign", () => {
     const nameInput = items.nth(0).locator('[data-testid="run-history-name"]');
     await nameInput.fill("High pressure");
     await nameInput.blur();
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "High pressure",
-    );
+    await expectRunTitle(page, "High pressure");
 
     await items.nth(1).locator('[data-testid="pin-baseline"]').click();
     await expect(
       page.locator('[data-testid="baseline-indicator"]'),
     ).toContainText("Baseline: Run 1");
-    await expect(page.locator('[data-testid="run-strip-baseline"]')).toHaveText(
+    await expect(page.locator('[data-testid="run-title-baseline"]')).toHaveText(
       "Baseline: Run 1",
     );
-    // The explorer shows the baseline delta for the focused scalar channel.
+    // A plot overlays that baseline as a dashed companion series.
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
     await expect(
-      page.locator('[data-testid="channel-explorer-baseline-delta"]'),
+      page.locator('[data-testid^="chart-legend-item-baseline:"]').first(),
     ).toBeVisible();
 
     await items.nth(0).locator('[data-testid="run-history-delete"]').click();
+    await page.locator('[data-testid="confirm-dialog-accept"]').click();
     await expect(page.locator('[data-testid="run-history-item"]')).toHaveCount(
       1,
     );
-    await expect(page.locator('[data-testid="run-strip-title"]')).toHaveText(
-      "Run 1",
-    );
+    await expectRunTitle(page, "Run 1");
     // The pinned baseline survives the deletion of the other run.
-    await expect(page.locator('[data-testid="run-strip-baseline"]')).toHaveText(
+    await expect(page.locator('[data-testid="run-title-baseline"]')).toHaveText(
       "Baseline: Run 1",
     );
 
     consoleWatcher.assertNoErrors();
   });
 
-  test("3. Transient run: aggregate presets default, dropdown switches quantity, no time bar — hover tooltip reads any time", async ({
+  test("3. Transient run: a time axis, presets fill the plot, no time bar — hover tooltip reads any time", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -423,17 +367,17 @@ test.describe("Analysis redesign", () => {
       { timeout: 15000 },
     );
 
-    // Explorer-first, aggregate-first: the default preset charts every node
-    // pressure full-width (tank + ambient), with the dropdown offering the
-    // other quantity views.  The legacy Full-network charts disclosure and
-    // its charts are gone.
+    // A transient run opens on an empty plot with a time axis; the preset
+    // control fills it with every node pressure (tank + ambient).  The legacy
+    // Full-network charts disclosure is gone.
     await page.locator('[data-testid="results-tab"]').click();
-    await expect(
-      page.locator('[data-testid="channel-explorer-view"]'),
-    ).toHaveValue("node-pressure");
-    const pressureChart = page.locator(
-      '[data-testid="channel-explorer-chart"]',
+    await expect(page.locator('[data-testid="plot-x-axis"]')).toHaveValue(
+      "time",
     );
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    const pressureChart = page.locator('[data-testid="plot-chart"]');
     await expect(pressureChart).toBeVisible();
     await expect(pressureChart.locator("polyline")).toHaveCount(2); // tank + ambient
     await expect(
@@ -446,9 +390,8 @@ test.describe("Analysis redesign", () => {
         hasText: "Ambient",
       }),
     ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="channel-explorer-readout"]'),
-    ).toBeVisible();
+    // Values are read by hovering the chart (asserted below), so there is no
+    // separate readout strip competing for space.
     await expect(page.locator('[data-testid="channels-toggle"]')).toHaveCount(
       0,
     );
@@ -460,22 +403,24 @@ test.describe("Analysis redesign", () => {
       "false",
     );
 
-    // Dropdown switches the full-network quantity: temperatures, then mass
-    // flow (one series for the single orifice branch).
+    // The preset control fills the plot: temperatures, then mass flow (one
+    // series for the single orifice branch).
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("node-solid-temperature");
-    const tempChart = page.locator('[data-testid="channel-explorer-chart"]');
-    await expect(tempChart.locator(".chart-title")).toContainText(
+    const tempChart = page.locator('[data-testid="plot-chart"]');
+    await expect(tempChart.locator(".chart-y-axis-label")).toContainText(
       "Temperature",
     );
     await expect(tempChart.locator("polyline")).toHaveCount(2);
 
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("branch-mdot");
-    const mdotChart = page.locator('[data-testid="channel-explorer-chart"]');
-    await expect(mdotChart.locator(".chart-title")).toContainText("Mass flow");
+    const mdotChart = page.locator('[data-testid="plot-chart"]');
+    await expect(mdotChart.locator(".chart-y-axis-label")).toContainText(
+      "Mass flow",
+    );
     await expect(mdotChart.locator("polyline")).toHaveCount(1);
     await expect(
       mdotChart.locator('[data-testid^="chart-legend-item-"]', {
@@ -485,7 +430,7 @@ test.describe("Analysis redesign", () => {
 
     // Back to pressures for the cursor assertions.
     await page
-      .locator('[data-testid="channel-explorer-view"]')
+      .locator('[data-testid="plot-channel-preset"]')
       .selectOption("node-pressure");
 
     // View CSV is the displayed preset only (the two node pressures). Export
@@ -527,8 +472,6 @@ test.describe("Analysis redesign", () => {
     await expect(
       page.locator('[data-testid="channel-explorer-time-slider"]'),
     ).toHaveCount(0);
-    const readout = page.locator('[data-testid="channel-explorer-readout"]');
-    await expect(readout).toBeVisible();
     const chartSvg = pressureChart.locator("svg");
     const chartBox = await chartSvg.boundingBox();
     expect(chartBox).not.toBeNull();
@@ -562,15 +505,13 @@ test.describe("Analysis redesign", () => {
     expect(csvHeader).toContain("Tank T");
     expect(csvHeader).toContain("Orifice mdot");
 
-    // ~700px: the full-width aggregate chart + view dropdown fit the results
-    // view without horizontal overflow.
+    // ~700px: the rail stacks above the plot column and the full-width chart
+    // still fits the results view without horizontal overflow.
     await page.setViewportSize({ width: 700, height: 600 });
     await expect(
-      page.locator('[data-testid="channel-explorer-view"]'),
+      page.locator('[data-testid="plot-channel-picker"]'),
     ).toBeVisible();
-    await expect(
-      page.locator('[data-testid="channel-explorer-chart"]'),
-    ).toBeVisible();
+    await expect(page.locator('[data-testid="plot-chart"]')).toBeVisible();
     const overflow = await page
       .locator('[data-testid="results-view"]')
       .evaluate((el: HTMLElement) => el.scrollWidth - el.clientWidth);
@@ -580,7 +521,7 @@ test.describe("Analysis redesign", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("4. Channel exploration and chart time inspection never mutate the model or autosave", async ({
+  test("4. Building a plot and inspecting time never mutate the model or autosave", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -598,31 +539,23 @@ test.describe("Analysis redesign", () => {
       { timeout: 15000 },
     );
 
-    // Explore in Custom channels mode: search narrows the list, kind filter
-    // re-scopes it, then pick and pin a branch channel and inspect time via
-    // the chart (there is no Analysis time bar — hover shows values at any
-    // time, a plain click commits the shared cursor).
+    // Explore from the picker: search narrows the inventory, grouping
+    // re-buckets it, then pick a channel and inspect time via the chart
+    // (there is no Analysis time bar — hover shows values at any time, a
+    // plain click commits the shared cursor).
     await page.locator('[data-testid="results-tab"]').click();
-    await page
-      .locator('[data-testid="channel-explorer-view"]')
-      .selectOption({ label: "Custom channels" });
-    await page.locator('[data-testid="channel-explorer-search"]').fill("Tank");
+    await page.locator('[data-testid="plot-channel-search"]').fill("Tank");
     await expect(
-      page.locator('[data-testid^="channel-item-"]').first(),
+      page.locator('[data-testid^="plot-channel-ch"]').first(),
     ).toBeVisible();
-    await page.locator('[data-testid="channel-explorer-search"]').fill("");
-    await page
-      .locator('[data-testid="channel-explorer-filter-branch"]')
-      .click();
-    await page.locator('[data-testid^="channel-item-"]').first().click();
-    await page.locator('[data-testid^="channel-pin-"]').first().click();
-    await expect(
-      page.locator('[data-testid="channel-explorer-status"]'),
-    ).toContainText("Pinned");
+    await page.locator('[data-testid="plot-channel-search"]').fill("");
+    await page.locator('[data-testid="plot-channel-sort"]').click();
+    await page.locator('[data-testid="plot-channel-sort-element"]').click();
+    await page.locator('[data-testid^="plot-channel-ch"]').first().click();
     await expect(
       page.locator('[data-testid="channel-explorer-time"]'),
     ).toHaveCount(0);
-    const focusSvg = page.locator('[data-testid="channel-explorer-chart"] svg');
+    const focusSvg = page.locator('[data-testid="plot-chart"] svg');
     await expect(focusSvg).toBeVisible();
     const focusBox = await focusSvg.boundingBox();
     expect(focusBox).not.toBeNull();
@@ -630,10 +563,9 @@ test.describe("Analysis redesign", () => {
     await expect(page.locator('[data-testid="chart-tooltip"]')).toBeVisible();
     await focusSvg.click({ position: { x: 90, y: 60 } });
 
-    // Show on Diagram: selection + tab + canvas-focus request only.
-    await page
-      .locator('[data-testid="channel-explorer-show-on-diagram"]')
-      .click();
+    // Picking a channel selects its element, which is a store write, not a
+    // model edit.
+    await page.locator('[data-testid="editor-tab"]').click();
     await expect(page.locator('[data-testid="editor-tab"]')).toHaveAttribute(
       "aria-selected",
       "true",
@@ -644,6 +576,258 @@ test.describe("Analysis redesign", () => {
     await expect(
       page.locator('[data-testid="network-name-dirty-dot"]'),
     ).not.toBeVisible();
+
+    consoleWatcher.assertNoErrors();
+  });
+  test("5. One plot, several axes: station, position and element order", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+
+    await page
+      .locator('[data-testid="toolbar-examples"]')
+      .selectOption("Three-pipe junction");
+    await page.waitForTimeout(400);
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(
+      "Converged",
+      { timeout: 15000 },
+    );
+    await page.locator('[data-testid="results-tab"]').click();
+
+    // ── A plot is an axis and some channels ─────────────────────────────
+    // Nothing is drawn until the analyst says what they came for.
+    await expect(
+      page.locator('[data-testid="plot-no-channels"]'),
+    ).toBeVisible();
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+
+    // Station axis: the three node pressures collapse into ONE line across
+    // the network — a grade line, not three flat one-point lines.
+    await expect(page.locator('[data-testid="plot-x-axis"]')).toHaveValue(
+      "station",
+    );
+    const chart = page.locator('[data-testid="plot-chart"]');
+    await expect(chart).toBeVisible();
+    await expect(chart.locator("polyline")).toHaveCount(1);
+    const points = await chart
+      .locator("polyline")
+      .first()
+      .getAttribute("points");
+    expect(points?.trim().split(/\s+/).length).toBe(3);
+    // The pipes carry lengths, so the axis is a real distance, not the
+    // ordinal fallback.
+    await expectXAxisLabel(page, "Station along path");
+    await expect(page.locator('[data-testid="plot-ordinal-note"]')).toHaveCount(
+      0,
+    );
+    // A tee offers one path per outlet.
+    await expect(
+      page.locator('[data-testid="plot-path"]').locator("option"),
+    ).toHaveCount(2);
+
+    // Switching the axis re-plots the same channels against something else.
+    await page.locator('[data-testid="plot-x-axis"]').selectOption("positionX");
+    await expectXAxisLabel(page, "Position X");
+    await page.locator('[data-testid="plot-x-axis"]').selectOption("index");
+    await expectXAxisLabel(page, "Element order");
+    await expect(
+      page.locator('[data-testid="plot-ordinal-note"]'),
+    ).toBeVisible();
+
+    // A per-component quantity is drawn as stairs: more vertices than points.
+    await page.locator('[data-testid="plot-x-axis"]').selectOption("station");
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("branch-mdot");
+    const mdotPoints = await chart
+      .locator("polyline")
+      .first()
+      .getAttribute("points");
+    expect(mdotPoints?.trim().split(/\s+/).length).toBeGreaterThan(2);
+
+    // Search narrows the inventory and a row adds its channel to the plot.
+    await page.locator('[data-testid="plot-channel-search"]').fill("out1");
+    const pickerRows = page.locator('[data-testid^="plot-channel-ch"]');
+    await expect(pickerRows.first()).toBeVisible();
+    await pickerRows.first().click();
+    await expect(pickerRows.first()).toHaveAttribute("aria-pressed", "true");
+
+    consoleWatcher.assertNoErrors();
+  });
+
+  test("6. Plots are independent tabs that survive leaving the Runs tab", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+
+    await page
+      .locator('[data-testid="toolbar-examples"]')
+      .selectOption("Three-pipe junction");
+    await page.waitForTimeout(400);
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(
+      "Converged",
+      { timeout: 15000 },
+    );
+    await page.locator('[data-testid="results-tab"]').click();
+
+    const tabs = page.locator('[data-testid^="plot-tab-"]');
+    // A fresh run opens on ONE empty plot; the only plot cannot be closed.
+    await expect(tabs).toHaveCount(1);
+    await expect(page.locator('[data-testid^="plot-close-"]')).toHaveCount(0);
+
+    // Fill plot 1 and let it name itself from what it draws.
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    await expect(tabs.first()).toContainText("Pressure");
+    // What is plotted is stated at the top of the picker, so it is also what
+    // we compare after visiting another plot.
+    const plottedHeading = page
+      .locator(
+        '[data-testid="plot-channel-picker"] .channel-rail__group--plotted',
+      )
+      .first();
+    const plotOnePlotted = await plottedHeading.textContent();
+
+    // A second plot starts empty and independent.
+    await page.locator('[data-testid="plot-add"]').click();
+    await expect(tabs).toHaveCount(2);
+    await expect(
+      page.locator('[data-testid="plot-no-channels"]'),
+    ).toBeVisible();
+
+    // Give it a different axis and its own channels.
+    await page.locator('[data-testid="plot-x-axis"]').selectOption("index");
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("branch-mdot");
+    await expect(page.locator('[data-testid="plot-chart"]')).toBeVisible();
+
+    // Back to plot 1: its axis and channels are untouched.
+    await tabs.first().click();
+    await expect(page.locator('[data-testid="plot-x-axis"]')).toHaveValue(
+      "station",
+    );
+    await expect(plottedHeading).toHaveText(plotOnePlotted!);
+
+    // The element-type filter narrows the picker; "All types" restores it.
+    await page.locator('[data-testid="plot-channel-filter"]').click();
+    await page.locator('[data-testid="plot-channel-filter-branch"]').click();
+    const branchOnly = await page
+      .locator('[data-testid^="plot-channel-ch"]')
+      .count();
+    expect(branchOnly).toBeGreaterThan(0);
+    await page.locator('[data-testid="plot-channel-filter"]').click();
+    await page.locator('[data-testid="plot-channel-filter-all"]').click();
+    const allRows = await page
+      .locator('[data-testid^="plot-channel-ch"]')
+      .count();
+    expect(allRows).toBeGreaterThan(branchOnly);
+
+    // Renaming a tab stops the auto-naming from fighting the user.
+    await tabs.first().dblclick();
+    await page.locator('[data-testid="plot-rename"]').fill("Feed line");
+    await page.locator('[data-testid="plot-rename"]').press("Enter");
+    await expect(tabs.first()).toContainText("Feed line");
+
+    // Plots live in the store, so the canvas round trip does not lose them.
+    await page.locator('[data-testid="editor-tab"]').click();
+    await page.locator('[data-testid="results-tab"]').click();
+    await expect(tabs).toHaveCount(2);
+    await expect(tabs.first()).toContainText("Feed line");
+
+    // Closing a tab lands on its neighbour rather than on nothing.
+    await page.locator('[data-testid^="plot-close-"]').last().click();
+    await expect(tabs).toHaveCount(1);
+
+    consoleWatcher.assertNoErrors();
+  });
+
+  test("7. Two runs on one plot: the design comparison the history exists for", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+
+    await page
+      .locator('[data-testid="toolbar-examples"]')
+      .selectOption("Three-pipe junction");
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(
+      "Converged",
+      { timeout: 15000 },
+    );
+
+    // A second design: a different inlet pressure, so the two runs differ.
+    await page.locator('[data-testid="editor-tab"]').click();
+    await page.locator('[data-testid="node-in"]').click();
+    const pressureInput = page
+      .getByRole("textbox", { name: /^Pressure \(/ })
+      .first();
+    await pressureInput.click();
+    await pressureInput.fill("250000");
+    await pressureInput.press("Enter");
+    await page.waitForTimeout(300);
+    await page.locator('[data-testid="toolbar-run"]').click();
+    await expect(page.locator('[data-testid="toolbar-status"]')).toContainText(
+      "Converged",
+      { timeout: 15000 },
+    );
+
+    await page.locator('[data-testid="results-tab"]').click();
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    const chart = page.locator('[data-testid="plot-chart"]');
+    await expect(chart).toBeVisible();
+    const soloSeries = await chart.locator("polyline").count();
+    expect(soloSeries).toBeGreaterThan(0);
+
+    // Run 1 is offered as an overlay; the displayed run is named but fixed.
+    await expect(
+      page.locator('[data-testid="plot-compare-primary"]'),
+    ).toContainText("Run 2");
+    const add = page.locator('[data-testid="plot-compare-add"]');
+    await add.selectOption({ label: "Run 1" });
+
+    // Both designs are now on the SAME axes: same channels, twice the lines,
+    // each labelled with the run it came from.
+    await expect(
+      page.locator('[data-testid^="plot-compare-chip-"]').first(),
+    ).toContainText("Run 1");
+    await expect(chart.locator("polyline")).toHaveCount(soloSeries * 2);
+    await expect(
+      chart
+        .locator('[data-testid^="chart-legend-item-"]', {
+          hasText: "Run 1",
+        })
+        .first(),
+    ).toBeVisible();
+    await expect(
+      chart
+        .locator('[data-testid^="chart-legend-item-"]', {
+          hasText: "Run 2",
+        })
+        .first(),
+    ).toBeVisible();
+
+    // The comparison belongs to THIS plot, not to the tab: a new plot opens
+    // reading the displayed run alone.
+    await page.locator('[data-testid="plot-add"]').click();
+    await page
+      .locator('[data-testid="plot-channel-preset"]')
+      .selectOption("node-pressure");
+    await expect(chart.locator("polyline")).toHaveCount(soloSeries);
+
+    // Back on the first plot the overlay survived, and can be dropped.
+    await page.locator('[data-testid^="plot-tab-"]').first().click();
+    await expect(chart.locator("polyline")).toHaveCount(soloSeries * 2);
+    await page.locator('[data-testid^="plot-compare-remove-"]').first().click();
+    await expect(chart.locator("polyline")).toHaveCount(soloSeries);
 
     consoleWatcher.assertNoErrors();
   });

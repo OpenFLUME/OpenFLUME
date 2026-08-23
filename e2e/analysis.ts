@@ -3,9 +3,9 @@
  *
  * The Analysis view keeps secondary sections (run details, final/result
  * tables, solver diary, run history) inside closed AnalysisDisclosure cards;
- * the sticky run strip and the aggregate-first ChannelExplorer are the
- * always-visible surfaces (full-network transient charts now live in the
- * explorer's presets, not in a disclosure).  Specs that exercise disclosure
+ * the plots panel — whose title doubles as the run selector — is the
+ * always-visible surface (charts live in its plot tabs, not in a
+ * disclosure).  Specs that exercise disclosure
  * content expand the owning section first via openAnalysisSection — a
  * semantic action (click the labelled header button, assert aria-expanded)
  * rather than a selector workaround.
