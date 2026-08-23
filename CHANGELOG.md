@@ -9,6 +9,15 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- Transient reacting junctions: CEA-coupled chambers now run in transient
+  mode (coupled `[P, ṁ, h]` system for ideal-gas/incompressible
+  `kineticEnergy` networks). Chamber mass storage is genuine (`d(ρV)/dt`);
+  the energy closure stays quasi-steady. `TransientResult.junctions` records
+  a per-step summary trajectory, shown in the property panel. New example
+  **LOX/RP-1 thruster (transient startup)**. See [`docs/combustion.md`](docs/combustion.md).
+
 ## [0.2.1] - 2026-08-23
 
 ### Added

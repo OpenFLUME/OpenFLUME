@@ -1051,7 +1051,8 @@ function solveStateStepAttempt(
   // doesn't need this — a hopeless STEADY solve just returns non-converged
   // once — but a hopeless TRANSIENT step left ungated burns the entire
   // budget every single timestep of a run.
-  const transientCoupledSystem = useExtendedSystem || (useCoupledH && dt !== undefined);
+  const transientCoupledSystem =
+    useExtendedSystem || (useCoupledH && dt !== undefined);
   // certifyAfterCoupling (EXPERIMENTAL, opt-in): when on, the certifying
   // scaled residual is re-measured AFTER the correlation h-map update and
   // wall re-solve of each outer iteration, and the best-outer / hopeless-step

@@ -200,7 +200,11 @@ export const thrusterCombustorTransient: NetworkConfig = {
   ],
   nodes: [...gasNodes, ...rampedFeedNodes, ...coolantNodes],
   solidNodes: regen.solidNodes,
-  branches: [...gasPath.gasBranches, ...injectorBranches, ...regen.jacketBranches],
+  branches: [
+    ...gasPath.gasBranches,
+    ...injectorBranches,
+    ...regen.jacketBranches,
+  ],
   conductors: regen.conductors,
   notes: [
     {
