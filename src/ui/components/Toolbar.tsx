@@ -80,11 +80,18 @@ export default function Toolbar() {
 
     if (!usesRealFluid) {
       setCoolpropStatus(null);
+      // A CoolProp failure belongs to the previous real-fluid model.
+      // Leaving it up after switching to an analytic-EOS example (e.g. the
+      // transient thruster) looks like that example itself failed to load.
+      setFluidError(null);
       return;
     }
 
     if (realFluidsReady()) {
-      if (active) setCoolpropStatus("CoolProp ready");
+      if (active) {
+        setFluidError(null);
+        setCoolpropStatus("CoolProp ready");
+      }
       const t = setTimeout(() => {
         if (active) setCoolpropStatus(null);
       }, 2000);
@@ -94,6 +101,7 @@ export default function Toolbar() {
       initRealFluids()
         .then(() => {
           if (active) {
+            setFluidError(null);
             setCoolpropStatus("CoolProp ready");
             const t = setTimeout(() => {
               if (active) setCoolpropStatus(null);

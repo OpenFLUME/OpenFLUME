@@ -328,6 +328,17 @@ describe("run history diaries (store lifecycle)", () => {
     expect(s().resultDiary).toBeNull();
   });
 
+  it("loadExample and newNetwork clear a leftover CoolProp fluidError", () => {
+    const s = () => useStore.getState();
+    s().setFluidError("CoolProp init failed: boom");
+    s().loadExample("LOX/RP-1 thruster (transient startup)");
+    expect(s().fluidError).toBeNull();
+
+    s().setFluidError("CoolProp init failed: boom");
+    s().newNetwork();
+    expect(s().fluidError).toBeNull();
+  });
+
   it("rename/delete/baseline leave diaries intact; ring eviction drops them with the record", () => {
     const s = () => useStore.getState();
     s().pushRunRecord({
