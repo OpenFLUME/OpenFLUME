@@ -8,7 +8,12 @@ import { renderToString } from "react-dom/server";
 import { useStore } from "../store";
 import PropertyPanel from "../components/PropertyPanel";
 import { serializeText } from "../../substrate/textProjection";
-import type { NetworkConfig, Selection } from "../types";
+import type {
+  NetworkConfig,
+  Selection,
+  SteadyResult,
+  TransientResult,
+} from "../types";
 import type { JunctionConfig } from "../../core";
 
 /** Feed tanks + chamber + exhaust: the minimal shape a junction wants. */
@@ -151,6 +156,30 @@ function renderPanel(config: NetworkConfig, selection: Selection): string {
   return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
 }
 
+function renderPanelWithResult(
+  config: NetworkConfig,
+  selection: Selection,
+  overrides: {
+    result?: SteadyResult | TransientResult | null;
+    liveResult?: TransientResult | null;
+    runStatus?: string;
+    timeIndex?: number | null;
+    resultStale?: boolean;
+  },
+): string {
+  Object.assign(useStore.getInitialState(), {
+    config,
+    selection,
+    result: null,
+    liveResult: null,
+    runStatus: "idle",
+    timeIndex: null,
+    resultStale: false,
+    ...overrides,
+  });
+  return renderToString(<PropertyPanel />).replace(/<!-- -->/g, "");
+}
+
 describe("junction store actions", () => {
   it("upsertJunction adds a junction as one undoable, text-synced edit", () => {
     resetStore();
@@ -251,5 +280,163 @@ describe("PropertyPanel junction section", () => {
     expect(select).toContain(">gas<");
     expect(select).not.toContain(">lox<");
     expect(select).not.toContain(">rp1<");
+  });
+});
+
+const testGasState = {
+  T0: 3400,
+  mw: 0.0221,
+  R: 376.2,
+  gamma: 1.18,
+  cp: 2470,
+  mu: 9.8e-5,
+  cstar: 1750,
+};
+
+/** A steady result carrying just the junction summary (schema.ts
+ *  JunctionSummary), keyed by testJunction().id. */
+function steadyResultWithJunction(clampedOf = false): SteadyResult {
+  return {
+    converged: true,
+    iterations: 12,
+    residual: 1e-10,
+    junctions: {
+      chamberCombustor: {
+        pc: 1.02e6,
+        productTemperature: 3196,
+        mdotByRole: { oxidizer: 0.9, fuel: 0.36 },
+        mdotTotal: 1.26,
+        of: 2.5,
+        gas: testGasState,
+        clampedPc: false,
+        clampedOf,
+      },
+    },
+    nodes: { chamber: { pressure: 1.02e6, temperature: 3196, density: 0.8 } },
+    branches: {},
+  };
+}
+
+/** A transient junction summary trajectory (schema.ts
+ *  JunctionSummaryHistory) with three steps whose O/F is distinct at each
+ *  index, so time-step selection can be pinned by value. */
+function transientResultWithJunction(): TransientResult {
+  return {
+    converged: true,
+    times: [0, 0.01, 0.02],
+    junctions: {
+      chamberCombustor: {
+        pc: [8e5, 9.5e5, 1.02e6],
+        productTemperature: [3000, 3100, 3196],
+        mdotByRole: {
+          oxidizer: [0.7, 0.8, 0.9],
+          fuel: [0.28, 0.32, 0.36],
+        },
+        mdotTotal: [0.98, 1.12, 1.26],
+        of: [2.1, 2.3, 2.5],
+        gas: {
+          T0: [3200, 3300, 3400],
+          mw: [0.0221, 0.0221, 0.0221],
+          R: [376.2, 376.2, 376.2],
+          gamma: [1.18, 1.18, 1.18],
+          cp: [2470, 2470, 2470],
+          mu: [9.6e-5, 9.7e-5, 9.8e-5],
+          cstar: [1700, 1725, 1750],
+        },
+        clampedPc: [false, false, false],
+        clampedOf: [false, false, false],
+      },
+    },
+    nodes: {
+      chamber: {
+        pressure: [8e5, 9.5e5, 1.02e6],
+        temperature: [3000, 3100, 3196],
+        density: [0.6, 0.7, 0.8],
+      },
+    },
+    branches: {},
+  };
+}
+
+describe("PropertyPanel junction results", () => {
+  const cfg = { ...baseConfig(), junctions: [testJunction()] };
+
+  it("renders nothing before a solve has run", () => {
+    const html = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      {},
+    );
+    expect(html).not.toContain("junction-results");
+  });
+
+  it("renders nothing for a node that is not a junction", () => {
+    const html = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "loxTank" },
+      { result: steadyResultWithJunction() },
+    );
+    expect(html).not.toContain("junction-results");
+  });
+
+  it("shows the steady junction summary — Pc, O/F, per-role mdot, CEA gas state", () => {
+    const html = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      { result: steadyResultWithJunction() },
+    );
+    expect(html).toContain("junction-results");
+    expect(html).toContain("Junction summary");
+    expect(html).toContain("Chamber pressure");
+    expect(html).toContain("O/F");
+    expect(html).toContain("2.5");
+    expect(html).toContain("ṁ (oxidizer)");
+    expect(html).toContain("ṁ (fuel)");
+    expect(html).toContain("Adiabatic T0");
+    expect(html).not.toContain("junction-results-clamped");
+  });
+
+  it("flags a clamped junction result", () => {
+    const html = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      { result: steadyResultWithJunction(true) },
+    );
+    expect(html).toContain("junction-results-clamped");
+  });
+
+  it("indexes a transient junction history by the selected time step", () => {
+    const atStepZero = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      { result: transientResultWithJunction(), timeIndex: 0 },
+    );
+    expect(atStepZero).toContain("@ step 0");
+    expect(atStepZero).toContain("2.1");
+    expect(atStepZero).not.toContain("2.5");
+
+    const atLastStep = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      { result: transientResultWithJunction(), timeIndex: null },
+    );
+    expect(atLastStep).not.toContain("@ step");
+    expect(atLastStep).toContain("2.5");
+    expect(atLastStep).not.toContain("2.1");
+  });
+
+  it("reads a live (in-progress) transient result while running", () => {
+    const html = renderPanelWithResult(
+      cfg,
+      { kind: "node", id: "chamber" },
+      {
+        result: null,
+        liveResult: transientResultWithJunction(),
+        runStatus: "running",
+        timeIndex: 1,
+      },
+    );
+    expect(html).toContain("junction-results");
+    expect(html).toContain("2.3");
   });
 });

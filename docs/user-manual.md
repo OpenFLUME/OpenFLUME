@@ -84,9 +84,9 @@ Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a sourced temperature-dependent material catalogue and five
 convection heat-transfer models including two cryogenic chilldown correlations.
-Steady CEA-coupled reacting junctions support LOX/RP-1 and LOX/methane
-combustors, while the separate species-transport path supports transient
-ideal-gas chemistry.
+CEA-coupled reacting junctions (steady or transient) support LOX/RP-1 and
+LOX/methane combustors, while the separate species-transport path supports
+transient ideal-gas chemistry.
 
 The steady solver is a coupled Newton–Raphson method on the simultaneous
 mass and momentum residuals, with an analytic (forward-mode dual number)
@@ -98,7 +98,7 @@ cushions, multi-species advective transport with stiff Arrhenius chemistry,
 declarative logic rules with registers, transient PID controllers, and
 session-only parameter sweeps.
 
-Twelve example problems ship with the program, spanning hand-checkable sanity
+Thirteen example problems ship with the program, spanning hand-checkable sanity
 cases, engineering applications, and published benchmarks from the GFSSP manual,
 the Lee & Martin entrapped-air problem, NBS Report 9264 cryogenic chilldown
 experiments, and two SINDA/FLUINT sample problems.
@@ -372,7 +372,7 @@ convective heat arriving from a wall is positive.
 | Solid properties        | Constant, sourced material catalogue, table, equation, time table                                                       |
 | Transient momentum      | Optional lumped fluid inertia; trapped-gas cushions                                                                     |
 | Species                 | Multi-species advective transport with Arrhenius chemistry (transient, ideal gas)                                       |
-| Combustion              | CEA-coupled reacting junctions (steady + `kineticEnergy`; LOX/RP-1 and LOX/CH₄)                                         |
+| Combustion              | CEA-coupled reacting junctions (steady or transient + `kineticEnergy`; LOX/RP-1 and LOX/CH₄)                            |
 | Control and logic       | Registers, declarative logic rules, stop rules, transient PID controllers                                               |
 | Multi-fluid             | Named isolated fluid continua, mixed EOS classes allowed (wall-coupled only)                                            |
 | Extensibility           | Tabulated $\Delta P$, $K(\mathrm{Re})$ resistances, user-authored JavaScript components                                 |
@@ -619,7 +619,7 @@ enforced by [`src/core/validate.ts`](../src/core/validate.ts) before any solve.
 | `solidNodes`       | no       | Solid lumped masses and ambient reservoirs                      |
 | `conductors`       | no       | Thermal links                                                   |
 | `species`          | no       | Species list and Arrhenius reactions (ideal gas, transient)     |
-| `junctions`        | no       | Steady CEA-coupled reacting junctions                           |
+| `junctions`        | no       | CEA-coupled reacting junctions (steady or transient)            |
 | `registers`        | no       | Named numeric state for logic and expressions                   |
 | `logic`            | no       | Declarative event rules and stop rules                          |
 | `controllers`      | no       | Transient PID controllers                                       |
@@ -794,20 +794,25 @@ first-order backward-difference method and adaptive sub-stepping; see section
 
 ### 3.9.1 Reacting Junctions
 
-`junctions` declares steady combustion at an internal chamber node. Each entry
-names the chamber `node`, one or more inlet branches with roles `oxidizer` or
-`fuel`, a `model` of type `ceaTable`, and a named `productFluid`. The committed
-tables support `propellants: "lox-rp1"` and `"lox-ch4"` over chamber pressure
-0.2–30 MPa and O/F 1–5; out-of-range requests clamp to the table edge.
-`model.efficiency` must lie in (0, 1].
+`junctions` declares combustion at an internal chamber node, in steady or
+transient mode. Each entry names the chamber `node`, one or more inlet
+branches with roles `oxidizer` or `fuel`, a `model` of type `ceaTable`, and a
+named `productFluid`. The committed tables support `propellants: "lox-rp1"`
+and `"lox-ch4"` over chamber pressure 0.2–30 MPa and O/F 1–5; out-of-range
+requests clamp to the table edge. `model.efficiency` must lie in (0, 1].
 
 The product fluid and chamber node must use the same named `idealGas` entry.
 Every inlet branch must end at the chamber, and at least one non-inlet branch
-must carry products away. Junctions require steady mode plus
-`settings.kineticEnergy` and cannot be combined with `species`. The chamber
-closure is solved inside the coupled Newton system; product-gas properties are
-updated between outer iterations. Composition is frozen downstream and the CEA
-tables assume standard-state reactant injection. See
+must carry products away. Junctions require `settings.kineticEnergy` and
+cannot be combined with `species`. In transient mode the chamber node must
+additionally carry a positive `volume`: the mass balance then integrates a
+genuine `d(ρV)/dt` storage term, so `Pc(t)` responds to a feed-pressure
+transient with real fill/drain dynamics, while the energy closure stays
+quasi-steady (combustion/residence time is far below any ramp rate a
+network's boundary schedules would author). The chamber closure is solved
+inside the coupled Newton system (steady or transient); product-gas
+properties are updated between outer iterations. Composition is frozen
+downstream and the CEA tables assume standard-state reactant injection. See
 [`combustion.md`](combustion.md) for the complete contract.
 
 ## 3.10 Formula-Bound Fields
@@ -1039,7 +1044,7 @@ each internal node's composition and temperature.
 
 This species-transport reacting-flow path is transient-only and ideal-gas-only;
 `realFluid` and `incompressible` combinations with species are rejected by
-validation. It is distinct from the steady CEA-coupled reacting-junction model
+validation. It is distinct from the CEA-coupled reacting-junction model
 described in section 3.9.1 and [`combustion.md`](combustion.md). The first-order
 integrator is robust for small reaction sets but requires many small sub-steps
 at tight tolerances; large detailed mechanisms would want a higher-order stiff
@@ -1774,7 +1779,8 @@ group of one mass fraction per species with a running sum and a **Normalize to
 An internal node also exposes **Reacting junction (combustor)**. Enabling it
 selects the CEA propellant pair and efficiency, the named ideal-gas product
 fluid, and the oxidizer/fuel role of each inbound branch. Validation enforces
-the steady + `kineticEnergy` restrictions described in section 3.9.1.
+the `kineticEnergy` (and, in transient mode, positive-`volume`) restrictions
+described in section 3.9.1.
 
 **Solid node.** **Label**, **Type** (Solid / Ambient), **Subnetwork**,
 **Position (m)**, **Temperature**, **Mass** and **cp** for solids, and **Heat
@@ -2201,7 +2207,7 @@ problem rather than a model defect.
 
 # 7. Example Problems
 
-Twelve models ship with the program, reachable from **Examples ▾**. They are
+Thirteen models ship with the program, reachable from **Examples ▾**. They are
 grouped by intent: _Verify-by-inspection_ cases whose answers can be checked by
 hand, _Applications_ showing engineering use, _Benchmarks_ reproducing published
 results, and _Extensibility_ cases exercising logic, registers, and controllers.
@@ -2364,11 +2370,56 @@ discretization, not a mismatched gas assumption. See
 [`docs/validation/combustion-report.md`](validation/combustion-report.md)
 for current numbers.
 
-**Scope.** Steady + `kineticEnergy` only; frozen composition downstream of
+**Scope.** Requires `kineticEnergy`; frozen composition downstream of
 the chamber; standard-state reactant injection. The nozzle is perfectly
-expanded by construction — there is no shock capture (section 1.7).
+expanded by construction — there is no shock capture (section 1.7). This
+example runs in steady mode; section 7.8 runs the same reacting junction
+transiently.
 
-## 7.8 Water-Water Counterflow Heat Exchanger
+## 7.8 LOX/RP-1 Thruster (Transient Startup)
+
+_Applications · transient · mixed EOS, reacting junction, compressible duct_
+
+**Problem.** The same thruster as section 7.7, started up: LOX and RP-1 feed
+pressure ramps from 100 psi to 1000 psi over the first second and holds there
+for a second more (2 s total), while chamber pressure, mixture ratio, and
+product-gas properties evolve as the reacting junction fills.
+
+**Model.** Reuses the geometry and thermal model of section 7.7's
+`config.junctions` chamber, feed lines, and 42-station regenerative jacket,
+with two changes: every fluid node (gas-path and coolant) is given a
+`volume` so its mass balance can integrate $d(\rho V)/dt$, and the LOX/RP-1
+tank nodes carry a `pressureSchedule` ramp instead of a fixed pressure. The
+`exhaust` boundary is fixed at 30 kPa (a plausible high-altitude ambient)
+rather than sea-level, because at the low end of the ramp a sea-level
+boundary over-expands the nozzle enough to back-propagate an unphysical
+recompression kink into the last interior station; 30 kPa keeps the profile
+monotone at both ends of the ramp. `settings.tolerance` is relaxed to
+`1e-7` from the steady example's `1e-8`, because the extra mass-storage row
+raises the raw residual's noise floor enough that the tighter bar is
+reachable only by grinding many extra inner-Newton iterations for no
+accuracy gain (outer-loop convergence is certified separately). See
+[`combustion.md`](combustion.md#transient-reacting-junctions) for the full
+rationale.
+
+**Check.** Chamber pressure rises monotonically during the ramp, lagging the
+feed-pressure schedule (the mass row's fill dynamic), then settles to a
+near-constant value during the hold (spread &lt;0.01%). At every instant the
+chamber's temperature-vs-$P_c$ relationship still sits on the same steady CEA
+curve the energy closure enforces in section 7.7 — the energy row itself
+carries no storage term. The final held state matches a steady solve at the
+fully-ramped feed pressure to within 2% on $P_c$, $T_0$, and O/F. Full
+numbers and a figure of the pressure ramp are in
+[`docs/validation/combustion-report.md`](validation/combustion-report.md).
+The property panel's junction summary (Pc, O/F, mass flows, product-gas
+state) is indexed by the results timeline for this example, the same way it
+is scalar for section 7.7's steady run.
+
+**Scope.** Same as section 7.7, plus: transient reacting junctions require a
+positive `volume` on the chamber node; the exhaust boundary is a fixed
+pressure chosen for this ramp's range rather than a matched-expansion value.
+
+## 7.9 Water-Water Counterflow Heat Exchanger
 
 _Benchmarks · steady · incompressible water, conjugate_
 
@@ -2389,7 +2440,7 @@ counterflow heat-exchanger case, which mirrors the architecture of this
 example: per-segment wall solid nodes convecting to both streams. From
 [`docs/validation/thermal-network-report.md`](validation/thermal-network-report.md)._
 
-## 7.9 Entrapped-Air Line
+## 7.10 Entrapped-Air Line
 
 _Benchmarks · transient · incompressible water with gas cushion_
 
@@ -2408,7 +2459,7 @@ This case is the joint test of `inertia` and `gasCushion`; disabling either one
 destroys the oscillation, which makes it a good demonstration of what those
 options actually do.
 
-## 7.10 Cryogenic Line Cooldown
+## 7.11 Cryogenic Line Cooldown
 
 _Benchmarks · transient · real-fluid hydrogen, conjugate_
 
@@ -2432,7 +2483,7 @@ front, temperature-dependent solid properties, and film boiling at once. It is
 also the clearest illustration of why axial discretization matters — a coarse
 version cannot resolve the front at all.
 
-## 7.11 Extension: Cryo Tank Vent Control
+## 7.12 Extension: Cryo Tank Vent Control
 
 _Extensibility · transient · real-fluid nitrogen_
 
@@ -2449,7 +2500,7 @@ vent events. This is the reference example for registers, logic rules, and
 hysteresis — the smallest complete demonstration of control without writing
 component code.
 
-## 7.12 LH₂ Tank No-Vent Fill
+## 7.13 LH₂ Tank No-Vent Fill
 
 _Extensibility · transient · real-fluid parahydrogen, conjugate_
 
@@ -2478,7 +2529,7 @@ NTU ≈ 29 per node, beyond what the segregated solid-fluid coupling can solve. 
 module header of [`src/ui/lh2StorageTank.ts`](../src/ui/lh2StorageTank.ts) gives
 the full accounting. Read that before treating this example as a template.
 
-## 7.13 Additional Configurations
+## 7.14 Additional Configurations
 
 Further networks are exported from the source tree but deliberately kept out of
 the menu, because they exist to be asserted on rather than explored: additional

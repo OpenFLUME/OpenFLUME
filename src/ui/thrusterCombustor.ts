@@ -93,7 +93,7 @@
  */
 import type { Conductor, NetworkConfig, SolidNode } from "../core/schema";
 
-const metres = (x: number, y = 0, z = 0) => ({ x, y, z });
+export const metres = (x: number, y = 0, z = 0) => ({ x, y, z });
 
 /* ────────────────────────────────────────────────────────────────────────
  * Gas path.
@@ -103,7 +103,7 @@ const metres = (x: number, y = 0, z = 0) => ({ x, y, z });
  * warm start; `wall` is [liner, fin, shell] and `coolT`/`coolP` the RP-1
  * jacket node — all authored at the converged solution.
  * ──────────────────────────────────────────────────────────────────────── */
-interface GasStation {
+export interface GasStation {
   id: string;
   z: number; // axial position [m]
   D: number; // gas-side diameter [m]
@@ -114,7 +114,7 @@ interface GasStation {
   coolP: number; // jacket node pressure [Pa]
 }
 
-const GAS_STATIONS: GasStation[] = [
+export const GAS_STATIONS: GasStation[] = [
   {
     id: "chamber",
     z: 0,
@@ -539,12 +539,12 @@ const GAS_STATIONS: GasStation[] = [
 
 /** Nozzle exit plane (boundary node).  See the EXHAUST BOUNDARY note above:
  *  the pressure is the matched-expansion value, not an ambient pressure. */
-const EXHAUST = { z: 0.209282, D: 0.08, P: 50939.4, T: 2283.56 };
+export const EXHAUST = { z: 0.209282, D: 0.08, P: 50939.4, T: 2283.56 };
 
 /** Warm-start mass flows [kg/s]. */
-const MDOT_GAS = 0.766519;
-const MDOT_OX = 0.553082;
-const MDOT_FUEL = 0.213437;
+export const MDOT_GAS = 0.766519;
+export const MDOT_OX = 0.553082;
+export const MDOT_FUEL = 0.213437;
 
 const FRICTION_F = 0.02; // authored constant Darcy factor on every gas segment
 
@@ -555,7 +555,7 @@ const FRICTION_F = 0.02; // authored constant Darcy factor on every gas segment
  * ──────────────────────────────────────────────────────────────────────── */
 const NOZZLE_X0 = 829; // canvas x of the first convergent station
 const NOZZLE_PITCH = 22;
-const xOfIndex = (i: number): number =>
+export const xOfIndex = (i: number): number =>
   i === 0
     ? 469
     : i === 1
@@ -563,7 +563,7 @@ const xOfIndex = (i: number): number =>
       : i === 2
         ? 784
         : NOZZLE_X0 + (i - 3) * NOZZLE_PITCH;
-const yOfDiameter = (D: number): number =>
+export const yOfDiameter = (D: number): number =>
   Math.round(454 + ((0.08 - D) / 0.04) * 315);
 
 const regionOf = (id: string): string =>
@@ -576,10 +576,17 @@ const regionOf = (id: string): string =>
         : "Chamber";
 
 /** Contour point i, with the exhaust plane as the final entry. */
-const contourAt = (i: number): { z: number; D: number } =>
+export const contourAt = (i: number): { z: number; D: number } =>
   i < GAS_STATIONS.length ? GAS_STATIONS[i] : EXHAUST;
 /** Length of the segment leaving station i. */
-const segLength = (i: number): number => contourAt(i + 1).z - contourAt(i).z;
+export const segLength = (i: number): number =>
+  contourAt(i + 1).z - contourAt(i).z;
+/** Tributary length of station i: half of each adjacent segment — the same
+ *  partition buildRegenSystem uses for wetted area, reused for node volumes
+ *  (thrusterCombustorTransient.ts) so the discretized free volume tiles the
+ *  nozzle length exactly once, with no gaps or double-counting. */
+export const tributaryLength = (i: number): number =>
+  ((i > 0 ? segLength(i - 1) : 0) + segLength(i)) / 2;
 
 /* ────────────────────────────────────────────────────────────────────────
  * Regenerative-cooling wall stack — one three-layer copper section and a
@@ -615,12 +622,12 @@ const H_GAS_THROAT = 1500; // Bartz-order gas film at the throat [W/m^2 K]
 const THROAT_D = 0.04; // throat diameter [m]
 const CU_RHO = 8940; // OFHC copper density [kg/m^3]
 const COPPER = { material: "ofhc-copper" } as const;
-const JACKET_D = 0.015; // jacket pass hydraulic diameter [m]
+export const JACKET_D = 0.015; // jacket pass hydraulic diameter [m]
 
 /* ────────────────────────────────────────────────────────────────────────
  * Network assembly.
  * ──────────────────────────────────────────────────────────────────────── */
-function buildGasPath(): {
+export function buildGasPath(): {
   gasNodes: NetworkConfig["nodes"];
   gasBranches: NetworkConfig["branches"];
 } {
@@ -670,7 +677,7 @@ function buildGasPath(): {
   return { gasNodes, gasBranches };
 }
 
-function buildRegenSystem(): {
+export function buildRegenSystem(): {
   coolantNodes: NetworkConfig["nodes"];
   jacketBranches: NetworkConfig["branches"];
   solidNodes: SolidNode[];
@@ -683,8 +690,7 @@ function buildRegenSystem(): {
 
   GAS_STATIONS.forEach((st, i) => {
     const D = st.D;
-    // Tributary length = half of each adjacent segment.
-    const L = ((i > 0 ? segLength(i - 1) : 0) + segLength(i)) / 2;
+    const L = tributaryLength(i);
     const gx = xOfIndex(i);
     const gy = yOfDiameter(D);
 
@@ -867,7 +873,7 @@ function buildRegenSystem(): {
 const gasPath = buildGasPath();
 const regen = buildRegenSystem();
 
-const feedNodes: NetworkConfig["nodes"] = [
+export const feedNodes: NetworkConfig["nodes"] = [
   {
     id: "loxTank",
     type: "boundary",
@@ -892,7 +898,7 @@ const feedNodes: NetworkConfig["nodes"] = [
   },
 ];
 
-const injectorBranches: NetworkConfig["branches"] = [
+export const injectorBranches: NetworkConfig["branches"] = [
   {
     id: "loxInjector",
     from: "loxTank",

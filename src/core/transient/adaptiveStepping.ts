@@ -77,8 +77,14 @@ export function runAdaptiveTimeStepping(
   const logic = createLogicRuntime(config);
 
   const acc = initTransientResults(ctx, config, state);
-  const { times, nodeResults, branchResults, solidResults, conductorResults } =
-    acc;
+  const {
+    times,
+    nodeResults,
+    branchResults,
+    solidResults,
+    conductorResults,
+    junctionResults,
+  } = acc;
 
   const partial = (stepIndex: number, converged: boolean, aborted?: boolean) =>
     buildPartialTransientResult(
@@ -88,6 +94,7 @@ export function runAdaptiveTimeStepping(
       branchResults,
       solidResults,
       conductorResults,
+      junctionResults,
       ttWfResultField(),
       fluidFrontResultField(),
       converged,
@@ -479,6 +486,7 @@ export function runAdaptiveTimeStepping(
     branches: branchResults,
     solidNodes: solidResults,
     conductors: conductorResults,
+    junctions: junctionResults,
     ttWf: ttWfResultField(),
     fluidFront: fluidFrontResultField(),
     stats: stats(),

@@ -90,19 +90,35 @@ export interface NewtonKernelEnv {
   conductorHMap: Map<string, number>;
 }
 
-/** Whether a solve uses the coupled steady enthalpy system [P, ṁ, h]
- *  (settings.kineticEnergy, steady only).  Unlike the retired
- *  compressible-T mode it replaced, there is no fluid-class gate: every
- *  FluidModel implements statePH, so any EOS — ideal gas, incompressible,
- *  CoolProp real fluid — rides the same formulation.  Species mixtures keep
- *  the segregated path (composition is not yet a coupled unknown);
- *  transient kineticEnergy solves keep the segregated
- *  frozen-stagnation-T closure. */
+/** Whether a solve uses the coupled enthalpy system [P, ṁ, h]
+ *  (settings.kineticEnergy).  Unlike the retired compressible-T mode it
+ *  replaced, there is no fluid-class gate: every FluidModel implements
+ *  statePH, so any EOS — ideal gas, incompressible, CoolProp real fluid —
+ *  rides the same formulation.  Species mixtures keep the segregated path
+ *  (composition is not yet a coupled unknown).
+ *
+ *  Steady: always true when kineticEnergy is on (any EOS, including real
+ *  fluid — historical behaviour, unchanged).
+ *
+ *  Transient: true for the analytic (non-real-fluid) EOS classes — this is
+ *  what lets a reacting junction (core/schema.ts JunctionConfig) run in
+ *  transient, since its energy-closure row lives in this same `hPrimary`
+ *  block (see the junction block in makeKernel) and previously only existed
+ *  under steady + kineticEnergy.  Transient REAL FLUID solves keep their
+ *  existing `useExtendedSystem` path instead (mutually exclusive with this
+ *  flag by construction below) — that path already gives every node an `h`
+ *  column via the SAME `hPrimary` gate, so a junction whose product fluid is
+ *  idealGas still gets its closure row even in a network that also contains
+ *  a real fluid elsewhere; keeping useCoupledH itself false there preserves
+ *  the real-fluid transient solve's warm-start/publish/sync code paths
+ *  bit-for-bit. */
 export function useCoupledHMode(
   ctx: SolverContext,
   dt: number | undefined,
 ): boolean {
-  return ctx.kineticEnergy && !ctx.hasSpecies && dt === undefined;
+  if (!ctx.kineticEnergy || ctx.hasSpecies) return false;
+  if (dt === undefined) return true;
+  return !ctx.isRealFluid;
 }
 
 export interface NewtonKernel {
@@ -177,17 +193,23 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
   //     T_s = T0 − v²/(2cp),  v = ṁ/(ρA),  ρ = P/(R·T_s)
   //  ⇒  a·T_s² + T_s − T0 = 0,  a = (ṁR/(P·A))²/(2cp)
   //  ⇒  T_s = 2·T0 / (1 + √(1 + 4·a·T0))   (continuous-subsonic root).
-  // The resulting momentum subsystem chokes at M = 1, as it must.  This is
-  // the SEGREGATED (transient) closure only — steady kineticEnergy solves
-  // take the coupled h-system (useCoupledH above), where static h is a
+  // The resulting momentum subsystem chokes at M = 1, as it must.  This was
+  // the SEGREGATED (transient) closure for the analytic ideal-gas path
+  // (fluids carrying R and γ) — steady kineticEnergy solves always took the
+  // coupled h-system (useCoupledH above) instead, where static h is a
   // Newton unknown and ρ(P, h) carries the same Mach coupling exactly, for
-  // every EOS.  Applies only to the analytic ideal-gas path (fluids
-  // carrying R and γ); real fluid, species mixtures, and fluids without
-  // R/γ keep the frozen static T.
+  // every EOS.  Since useCoupledHMode now also covers TRANSIENT analytic
+  // (non-real-fluid) kineticEnergy solves — needed so a reacting junction's
+  // energy-closure row (which lives in the coupled hPrimary block) can run
+  // in transient — `!useCoupledH` below is never true when
+  // `!ctx.isRealFluid` also holds, so this closure is provably dead: kept
+  // in place, unmodified, as the documented fallback should useCoupledHMode
+  // ever be narrowed again (e.g. species support), rather than deleted from
+  // a load-bearing numerics file for a code-cleanliness pass alone.
   const compressibleKE =
     ctx.kineticEnergy && !ctx.isRealFluid && !ctx.hasSpecies && !useCoupledH;
 
-  // ── Reacting junctions (config.junctions, coupled steady h-system only) ──
+  // ── Reacting junctions (config.junctions, any hPrimary system) ──────────
   //
   // A junction node's energy row is REPLACED by the thermochemical closure
   //     R = (h_node − η · h(T0(Pc, ṁ_roles))) / max(|h_target|, 1e4)
@@ -195,7 +217,18 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
   // Σ|ṁ| over that role's inlet branches — all Newton unknowns, so the
   // divergent Pc → injector ΔP → ṁ → T0 → Pc loop of the retired outer
   // fixed-point driver lives entirely inside the Jacobian.  Normalisation
-  // mirrors the degenerate-node h-pin convention (dimensionless, O(1)).
+  // mirrors the degenerate-node h-pin convention (dimensionless, O(1)).  The
+  // row carries NO transient storage term — the chamber's energy is treated
+  // as quasi-steady (combustion/residence time ~ms, far below any ramp rate
+  // a network's boundary schedules would author) even when `dt` is defined;
+  // only the ordinary MASS row above (Σṁ − d(ρV)/dt, generic over every
+  // internal node including this one) carries real fill/drain dynamics, so
+  // a transient reacting junction still has a genuine Pc(t) — it just
+  // reaches its instantaneous CEA equilibrium enthalpy infinitely fast
+  // rather than integrating a stored energy of its own.  This closure is
+  // reached whenever the node has an `h` column at all, so it is exercised
+  // both by the coupled STEADY h-system and by the coupled TRANSIENT one
+  // (useCoupledHMode, ./kernel.ts) — no dt-specific branch needed here.
   //
   // Junction INLET branches join unlike fluids (reactant feed → product
   // node), so their momentum closure keeps the UPSTREAM (reactant) density

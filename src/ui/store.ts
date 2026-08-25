@@ -655,6 +655,10 @@ export const useStore = create<StoreState>((set, get) => {
     activeGroupTab: null as string | null,
     activeTab: "editor" as AppTab,
     dirty: false,
+    // CoolProp init is per-model: a failure on the previous file must not
+    // follow a New / Load / Example replacement onto a model that may not
+    // even use real fluids.
+    fluidError: null as string | null,
   });
 
   /**

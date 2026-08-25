@@ -1,10 +1,13 @@
 /**
  * Reacting-junction validation (core/schema.ts JunctionConfig): reference /
  * type / fluid checks for the junction energy closure the Newton kernel
- * installs (core/solver/kernel.ts).  v1 supports steady solves with the
- * coupled enthalpy system only — the closure replaces a coupled-h energy
- * row, which exists only under settings.kineticEnergy in steady mode (see
- * docs/combustion.md).
+ * installs (core/solver/kernel.ts).  The closure replaces a coupled-h
+ * energy row, which requires settings.kineticEnergy — steady always solves
+ * that coupled system, and transient does too for the junction's product
+ * fluid (idealGas is required below), so both modes are supported (see
+ * docs/combustion.md).  A transient junction's energy closure stays
+ * algebraic/quasi-steady even though the row is now reached every implicit
+ * step — see the comment at the junction block in core/solver/kernel.ts.
  */
 import type { ResolvedNetworkConfig } from "../schema";
 import { resolveFluidSpec, resolvedFluidName } from "../fluidAssignment";
@@ -34,11 +37,6 @@ export function validateJunctions(
 
   const { nodeIds, boundaryIds, branchIds } = ids;
 
-  if (config.settings?.mode !== "steady") {
-    errors.push(
-      'Junctions require settings.mode "steady" (transient reacting junctions are not supported in v1)',
-    );
-  }
   if (config.settings?.kineticEnergy !== true) {
     errors.push(
       "Junctions require settings.kineticEnergy (the junction closure replaces a coupled-enthalpy energy row, which exists only in that system)",

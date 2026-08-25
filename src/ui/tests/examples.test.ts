@@ -386,6 +386,73 @@ describe("examples library: validation, convergence, and physics", () => {
             );
             expect(tBelow50("wall1")).toBeLessThan(tBelow50("wall20"));
           }
+
+          if (name === "LOX/RP-1 thruster (transient startup)") {
+            const last = <T>(xs: T[]): T => xs[xs.length - 1];
+
+            // The feed ramp (0 -> 1 s, 100 -> 1000 psi, held to 2 s) is
+            // authored directly on the boundary tanks: reproduce it exactly.
+            const PSI = 6894.757293168361;
+            const loxP = res.nodes["loxTank"].pressure;
+            expect(loxP[0]).toBeCloseTo(100 * PSI, 0);
+            expect(last(loxP)).toBeCloseTo(1000 * PSI, 0);
+
+            // Exhaust boundary is a fixed ambient (docs/combustion.md: chosen
+            // low enough that the nozzle never re-compresses at the low end
+            // of the ramp — see the monotonic profile check below).
+            for (const p of res.nodes["exhaust"].pressure) {
+              expect(p).toBeCloseTo(30000, 0);
+            }
+
+            // Chamber pressure rises monotonically through the ramp, then
+            // stays essentially flat through the 1-2 s hold: the mass row's
+            // fill dynamic settles fast relative to the ramp rate, so the
+            // junction (quasi-steady in energy) tracks the feed
+            // quasi-statically, exactly as a reacting junction should.
+            const chamberP = res.nodes["chamber"].pressure;
+            for (let i = 1; i < chamberP.length; i++) {
+              // A tiny (< 0.01%) per-step drift is possible once held flat
+              // (property-lag/Newton noise floor at the loosened transient
+              // tolerance — see the comment on settings.tolerance in
+              // thrusterCombustorTransient.ts), so allow a relative slop.
+              expect(chamberP[i]).toBeGreaterThanOrEqual(
+                chamberP[i - 1] * (1 - 1e-3),
+              );
+            }
+            const rampEndIdx = res.times.findIndex((t) => t >= 1.0);
+            const heldP = chamberP.slice(rampEndIdx);
+            const heldSpread =
+              (Math.max(...heldP) - Math.min(...heldP)) / heldP[0];
+            expect(heldSpread).toBeLessThan(0.01);
+
+            // Monotonic pressure profile down the nozzle at the final,
+            // fully-ramped state — no over-expansion recompression kink at
+            // the low end of the ramp motivated the 30 kPa exhaust choice
+            // in the first place (docs/combustion.md).
+            expect(last(chamberP)).toBeGreaterThan(
+              last(res.nodes["div22"].pressure),
+            );
+            expect(last(res.nodes["div22"].pressure)).toBeGreaterThan(
+              last(res.nodes["div23"].pressure),
+            );
+            expect(last(res.nodes["div23"].pressure)).toBeGreaterThan(
+              last(res.nodes["exhaust"].pressure),
+            );
+
+            // TransientResult.junctions: the per-step reporting summary
+            // (core/solver/junctionSummary.ts) tracks the chamber node it
+            // reports on exactly, at every step.
+            const jn = res.junctions!.mainCombustor;
+            expect(jn).toBeDefined();
+            expect(jn.pc).toHaveLength(res.times.length);
+            for (let i = 0; i < res.times.length; i++) {
+              expect(jn.pc[i]).toBeCloseTo(chamberP[i], 3);
+            }
+            expect(jn.clampedPc.some(Boolean)).toBe(false);
+            expect(jn.clampedOf.some(Boolean)).toBe(false);
+            expect(last(jn.gas.T0)).toBeGreaterThan(3000);
+            expect(last(jn.of!)).toBeGreaterThan(0);
+          }
         });
       }
     });

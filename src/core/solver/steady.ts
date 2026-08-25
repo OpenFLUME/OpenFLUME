@@ -7,7 +7,7 @@
  * themselves live in derivedProperties.ts, shared with the transient
  * recorder so both modes publish the same set.
  */
-import type { JunctionSummary, NetworkConfig, SteadyResult } from "../schema";
+import type { NetworkConfig, SteadyResult } from "../schema";
 import { resolveNetworkParameters } from "../paramBindings";
 import { createLogicRuntime, logicResultFields } from "../logicRuntime";
 import { FALLBACK_H_FLOOR } from "../correlations";
@@ -23,6 +23,7 @@ import {
   definedOnly,
   nodeDerivedMap,
 } from "./derivedProperties";
+import { computeJunctionSummaries } from "./junctionSummary";
 import { computeConductorHMap } from "./conductorH";
 import { computeConductorHeatRate } from "./thermal";
 import {
@@ -230,35 +231,7 @@ export function solveSteady(
   // Per-junction reporting summary (reacting junctions, core/schema.ts
   // JunctionConfig): the model re-evaluated once at the converged state.
   // Reporting only — the coupling itself lives in the kernel's closure rows.
-  let resultJunctions: Record<string, JunctionSummary> | undefined;
-  if (ctx.junctions.length > 0) {
-    resultJunctions = {};
-    for (const jn of ctx.junctions) {
-      const mdotByRole: Record<string, number> = {};
-      let mdotTotal = 0;
-      const mdotMap = new Map<string, number>();
-      for (const [role, idxs] of jn.roleBranches) {
-        let sum = 0;
-        for (const j of idxs) sum += Math.abs(res.state.mdots[j]);
-        mdotByRole[role] = sum;
-        mdotMap.set(role, sum);
-        mdotTotal += sum;
-      }
-      const pc = res.state.nodeP.get(jn.nodeId)!;
-      const evaluation = jn.model.evaluate(pc, mdotMap);
-      const summary: JunctionSummary = {
-        pc,
-        productTemperature: res.state.nodeT.get(jn.nodeId)!,
-        mdotByRole,
-        mdotTotal,
-        gas: evaluation.gas,
-        clampedPc: evaluation.clampedPc,
-        clampedOf: evaluation.clampedOf,
-      };
-      if (evaluation.of !== undefined) summary.of = evaluation.of;
-      resultJunctions[jn.id] = summary;
-    }
-  }
+  const resultJunctions = computeJunctionSummaries(ctx, res.state);
 
   const finalHMap = computeConductorHMap(ctx, res.state);
   const resultConductors: NonNullable<SteadyResult["conductors"]> = {};

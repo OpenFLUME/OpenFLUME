@@ -1039,6 +1039,20 @@ function solveStateStepAttempt(
   // with stagnation-enthalpy energy rows solved simultaneously for EVERY
   // fluid class — see useCoupledHMode in ./kernel.ts.
   const useCoupledH = useCoupledHMode(ctx, dt);
+  // Either coupled Newton system running IN TRANSIENT: the real-fluid
+  // extended system, or useCoupledH's now-transient-capable analytic path
+  // (a reacting junction's closure row, in particular — see the doc comment
+  // at useCoupledHMode). Both are large, expensive-per-iteration systems
+  // (every node carries an energy column) that a hopeless step can grind on
+  // for the full maxIterations/maxOuter budget with no other guard: the
+  // three grind-detection bails below were written when only the real-fluid
+  // extended system could reach this loop with dt defined, so they gated on
+  // ctx.isRealFluid/useExtendedSystem specifically. A steady coupled-h solve
+  // doesn't need this — a hopeless STEADY solve just returns non-converged
+  // once — but a hopeless TRANSIENT step left ungated burns the entire
+  // budget every single timestep of a run.
+  const transientCoupledSystem =
+    useExtendedSystem || (useCoupledH && dt !== undefined);
   // certifyAfterCoupling (EXPERIMENTAL, opt-in): when on, the certifying
   // scaled residual is re-measured AFTER the correlation h-map update and
   // wall re-solve of each outer iteration, and the best-outer / hopeless-step
@@ -1800,7 +1814,7 @@ function solveStateStepAttempt(
           } else {
             consecutiveNoProgress++;
             if (
-              ctx.isRealFluid &&
+              transientCoupledSystem &&
               consecutiveNoProgress >= INNER_NO_PROGRESS_LIMIT &&
               bestResNorm > tol * INNER_BAIL_BAR_FACTOR
             ) {
@@ -1810,7 +1824,7 @@ function solveStateStepAttempt(
         } else {
           consecutiveNoProgress++;
           if (
-            ctx.isRealFluid &&
+            transientCoupledSystem &&
             consecutiveNoProgress >= INNER_NO_PROGRESS_LIMIT &&
             bestResNorm > tol * INNER_BAIL_BAR_FACTOR
           ) {
@@ -1848,7 +1862,7 @@ function solveStateStepAttempt(
       // two forms agree exactly.
       bestHistory[iter] = bestResNorm;
       if (
-        useExtendedSystem &&
+        transientCoupledSystem &&
         iter >= HOPELESS_INNER_MIN_ITER &&
         bestResNorm > tol * INNER_BAIL_BAR_FACTOR &&
         bestResNorm >

@@ -4,6 +4,7 @@ import { NetworkConfig } from "../types";
 import type {
   CombustionPropellants,
   JunctionConfig,
+  JunctionSummary,
   NumberOrExpression,
   PhysicalPosition,
   SolidPropertySpec,
@@ -20,6 +21,7 @@ import { NOTE_MIN_HEIGHT, NOTE_MIN_WIDTH } from "../canvasGeometry";
 import { convertToSI, convertFromSI } from "../units";
 import { formatWithUnit, formatSig, siNumber } from "../format";
 import { resolveSnapshot } from "../colorData";
+import { isTransientResult } from "../runHistory";
 import { CustomResistance } from "../../core/components";
 import { BRANCH_COMPONENTS, migrateComponent } from "../componentRegistry";
 import {
@@ -631,8 +633,10 @@ function JunctionSection({
             The node&apos;s energy equation becomes the thermochemical closure h
             = efficiency · h(T0(Pc, O/F)) solved inside the Newton system; the
             product fluid&apos;s gas properties refresh from the same lookup.
-            Requires steady mode with kinetic energy enabled, and every role
-            above must be covered by at least one inlet.
+            Requires kinetic energy enabled (steady or transient — see
+            docs/combustion.md), and every role above must be covered by at
+            least one inlet. In transient mode this node also needs a positive
+            volume for its mass-storage term.
           </div>
         </>
       )}
@@ -1084,6 +1088,169 @@ function SelectionResults({
   );
 }
 
+/**
+ * Reacting-junction reporting summary (schema.ts JunctionSummary /
+ * JunctionSummaryHistory) for a node that carries a `config.junctions`
+ * entry: Pc, O/F, product mass flow/temperature, and the CEA product-gas
+ * state (T0, R, γ, cp, μ, c*). Read at the current time index for a
+ * transient run, same as SelectionResults — reporting only, renders nothing
+ * when there is no matching junction result yet.
+ */
+function JunctionResultsSection({
+  node,
+  config,
+}: {
+  node: NodeConfig;
+  config: NetworkConfig;
+}) {
+  const result = useStore((s) => s.result);
+  const liveResult = useStore((s) => s.liveResult);
+  const runStatus = useStore((s) => s.runStatus);
+  const timeIndex = useStore((s) => s.timeIndex);
+  const resultStale = useStore((s) => s.resultStale);
+  const unitPrefs = useStore((s) => s.unitPreferences);
+
+  const junction = (config.junctions ?? []).find((j) => j.node === node.id);
+  if (!junction) return null;
+
+  const isRunning = runStatus === "running" || runStatus === "loadingFluids";
+  const active = isRunning ? liveResult : result;
+  if (!active) return null;
+
+  let summary: JunctionSummary | undefined;
+  let stepLabel = "";
+  if (isTransientResult(active)) {
+    const h = active.junctions?.[junction.id];
+    if (!h || h.pc.length === 0) return null;
+    const idx = Math.max(
+      0,
+      Math.min(h.pc.length - 1, timeIndex ?? h.pc.length - 1),
+    );
+    stepLabel = timeIndex !== null ? ` @ step ${timeIndex}` : "";
+    summary = {
+      pc: h.pc[idx],
+      productTemperature: h.productTemperature[idx],
+      mdotByRole: Object.fromEntries(
+        Object.entries(h.mdotByRole).map(([role, arr]) => [role, arr[idx]]),
+      ),
+      mdotTotal: h.mdotTotal[idx],
+      ...(h.of ? { of: h.of[idx] } : {}),
+      gas: {
+        T0: h.gas.T0[idx],
+        mw: h.gas.mw[idx],
+        R: h.gas.R[idx],
+        gamma: h.gas.gamma[idx],
+        cp: h.gas.cp[idx],
+        mu: h.gas.mu[idx],
+        cstar: h.gas.cstar[idx],
+      },
+      clampedPc: h.clampedPc[idx],
+      clampedOf: h.clampedOf[idx],
+    };
+  } else {
+    summary = active.junctions?.[junction.id];
+  }
+  if (!summary) return null;
+
+  const clamped = summary.clampedPc || summary.clampedOf;
+
+  return (
+    <div className="property-panel__results" data-testid="junction-results">
+      <div className="property-panel__results-head">
+        <span className="micro-label">Junction summary{stepLabel}</span>
+        {clamped && (
+          <span
+            className="pill pill--warn"
+            data-testid="junction-results-clamped"
+          >
+            clamped
+          </span>
+        )}
+        {resultStale && <span className="pill pill--warn">stale</span>}
+      </div>
+      <div
+        className={
+          resultStale
+            ? "property-panel__readout property-panel__readout--stale"
+            : "property-panel__readout"
+        }
+      >
+        <div className="kv">
+          <span className="kv__key">Chamber pressure (Pc)</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.pc, "pressure", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">Product temperature</span>
+          <span className="kv__value">
+            {formatWithUnit(
+              summary.productTemperature,
+              "temperature",
+              unitPrefs,
+              4,
+            )}
+          </span>
+        </div>
+        {summary.of !== undefined && (
+          <div className="kv">
+            <span className="kv__key">O/F</span>
+            <span className="kv__value">{formatSig(summary.of, 4)}</span>
+          </div>
+        )}
+        {Object.entries(summary.mdotByRole).map(([role, v]) => (
+          <div className="kv" key={role}>
+            <span className="kv__key">ṁ ({role})</span>
+            <span className="kv__value">
+              {formatWithUnit(v, "massFlow", unitPrefs, 4)}
+            </span>
+          </div>
+        ))}
+        <div className="kv">
+          <span className="kv__key">ṁ total</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.mdotTotal, "massFlow", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">Adiabatic T0 (CEA)</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.gas.T0, "temperature", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">γ</span>
+          <span className="kv__value">{formatSig(summary.gas.gamma, 4)}</span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">R</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.gas.R, "specificHeat", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">cp</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.gas.cp, "specificHeat", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">μ</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.gas.mu, "viscosity", unitPrefs, 4)}
+          </span>
+        </div>
+        <div className="kv">
+          <span className="kv__key">c*</span>
+          <span className="kv__value">
+            {formatWithUnit(summary.gas.cstar, "velocity", unitPrefs, 4)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PropertyPanel() {
   const config = useStore((s) => s.config);
   const selection = useStore((s) => s.selection);
@@ -1493,6 +1660,7 @@ export default function PropertyPanel() {
           />
         )}
         <SelectionResults selection={selection} />
+        <JunctionResultsSection node={node} config={config} />
       </div>
     );
   }

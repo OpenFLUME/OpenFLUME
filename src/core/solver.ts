@@ -33,6 +33,10 @@
  *                          Reporting-only derived quantities (enthalpy,
  *                          entropy, Mach, heat flux, …) shared by the steady
  *                          packer and the transient recorder.
+ *   solver/junctionSummary.ts
+ *                          Reacting-junction reporting summary (Pc, O/F,
+ *                          product gas state), likewise shared by the steady
+ *                          packer and the transient recorder.
  *
  * Everything re-exported here is used by transient.ts, controllerRuntime.ts,
  * continuation.ts, and the test suite; the narrower stable public API is
@@ -73,3 +77,4 @@ export { probeJacobians } from "./solver/kernel";
 export type { JacobianProbeResult } from "./solver/kernel";
 export { solveStateStep } from "./solver/step";
 export { solveSteady } from "./solver/steady";
+export { computeJunctionSummaries } from "./solver/junctionSummary";

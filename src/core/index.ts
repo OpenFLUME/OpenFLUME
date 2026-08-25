@@ -98,6 +98,7 @@ export type {
   JunctionInletConfig,
   JunctionModelConfig,
   JunctionSummary,
+  JunctionSummaryHistory,
   VariantSpec,
 } from "./schema";
 export {
