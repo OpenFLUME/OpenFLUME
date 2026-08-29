@@ -35,8 +35,29 @@ no arbitrary mixture strings (`"Water[0.5]&Ammonia[0.5]"` is rejected).
    - **Exception:** the curated favorites (`SUPPORTED_REAL_FLUIDS`, the historical 9-fluid allowlist) are grandfathered. NitrousOxide is the only favorite without a transport model, and its inviscid-limit behavior is long-standing and covered by existing tests.
 3. **Missing conductivity only** (viscosity present) → allowed. Convection correlations already fall back when `k` is unavailable. The picker notes it.
 
-`SUPPORTED_REAL_FLUIDS` remains exported (backward compatible) as the curated
-favorites; `SupportedRealFluid` is now the union of all 124 canonical names.
+## Curated favorites
+
+The picker floats nine fluids to the top of the list, the historical allowlist
+that predates the generated catalogue:
+
+| Favorite        | Typical use                                                       |
+| --------------- | ----------------------------------------------------------------- |
+| `Nitrogen`      | Cryogenic transfer, chilldown, pressurant                         |
+| `Oxygen`        | LOX feed systems                                                  |
+| `Hydrogen`      | LH₂ feed systems (normal-H₂ equilibrium)                          |
+| `ParaHydrogen`  | LH₂ at cryogenic temperatures, where the ortho/para split matters |
+| `Helium`        | Pressurant and purge gas                                          |
+| `Methane`       | LNG / LCH₄ feed systems                                           |
+| `CarbonDioxide` | Supercritical loops, blowdown cases                               |
+| `Water`         | Process and coolant loops above the analytic-EOS range            |
+| `NitrousOxide`  | Monopropellant and hybrid oxidizer                                |
+
+These are a display and validation convenience, not a capability boundary: any
+of the 124 catalogue fluids may be selected. `NitrousOxide` is the one favorite
+with no transport model (see validation semantics above).
+
+`SUPPORTED_REAL_FLUIDS` remains exported (backward compatible) as exactly this
+list; `SupportedRealFluid` is now the union of all 124 canonical names.
 
 ## Alias canonicalization (`core/fluids/fluidCatalogue.ts`)
 

@@ -3,7 +3,7 @@
 This directory contains maintained product documentation for users and
 contributors.
 
-- [User's manual](user-manual.md) is the complete reference: network definitions, units and sign conventions, data structure, governing equations and component relations, solution methods, the interface, the twelve shipped example problems, and the verification record. Its interface screenshots (`figures/user-manual/`) are captured from the built application; regenerate them after a UI change with `npm run build && npx tsx scripts/capture-manual-figures.ts`.
+- [User's manual](user-manual.md) is the complete reference: network definitions, units and sign conventions, data structure, governing equations and component relations, solution methods, the interface, the thirteen shipped example problems, and the verification record. Its interface screenshots (`figures/user-manual/`) are captured from the built application; regenerate them after a UI change with `npm run build && npx tsx scripts/capture-manual-figures.ts`.
 - [Architecture](architecture.md) describes module boundaries, public/internal APIs, configuration lifecycle, and test tiers.
 - [User extensibility](usercode.md) covers user-defined components, registers, logic, expressions, PID controllers, and the trust model.
 - [Parameter bindings](parameter-bindings.md) explains formula-bound geometry fields, convection heat-transfer models, and solid property models.

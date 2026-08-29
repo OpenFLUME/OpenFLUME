@@ -17,8 +17,9 @@ duct flow (Fanno friction choking, Rayleigh thermal choking, seeded
 converging–diverging nozzles) for any fluid model; sonic physics at
 restrictions is also available as point closures (`orifice` with $Y(r,\kappa)$,
 `cavitatingVenturi`). Supersonic shock capture, Rankine–Hugoniot jumps, and
-distributed acoustic wave propagation (water hammer) are out of scope; the
-README's Limitations section is the authoritative list. Features that would
+distributed acoustic wave propagation (water hammer) are out of scope;
+`docs/user-manual.md` §1.7 "Scope Boundaries" is the authoritative list.
+Features that would
 require a resolved compressible momentum equation or a shock-capturing
 discretization are a solver-class change, not an incremental component.
 
@@ -99,7 +100,9 @@ stale results.
 
 `meta.version` is the schema version marker (currently 2, the only accepted
 version). Changes to persisted fields must update validation, examples,
-tests, and README schema documentation. A breaking persisted change requires
+tests, and the schema documentation in `docs/user-manual.md` §3 "Data
+Structure", which is authoritative for field names, types, and constraints.
+A breaking persisted change requires
 an explicit migration strategy before the version is advanced.
 
 ## Simulation variants
@@ -158,6 +161,29 @@ spawns exactly one worker, terminated on every settle (done / error / crash)
 as well as on cancellation, so no idle workers accumulate; late messages from
 a terminated worker are ignored. This boundary protects UI responsiveness, not
 security.
+
+Implementation details worth knowing before changing this path:
+
+- Spawn form. The worker is created Vite-natively as
+  `new Worker(new URL('./solverWorker.ts', import.meta.url), { type: 'module' })`,
+  which is what makes `vite build` emit it as a separate chunk rather than
+  inlining it. Keep the literal `new URL(..., import.meta.url)` argument;
+  hoisting it into a variable defeats Vite's static analysis.
+- Cancel message. The worker still recognizes `{type:'cancel'}`, even though
+  the UI path never relies on it: because the solve loop is synchronous and the
+  app avoids `SharedArrayBuffer` (which would require cross-origin isolation
+  headers), the client terminates the worker and respawns instead. Treat the
+  handler as a contract for non-UI hosts, not dead code.
+- CoolProp. The dynamic `coolprop-wasm` import resolves under both `vite dev`
+  and `vite preview` because Vite serves the co-located `.wasm` beside the
+  worker chunk. Initialization is gated by the `networkUsesRealFluid`
+  predicate and happens once per worker rather than once per substance, so a
+  network that never touches a real fluid never pays for the sidecar.
+- Embedded components. The whole config is structured-cloned to the worker,
+  including any `componentLibrary` source. Validation only syntax-checks that
+  source; referenced definitions actually execute when the worker builds
+  solver context. This is the trust boundary described under Extension trust,
+  not a sandbox.
 
 ## Exploration sweeps (session-only)
 

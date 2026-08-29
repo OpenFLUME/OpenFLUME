@@ -102,6 +102,22 @@ A convection conductor is `Q = h·A·(T_solid − T_fluid)`. The property panel'
 | Darr–Hartwig chilldown             | `"darrHartwig"`                           | LH₂ chilldown regime map (NB/TB/FB); needs `axialPosition`.                                                                                             |
 | TT-WF chilldown                    | `"ttWf"`                                  | Proposed two-temperature/wetted-fraction closure; needs `axialPosition` + `segmentLength`, transient mode, and a solid wall endpoint with thermal mass. |
 
+The block lives inside the conductor's `type` object, beside `area`:
+
+```json
+{
+  "kind": "convection",
+  "area": 0.01,
+  "correlation": {
+    "model": "dittusBoelter",
+    "diameter": 0.03,
+    "flowArea": 7.07e-4
+  }
+}
+```
+
+This is backward compatible in both directions: omitting `correlation` leaves the legacy constant-`h` conductor exactly as it was, and adding it makes `h` optional on that conductor.
+
 When a named correlation is active, `h` becomes the documented **fallback floor** (used when the correlation cannot evaluate; a 5 W/m²·K floor applies when no `h` is given). The panel exposes the geometry inputs the model needs: `diameter` (required for the named models), optional `flowArea` (defaults to π·D²/4; `G = ½·Σ|ṁ|/flowArea` at the fluid node), and `axialPosition` (distance from the pipe inlet; required to run Darr–Hartwig or TT-WF, including when those models are selected later in a sweep). The panel shows this field for every correlation so `z` can be set before a sweep. If it is left unset and the connected pipes form a unique simple path with physical `position` coordinates, validation/solve fills it from that path (solid `position.x − origin.x` when both exist, otherwise the fluid-node station). A tee or other non-unique graph is not guessed. Diameter and flow area are formula-bindable.
 
 Model suitability is shown inline in the panel. The named models require the `realFluid` fluid model. Darr–Hartwig's fit envelope is LH₂ vertical upflow. TT-WF is research-status and transient-only. `core/validate.ts` remains the authority: invalid combinations are reported as validation issues.
