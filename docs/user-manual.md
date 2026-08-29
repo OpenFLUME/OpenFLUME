@@ -12,11 +12,7 @@ John Rising
 
 ---
 
-**Document status.** This manual describes OpenFLUME v0.2.1. It is
-maintained in-tree alongside the code it documents; where this manual and the
-source disagree, [`src/core/schema.ts`](../src/core/schema.ts) and
-[`src/core/validate.ts`](../src/core/validate.ts) are authoritative and this
-manual is defective.
+**Document status:** This manual covers OpenFLUME v0.2.1 and is maintained within the repository. In the event of a conflict between this documentation and the source code, [`src/core/schema.ts`](../src/core/schema.ts) and [`src/core/validate.ts`](../src/core/validate.ts) serve as the authoritative source of truth.
 
 **How to cite.** See [CITATION.cff](../CITATION.cff), or:
 
@@ -27,28 +23,16 @@ manual is defective.
 
 ## Preface
 
-Aerospace has long needed an open-source thermal-fluid network analysis tool.
-NASA's Generalized Fluid System Simulation Program
-(GFSSP) and C&R Technologies' SINDA/FLUINT are
-capable, validated tools but they are difficult to extend, awkward to automate, and
-inaccessible to much of the community that needs them — students, researchers,
-and engineers outside the institutions that hold licenses. Many
-aerospace companies quietly write their own in-house network solver, each one
-re-deriving the same formulation, re-making the same mistakes, and re-validating
-against the same benchmarks, with none of that work accumulating anywhere.
+The aerospace industry has long needed an accessible, open-source tool for thermal-fluid network analysis. While legacy codes like NASA's GFSSP and C&R Technologies' SINDA/FLUINT are highly capable and validated, they can be difficult to extend, challenging to automate, and largely inaccessible to students, researchers, and engineers without institutional licenses. As a result, many organizations build their own proprietary network solvers—duplicating effort, repeating common mistakes, and re-running the same validation benchmarks without contributing to a shared foundation.
 
-This program is an attempt to break that cycle. It solves the same class of problem with the same finite-volume network formulation open source.
+OpenFLUME aims to break this cycle. It solves this same class of problems using a proven finite-volume network formulation, provided entirely open-source.
 
-Although a browser interface is provided, the solver core is a plain library with no user-interface dependency, so a model that can be drawn can also be scripted, swept, and checked into a research pipeline. The format of the model is designed to be easily understood and clear, so models can be created programmatically or AI-assisted.
+Although a browser interface is provided, the solver core is a plain library with no user-interface dependency so it can be integrated into a research pipeline. The tool is designed to be easily understood and clear, so simulations can be created programmatically or, especially in the case of very large networks, AI-assisted.
 
 This manual is organized so that a new user can stop after section 2 and still
 run a useful model. Section 1 introduces the method and limitations. Section 2 installs the program and walks through a first simulation.
-Sections 3 and 4 describe the data structure and the mathematical formulation and
-may be skipped on a first pass; they become valuable once you've built a model
-of your own and want to know exactly what was solved. Section 5 covers program
-structure and scripting. Section 6 describes the interface. Section 7 works
-through the twelve shipped example problems, and section 8 records what has been
-verified and against what.
+Sections 3 and 4 describe the data structure and the mathematical formulation. Section 5 covers program
+structure and scripting. Section 6 describes the interface. Section 7 describes example problems, and section 8 records verification and validation.
 
 An engineer with an undergraduate background in fluid mechanics and heat transfer
 should be able to build a defensible model from this manual.
@@ -67,48 +51,29 @@ conductors.
 
 The program runs entirely in a web browser. A visual network editor
 is backed by a solver that executes in a dedicated worker thread so that long
-runs do not block the interface. Models are saved as `.fn` text files and autosaved to browser storage; nothing is transmitted to a server.
+runs do not block the interface. Models are saved as `.fn` text files and autosaved to browser storage. Everything runs locally, and nothing is transmitted to a server.
 
 Four equation-of-state classes are supported: constant-density incompressible
-liquid, ideal gas with user-settable gas constants, thermal-expansion liquid for
-buoyancy-driven circulation, and real fluid through a CoolProp WebAssembly
-sidecar, with a generated 124-fluid HEOS catalogue and nine curated favorites.
+liquid, ideal gas with user-settable gas constants, thermal-expansion liquids (for
+buoyancy-driven circulation), and real fluid through a CoolProp WebAssembly
+sidecar.
 Seventeen branch component
 types model momentum sources and sinks: pipe, orifice, cavitating venturi,
 generic resistance, valve, check valve, dynamic check valve, relief valve, pump,
 bend, area change, flow source, pressure regulator, heated pipe, tabulated
-pressure drop, Reynolds-dependent custom resistance, and user-authored
-JavaScript components. A single `orifice` applies the ISO/AGA expansibility
-factor from the branch fluid — liquids stay incompressible; gases choke.
+pressure drop, Reynolds-dependent custom resistance, and user-authored components.
 Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
-conductors, with a sourced temperature-dependent material catalogue and five
+conductors, with a temperature-dependent material catalogue and five
 convection heat-transfer models including two cryogenic chilldown correlations.
 CEA-coupled reacting junctions (steady or transient) support LOX/RP-1 and
 LOX/methane combustors, while the separate species-transport path supports
 transient ideal-gas chemistry.
 
-The steady solver is a coupled Newton–Raphson method on the simultaneous
-mass and momentum residuals, with an analytic (forward-mode dual number)
-Jacobian wherever the residual path is differentiable, trust-region dogleg
-globalization, and pseudo-transient continuation for real-fluid problems. The
-transient solver is backward Euler with fixed or error-controlled adaptive time
-stepping. Optional capabilities include lumped fluid inertia, trapped-gas
-cushions, multi-species advective transport with stiff Arrhenius chemistry,
-declarative logic rules with registers, transient PID controllers, and
-session-only parameter sweeps.
+The steady-state solver uses a coupled Newton–Raphson method to simultaneously resolve mass and momentum residuals. In challenging convergence scenarios, it leverages an analytic Jacobian (computed via forward-mode automatic differentiation), trust-region dogleg globalization, and pseudo-transient continuation. Transient simulations use a fully implicit backward-Euler scheme, supporting both fixed and variable time steps. Advanced optional capabilities include lumped fluid inertia, trapped-gas cushions, multi-species advection with stiff Arrhenius kinetics, declarative logic registers, transient PID control, and built-in parameter sweeps.
 
 Thirteen example problems ship with the program, spanning hand-checkable sanity
-cases, engineering applications, and published benchmarks from the GFSSP manual,
-the Lee & Martin entrapped-air problem, NBS Report 9264 cryogenic chilldown
-experiments, and two SINDA/FLUINT sample problems.
-
-The formulation is **lumped-parameter**. With `momentumFlux` and `kineticEnergy`
-enabled it solves quasi-1-D compressible duct flow up to and, when seeded,
-through the sonic point, and it reports Mach number wherever the fluid model
-supplies a speed of sound. Shock capture and acoustic wave propagation remain
-out of scope. Section 1.7 states the boundaries precisely; they are not
-incidental gaps but consequences of the method.
+cases, engineering applications, and published benchmarks.
 
 ---
 
@@ -131,7 +96,7 @@ incidental gaps but consequences of the method.
 | $g$           | gravitational acceleration, 9.80665                                                         | m/s²              |
 | $h$           | specific enthalpy; also liquid height (hydrostatic-column check)                            | J/kg; m           |
 | $h_0$         | stagnation enthalpy, $h + \tfrac12 v^2$                                                     | J/kg              |
-| $h_c$         | convection heat transfer coefficient (property panel: **Specified h**)                      | W/(m²·K)          |
+| $h_c$         | convection heat transfer coefficient (property panel: Specified h)                          | W/(m²·K)          |
 | $\mathbf{J}$  | Jacobian of the residual                                                                    | —                 |
 | $K$           | loss coefficient, including $K_{90}$, $K_\text{bend}$, $K_\text{exp}$, $K_\text{con}$       | —                 |
 | $k$           | thermal conductivity; also spring stiffness                                                 | W/(m·K); N/m      |
@@ -195,11 +160,27 @@ and set-points. `in`, `out` — area-change ports. `set` — regulator set press
 **Superscripts.** $n$, $n+1$ — time level. $\|\mathbf{R}\|_\infty$ — infinity
 norm of the residual.
 
-**Abbreviations.** AD, automatic differentiation. BDF1, first-order backward
-differentiation formula. EOS, equation of state. FD, finite difference. HEM,
-homogeneous equilibrium model. HX, heat exchanger. LHP, loop heat pipe. NTU,
-number of transfer units. P&ID, piping and instrumentation diagram. PTC,
-pseudo-transient continuation. TVS, thermodynamic vent system.
+**Abbreviations.**
+
+| Abbreviation | Meaning                                      |
+| :----------- | :------------------------------------------- |
+| **AD**       | Automatic differentiation                    |
+| **BDF1**     | First-order backward differentiation formula |
+| **CEA**      | Chemical Equilibrium with Applications       |
+| **CFD**      | Computational fluid dynamics                 |
+| **DAE**      | Differential-algebraic equation              |
+| **EOS**      | Equation of state                            |
+| **FD**       | Finite difference                            |
+| **HEM**      | Homogeneous equilibrium model                |
+| **HEOS**     | Helmholtz Energy Equation of State           |
+| **HEX**      | Heat exchanger                               |
+| **LHP**      | Loop heat pipe                               |
+| **NTU**      | Number of transfer units                     |
+| **ODE**      | Ordinary differential equation               |
+| **P&ID**     | Piping and instrumentation diagram           |
+| **PID**      | Proportional–integral–derivative             |
+| **PTC**      | Pseudo-transient continuation                |
+| **TVS**      | Thermodynamic vent system                    |
 
 ---
 
@@ -245,8 +226,9 @@ The system is represented as a directed graph. Control volumes are placed at
 **nodes**, where the extensive fluid state is stored and conservation of mass and
 energy is enforced. **Branches** connect pairs of nodes, and each branch carries
 one scalar unknown, its mass flow rate, governed by a momentum relation between
-the pressures at its two endpoint nodes. This is the standard finite-volume
-staggered arrangement: scalars at nodes, fluxes on the faces between them.
+the pressures at its two endpoint nodes.
+
+You might wonder why the program separates nodes (volume) and branches (flow) instead of just offering a single "pipe" component that has both. This staggered approach is standard in thermal-fluid network solvers because it handles complex junctions naturally: a single node can connect to any number of branches without needing to define which pipe "owns" the junction's volume. It also avoids numerical instabilities that often occur when mass and momentum are computed at the exact same location.
 
 ![Schematic of a multi-loop water network with two pressure boundaries and twelve square-law branches](validation/figures/hydraulics/fig01-network-schematic.svg)
 
@@ -255,23 +237,11 @@ nodes, and twelve branches forming interconnected loops. This topology is the
 multi-loop verification case of
 [`docs/validation/incompressible-hydraulics-report.md`](validation/incompressible-hydraulics-report.md)._
 
-Two consequences of this arrangement are worth stating at the outset because they
-explain most modeling decisions a user will face.
+Two consequences of this arrangement dictate how you will build and scope your models:
 
-First, **spatial resolution is a modeling choice, not a program setting**. A
-100 m pipe represented by one branch has one flow rate and no interior
-temperature profile. The same pipe represented by twenty branches and nineteen
-interior nodes resolves an axial temperature profile and a distributed friction
-gradient. Where a gradient matters — a chilldown front, a heat exchanger passage,
-a cooling channel — you must subdivide the line into enough segments to resolve
-it. The shipped chilldown example uses twenty axial segments for a 61 m line for
-exactly this reason.
+First, **spatial resolution is entirely up to you**. A 100 m pipe represented by a single branch has only one flow rate and no interior temperature profile. If you represent that same pipe with twenty branches and nineteen interior nodes, you can capture an axial temperature profile and a distributed friction gradient. Wherever a gradient matters to your result you must subdivide the line into enough segments to resolve it. (The shipped chilldown example uses twenty axial segments for a 61 m line for exactly this reason.)
 
-Second, **a node's volume is what makes it capable of storage**. In steady state,
-volume is irrelevant and may be omitted. In a transient, an interior node
-accumulates mass and energy in proportion to its volume, so every interior node
-in a transient model must be given a positive volume, and the distribution of
-volume among nodes sets the system's time constants.
+Second, **a node's volume determines its ability to store mass and energy**. In a steady-state run, volume is irrelevant and you can safely ignore it. In a transient run, however, an interior node accumulates mass and energy in proportion to its volume. This means you must assign a positive volume to every interior node in a transient model, because how you distribute that volume directly sets your system's behavior.
 
 ### 1.2.1 Network Definitions
 
@@ -327,7 +297,7 @@ scripting interface use SI exclusively and carry no unit metadata.
 The interface can _display and accept_ other units. The **Units ▾** menu offers
 three presets — **SI**, **Metric engineering**, and **US customary** — which
 convert values in property fields for display and entry only, including degrees
-Rankine, °F, and psi. Conversion happens at the input boundary; the stored model
+Rankine, °F, and psi. Conversion happens at the input and output; the stored model
 is always SI. Values typed into the parameter sweep workspace and into the model
 text editor are SI regardless of the display preset.
 
@@ -377,7 +347,7 @@ convective heat arriving from a wall is positive.
 | Multi-fluid             | Named isolated fluid continua, mixed EOS classes allowed (wall-coupled only)                                            |
 | Extensibility           | Tabulated $\Delta P$, $K(\mathrm{Re})$ resistances, user-authored JavaScript components                                 |
 | Exploration             | Session-only single-parameter sweeps up to 25 variants                                                                  |
-| Persistence             | `.fn` text save/load, browser autosave, 12 shipped examples                                                             |
+| Persistence             | `.fn` text save/load, browser autosave, 13 shipped examples                                                             |
 
 ## 1.6 Program Structure
 
@@ -387,7 +357,7 @@ component relations, and both solvers; it has no browser dependency and runs
 unchanged in Node.js. The **substrate** (`src/substrate`) implements the `.fn`
 text projection. The **interface** (`src/ui`) is a React application that owns the
 canvas, panels, run history, and a solver **worker** that keeps long solves off
-the main thread. An optional **companion server** (`scripts/serve.ts`) serves the
+the main thread. An optional companion server (`scripts/serve.ts`) serves the
 built application and discovers user-authored component files on disk. Real-fluid
 properties come from a lazily loaded CoolProp WebAssembly module. Section 5
 develops this in detail.
@@ -395,20 +365,18 @@ develops this in detail.
 ## 1.7 Scope Boundaries
 
 The following limitations are structural. They follow from the lumped-parameter
-formulation (quasi-1-D at most, with no shock capture) and cannot be worked
+formulation and cannot be worked
 around by refining the mesh or tightening tolerances. Read this list before
 using a result to support a decision.
 
 **No shocks.** With `settings.momentumFlux` and `settings.kineticEnergy` both
-enabled, the solver handles quasi-1-D compressible duct flow:
+enabled, the solver handles quasi-1-D compressible duct flow, specficially
 Fanno friction choking, Rayleigh thermal choking, and converging–diverging
-nozzles built from tapered pipes, validated against the NASA GFSSP
-compressible-flow verification paper (section 4.1.4). A **smoothly expanding
-supersonic branch is reachable** — the shipped LOX/RP-1 thruster (section
-7.7) crosses $M = 1$ at the throat and runs supersonic down the bell.
+nozzles built from tapered pipe. Smoothly expanding
+supersonic branches are reachable, like converging-diverging nozzles.
 Under the default limited-upwind momentum faces
 (`settings.momentumFluxScheme: "upwind"`, section 4.1.2) the transonic solve
-is **seed-robust**: entropy-violating roots such as a station dipping onto
+is seed-robust: entropy-violating roots such as a station dipping onto
 the supersonic branch mid-convergent do not satisfy the discrete equations
 at all, so even a flat cold start converges to the physical branch. The
 legacy `"central"` scheme is a couple of percent more accurate at the choke
@@ -432,13 +400,14 @@ than friction-choking.
 enthalpy is fluxed; the $\tfrac12 v^2$ term is not carried, so there is no
 stagnation/static distinction and recovery temperature and diffuser heating are
 not modeled. `settings.kineticEnergy` switches the energy equation to
-stagnation-enthalpy transport for any fluid model — the steady solver couples
+stagnation-enthalpy transport for any fluid model — the solver couples
 pressure, mass flow, and enthalpy in one Newton system (`[P, ṁ, h]`), which is
 what lets it hold near-sonic states, and enthalpy is a complete state
-coordinate for every EOS including CoolProp real fluids. Species networks keep
-the segregated stagnation-enthalpy update (composition is not a coupled
-unknown), as do transient solves — neither is designed to track choking
-fronts.
+coordinate for every EOS including CoolProp real fluids. The coupled system is
+not steady-only: transient solves take it too, for real fluids and for every
+analytic `kineticEnergy` network. Only species-transport networks keep the
+segregated stagnation-enthalpy update, composition not being a coupled
+unknown, and that path is not designed to track choking fronts.
 
 **No acoustic wave propagation.** Optional lumped fluid inertia $(L/A)d\dot
 m/dt$ captures bulk surge, but there is no distributed wave equation or
@@ -469,24 +438,18 @@ Lockhart–Martinelli, which are not implemented.
 **Reacting-flow support is split between two models.** Species transport with
 Arrhenius chemistry is transient-only and ideal-gas-only. CEA-coupled reacting
 junctions are steady-only, require `kineticEnergy`, freeze product composition
-downstream, and support only the committed LOX/RP-1 and LOX/CH₄ tables; see
+downstream, and support only the committed LOX/RP-1 and LOX/CH₄ tables though more can be generated by the user; see
 [`combustion.md`](combustion.md).
 
 **User code is trusted, not sandboxed.** Embedded and local components execute
 JavaScript through `new Function`. This is not a security boundary; treat
 component files like source code.
 
-**Steady closed ideal-gas loops need a pressure anchor.** A fully closed valve in
-a steady closed ideal-gas loop produces a singular Jacobian. Introduce a small
-leak or run the case in transient mode, where $d\rho/dt$ regularizes the system.
+**Steady closed ideal-gas loops need a pressure anchor.** In a steady-state simulation, the solver finds a balance of flows. If a section of your network is completely sealed off (like a closed loop or a trapped section behind a closed valve), there is no fixed pressure boundary to tell the solver what the overall pressure inside that isolated section should be. For an ideal gas, this missing information makes the math unsolvable (a singular Jacobian). To fix this, connect a boundary node to the isolated section or run the model in transient mode (where the known initial pressure anchors the system over time).
 
 ## 1.8 How to Read This Manual
 
-A new user should read section 1.4 (sign conventions), work through section 2,
-then jump to the example in section 7 closest to the problem at hand and modify
-it. Sections 3 and 4 are reference material best read after building a first
-model of your own. Anyone preparing to publish or certify a result should read
-section 1.7 and section 8 in full.
+As a new user, you should first read section 1.4 (sign conventions), work through section 2, and then jump straight to the example in section 7 that most closely matches your problem so you can start modifying it. Sections 3 and 4 provide deep reference material—they are best read after you've built your first model and want to understand exactly what is happening under the hood. If you are preparing to publish a paper or certify an engineering result, you must read section 1.7 (limitations) and section 8 (verification) in full to ensure you are operating within the solver's validated bounds.
 
 ---
 
@@ -605,6 +568,102 @@ A complete model is a single `NetworkConfig` object. This section describes each
 element and its properties. Exact TypeScript declarations live in
 [`src/core/schema.ts`](../src/core/schema.ts); the constraints quoted here are
 enforced by [`src/core/validate.ts`](../src/core/validate.ts) before any solve.
+
+## 3.0 A Complete Model
+
+Before the field-by-field reference, it is worth seeing the whole object at
+once. The listing below is the shipped **Three-pipe junction** example
+(section 7.2) in full — a steady incompressible case with one inlet boundary,
+one junction node, one outlet boundary, and two pipe branches. Every structure
+the rest of section 3 documents appears here in its concrete form: `meta`,
+`settings`, `fluid`, `nodes`, and `branches`.
+
+```json
+{
+  "meta": {
+    "name": "Three-pipe junction",
+    "version": 2
+  },
+  "settings": {
+    "mode": "steady",
+    "tolerance": 1e-9,
+    "maxIterations": 500,
+    "relaxation": 0.9
+  },
+  "fluid": {
+    "model": "incompressible",
+    "preset": "water"
+  },
+  "nodes": [
+    {
+      "id": "in",
+      "type": "boundary",
+      "x": 0,
+      "y": 0,
+      "pressure": 300000,
+      "temperature": 300,
+      "label": "Inlet"
+    },
+    {
+      "id": "j",
+      "type": "internal",
+      "x": 200,
+      "y": 0,
+      "pressure": 250000,
+      "temperature": 300,
+      "label": "Junction",
+      "volume": 0.001
+    },
+    {
+      "id": "out1",
+      "type": "boundary",
+      "x": 400,
+      "y": 100,
+      "pressure": 200000,
+      "temperature": 300,
+      "label": "Out 1"
+    }
+  ],
+  "branches": [
+    {
+      "id": "b1",
+      "from": "in",
+      "to": "j",
+      "label": "Pipe 1",
+      "component": {
+        "type": "pipe",
+        "length": 2,
+        "diameter": 0.03,
+        "roughness": 1e-5,
+        "elevationChange": 0
+      }
+    },
+    {
+      "id": "b2",
+      "from": "j",
+      "to": "out1",
+      "label": "Pipe 2",
+      "component": {
+        "type": "pipe",
+        "length": 3,
+        "diameter": 0.02,
+        "roughness": 1e-5
+      }
+    }
+  ]
+}
+```
+
+Note what is _absent_. `x` and `y` are diagram pixels and never reach the
+solver. `volume` on the junction node is carried even though this is a steady
+case, where it is ignored — it costs nothing and makes the model runnable as a
+transient. `elevationChange` is stated explicitly on the first pipe and omitted
+on the second, which is the same thing: an omitted optional field takes its
+default rather than being an error. `solidNodes`, `conductors`, `groups`, and
+`notes` are all optional and simply do not appear.
+
+The `.fn` file format is a line-oriented projection of exactly this object, not
+a different model; see Appendix C.
 
 ## 3.1 Top-Level Structure
 
@@ -735,6 +794,53 @@ All named models require the `realFluid` fluid model; `custom` does not. When a
 correlation is present, `h` becomes optional and a floor of 5 W/(m²·K) prevents
 zero conductance. Correlation forms are given in section 4.4.
 
+A worked conjugate fragment: a heated wall lump tied to a fluid node by
+convection and to deep-space-like surroundings by radiation. Added to a network
+that already declares a fluid node `fluid1`, these two arrays are the whole
+thermal side of the model.
+
+```json
+{
+  "solidNodes": [
+    {
+      "id": "wall",
+      "type": "solid",
+      "x": 200,
+      "y": 150,
+      "temperature": 350,
+      "mass": 1,
+      "cp": 500,
+      "heatInput": 5000
+    },
+    { "id": "amb", "type": "ambient", "x": 300, "y": 0, "temperature": 300 }
+  ],
+  "conductors": [
+    {
+      "id": "c1",
+      "from": "wall",
+      "to": "fluid1",
+      "type": { "kind": "convection", "h": 1000, "area": 0.1 }
+    },
+    {
+      "id": "c2",
+      "from": "wall",
+      "to": "amb",
+      "type": {
+        "kind": "radiation",
+        "emissivity": 0.8,
+        "area": 0.5,
+        "viewFactor": 1
+      }
+    }
+  ]
+}
+```
+
+The `wall` node carries `mass` and `cp` because it is a lumped capacity; `amb`
+carries neither, being a reservoir. Conductor `c1` has exactly one fluid
+endpoint, which is what makes it legal as a convection tie, and its heat rate
+appears with opposite signs in the `wall` and `fluid1` energy residuals.
+
 ## 3.6 Ambient Nodes and Boundary Thermal Conditions
 
 To impose a wall temperature, connect the wall solid node to an ambient node
@@ -792,7 +898,35 @@ when named fluids are present. Chemistry is integrated node-locally with a
 first-order backward-difference method and adaptive sub-stepping; see section
 4.1.6.
 
-### 3.9.1 Reacting Junctions
+### 3.9.1 Species Configuration
+
+| Field                        | Type               | Unit     | Required | Meaning                                                 |
+| ---------------------------- | ------------------ | -------- | -------- | ------------------------------------------------------- |
+| `names`                      | `string[]`         | —        | yes      | Ordered species identifiers; sets the index order below |
+| `molecularWeights`           | `number[]`         | kg/mol   | yes      | Aligned with `names`                                    |
+| `cp`                         | `number[]`         | J/(kg·K) | no       | Constant-pressure specific heats, aligned with `names`  |
+| `formationEnthalpy`          | `number[]`         | J/kg     | no       | Formation enthalpies, aligned with `names`              |
+| `viscosity`                  | `number[]`         | Pa·s     | no       | Dynamic viscosities, aligned with `names`               |
+| `reactions`                  | `Reaction[]`       | —        | no       | Arrhenius reactions; omit for inert transport           |
+| `reactions[].reactants`      | map species→number | —        | yes      | Reactant stoichiometric coefficients                    |
+| `reactions[].products`       | map species→number | —        | yes      | Product stoichiometric coefficients                     |
+| `reactions[].A`              | number             | —        | yes      | Arrhenius pre-exponential factor                        |
+| `reactions[].b`              | number             | —        | yes      | Arrhenius temperature exponent                          |
+| `reactions[].Ea`             | number             | J/mol    | yes      | Activation energy                                       |
+| `reactions[].heatOfReaction` | number             | J/kg     | no       | Enthalpy change per kilogram of mixture                 |
+
+The array-valued fields are positional: `molecularWeights[k]`, `cp[k]`,
+`formationEnthalpy[k]`, and `viscosity[k]` all describe `names[k]`, so each
+supplied array must have the same length as `names`. Composition itself is not
+declared here but per node, as `nodes[].massFractions` (section 3.2), for both
+boundary values and internal-node initial conditions.
+
+A reaction rate follows the modified Arrhenius form
+$k = A\,T^{b}\exp\left(-E_a/(R_u T)\right)$ with $R_u$ the universal gas
+constant, which is why `Ea` is per mole while `heatOfReaction` is per kilogram
+of mixture. Omitting `reactions` leaves species purely advective.
+
+### 3.9.2 Reacting Junctions
 
 `junctions` declares combustion at an internal chamber node, in steady or
 transient mode. Each entry names the chamber `node`, one or more inlet
@@ -863,6 +997,63 @@ specified in [`docs/parameter-bindings.md`](parameter-bindings.md).
 | `transonicAdmissibility`  | boolean                      | no              | `true`                      | Second-law audit + re-seed for central-scheme transonic roots, ideal-gas branches only (section 4.1.2; no effect unless `momentumFlux` is on with `central`) |
 | `gravity`                 | `{x,y,z}`                    | no              | `{0,0,−9.80665}`            | Gravity vector (see section 1.4)                                                                                                                             |
 | `certifyAfterCoupling`    | boolean                      | no              | `false`                     | Experimental: certify transient real-fluid steps on the post-coupling residual ([`solver-convergence.md`](solver-convergence.md) §1)                         |
+
+## 3.12 Presentation and Variant Records
+
+Three top-level arrays exist for the benefit of the reader rather than the
+solver: `groups`, `notes`, and `variants`. None of them changes a number.
+
+**Groups** are visual subnetwork containers.
+
+| Field    | Type   | Unit | Required | Meaning                      |
+| -------- | ------ | ---- | -------- | ---------------------------- |
+| `id`     | string | —    | yes      | Unique subnetwork identifier |
+| `label`  | string | —    | yes      | Display name                 |
+| `x`, `y` | number | px   | yes      | Container position on canvas |
+
+Membership is declared from the other side: a node or solid node joins a group
+by carrying that group's id in its own `group` field (sections 3.2 and 3.4).
+
+**Notes** are free-floating text annotations.
+
+| Field             | Type   | Unit | Required | Meaning                                       |
+| ----------------- | ------ | ---- | -------- | --------------------------------------------- |
+| `id`              | string | —    | yes      | Unique note identifier                        |
+| `text`            | string | —    | yes      | Annotation body; may contain newlines         |
+| `x`, `y`          | number | px   | yes      | Card top-left position on canvas              |
+| `width`, `height` | number | px   | no       | Explicit card size; absent means fit the text |
+| `group`           | string | —    | no       | Subnetwork the note is pinned inside          |
+
+Note ids live in **their own namespace** and can never collide with node ids —
+unlike fluid and solid nodes, which share one namespace (section 3.4). A note
+without a `group` sits on the main canvas. `width` and `height` are written only
+once the card has been resized; clearing them returns the card to fitting its
+text. Notes are excluded from the provenance hash, so annotating a model never
+stales its results.
+
+**Variants** are named alternatives to the network in the file (section 6.12).
+
+| Field   | Type   | Unit | Required | Meaning                                   |
+| ------- | ------ | ---- | -------- | ----------------------------------------- |
+| `id`    | string | —    | yes      | Unique variant identifier (own namespace) |
+| `name`  | string | —    | yes      | Display name, e.g. `"Cold day"`           |
+| `patch` | object | —    | no       | Sparse overrides on the base network      |
+
+A `patch` is not a copy of the network; it records only the differences, so
+edits to the base keep flowing into every variant that does not override them.
+Its shape is:
+
+- `settings` — field overrides on `settings`;
+- `fluid` — field overrides on the default fluid spec;
+- `nodes`, `branches`, `solidNodes`, `conductors` — each a map from entity `id`
+  to a field map for that entity;
+- `added` — entities the variant introduces;
+- `removed` — ids the variant deletes.
+
+An absent `patch` means the variant matches the base exactly. The solver never
+sees a variant: the active one is resolved against the base first
+(`src/core/variants.ts`), and variants are excluded from the provenance hash,
+so adding one cannot stale another variant's results.
 
 ---
 
@@ -967,9 +1158,9 @@ stagnation-enthalpy form is described in section 4.1.4.
 
 ### 4.1.4 Compressible Duct Flow (`kineticEnergy`)
 
-`settings.kineticEnergy: true` (any fluid model; species networks keep the
-segregated update) switches the energy equation to transport _stagnation_
-enthalpy,
+`settings.kineticEnergy: true` (any fluid model, steady or transient; species
+networks keep the segregated update) switches the energy equation to transport
+_stagnation_ enthalpy,
 
 $$h_0 = h + \tfrac12 v^2, \qquad v = \frac{\dot m}{\rho A},$$
 
@@ -992,11 +1183,15 @@ and, for nozzles, linear taper via `diameterOut` — then reproduces:
   friction and heat transfer — subsonic venturis through fully choked
   transonic operation with a supersonic bell (sections 1.7 and 7.7).
 
-In steady mode the solver detects this configuration and couples node
-enthalpies into the Newton system alongside pressures and mass flows (the
-coupled `[P, ṁ, h]` system), which is what lets it hold near-sonic exit
-states that a segregated energy update cannot. Solved branches report a Mach
-number in the
+The solver detects this configuration and couples node enthalpies into the
+Newton system alongside pressures and mass flows (the coupled `[P, ṁ, h]`
+system), which is what lets it hold near-sonic exit states that a segregated
+energy update cannot. This applies in **both** modes: steady solves always take
+the coupled row, and transient solves take it too — for real fluids, and, via
+`useCoupledHMode`, for every analytic (non-real-fluid) `kineticEnergy` network,
+whether or not it declares a reacting junction (see
+[`combustion.md`](combustion.md)). Species-transport networks are the exception
+and keep the segregated update. Solved branches report a Mach number in the
 results. Near-choked cases benefit from grids clustered near the choke point.
 Under the default `momentumFluxScheme: "upwind"` they converge from cold
 starts; the `"central"` scheme requires reasonable initial guesses —
@@ -1045,7 +1240,7 @@ each internal node's composition and temperature.
 This species-transport reacting-flow path is transient-only and ideal-gas-only;
 `realFluid` and `incompressible` combinations with species are rejected by
 validation. It is distinct from the CEA-coupled reacting-junction model
-described in section 3.9.1 and [`combustion.md`](combustion.md). The first-order
+described in section 3.9.2 and [`combustion.md`](combustion.md). The first-order
 integrator is robust for small reaction sets but requires many small sub-steps
 at tight tolerances; large detailed mechanisms would want a higher-order stiff
 method.
@@ -1059,6 +1254,23 @@ method.
 | `expandableLiquid` | $\rho(T) = \rho_0\left[1 - \beta (T - T_0)\right]$ | $h = c_p T$                 | Enables buoyancy loops; `waterExpandable` preset uses $\rho_0 = 998$, $\beta = 2.07\times10^{-4}$, $T_0 = 293$ K |
 | `realFluid`        | CoolProp $\rho(P,T)$                               | CoolProp $h(P,T)$, $u(P,T)$ | NIST-grade $\mu$, $c_p$, $c_v$; two-phase by HEM                                                                 |
 
+A fluid spec is `{ model, preset?, params? }`. `preset` is a quick-select for
+the analytic models — `water`, `air`, or `waterExpandable` — and is not used by
+`realFluid`. `params` supplies the constants of the chosen model; every key is
+optional, keys not recognized by a model are ignored, and a matching `preset`
+short-circuits `params` entirely.
+
+| Model              | `params` keys                    | Meaning                                                                                                                            |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `incompressible`   | `rho`, `mu`, `cp`                | Density kg/m³, dynamic viscosity Pa·s, specific heat J/(kg·K)                                                                      |
+| `idealGas`         | `R`, `gamma`, `mu`, `cp`         | Specific gas constant J/(kg·K), ratio of specific heats, viscosity Pa·s, specific heat J/(kg·K) — this is how helium or CO₂ is set |
+| `expandableLiquid` | `rho0`, `beta`, `T0`, `mu`, `cp` | Reference density kg/m³ at reference temperature `T0` K, volumetric expansion coefficient 1/K, viscosity, specific heat            |
+| `realFluid`        | `fluidName`                      | Canonical CoolProp HEOS name or unambiguous alias; everything else comes from the equation of state                                |
+
+`fluidName` is the only way a real fluid is selected — there is no `realFluid`
+preset — and it is resolved through the alias canonicalization described in
+[`docs/fluid-catalogue.md`](fluid-catalogue.md).
+
 The real-fluid path evaluates properties through a CoolProp WebAssembly sidecar
 of roughly 6.5 MB (4.3 MB compressed), lazily loaded when a real fluid is first
 selected so that the base application stays small. A generated 124-fluid HEOS
@@ -1066,6 +1278,29 @@ catalogue with alias canonicalization is documented in
 [`docs/fluid-catalogue.md`](fluid-catalogue.md); backend rationale, derivative
 semantics, and performance guidance are in
 [`docs/real-fluid-performance.md`](real-fluid-performance.md).
+
+**Two-phase (HEM).** Transient two-phase flow is supported for real fluids
+through a homogeneous-equilibrium model, in which the liquid and vapour phases
+are assumed to travel at the same velocity and to be in thermodynamic
+equilibrium at the local pressure. Its three parts are:
+
+- **Properties** — mixture state is evaluated from pressure and enthalpy
+  (`statePH`) rather than pressure and temperature, because inside the dome
+  $T$ is no longer an independent coordinate. Enthalpy fixes the quality
+  $x$, and mixture density follows from the saturated-phase values.
+- **Solution** — the network is solved with the extended `[P, ṁ, h]`
+  system, so nodal enthalpy is a coupled unknown rather than a lagged update.
+  This is what allows a node to sit on the saturation line for many steps
+  without oscillating across it.
+- **Momentum** — the `pipe`, `orifice`, and `valve` pressure-drop relations are
+  evaluated with the **HEM mixture density** and a **McAdams** mixture
+  viscosity, $1/\mu = x/\mu_g + (1-x)/\mu_f$, so friction factor and Reynolds
+  number stay defined and continuous through the dome.
+
+Conjugate heat transfer in two-phase flow uses the Miropolskii film-boiling
+correlation (section 4.4). The HEM assumption is most accurate for dispersed,
+high-mixing, or low-quality flows; its limits are stated in section 1.7 and its
+verification record in sections 8.2 and 8.4.
 
 For branches with elevation change the solver averages upstream and downstream
 density when forming the elevation head, which is essential for
@@ -1389,8 +1624,9 @@ under constant inflow against the analytical polytropic law. From
    non-differentiable — `pump`, `regulator`, `reliefValve`,
    `orifice` (when $Y$ is active), `cavitatingVenturi`, and `heatedPipe` branch heat get
    per-entry patches — and the whole matrix falls back to finite differences for
-   unsupported configurations such as species transport. Setting
-   `jacobian: 'fd'` forces the pure finite-difference path.
+   unsupported configurations: species transport, and real-fluid networks
+   carrying a gas cushion. Setting `jacobian: 'fd'` forces the pure
+   finite-difference path.
 4. **Linear solve** — dense Gaussian elimination.
 5. **Update** — $\mathbf{x}_{n+1} = \mathbf{x}_n + \omega\mathbf{J}^{-1}\mathbf{R}$.
 6. **Zero-flow linearization** — for $|\dot m| < 10^{-7}$ the branch relation is
@@ -1417,8 +1653,13 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
 2. Solves a steady-like coupled Newton system with storage added to the mass
    residual,
    $$R_{\text{mass},i} = \sum \dot m + \frac{\left(\rho_i^{n+1} - \rho_i^{n}\right) V_i}{\Delta t},$$
-   and internal-energy storage in the energy residual, resolved implicitly for
-   $T^{n+1}$ by successive substitution once the mass-flow field has converged.
+   and internal-energy storage in the energy residual,
+   $$\frac{(m^{n+1} c_v T^{n+1} - m^n c_v T^n)}{\Delta t} = \sum_{\text{in}} \dot{m} c_p T_{\text{upwind}} - \sum_{\text{out}} \dot{m} c_p T^{n+1} + \dot{Q}_{\text{in}}$$
+   The $c_v$ on the storage side and $c_p$ on the flux side are the correct
+   pairing, not an inconsistency: stored energy is internal energy while
+   transported energy is enthalpy (section 4.1.3). For networks outside the
+   coupled `[P, ṁ, h]` mode this row is resolved implicitly for $T^{n+1}$ by
+   successive substitution once the mass-flow field has converged.
 3. Runs logic rules and controllers on acceptance, then stores the converged
    state. Every step is appended to the trajectory even if the Newton did not
    converge; those steps are flagged `converged: false` and the per-step
@@ -1531,8 +1772,10 @@ Everything else — validation, all analytic EOS models, both solvers, and the
 
 The supported export surface is [`src/core/index.ts`](../src/core/index.ts). The
 package is not yet published to npm, so import from the source tree as the tools
-under [`scripts/`](../scripts/) do (`import { solveSteady } from '../src/core'`).
-The snippets below use `from "openflume/core"` as the intended packaged import.
+under [`scripts/`](../scripts/) do. The snippets below are written that way and
+work as typed from a script beside `src/`; adjust the relative depth to match
+where you put the file. Once the package is published the same imports become
+`from "openflume/core"`, with nothing else changing.
 Run scripts with `npx tsx script.ts` on Node 22.9 or newer. The `DynamicCheckValve`
 constructor is currently exported from `src/core/components` rather than the
 supported core barrel; construct it through `NetworkConfig` like the other
@@ -1541,11 +1784,7 @@ components.
 Steady solve:
 
 ```typescript
-import {
-  solveSteady,
-  validateNetwork,
-  decodeNetworkConfig,
-} from "openflume/core";
+import { solveSteady, validateNetwork, decodeNetworkConfig } from "../src/core";
 import { readFileSync } from "node:fs";
 
 const config = decodeNetworkConfig(
@@ -1569,7 +1808,7 @@ console.log("Converged:", result.converged, "in", result.iterations, "iters");
 Transient solve:
 
 ```typescript
-import { solveTransient } from "openflume/core";
+import { solveTransient } from "../src/core";
 
 const result = solveTransient(config, {
   onProgress: ({ time, endTime, dt }) =>
@@ -1584,7 +1823,7 @@ console.log("Tank pressure trace:", result.nodes["tank"].pressure);
 Real fluids must be initialized once before solving:
 
 ```typescript
-import { initRealFluids, solveSteady } from "openflume/core";
+import { initRealFluids, solveSteady } from "../src/core";
 
 await initRealFluids();
 const result = solveSteady(realFluidConfig);
@@ -1648,7 +1887,7 @@ otherwise; drag its left edge to resize it. See §6.11 for the outline and
 
 The network name field doubles as the save-file name and shows a dot when there
 are unsaved changes. **New**, **Save**, and **Load** handle `.fn` files;
-**Undo** and **Redo** walk the history. **Examples ▾** lists the twelve shipped
+**Undo** and **Redo** walk the history. **Examples ▾** lists the thirteen shipped
 models in four groups. **Units ▾** selects the display preset — **SI**, **Metric
 engineering**, or **US customary** — and shows a disabled **Custom** entry when
 preferences match no preset. **Commands** (or `Cmd`/`Ctrl`+`K`) opens the
@@ -1720,31 +1959,58 @@ colormap legend at the top right._
 center, snapped to the grid — or drag the tool onto the canvas to place it at the
 pointer.
 
-**To create a branch or conductor,** drag from one node's connection handle to
-another. On release, a **Connect with** chooser lists the available component
-types grouped as **common flow**, **advanced flow**, **custom flow**, and
-**Thermal ties**, plus **+ Create custom component** and a refresh control for
-local components. Choosing an entry creates the connection with that component's
-default parameters and selects it for editing. **Cancel** or **Escape** dismisses
-the chooser.
+**To create a branch or conductor,** there are two gestures, and which one you
+use decides when the component type is chosen.
+
+**Drag from a handle.** Drag from one node's connection handle to another. On
+release, a **Connect with** chooser lists the available component types grouped
+as **common flow**, **advanced flow**, **custom flow**, and **Thermal ties**,
+plus **+ Create custom component** and a refresh control for local components.
+Choosing an entry creates the connection with that component's default
+parameters and selects it for editing. **Cancel** or **Escape** dismisses the
+chooser. The chooser appears only when **no** palette tool is armed — arming a
+tool has already answered the question it asks.
+
+**Click, then click.** Arm a component in the palette, then click a source node
+and click a target node; the connection is created immediately with the armed
+component's defaults, and the tool stays armed for the next one. A hint banner
+appears at the top of the canvas — first _click a source node, then click a
+target node to connect_, then, once a source is taken, _now click the target
+node_ — so the pending endpoint is always visible. Clicking the armed source
+node a second time releases it.
+
+While a tool is armed, the connection handles on **eligible** nodes only — not
+every node — grow from 5 px to 7 px and take a gold outline (`--select`,
+`#c99a43`), which is the same colour the interface uses for selection. Before a
+source is picked, eligible means "can start this kind of connection"; after
+one is picked, it means "is a legal partner for that source". Ineligible nodes
+are left alone, so the highlight is a live map of where the connection may go.
+
+**Escape** unwinds one level at a time, in order: an open chooser, then a
+member picker, then the pending source node, then the armed tool itself.
+Clicking empty canvas also drops a pending source (and clears the selection)
+but leaves the tool armed.
 
 Connection rules are enforced on creation, with a red banner explaining any
 rejection: fluid branches join only fluid nodes; conduction and radiation
 conductors join only thermal nodes; a convection conductor requires exactly one
-fluid endpoint and one thermal endpoint.
+fluid endpoint and one thermal endpoint. The banner does not auto-dismiss; the
+next interaction clears it.
 
-Dropping a connection on a group container prompts with **Select member node**
-when more than one member qualifies.
+Dropping or clicking a connection onto a group container prompts with **Select
+member node** when more than one member qualifies, and connects straight
+through when exactly one does.
 
 **To select,** click an element; shift-click adds to the selection, and the
 **Select** tool allows marquee selection. A selection-actions menu offers
 **Duplicate**, **Create subnetwork**, and **Delete**.
 
 **Groups.** Select two or more nodes and create a subnetwork; a colored container
-appears. Open its tab from the property panel to work on members in isolation,
-with ghost ports standing in for cross-boundary connections, which are drawn
-dashed on the main canvas. **Ungroup** returns members to the main canvas with
-positions preserved. Groups never affect results.
+appears. Double-click the container — or use **Open Tab** in its property panel —
+to open its tab and work on members in isolation, with ghost ports standing in
+for cross-boundary connections, which are drawn dashed on the main canvas.
+**Ungroup** returns members to the main canvas with positions preserved. Groups
+never affect results.
 
 **Notes.** Place the note tool and type. Double-click to edit in place — Escape
 discards, Cmd/Ctrl+Enter commits. A note grows with its text until the corner
@@ -1780,7 +2046,7 @@ An internal node also exposes **Reacting junction (combustor)**. Enabling it
 selects the CEA propellant pair and efficiency, the named ideal-gas product
 fluid, and the oxidizer/fuel role of each inbound branch. Validation enforces
 the `kineticEnergy` (and, in transient mode, positive-`volume`) restrictions
-described in section 3.9.1.
+described in section 3.9.2.
 
 **Solid node.** **Label**, **Type** (Solid / Ambient), **Subnetwork**,
 **Position (m)**, **Temperature**, **Mass** and **cp** for solids, and **Heat
@@ -1790,7 +2056,13 @@ catalogue materials.
 
 **Branch.** **Label**, **From**, **To**, **Initial flow guess**, and **Component
 Type** grouped as **Common**, **Advanced**, and **Custom**, followed by the
-parameters for the chosen type (Appendix A). **Initial flow guess** is the
+parameters for the chosen type (Appendix A). **From** and **To** are dropdowns,
+not labels: selecting a different node retargets that endpoint in place, keeping
+the branch's id, label, and component parameters. The list is organized by
+subnetwork, so an endpoint can be moved **across a group boundary** — into a
+group, out of one, or between two — without deleting and redrawing the branch.
+Conductors expose the same retargeting on their own **From** and **To**, filtered
+to endpoints legal for the conductor kind. **Initial flow guess** is the
 Newton warm start `initialMdot`; left blank it reads _Auto (0.1 kg/s)_ and never
 constrains the converged solution.
 
@@ -2161,7 +2433,8 @@ keeps them, and they are written to a portable `<model>.runs.json` sidecar
 beside the model. **Save** in the toolbar writes both files whenever there are
 runs to save, so one action captures the whole session; **Save** in the Results
 section header writes the sidecar alone. Loading a `.runs.json` through **Load**
-reattaches its runs to the open model.
+reattaches its runs to the open model. Saving always writes the whole file — the
+base network and every variant — not only the variant currently on the canvas.
 
 **Discarding results.** Click the **×** beside a run to discard that one, or
 **Discard** in the Results section header to drop the whole list. Both ask for
@@ -2561,26 +2834,27 @@ agreement figure.
 
 ## 8.2 Analytic Verification
 
-| Case                                  | Reference                                                                                                                                                                                                                                               | Tolerance                                                                                                                                |
-| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Hydrostatic column                    | $P = P_\text{top} + \rho g h$                                                                                                                                                                                                                           | 10 Pa; zero flow                                                                                                                         |
-| 50/50 flow split                      | Half the source rate in each leg                                                                                                                                                                                                                        | 0.001 kg/s                                                                                                                               |
-| Orifice hand-calc                     | $C_d A\sqrt{2\rho\Delta P}$                                                                                                                                                                                                                             | 0.5 %                                                                                                                                    |
-| Equal-temperature mixing              | Flow-weighted mean temperature                                                                                                                                                                                                                          | 0.05 K                                                                                                                                   |
-| Tank equalization                     | Volume-weighted mean pressure; mass conservation                                                                                                                                                                                                        | 300 Pa; 0.1 % mass                                                                                                                       |
-| Conduction ladder and lumped cooldown | Linear profile; $\exp(-t/\tau)$                                                                                                                                                                                                                         | 0.01 K; $\tau$ within 1 %                                                                                                                |
-| Multi-loop water network              | Independent nodal Newton solution                                                                                                                                                                                                                       | 0.5 % on branch flows                                                                                                                    |
-| Pump-valve operating point            | Bisection on the intersection                                                                                                                                                                                                                           | 0.5 %                                                                                                                                    |
-| Coupled tank equalization             | Runge–Kutta mass and energy integration                                                                                                                                                                                                                 | 0.5 % pressure; 2 % trajectory                                                                                                           |
-| Heated-pipe temperature rise          | Analytical cumulative heating                                                                                                                                                                                                                           | 0.2 %                                                                                                                                    |
-| Tank blowdown                         | Runge–Kutta reference                                                                                                                                                                                                                                   | 2 % final pressure; 0.5 % discharged mass                                                                                                |
-| Isentropic blowdown                   | $T/T_0 = (m/m_0)^{\gamma-1}$                                                                                                                                                                                                                            | 1 %                                                                                                                                      |
-| Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                                                                                    |
-| Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                                                                                      |
-| Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                                                                                      |
-| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band)          |
-| Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start                                   |
-| Reacting-junction LOX/RP-1 thruster   | CEA identities; chamber and injector closed forms; quasi-1-D RK4 nozzle ODE; exact wall resistance network. Full report: [`docs/validation/combustion-report.md`](validation/combustion-report.md)                                                      | Chamber closure to machine precision; injector error ≤0.18 %; local nozzle profile error ≤4.87 %; wall temperatures to machine precision |
+| Case                                  | Reference                                                                                                                                                                                                                                               | Tolerance                                                                                                                                           |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Hydrostatic column                    | $P = P_\text{top} + \rho g h$                                                                                                                                                                                                                           | 10 Pa; zero flow                                                                                                                                    |
+| 50/50 flow split                      | Half the source rate in each leg                                                                                                                                                                                                                        | 0.001 kg/s                                                                                                                                          |
+| Orifice hand-calc                     | $C_d A\sqrt{2\rho\Delta P}$                                                                                                                                                                                                                             | 0.5 %                                                                                                                                               |
+| Equal-temperature mixing              | Flow-weighted mean temperature                                                                                                                                                                                                                          | 0.05 K                                                                                                                                              |
+| Tank equalization                     | Volume-weighted mean pressure; mass conservation                                                                                                                                                                                                        | 300 Pa; 0.1 % mass                                                                                                                                  |
+| Conduction ladder and lumped cooldown | Linear profile; $\exp(-t/\tau)$                                                                                                                                                                                                                         | 0.01 K; $\tau$ within 1 %                                                                                                                           |
+| Multi-loop water network              | Independent nodal Newton solution                                                                                                                                                                                                                       | 0.5 % on branch flows                                                                                                                               |
+| Pump-valve operating point            | Bisection on the intersection                                                                                                                                                                                                                           | 0.5 %                                                                                                                                               |
+| Coupled tank equalization             | Runge–Kutta mass and energy integration                                                                                                                                                                                                                 | 0.5 % pressure; 2 % trajectory                                                                                                                      |
+| Heated-pipe temperature rise          | Analytical cumulative heating                                                                                                                                                                                                                           | 0.2 %                                                                                                                                               |
+| Tank blowdown                         | Runge–Kutta reference                                                                                                                                                                                                                                   | 2 % final pressure; 0.5 % discharged mass                                                                                                           |
+| Isentropic blowdown                   | $T/T_0 = (m/m_0)^{\gamma-1}$                                                                                                                                                                                                                            | 1 %                                                                                                                                                 |
+| Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                                                                                               |
+| Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                                                                                                 |
+| Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                                                                                                 |
+| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band)                     |
+| Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start                                              |
+| Reacting-junction LOX/RP-1 thruster   | CEA identities; chamber and injector closed forms; quasi-1-D RK4 nozzle ODE; exact wall resistance network. Full report: [`docs/validation/combustion-report.md`](validation/combustion-report.md)                                                      | Chamber closure to machine precision; injector error ≤0.18 %; local nozzle profile error ≤4.87 %; wall temperatures to machine precision            |
+| Two-phase HEM path                    | Nitrogen boiling and condensation staircases across the dome, and saturated LN₂ blowdown against a Runge–Kutta reference (`src/core/__tests__/twoPhaseFlow.test.ts`); the experimental leg is the NBS/GFSSP two-phase chilldown benchmark (section 8.4) | $T$ tracks $T_\text{sat}(P(t))$ within 0.5 K; pressure within 3 %; mass conserved to 0.5 %; latent-heat and flow-boiling energy balances within 1 % |
 
 ![Mach number along the converging-diverging nozzle, friction-only and friction-plus-heat cases against the analytical reference](validation/figures/compressible/fig14-nozzle-mach.svg)
 
@@ -2847,7 +3121,7 @@ the active one first. Runs are filed under the variant that produced them.
 
 | Document                                                                                 | Contents                                                                                                       |
 | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| [`README`](../README.md)                                                                 | Feature overview, theory summary, field reference                                                              |
+| [`README`](../README.md)                                                                 | Project overview, quick start, and documentation index                                                         |
 | [`Architecture`](architecture.md)                                                        | Module boundaries, APIs, configuration lifecycle                                                               |
 | [`User extensibility`](usercode.md)                                                      | User components, registers, logic, controllers, trust model                                                    |
 | [`Parameter bindings`](parameter-bindings.md)                                            | Formula-bound fields, convection models, solid property models                                                 |
@@ -2862,5 +3136,5 @@ the active one first. Runs are filed under the variant that produced them.
 | [`Combustion validation`](validation/combustion-report.md)                               | CEA identities, chamber/injector closure, nozzle profiles, and regenerative wall stack                         |
 | [`Incompressible hydraulics validation`](validation/incompressible-hydraulics-report.md) | Closed-form pipe hydraulics: Hagen–Poiseuille, Darcy–Weisbach, Hardy-Cross, hydrostatics, pump operating point |
 | [`Transient tank validation`](validation/tank-transient-report.md)                       | Lumped tank gas dynamics: blowdown, equalization, fill heating                                                 |
-| [`Thermal network validation`](validation/thermal-network-report.md)                     | Composite wall, radiation–convection equilibrium, lumped cooldown, heated pipe, ε–NTU HX                       |
+| [`Thermal network validation`](validation/thermal-network-report.md)                     | Composite wall, radiation–convection equilibrium, lumped cooldown, heated pipe, ε–NTU HEX                      |
 | [`Rigid-column fluid-transient validation`](validation/fluid-transient-report.md)        | Lumped inertia and gas cushion vs rigid-column surge theory                                                    |

@@ -59,8 +59,14 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement via a
-[GitHub issue](https://github.com/OpenFLUME/OpenFLUME/issues).
+reported **privately** to the community leaders responsible for enforcement by
+opening a private report through GitHub's
+[private reporting form](https://github.com/OpenFLUME/OpenFLUME/security/advisories/new).
+Reports submitted there are visible only to repository maintainers. Prefix the
+title with `[Conduct]` so it is routed correctly rather than triaged as a
+software vulnerability.
+
+Do not report conduct concerns in a public issue, pull request, or discussion.
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
