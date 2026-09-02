@@ -129,7 +129,7 @@ test.describe("Configuration sections", () => {
     await expect(scheme).toBeDisabled();
     await expect(
       page.locator('[data-testid="settings-formulation-summary"]'),
-    ).toContainText("Incompressible baseline");
+    ).toContainText("No flux terms");
 
     await page.locator('[data-testid="settings-momentum-flux"]').check();
     await page.locator('[data-testid="settings-kinetic-energy"]').check();

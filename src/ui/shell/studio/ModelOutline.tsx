@@ -682,7 +682,9 @@ export default function ModelOutline() {
   pushConfig(
     "physics",
     "Physics",
-    physicsOn.length > 0 ? physicsOn.join(" + ") : "incompressible network",
+    physicsOn.length > 0
+      ? physicsOn.join(" + ")
+      : "algebraic momentum + static enthalpy",
     "ok",
   );
   pushConfig(

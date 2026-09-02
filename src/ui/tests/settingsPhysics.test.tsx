@@ -139,7 +139,10 @@ describe("Physics tab compressible flags", () => {
   });
 
   it("names the formulation the flags actually select", () => {
-    expect(renderPhysics(baseConfig())).toContain("Incompressible baseline");
+    expect(renderPhysics(baseConfig())).toContain("No flux terms");
+    expect(renderPhysics(baseConfig())).toContain(
+      "the fluid model itself is still compressible",
+    );
     expect(renderPhysics(baseConfig({ momentumFlux: true }))).toContain(
       "Convective acceleration only",
     );

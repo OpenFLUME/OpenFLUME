@@ -919,10 +919,29 @@ function SolverTab({
   );
 }
 
+/** True when the fluid EOS itself is not the algebraic-incompressible model
+ *  — i.e. the primary fluid or any named fluid is idealGas, expandableLiquid,
+ *  or realFluid. Used only to keep the formulation summary from implying the
+ *  fluid is incompressible when the momentum/energy *flux* flags are simply
+ *  off; those flags are supported for every fluid model (see schema.ts) and
+ *  are independent of the fluid's equation of state. */
+function hasCompressibleFluidModel(
+  config: import("../../core").NetworkConfig,
+): boolean {
+  const models = [
+    config.fluid.model,
+    ...Object.values(config.fluids ?? {}).map((spec) => spec.model),
+  ];
+  return models.some((model) => model !== "incompressible");
+}
+
 /** One-line description of the momentum/energy formulation the current flag
  *  combination selects, so the interaction between four booleans is legible
  *  without cross-referencing the manual. */
-function formulationSummary(settings: NetworkSettings): string {
+function formulationSummary(
+  settings: NetworkSettings,
+  compressibleFluid: boolean,
+): string {
   const momentum = !!settings.momentumFlux;
   const energy = !!settings.kineticEnergy;
   if (momentum && energy) {
@@ -938,7 +957,11 @@ function formulationSummary(settings: NetworkSettings): string {
   if (energy) {
     return "Stagnation-enthalpy transport only: branches carry h + V²/2 without the momentum-flux term. Add momentum flux for a full quasi-1-D formulation.";
   }
-  return "Incompressible baseline: algebraic branch momentum and static-enthalpy transport. This is the configuration the published benchmarks were validated against.";
+  const baseline =
+    "No flux terms: branch momentum is closed algebraically and energy transport uses static enthalpy. Exact at constant density; negligible error at low Mach.";
+  return compressibleFluid
+    ? `${baseline} Note: the fluid model itself is still compressible (not the "incompressible" EOS) — these flags only control the branch momentum/energy discretization, not the fluid's equation of state.`
+    : baseline;
 }
 
 /** Compressible-formulation flags plus the closure-calibration surface. */
@@ -994,7 +1017,7 @@ function PhysicsTab({
           className="settings-formulation"
           data-testid="settings-formulation-summary"
         >
-          {formulationSummary(settings)}
+          {formulationSummary(settings, hasCompressibleFluidModel(config))}
         </div>
       </div>
 
