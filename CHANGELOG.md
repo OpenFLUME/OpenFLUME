@@ -17,6 +17,42 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   the energy closure stays quasi-steady. `TransientResult.junctions` records
   a per-step summary trajectory, shown in the property panel. New example
   **LOX/RP-1 thruster (transient startup)**. See [`docs/combustion.md`](docs/combustion.md).
+- **Repeat and Split — discretizing a line is a command, not a chore.**
+  Select the nodes of one repeated unit and choose **Repeat…** from the
+  canvas selection-actions menu: the unit is chained end-to-end into N total
+  instances (`src/core/repeat.ts`), with the seam branch cloned per instance,
+  boundary-crossing conductors tied to the same external node, `{ expr }`
+  formulas rewritten to reference each copy's own members, and — via the
+  **Link parameters to the first instance** checkbox, on by default — copied
+  literal parameters bound to instance 1 as `{ "expr": "pipe('seg1').length" }`-style
+  formulas, so retuning the first segment retunes the whole line. A pipe or
+  heated pipe can instead be split in place from the property panel's
+  **Discretize** section, which divides the extensive fields (length,
+  elevation change, and a heated pipe's `ua`) across the segments rather than
+  duplicating them. Each operation is a single undo step. Known limitations
+  (series chaining only; controllers, logic rules, and reacting junctions are
+  not cloned; the count is not stored) are stated in the user's manual,
+  §3.13.
+
+### Changed
+
+- **Duplicate-generated ids now bump the trailing integer** (`n12` → `n13`)
+  instead of taking the first free integer for the alphabetic prefix
+  (`n12` → `n1`), keeping a numbered series monotone as copies accrue. On a
+  collision the search still walks upward from the candidate.
+- **The formula tokenizer moved to `src/core/usercode/`** so core-side
+  authoring transforms (`core/usercode/rewriteIds.ts`, used by Repeat and
+  Duplicate) can share it without a ui→core dependency inversion;
+  `src/ui/formulaTokens.ts` remains as a re-export shim, so existing UI
+  imports keep working.
+
+### Fixed
+
+- **Duplicate now retargets formulas at the copies.** Duplicating entities
+  whose fields held `{ expr }` references to fellow copied members (a node
+  whose volume is `pipe('p1').volume`, duplicated together with `p1`)
+  previously produced copies that silently kept pointing at the _originals_;
+  the expressions are now rewritten through the duplicate's id map.
 
 ## [0.2.1] - 2026-08-23
 

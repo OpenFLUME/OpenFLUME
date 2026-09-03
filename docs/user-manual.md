@@ -239,7 +239,7 @@ multi-loop verification case of
 
 Two consequences of this arrangement dictate how you will build and scope your models:
 
-First, **spatial resolution is entirely up to you**. A 100 m pipe represented by a single branch has only one flow rate and no interior temperature profile. If you represent that same pipe with twenty branches and nineteen interior nodes, you can capture an axial temperature profile and a distributed friction gradient. Wherever a gradient matters to your result you must subdivide the line into enough segments to resolve it. (The shipped chilldown example uses twenty axial segments for a 61 m line for exactly this reason.)
+First, **spatial resolution is entirely up to you**. A 100 m pipe represented by a single branch has only one flow rate and no interior temperature profile. If you represent that same pipe with twenty branches and nineteen interior nodes, you can capture an axial temperature profile and a distributed friction gradient. Wherever a gradient matters to your result you must subdivide the line into enough segments to resolve it. (The shipped chilldown example uses twenty axial segments for a 61 m line for exactly this reason; the Repeat and Split commands of section 3.13 build such discretizations.)
 
 Second, **a node's volume determines its ability to store mass and energy**. In a steady-state run, volume is irrelevant and you can safely ignore it. In a transient run, however, an interior node accumulates mass and energy in proportion to its volume. This means you must assign a positive volume to every interior node in a transient model, because how you distribute that volume directly sets your system's behavior.
 
@@ -1054,6 +1054,81 @@ An absent `patch` means the variant matches the base exactly. The solver never
 sees a variant: the active one is resolved against the base first
 (`src/core/variants.ts`), and variants are excluded from the provenance hash,
 so adding one cannot stale another variant's results.
+
+## 3.13 Repeating and Discretizing
+
+Section 1.2 leaves spatial resolution to you: wherever a gradient matters, a
+line must be subdivided into enough segments to resolve it. Many models are
+therefore one pattern repeated — a cryogenic transfer line resolved as N
+identical segments of pipe, node volume, wall mass, and convection conductor
+(the shipped chilldown example of section 7.11 is exactly that: twenty
+segments over 61 m). The **Repeat** and **Split** commands do the mechanical
+part of building such a model. Both are ordinary edits — one undo step each —
+and neither changes the `.fn` file format.
+
+**The unit and the seam.** A repeat _unit_ is a selection of fluid and solid
+nodes, taken together with the branches and conductors whose endpoints both
+lie inside the selection. The _seam_ is the single branch that enters the
+unit from outside, and it must be unambiguous: when exactly one branch enters
+the selection it is the seam; when several do, the menu action stays disabled
+(with the reason as its tooltip) until the intended entry branch is included
+in the selection — a shift-click or marquee selection may carry one branch
+alongside the nodes.
+
+**Repeat.** With the unit selected, **Repeat…** in the canvas
+selection-actions menu asks for the _total_ instance count — the original plus
+the copies, so 20 builds the chilldown line from one segment. The seam branch
+is cloned once per added instance, chaining the previous instance's exit node
+to the new one, and every branch that left the unit is rewired to leave from
+the last instance: the result is a series chain. A conductor crossing the
+unit boundary is cloned per instance with only its member endpoint remapped,
+so every instance's wall ties to the _same_ external ambient node. The
+dialog's canvas spacing defaults to the pitch that keeps the chain drawn as
+one continuous run, and its physical spacing defaults to the seam pipe's
+resolved length along +x, so the repeated line also lands end-to-end in
+hydrostatics and the 3D view. Copied ids bump a trailing integer (`n1` →
+`n2`) and labels that mention member ids are remapped to match, following the
+naming the shipped multi-segment models already use.
+
+**Parameter linking.** Two rules decide what a copied parameter means. The
+first always applies: a formula on a copied entity is rewritten to reference
+the copy's _own_ members, so `pipe('seg1').volume` on the template arrives as
+`pipe('seg2').volume` on instance 2. The second is the dialog's **Link
+parameters to the first instance** checkbox, on by default: each copied
+literal number on a formula-capable field is replaced by a binding to
+instance 1 — the copied pipe's length becomes
+`{ "expr": "pipe('seg1').length" }` — so retuning the first segment retunes
+the whole line. Turn linking off when the copies are meant to differ: a
+tapered line, a degraded segment, a per-segment variation edited by hand.
+Canvas and physical positions are never linked; they are offset per instance.
+The expression syntax and the bindable-field allowlist are specified in
+[`docs/parameter-bindings.md`](parameter-bindings.md) (see section 3.10).
+
+**Split pipe.** For the common case — one pipe that needs more resolution and
+nothing else — the property panel's **Discretize** section splits a selected
+pipe or heated pipe into N equal series segments in place: N−1 internal nodes
+and N−1 new pipes are inserted, and the original branch keeps its id as the
+last segment. The extensive quantities are _divided_, not duplicated — total
+length, elevation change, and a heated pipe's $UA$ come out of the split
+exactly as they went in (copying $UA$ verbatim would multiply the wall heat
+leak by N) — while the intensive quantities (diameter, roughness, wall
+temperature) are copied to every segment. Each inserted node inherits its
+initial pressure and temperature from the internal endpoint and binds its
+volume to its own upstream pipe, so a split line stays transient-ready.
+
+**Known limitations.**
+
+- **Series chaining only.** Repeat builds an end-to-end chain; there is no
+  parallel repeat (N identical tubes sharing an inlet and outlet header) in
+  this release.
+- **Controllers, logic rules, and reacting junctions are not cloned or
+  retargeted.** They are top-level records keyed by id (sections 3.8 and
+  3.9.2), and Repeat touches only nodes, solid nodes, branches, and
+  conductors — a copied valve arrives uncontrolled, and a copy of a combustor
+  node is a plain internal node.
+- **The count is not stored.** A repeat has no memory of how it was made; to
+  change N, undo (Ctrl/Cmd+Z — the whole repeat is one undo step) and run it
+  again.
 
 ---
 
@@ -2003,7 +2078,8 @@ through when exactly one does.
 
 **To select,** click an element; shift-click adds to the selection, and the
 **Select** tool allows marquee selection. A selection-actions menu offers
-**Duplicate**, **Create subnetwork**, and **Delete**.
+**Duplicate**, **Repeat…** (chain the selected unit into N series instances —
+section 3.13), **Create subnetwork**, and **Delete**.
 
 **Groups.** Select two or more nodes and create a subnetwork; a colored container
 appears. Double-click the container — or use **Open Tab** in its property panel —
@@ -2073,7 +2149,11 @@ frictionless pipe, so an emptied field must not read as one. A **Tapered
 outlet** checkbox reveals **Outlet Diameter** (`diameterOut`); friction uses the
 mean diameter, and the hint says whether the endpoint areas are currently
 feeding the acceleration and kinetic-energy terms. Heated pipes add a **Boiling
-model** selector of **UA·ΔT only** or **Miropolskii film boiling**.
+model** selector of **UA·ΔT only** or **Miropolskii film boiling**. Pipes and
+heated pipes also carry a **Discretize** section: **Split into segments**
+divides the branch into N equal series segments, with length, elevation
+change, and $UA$ divided across the segments rather than duplicated
+(section 3.13).
 
 A `customResistance` branch edits its K(Re) curve in place, as a Reynolds/K
 point grid beside a readout of the point count, the Reynolds span, and the K the
