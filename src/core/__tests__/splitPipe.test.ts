@@ -591,18 +591,21 @@ describe("linkParams", () => {
     }
   });
 
-  it("linkParams: true binds segments 2..N−1 back to segment 1 and resolves identically", () => {
+  it("linkParams: true binds ALL non-first segments (the original included) back to segment 1 and resolves identically", () => {
     const config = pressureLine();
     const linked = splitPipeBranch(config, "main", 4, { linkParams: true });
     expect(linked.ok).toBe(true);
     if (!linked.ok) return;
 
-    // Segment 1 (main_seg1) and the LAST segment (the original 'main')
-    // hold literals; the repeatUnit clones main_seg2/main_seg3 bind every
-    // BINDABLE pipe field to segment 1 (repeat.ts Rule 2).
+    // Segment 1 (main_seg1) holds the ONLY literal.  The repeatUnit clones
+    // main_seg2/main_seg3 bind every BINDABLE pipe field to segment 1
+    // (repeat.ts Rule 2), and so does the original 'main' — the LAST
+    // segment is never cloned, so splitPipeBranch links it explicitly.
+    // Until the last segment was linked this test pinned the asymmetry
+    // (main literal at 0.25), which made the panel hint "editing the first
+    // segment updates them all" false for the resolved total.
     expect(componentFields(linked.config, "main_seg1").length).toBe(0.25);
-    expect(componentFields(linked.config, "main").length).toBe(0.25);
-    for (const id of ["main_seg2", "main_seg3"]) {
+    for (const id of ["main_seg2", "main_seg3", "main"]) {
       const c = componentFields(linked.config, id);
       expect(c.length).toEqual({ expr: "pipe('main_seg1').length" });
       expect(c.diameter).toEqual({ expr: "pipe('main_seg1').diameter" });
@@ -629,6 +632,34 @@ describe("linkParams", () => {
         return [c.length, c.diameter, c.roughness];
       });
     expect(paramsOf(rLinked.config)).toEqual(paramsOf(rLiteral.config));
+  });
+
+  it("editing segment 1's length after a split scales the RESOLVED total by exactly the segment count", () => {
+    // The panel hint promises "editing the first segment then updates them
+    // all".  With the last segment linked too, doubling segment 1 (0.25 →
+    // 0.5) doubles the resolved total to exactly 4 × 0.5 = 2; the old
+    // asymmetry would have left 'main' behind at 0.25 (total 1.75).
+    const linked = splitPipeBranch(pressureLine(), "main", 4, {
+      linkParams: true,
+    });
+    expect(linked.ok).toBe(true);
+    if (!linked.ok) return;
+    (
+      componentFields(linked.config, "main_seg1") as { length: unknown }
+    ).length = 0.5;
+
+    const resolved = resolveNetworkParameters(linked.config);
+    expect(resolved.ok).toBe(true);
+    if (!resolved.ok) return;
+    const perSegment = resolved.config.branches.map(
+      (b) => (b.component as { length: number }).length,
+    );
+    expect(perSegment).toHaveLength(4);
+    for (const length of perSegment) expect(length).toBe(0.5);
+    const total = perSegment.reduce((acc, length) => acc + length, 0);
+    // Exactly N × the edited segment length — i.e. the total moved by the
+    // full factor of the edit (2×), not by (N−1)/N of it.
+    expect(total).toBe(2 * LENGTH);
   });
 });
 

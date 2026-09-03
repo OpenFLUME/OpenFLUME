@@ -536,8 +536,11 @@ describe("duplicateSelection via repeatUnit", () => {
       "j1",
       "n1",
     ]);
-    const p1 = c.branches.find((br) => br.id === "p1")!;
-    expect([p1.from, p1.to]).toEqual(["j1", "n1"]);
+    // The induced branch p9 takes the legacy FIXED branch prefix — the
+    // pre-repeat store minted cloned branches via createId("b", allIds), so
+    // p9 → b1 here, never p1.
+    const b1 = c.branches.find((br) => br.id === "b1")!;
+    expect([b1.from, b1.to]).toEqual(["j1", "n1"]);
     // A second duplicate of j takes the next free integer (j2), exactly as
     // repeated legacy duplicates did.
     s().setCanvasSelection(["j"]);
@@ -554,11 +557,12 @@ describe("duplicateSelection via repeatUnit", () => {
     const res = s().duplicateSelection();
     expect(res).toEqual({ nodes: 2, branches: 1, conductors: 0 });
     const c = s().config;
-    // n1 → n3 (n2 is itself a member) and p1 → p2.
+    // n1 → n3 (n2 is itself a member) and p1 → b1 (the legacy fixed branch
+    // prefix — pre-repeat createId("b", …), not a prefix from the source id).
     const copyN1 = c.nodes.find((n) => n.id === "n3")!;
-    expect(copyN1.volume).toEqual({ expr: "pipe('p2').volume" });
-    const p2 = c.branches.find((b) => b.id === "p2")!;
-    expect([p2.from, p2.to]).toEqual(["n3", "n4"]);
+    expect(copyN1.volume).toEqual({ expr: "pipe('b1').volume" });
+    const b1 = c.branches.find((b) => b.id === "b1")!;
+    expect([b1.from, b1.to]).toEqual(["n3", "n4"]);
     // The originals are untouched.
     expect(c.nodes.find((n) => n.id === "n1")!.volume).toEqual({
       expr: "pipe('p1').volume",

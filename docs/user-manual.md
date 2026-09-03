@@ -1079,16 +1079,23 @@ alongside the nodes.
 selection-actions menu asks for the _total_ instance count — the original plus
 the copies, so 20 builds the chilldown line from one segment. The seam branch
 is cloned once per added instance, chaining the previous instance's exit node
-to the new one, and every branch that left the unit is rewired to leave from
-the last instance: the result is a series chain. A conductor crossing the
-unit boundary is cloned per instance with only its member endpoint remapped,
-so every instance's wall ties to the _same_ external ambient node. The
-dialog's canvas spacing defaults to the pitch that keeps the chain drawn as
-one continuous run, and its physical spacing defaults to the seam pipe's
-resolved length along +x, so the repeated line also lands end-to-end in
-hydrostatics and the 3D view. Copied ids bump a trailing integer (`n1` →
-`n2`) and labels that mention member ids are remapped to match, following the
-naming the shipped multi-segment models already use.
+to the new one, and every branch that left the unit _from the unit's exit
+node_ is rewired to leave from the last instance: the result is a series
+chain. A branch leaving from any other member — a side tap on the first
+segment, say — describes instance 1 specifically and stays attached to it. A
+conductor crossing the unit boundary is cloned per instance with only its
+member endpoint remapped, so every instance's wall ties to the _same_
+external ambient node. The unit must be chainable: it cannot contain a
+boundary node (a copied pressure boundary would re-impose itself on every
+instance — Duplicate is the way to copy those), and every member must be
+reachable from the seam's target along the unit's own branches so no copy is
+left without inflow. The dialog's canvas spacing defaults to the pitch that
+keeps the chain drawn as one continuous run, and its physical spacing
+defaults to the seam pipe's resolved length along +x, so the repeated line
+also lands end-to-end in hydrostatics and the 3D view. Copied ids bump a
+trailing integer (`n1` → `n2`) and labels that mention member ids are
+remapped to match, following the naming the shipped multi-segment models
+already use.
 
 **Parameter linking.** Two rules decide what a copied parameter means. The
 first always applies: a formula on a copied entity is rewritten to reference

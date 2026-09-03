@@ -8,8 +8,12 @@
  *                  store's duplicateSelection topology).
  *   Repeat-N     — seamBranch set.  The seam branch (the single branch
  *                  ENTERING the unit) is cloned and chained from instance
- *                  i-1's exit node to instance i, and every exit crossing is
- *                  rewired to the last instance's exit node.
+ *                  i-1's exit node to instance i, and every exit crossing
+ *                  LEAVING FROM THE UNIT'S EXIT NODE is rewired to the last
+ *                  instance's exit node.  An exit crossing leaving from any
+ *                  OTHER member node (a side tap on the first segment, say)
+ *                  describes instance 1 specifically and stays attached to
+ *                  the template.
  *   Split-pipe-N — thin wrapper ({@link splitPipeBranch}) that inserts one
  *                  mid-node + seam pipe, then lets repeatUnit do everything
  *                  else.  There is deliberately NO second algorithm.
@@ -31,6 +35,15 @@
  *   the copy to instance 1.  Canvas x/y, physical position.* and fields
  *   already holding `{ expr }` are skipped (Rule 1 owns the latter;
  *   offsets own position).
+ *
+ *   Rule 2 is structurally incapable of creating a parameter-binding
+ *   CYCLE, and that invariant is load-bearing: it fires only when the
+ *   clone's value is a plain finite number, which means the template field
+ *   it binds to is a literal carrying NO binding edge of its own.  Every
+ *   edge Rule 2 adds therefore points from a later instance BACK to a
+ *   literal on instance 1, never sideways into another binding — the
+ *   binding graph stays acyclic by construction.  Do not let Rule 2 fire
+ *   on non-literal template fields.
  *
  * Everything here is pure and never throws: inputs are structuredClone'd,
  * never mutated, and all failures are returned as `{ ok: false, error }`.
@@ -221,7 +234,13 @@ function firstFreeId(baseId: string, taken: Set<string>): string {
  * "Conv wall2-n2"), matching how the shipped models name per-segment
  * conductors.  Ids are matched LONGEST FIRST and only at a token boundary
  * (never preceded/followed by [A-Za-z0-9_]), so `n1` cannot corrupt `n10`
- * and `wall1` cannot corrupt `wall10` or a longer word.  When NO member id
+ * and `wall1` cannot corrupt `wall10` or a longer word.  The boundaries are
+ * matched WITHOUT a RegExp lookbehind: `(?<!…)` throws a SyntaxError on
+ * Safari < 16.4 (in scope via Vite's default "modules" build target, which
+ * includes Safari 14), and repeatUnit's catch would have surfaced that as a
+ * silent `{ ok: false }`.  The left boundary is a captured start-or-
+ * non-word character re-emitted by the replacer; the right side uses a
+ * lookahead, which every targeted engine supports.  When NO member id
  * appears in the label, fall back to bumping a trailing integer
  * ("Segment 1" → "Segment 2"), else append ` ${i}`.  `undefined` labels
  * stay `undefined`.
@@ -236,12 +255,15 @@ function instanceLabel(
   let matched = false;
   const idsByLengthDesc = [...idMap.keys()].sort((a, b) => b.length - a.length);
   for (const id of idsByLengthDesc) {
+    // (^|[^A-Za-z0-9_]) instead of a lookbehind — see the doc block above.
+    // The captured left-boundary character is re-emitted, so the replacer
+    // is span-identical to the lookbehind form.
     const re = new RegExp(
-      `(?<![A-Za-z0-9_])${escapeRegExp(id)}(?![A-Za-z0-9_])`,
+      `(^|[^A-Za-z0-9_])${escapeRegExp(id)}(?![A-Za-z0-9_])`,
       "g",
     );
     const mapped = idMap.get(id)!;
-    const next = out.replace(re, () => mapped);
+    const next = out.replace(re, (_match, left: string) => left + mapped);
     if (next !== out) {
       matched = true;
       out = next;
@@ -555,6 +577,36 @@ function analyzeMembers(
     else if (fromIn !== toIn) crossingConductors.push(c);
   }
 
+  // Cross-namespace id collisions make the per-instance id map ambiguous:
+  // ids are only unique PER KIND in a config (a node 'seg1' may sit next to
+  // a pipe 'seg1' — validate/branches.ts vs validate/nodes.ts), but the id
+  // map and rewriteExpressionIds key by PLAIN id across every accessor, so
+  // one entry would silently overwrite the other and expressions would
+  // retarget to the wrong entity.  Reject such units outright: they are
+  // pathological, and renaming one entity is trivial.  (repeatUnit extends
+  // the same guard to the seam branch and shared crossing conductors, which
+  // also enter the map.)
+  const kindsById = new Map<string, Set<string>>();
+  const noteKind = (id: string, kind: string) => {
+    const kinds = kindsById.get(id) ?? new Set<string>();
+    kinds.add(kind);
+    kindsById.set(id, kinds);
+  };
+  for (const id of nodeIds) noteKind(id, "fluid node");
+  for (const id of solidIds) noteKind(id, "solid node");
+  for (const b of inducedBranches) noteKind(b.id, "branch");
+  for (const c of inducedConductors) noteKind(c.id, "conductor");
+  for (const [id, kinds] of kindsById) {
+    if (kinds.size > 1) {
+      return {
+        ok: false,
+        error:
+          `the unit's entities share the id '${id}' across namespaces (${[...kinds].join(" + ")}) — ` +
+          "repeat rewrites formula references through one id map and needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
+      };
+    }
+  }
+
   // Seam derivation: exactly one entry crossing is unambiguous.
   let seamBranch: string | null = null;
   let seamError: string | null = null;
@@ -711,6 +763,26 @@ function repeatUnitInner(
         error: `seam branch '${seamId}' is not a branch entering the unit (entry crossings: ${entries})`,
       };
     }
+
+    // A chained unit must not contain a BOUNDARY fluid node: Repeat/Split
+    // clone the members per instance, and a cloned pressure/temperature
+    // boundary in the middle of the chain silently re-imposes the boundary
+    // condition on every segment.  Duplicate (seamBranch: null) is
+    // unaffected — free-floating copies of a boundary are legitimate.
+    const boundaryMembers = analysis.memberNodes.filter(
+      (n) => n.type === "boundary",
+    );
+    if (boundaryMembers.length > 0) {
+      return {
+        ok: false,
+        error: `cannot repeat a unit containing boundary node(s) ${boundaryMembers
+          .map((n) => n.id)
+          .join(
+            ", ",
+          )} — chaining would clone the boundary condition into every instance; use Duplicate (no seam) to copy them instead`,
+      };
+    }
+
     if (analysis.exitNode === null) {
       return {
         ok: false,
@@ -718,6 +790,66 @@ function repeatUnitInner(
       };
     }
     exitNode = analysis.exitNode;
+
+    // Reachability guard: instance i is fed from instance i−1's exit node
+    // through the seam clone, so EVERY member fluid node must be reachable
+    // from the seam's target along the unit's own (induced) branches —
+    // otherwise its per-instance copies have no inflow at all (orphaned
+    // zero-inflow nodes).  The exit node is itself a fluid member, so this
+    // single check subsumes exit-node reachability.
+    const reachable = new Set<string>([seam.to]);
+    const stack = [seam.to];
+    while (stack.length > 0) {
+      const at = stack.pop()!;
+      for (const b of analysis.inducedBranches) {
+        if (b.from === at && !reachable.has(b.to)) {
+          reachable.add(b.to);
+          stack.push(b.to);
+        }
+      }
+    }
+    const orphaned = analysis.memberNodes.filter((n) => !reachable.has(n.id));
+    if (orphaned.length > 0) {
+      return {
+        ok: false,
+        error: `cannot repeat: member node(s) ${orphaned
+          .map((n) => `'${n.id}'`)
+          .join(
+            ", ",
+          )} are not reachable from the seam's target '${seam.to}' along branches inside the unit — their copies would have no inflow`,
+      };
+    }
+
+    // The seam branch and (when shared) the crossing conductors also enter
+    // the per-instance id map, so the cross-namespace uniqueness that
+    // analyzeMembers enforced among the unit's own entities must extend to
+    // them (see the collision guard there for why).
+    const unitEntityIds = new Set<string>([
+      ...analysis.memberNodes.map((n) => n.id),
+      ...analysis.memberSolids.map((s) => s.id),
+      ...analysis.inducedBranches.map((b) => b.id),
+      ...analysis.inducedConductors.map((c) => c.id),
+    ]);
+    if (unitEntityIds.has(seam.id)) {
+      return {
+        ok: false,
+        error:
+          `the seam branch '${seam.id}' shares its id with another unit entity — ` +
+          "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
+      };
+    }
+    if (opts.crossingConductors === "share") {
+      for (const c of analysis.crossingConductors) {
+        if (unitEntityIds.has(c.id)) {
+          return {
+            ok: false,
+            error:
+              `the crossing conductor '${c.id}' shares its id with another unit entity — ` +
+              "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
+          };
+        }
+      }
+    }
   }
 
   const cfg = structuredClone(config);
@@ -730,12 +862,34 @@ function repeatUnitInner(
   // The id pool above (nodes + solid nodes + branches + conductors, plus
   // everything allocated as the operation proceeds) is exactly the pool the
   // legacy duplicateSelection's createId checked against.
-  const allocateId: (id: string, i: number) => string =
-    (opts.idStrategy ?? "instance") === "firstFree"
-      ? (id) => firstFreeId(id, taken)
-      : (id, i) => instanceId(id, i, taken);
+  //
+  // Under "firstFree" (Duplicate's legacy naming), cloned edges take the
+  // FIXED prefixes the pre-repeat store used — branches via
+  // createId("b", …), conductors via createId("c", …) — NOT a prefix derived
+  // from the source id (duplicating a pair joined by 'myPipe1' mints 'b7',
+  // never 'myPipe2').  Node and solid ids keep the source id's own letter
+  // prefix (prefixOf) exactly as the legacy code did.
+  const strategy = opts.idStrategy ?? "instance";
+  const allocateId = (
+    kind: "node" | "branch" | "conductor",
+    id: string,
+    i: number,
+  ): string => {
+    if (strategy === "firstFree") {
+      const base = kind === "branch" ? "b" : kind === "conductor" ? "c" : id;
+      return firstFreeId(base, taken);
+    }
+    return instanceId(id, i, taken);
+  };
 
-  const created = emptyCreated;
+  // Distinct literal from `emptyCreated` above: the count === 1 early return
+  // hands its object out too, and the two results must never alias.
+  const created = {
+    nodes: [] as string[],
+    solidNodes: [] as string[],
+    branches: [] as string[],
+    conductors: [] as string[],
+  };
   const instances: string[][] = [];
   const shareCrossings =
     seam !== undefined && opts.crossingConductors === "share";
@@ -746,16 +900,18 @@ function repeatUnitInner(
     // 1. Build the ENTIRE id map for instance i before cloning anything, so
     //    expression rewriting sees every new id of the instance.
     const idMap = new Map<string, string>();
-    for (const n of analysis.memberNodes) idMap.set(n.id, allocateId(n.id, i));
-    for (const s of analysis.memberSolids) idMap.set(s.id, allocateId(s.id, i));
+    for (const n of analysis.memberNodes)
+      idMap.set(n.id, allocateId("node", n.id, i));
+    for (const s of analysis.memberSolids)
+      idMap.set(s.id, allocateId("node", s.id, i));
     for (const b of analysis.inducedBranches)
-      idMap.set(b.id, allocateId(b.id, i));
+      idMap.set(b.id, allocateId("branch", b.id, i));
     for (const c of analysis.inducedConductors)
-      idMap.set(c.id, allocateId(c.id, i));
-    if (seam) idMap.set(seam.id, allocateId(seam.id, i));
+      idMap.set(c.id, allocateId("conductor", c.id, i));
+    if (seam) idMap.set(seam.id, allocateId("branch", seam.id, i));
     if (shareCrossings) {
       for (const c of analysis.crossingConductors) {
-        idMap.set(c.id, allocateId(c.id, i));
+        idMap.set(c.id, allocateId("conductor", c.id, i));
       }
     }
     const ctx: CloneContext = {
@@ -838,13 +994,18 @@ function repeatUnitInner(
     lastIdMap = idMap;
   }
 
-  // Exit rewiring: every exit crossing now leaves from the LAST instance's
-  // exit node (series-chaining semantics — the unit's outflow ports move to
-  // the end of the chain).  Entry crossings other than the seam stay on
+  // Exit rewiring: exit crossings LEAVING FROM THE UNIT'S EXIT NODE now
+  // leave from the LAST instance's exit node (series-chaining semantics —
+  // the unit's outflow port moves to the end of the chain).  An exit
+  // crossing leaving from any OTHER member node describes instance 1
+  // specifically — a side tap on the first segment, say — and stays
+  // attached to the template; rewiring it to the end of the chain would
+  // silently move the tap.  Entry crossings other than the seam stay on
   // instance 1.
   if (seam && exitNode !== undefined && lastIdMap) {
     const finalExitId = lastIdMap.get(exitNode)!;
     for (const b of analysis.exitCrossings) {
+      if (b.from !== exitNode) continue;
       const target = cfg.branches.find((x) => x.id === b.id);
       if (target) target.from = finalExitId;
     }
@@ -869,7 +1030,11 @@ function repeatUnitInner(
  * pipe `from → m1` cloned from the branch at 1/segments length, rewire the
  * original branch to `m1 → to` at 1/segments length, then repeatUnit the
  * `{m1}` unit `segments-1` times so exit-crossing rewiring lands the
- * original branch on the last mid-node.
+ * original branch on the last mid-node.  With `linkParams` the original
+ * branch's bindable literals are bound to segment 1 as well (repeatUnit's
+ * Rule 2 only reaches CLONES, and the original is never cloned), so every
+ * segment except the first tracks segment 1 and "edit the first segment"
+ * really does retune them all.
  *
  * Each inserted node binds its volume to its own upstream pipe
  * (`pipe('<seam>').volume` — matching the shipped examples, needed for
@@ -1032,6 +1197,27 @@ function splitPipeInner(
   }
   if (origUa !== undefined && component.type === "heatedPipe") {
     component.ua = dividedUa as NumberOrExpression;
+  }
+  // Rule 2 for the LAST segment too: the original branch keeps its id and
+  // is never cloned, so repeatUnit's linking never reaches it — with
+  // linkParams it would stay a literal island and editing segment 1 would
+  // leave the final segment (and the resolved totals) behind.  Bind its
+  // bindable literals to segment 1 exactly like the clones.  Fields holding
+  // `{ expr }` keep their divided expression (Rule 1's territory), matching
+  // Rule 2's "literals only" scope.  The empty id map makes Rule 1 a no-op
+  // here; nothing on this branch references the instance's new ids.
+  if (opts?.linkParams) {
+    const accessor = branchAccessor(component.type);
+    const noRewrites = new Map<string, string>();
+    const holder = component as unknown as Record<string, unknown>;
+    for (const field of BINDABLE_COMPONENT_FIELDS[component.type] ?? []) {
+      retargetField(
+        holder,
+        field,
+        noRewrites,
+        `${accessor}(${quoteFormulaId(seamId)}).${field}`,
+      );
+    }
   }
   cfg.nodes.push(midNode);
   cfg.branches.push(seam);

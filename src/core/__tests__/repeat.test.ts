@@ -59,6 +59,38 @@ function pipeFields(
   return b.component as unknown as Record<string, unknown>;
 }
 
+/**
+ * Global repeat invariant: after a successful repeat, NO member fluid node
+ * of ANY instance — the template included — may have zero inflow.  Every
+ * non-boundary member node keeps at least one incoming branch.  This guards
+ * against orphaned clones (exit-crossing rewiring and seam-reachability
+ * bugs).  `instances` is RepeatResult.instances: per the documented order
+ * each entry leads with that generated instance's fluid node ids, so
+ * slice(0, |members.nodes|) recovers them.
+ */
+function expectAllInstancesFed(
+  config: NetworkConfig,
+  opts: RepeatOptions,
+  instances: string[][],
+): void {
+  const perInstance: string[][] = [opts.members.nodes];
+  for (const createdIds of instances) {
+    perInstance.push(createdIds.slice(0, opts.members.nodes.length));
+  }
+  perInstance.forEach((nodeIds, k) => {
+    for (const id of nodeIds) {
+      const node = config.nodes.find((n) => n.id === id);
+      if (!node) throw new Error(`instance ${k + 1} member '${id}' missing`);
+      if (node.type === "boundary") continue;
+      const fed = config.branches.some((b) => b.to === id);
+      expect(
+        fed,
+        `instance ${k + 1} node '${id}' must have an incoming branch`,
+      ).toBe(true);
+    }
+  });
+}
+
 /* ------------------------------------------------------------------ */
 /* Cryo golden fixtures                                                */
 /* ------------------------------------------------------------------ */
@@ -362,7 +394,7 @@ describe("repeatUnit cryo golden (one segment → sindaFluintCryoLineCooldown)",
   });
 
   it("chains inlet → n1 → … → n20 → outlet with conv{i}: wall{i} → n{i}", () => {
-    const { config: got } = cryoResult();
+    const { config: got, instances } = cryoResult();
     for (let i = 1; i <= 20; i++) {
       const seg = branchById(got, `seg${i}`);
       expect(seg.from, `seg${i}.from`).toBe(i === 1 ? "inlet" : `n${i - 1}`);
@@ -375,6 +407,8 @@ describe("repeatUnit cryo golden (one segment → sindaFluintCryoLineCooldown)",
     expect(branchById(got, "seg21").to).toBe("outlet");
     // The template (instance 1) is left in place.
     expect(branchById(got, "seg1").from).toBe("inlet");
+    // Global invariant: no member node of any instance is starved of inflow.
+    expectAllInstancesFed(got, CRYO_OPTIONS, instances);
   });
 
   it("matches the shipped model's resolved physics exactly", () => {
@@ -994,17 +1028,101 @@ describe('idStrategy: "firstFree" (legacy Duplicate naming)', () => {
     if (!r.ok) return;
     // j: no trailing integer → prefix "j" → j1.  n12: the trailing integer
     // is DROPPED — prefix "n", first free is n1.  9up starts with a digit →
-    // the "N" fallback prefix → N1.  p → p1; p12 → prefix "p" with p1 now
-    // taken → p2.
+    // the "N" fallback prefix → N1.  Branches take the FIXED "b" prefix the
+    // pre-repeat store used (createId("b", …)): p → b1, p12 → b2 — NOT
+    // p1/p2 (this assertion used to pin that bug).
     expect(r.created.nodes).toEqual(["j1", "n1", "N1"]);
-    expect(r.created.branches).toEqual(["p1", "p2"]);
-    const p1 = branchById(r.config, "p1");
-    expect([p1.from, p1.to]).toEqual(["j1", "n1"]);
-    const p2 = branchById(r.config, "p2");
-    expect([p2.from, p2.to]).toEqual(["n1", "N1"]);
+    expect(r.created.branches).toEqual(["b1", "b2"]);
+    const b1 = branchById(r.config, "b1");
+    expect([b1.from, b1.to]).toEqual(["j1", "n1"]);
+    const b2 = branchById(r.config, "b2");
+    expect([b2.from, b2.to]).toEqual(["n1", "N1"]);
     // Crossing branches stay attached to the templates.
     expect(branchById(r.config, "in").to).toBe("j");
     expect(branchById(r.config, "out").from).toBe("9up");
+    expect(validateNetwork(r.config)).toEqual([]);
+  });
+
+  it('mints cloned edges with the FIXED "b"/"c" prefixes regardless of the source id', () => {
+    // The merge-base duplicateSelection minted cloned branches via
+    // createId("b", allIds) and conductors via createId("c", allIds) — a
+    // fixed prefix, never derived from the source id.  Duplicating a pair
+    // joined by 'myPipe1' therefore mints 'b1', not 'myPipe2'.
+    const config: NetworkConfig = {
+      meta: { name: "ff-edges", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "src",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "n1", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        { id: "n2", type: "internal", x: 2, y: 0, volume: 1e-3 },
+        {
+          id: "snk",
+          type: "boundary",
+          x: 3,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      solidNodes: [
+        {
+          id: "wall1",
+          type: "solid",
+          x: 1,
+          y: 1,
+          temperature: 350,
+          mass: 2,
+          cp: 385,
+        },
+      ],
+      branches: [
+        { id: "feed", from: "src", to: "n1", component: { ...PIPE } },
+        { id: "myPipe1", from: "n1", to: "n2", component: { ...PIPE } },
+        { id: "drain", from: "n2", to: "snk", component: { ...PIPE } },
+      ],
+      conductors: [
+        {
+          id: "heatLeak1",
+          from: "wall1",
+          to: "n2",
+          type: { kind: "convection", h: 100, area: 0.01 },
+        },
+      ],
+    };
+    const r = repeatUnit(config, {
+      members: { nodes: ["n1", "n2"], solidNodes: ["wall1"] },
+      seamBranch: null,
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 30, y: 30 },
+      crossingConductors: "drop",
+      idStrategy: "firstFree",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // Nodes keep prefixOf(oldId) (n1 → n3 since n2 is a member, n2 → n4,
+    // wall1 → wall2); the induced branch/conductor take the fixed prefixes.
+    expect(r.created.nodes).toEqual(["n3", "n4"]);
+    expect(r.created.solidNodes).toEqual(["wall2"]);
+    expect(r.created.branches).toEqual(["b1"]);
+    expect(r.created.conductors).toEqual(["c1"]);
+    expect([
+      branchById(r.config, "b1").from,
+      branchById(r.config, "b1").to,
+    ]).toEqual(["n3", "n4"]);
+    expect([
+      conductorById(r.config, "c1").from,
+      conductorById(r.config, "c1").to,
+    ]).toEqual(["wall2", "n4"]);
+    expect(r.config.branches.some((b) => b.id === "myPipe2")).toBe(false);
     expect(validateNetwork(r.config)).toEqual([]);
   });
 
@@ -1359,14 +1477,15 @@ describe("exit-node inference", () => {
       exitError: null,
     });
 
-    const r = repeatUnit(config, {
+    const opts: RepeatOptions = {
       members: { nodes: ["n1", "n2"], solidNodes: [] },
       seamBranch: "seg1",
       count: 3,
       linkParams: false,
       canvasOffset: { x: 10, y: 0 },
       crossingConductors: "drop",
-    });
+    };
+    const r = repeatUnit(config, opts);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     // The chain still forms: each seam clone leaves from the previous
@@ -1380,6 +1499,7 @@ describe("exit-node inference", () => {
       "p3:n5->n6",
       "seg3:n4->n5",
     ]);
+    expectAllInstancesFed(r.config, opts, r.instances);
   });
 
   it("(c) errors when the sink is ambiguous", () => {
@@ -1701,14 +1821,15 @@ describe("multi-node unit", () => {
         { id: "seg2", from: "n2", to: "b", component: { ...PIPE } },
       ],
     };
-    const r = repeatUnit(config, {
+    const opts: RepeatOptions = {
       members: { nodes: ["n1", "n2"], solidNodes: [] },
       seamBranch: "seg1",
       count: 3,
       linkParams: false,
       canvasOffset: { x: 10, y: 0 },
       crossingConductors: "drop",
-    });
+    };
+    const r = repeatUnit(config, opts);
     expect(r.ok).toBe(true);
     if (!r.ok) return;
 
@@ -1739,6 +1860,7 @@ describe("multi-node unit", () => {
       p3: ["n5", "n6"],
       seg4: ["n4", "n5"],
     });
+    expectAllInstancesFed(r.config, opts, r.instances);
     expect(validateNetwork(r.config)).toEqual([]);
   });
 });
@@ -1880,5 +2002,367 @@ describe("solid-only unit (nodes: [])", () => {
       error:
         "seam branch 'seg1' is not a branch entering the unit (entry crossings: none — no branch enters the unit)",
     });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Exit crossings leaving from DIFFERENT member nodes (B1)             */
+/* ------------------------------------------------------------------ */
+
+describe("exit crossings from different member nodes", () => {
+  /**
+   * src --feed--> n1 --p1--> n2 --out--> sink, plus a SIDE TAP tapb:
+   * n1 → tap leaving from n1.  The two exit crossings leave from DIFFERENT
+   * members, so the exit node comes from the unique-sink rule (n2).  Only
+   * 'out' may be rewired to the last instance; 'tapb' describes instance
+   * 1's side tap and must stay on n1 — the bug being pinned here migrated
+   * it to the end of the chain.
+   */
+  function sideTapBase(): NetworkConfig {
+    return {
+      meta: { name: "side-tap", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "src",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "n1", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        { id: "n2", type: "internal", x: 2, y: 0, volume: 1e-3 },
+        {
+          id: "tap",
+          type: "boundary",
+          x: 1,
+          y: 1,
+          pressure: 1.2e5,
+          temperature: 300,
+        },
+        {
+          id: "sink",
+          type: "boundary",
+          x: 3,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        { id: "feed", from: "src", to: "n1", component: { ...PIPE } },
+        { id: "p1", from: "n1", to: "n2", component: { ...PIPE } },
+        { id: "tapb", from: "n1", to: "tap", component: { ...PIPE } },
+        { id: "out", from: "n2", to: "sink", component: { ...PIPE } },
+      ],
+    };
+  }
+
+  const SIDE_TAP_OPTIONS: RepeatOptions = {
+    members: { nodes: ["n1", "n2"], solidNodes: [] },
+    seamBranch: "feed",
+    count: 3,
+    linkParams: false,
+    canvasOffset: { x: 10, y: 0 },
+    crossingConductors: "drop",
+  };
+
+  it("analysis: exit node from the unique-sink rule, both crossings listed", () => {
+    const a = analyzeRepeatUnit(sideTapBase(), SIDE_TAP_OPTIONS.members);
+    expect(a).toMatchObject({
+      ok: true,
+      seamBranch: "feed",
+      exitCrossings: ["tapb", "out"],
+      exitNode: "n2",
+      exitError: null,
+    });
+  });
+
+  it("rewires ONLY the crossing leaving from the exit node; the side tap stays on instance 1", () => {
+    const r = repeatUnit(sideTapBase(), SIDE_TAP_OPTIONS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    const got = r.config;
+
+    // Instances: n1/n2 → n3/n4 → n5/n6 (allocation walks past collisions).
+    // The outflow crossing follows the chain to the LAST instance's n2…
+    expect([branchById(got, "out").from, branchById(got, "out").to]).toEqual([
+      "n6",
+      "sink",
+    ]);
+    // …but the side tap left from n1 — a DIFFERENT member — so it stays
+    // attached to instance 1, and it is still the ONLY branch feeding tap.
+    expect([branchById(got, "tapb").from, branchById(got, "tapb").to]).toEqual([
+      "n1",
+      "tap",
+    ]);
+    expect(got.branches.filter((b) => b.to === "tap").map((b) => b.id)).toEqual(
+      ["tapb"],
+    );
+    // The seam chain itself is intact.
+    expect([
+      branchById(got, "feed_2").from,
+      branchById(got, "feed_2").to,
+    ]).toEqual(["n2", "n3"]);
+    expect([
+      branchById(got, "feed_3").from,
+      branchById(got, "feed_3").to,
+    ]).toEqual(["n4", "n5"]);
+
+    expectAllInstancesFed(got, SIDE_TAP_OPTIONS, r.instances);
+    expect(validateNetwork(got)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Boundary fluid members (B2)                                         */
+/* ------------------------------------------------------------------ */
+
+describe("boundary fluid members", () => {
+  /**
+   * src --feed--> n1 --out--> sink with the unit {n1, sink}: 'out' is an
+   * INDUCED branch (both endpoints members), 'feed' the entry crossing, and
+   * the unique sink — hence the exit node — is the boundary node itself.
+   */
+  function boundaryUnit(): NetworkConfig {
+    return {
+      meta: { name: "boundary-unit", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "src",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "n1", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        {
+          id: "sink",
+          type: "boundary",
+          x: 2,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        { id: "feed", from: "src", to: "n1", component: { ...PIPE } },
+        { id: "out", from: "n1", to: "sink", component: { ...PIPE } },
+      ],
+    };
+  }
+  const MEMBERS = { nodes: ["n1", "sink"], solidNodes: [] };
+
+  it("Repeat (seam set) rejects a unit containing a boundary node, naming it", () => {
+    const r = repeatUnit(boundaryUnit(), {
+      members: MEMBERS,
+      seamBranch: "feed",
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 10, y: 0 },
+      crossingConductors: "drop",
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain("boundary");
+    expect(r.error).toContain("sink");
+  });
+
+  it("Duplicate (seamBranch: null) still copies the boundary node", () => {
+    const r = repeatUnit(boundaryUnit(), {
+      members: MEMBERS,
+      seamBranch: null,
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 10, y: 10 },
+      crossingConductors: "drop",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // n1 → n2, sink → sink_2 (boundary copies are still fluid nodes), and
+    // the induced branch out → out_2 remapped onto the copies; the crossing
+    // 'feed' is dropped (Duplicate).
+    expect(r.created).toEqual({
+      nodes: ["n2", "sink_2"],
+      solidNodes: [],
+      branches: ["out_2"],
+      conductors: [],
+    });
+    const copy = nodeById(r.config, "sink_2");
+    expect(copy.type).toBe("boundary");
+    expect(copy.pressure).toBe(1e5);
+    expect([
+      branchById(r.config, "out_2").from,
+      branchById(r.config, "out_2").to,
+    ]).toEqual(["n2", "sink_2"]);
+    expect(validateNetwork(r.config)).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Cross-namespace id collisions (S1)                                  */
+/* ------------------------------------------------------------------ */
+
+describe("cross-namespace id collisions", () => {
+  /**
+   * a --in1--> x --x--> y --out1--> b: the induced branch 'x' shares its id
+   * with the member fluid node 'x'.  Ids are unique only PER KIND, but the
+   * per-instance id map keys by plain id across every accessor, so one
+   * entry would overwrite the other — reject instead.
+   */
+  function collidingBase(): NetworkConfig {
+    return {
+      meta: { name: "collide", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "a",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "x", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        { id: "y", type: "internal", x: 2, y: 0, volume: 1e-3 },
+        {
+          id: "b",
+          type: "boundary",
+          x: 3,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        { id: "in1", from: "a", to: "x", component: { ...PIPE } },
+        { id: "x", from: "x", to: "y", component: { ...PIPE } },
+        { id: "out1", from: "y", to: "b", component: { ...PIPE } },
+      ],
+    };
+  }
+  const MEMBERS = { nodes: ["x", "y"], solidNodes: [] };
+
+  it("analyzeRepeatUnit rejects, naming the id and both kinds", () => {
+    const a = analyzeRepeatUnit(collidingBase(), MEMBERS);
+    expect(a.ok).toBe(false);
+    if (a.ok) return;
+    expect(a.error).toContain("'x'");
+    expect(a.error).toContain("fluid node");
+    expect(a.error).toContain("branch");
+  });
+
+  it("repeatUnit rejects in Repeat AND Duplicate modes (the map hazard is mode-independent)", () => {
+    const base = {
+      members: MEMBERS,
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 10, y: 0 },
+      crossingConductors: "drop" as const,
+    };
+    const chained = repeatUnit(collidingBase(), { ...base, seamBranch: "in1" });
+    expect(chained.ok).toBe(false);
+    if (!chained.ok) {
+      expect(chained.error).toContain("'x'");
+    }
+    const duplicated = repeatUnit(collidingBase(), {
+      ...base,
+      seamBranch: null,
+    });
+    expect(duplicated.ok).toBe(false);
+    if (!duplicated.ok) {
+      expect(duplicated.error).toContain("'x'");
+    }
+  });
+
+  it("a seam branch id colliding with a member node id is rejected too", () => {
+    // Rename the ENTRY branch to 'x': it joins the id map as the seam
+    // clone, so the same overwrite hazard applies even though 'x' the
+    // branch is not induced.
+    const config = collidingBase();
+    config.branches[0]!.id = "x"; // seam candidate 'x', node 'x' a member
+    config.branches[1]!.id = "p1"; // induced branch no longer collides
+    const r = repeatUnit(config, {
+      members: MEMBERS,
+      seamBranch: "x",
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 10, y: 0 },
+      crossingConductors: "drop",
+    });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error).toContain("seam");
+      expect(r.error).toContain("'x'");
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Members unreachable from the seam target (S2)                       */
+/* ------------------------------------------------------------------ */
+
+describe("members unreachable from the seam target", () => {
+  /**
+   * src --seam--> y, with the induced branch xy: x → y running UPSTREAM-to-
+   * downstream of the seam target and the exit crossing exit: x → sink
+   * leaving from x.  The exit-node rule picks x (all exit crossings leave
+   * from it), but x is NOT reachable from the seam's target y, so instance
+   * copies of x would have no inflow at all — orphaned nodes.
+   */
+  function backfedBase(): NetworkConfig {
+    return {
+      meta: { name: "backfed", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "src",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "x", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        { id: "y", type: "internal", x: 2, y: 0, volume: 1e-3 },
+        {
+          id: "sink",
+          type: "boundary",
+          x: 3,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        { id: "seam", from: "src", to: "y", component: { ...PIPE } },
+        { id: "xy", from: "x", to: "y", component: { ...PIPE } },
+        { id: "exit", from: "x", to: "sink", component: { ...PIPE } },
+      ],
+    };
+  }
+
+  it("rejects, naming the unreachable member and the seam target", () => {
+    const r = repeatUnit(backfedBase(), {
+      members: { nodes: ["x", "y"], solidNodes: [] },
+      seamBranch: "seam",
+      count: 2,
+      linkParams: false,
+      canvasOffset: { x: 10, y: 0 },
+      crossingConductors: "drop",
+    });
+    expect(r.ok).toBe(false);
+    if (r.ok) return;
+    expect(r.error).toContain("'x'");
+    expect(r.error).toContain("'y'");
+    expect(r.error).toContain("not reachable");
+    expect(r.error).toContain("no inflow");
   });
 });
