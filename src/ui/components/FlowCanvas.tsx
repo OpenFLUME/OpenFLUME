@@ -122,6 +122,8 @@ import GroupContainer from "./GroupContainer";
 import CanvasNote from "./CanvasNote";
 import PidSymbol from "./PidSymbol";
 import ComponentEditorDialog from "./ComponentEditorDialog";
+import RepeatDialog, { RepeatMenuAction } from "./RepeatDialog";
+import { analyzeRepeatSelection } from "../repeatSelection";
 import InteractiveChart, { type Series } from "./InteractiveChart";
 import { resolveChannel } from "../channels";
 import { formatChannelValue } from "../channelExplorer";
@@ -848,6 +850,15 @@ export default function FlowCanvas({
   const handleDuplicate = useCallback(() => {
     duplicateSelection();
   }, [duplicateSelection]);
+
+  // ── Repeat-N (chain the selected unit) ────────────────────────────────
+  // analyzeRepeatSelection returns a fresh object per call, so it must be
+  // memoized here rather than used as a bare zustand selector.
+  const repeatability = useMemo(
+    () => analyzeRepeatSelection(config, selection, canvasSelection),
+    [config, selection, canvasSelection],
+  );
+  const [repeatDialogOpen, setRepeatDialogOpen] = useState(false);
 
   const deleteSelected = useCallback(() => {
     if (selection.kind === "multi") {
@@ -2804,6 +2815,12 @@ export default function FlowCanvas({
               Duplicate
             </button>
           )}
+          {!groupId && (
+            <RepeatMenuAction
+              repeatability={repeatability}
+              onClick={() => setRepeatDialogOpen(true)}
+            />
+          )}
           {!groupId && canvasSelection.length > 0 && (
             <button
               type="button"
@@ -2942,6 +2959,13 @@ export default function FlowCanvas({
             setConnectionChooser(null);
             setComponentEditorConnection(null);
           }}
+        />
+      )}
+      {repeatDialogOpen && (
+        <RepeatDialog
+          config={config}
+          repeatability={repeatability}
+          onClose={() => setRepeatDialogOpen(false)}
         />
       )}
 
