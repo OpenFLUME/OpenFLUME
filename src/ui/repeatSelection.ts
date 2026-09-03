@@ -8,6 +8,7 @@
 import type { NetworkConfig, RepeatMembers } from "../core";
 import { analyzeRepeatUnit, previewNetworkParameters } from "../core";
 import type { Selection } from "./types";
+import { formatSig } from "./format";
 import {
   CANVAS_GRID_SIZE,
   SOLID_NODE_SIZE,
@@ -230,32 +231,69 @@ export const REPEAT_COUNT_MAX = 200;
 export type RepeatCountParse =
   { ok: true; value: number } | { ok: false; error: string };
 
-/** Validate the dialog's count field (a string, as typed). */
-export function parseRepeatCount(raw: string): RepeatCountParse {
+/**
+ * Message wording for the shared count validator, so Repeat ("total
+ * instances") and Split ("segments") reuse one parse with field-appropriate
+ * copy.  `noun` is lower-case and capitalized at sentence starts;
+ * `minDetail` is the clause appended to the minimum message.
+ */
+export interface CountWording {
+  empty: string;
+  noun: string;
+  verb: string;
+  minDetail: string;
+}
+
+const REPEAT_COUNT_WORDING: CountWording = {
+  empty: "Enter the total number of instances.",
+  noun: "total instances",
+  verb: "Repeat",
+  minDetail: " (the original plus one copy)",
+};
+
+/** The split section's count is the TOTAL segment count, original included. */
+export const SPLIT_COUNT_WORDING: CountWording = {
+  empty: "Enter the number of segments.",
+  noun: "segments",
+  verb: "Split",
+  minDetail: "",
+};
+
+/** Validate a count field (a string, as typed) against the shared bounds. */
+export function parseCount(
+  raw: string,
+  wording: CountWording,
+): RepeatCountParse {
   const trimmed = raw.trim();
   if (trimmed === "") {
-    return { ok: false, error: "Enter the total number of instances." };
+    return { ok: false, error: wording.empty };
   }
   const value = Number(trimmed);
   if (!Number.isFinite(value) || !Number.isInteger(value)) {
+    const noun = wording.noun.charAt(0).toUpperCase() + wording.noun.slice(1);
     return {
       ok: false,
-      error: `Total instances must be an integer (got "${trimmed}").`,
+      error: `${noun} must be an integer (got "${trimmed}").`,
     };
   }
   if (value < REPEAT_COUNT_MIN) {
     return {
       ok: false,
-      error: `Repeat needs at least ${REPEAT_COUNT_MIN} total instances (the original plus one copy).`,
+      error: `${wording.verb} needs at least ${REPEAT_COUNT_MIN} ${wording.noun}${wording.minDetail}.`,
     };
   }
   if (value > REPEAT_COUNT_MAX) {
     return {
       ok: false,
-      error: `Repeat is limited to ${REPEAT_COUNT_MAX} total instances (got ${value}).`,
+      error: `${wording.verb} is limited to ${REPEAT_COUNT_MAX} ${wording.noun} (got ${value}).`,
     };
   }
   return { ok: true, value };
+}
+
+/** Validate the dialog's count field (a string, as typed). */
+export function parseRepeatCount(raw: string): RepeatCountParse {
+  return parseCount(raw, REPEAT_COUNT_WORDING);
 }
 
 /**
@@ -478,5 +516,109 @@ export function buildRepeatArgs(draft: RepeatDraft): RepeatArgsBuild {
       canvasOffset: { x: canvasX, y: canvasY },
       physicalOffset: { x: physX, y: physY, z: physZ },
     },
+  };
+}
+
+/* ------------------------------------------------------------------ */
+/* Split-pipe section derivations (Phase 4b)                           */
+/*                                                                     */
+/* Pure helpers behind the property panel's inline "Split into N       */
+/* segments" section: eligibility, the RESOLVED branch length behind   */
+/* the live summary, the summary text itself, and the final argument   */
+/* object handed to the store's splitBranch.                           */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Split eligibility by component type — mirrors the gate in core
+ * splitPipeBranch so the panel shows the section exactly when the store
+ * action could accept it.
+ */
+export function isSplittableComponentType(type: string): boolean {
+  return type === "pipe" || type === "heatedPipe";
+}
+
+/** Validate the split section's segment-count field (a string, as typed). */
+export function parseSplitCount(raw: string): RepeatCountParse {
+  return parseCount(raw, SPLIT_COUNT_WORDING);
+}
+
+/**
+ * The branch's RESOLVED length: an `{ expr }` length is evaluated against
+ * the static model scope (the same previewNetworkParameters route the
+ * repeat dialog's physical-offset default uses), never read as a raw
+ * literal.  Null when the branch is not a pipe/heatedPipe or the length
+ * does not resolve to a finite positive number (a broken expression, or an
+ * unrelated binding elsewhere failing the model-wide resolution) — callers
+ * degrade gracefully rather than show a NaN.
+ */
+export function resolvedBranchLength(
+  config: NetworkConfig,
+  branchId: string,
+): number | null {
+  const branch = config.branches.find((b) => b.id === branchId);
+  if (!branch || !isSplittableComponentType(branch.component.type)) {
+    return null;
+  }
+  const resolution = previewNetworkParameters(config);
+  if (!resolution.ok) return null;
+  const resolved = resolution.config.branches.find((b) => b.id === branchId);
+  if (
+    !resolved ||
+    (resolved.component.type !== "pipe" &&
+      resolved.component.type !== "heatedPipe")
+  ) {
+    return null;
+  }
+  const length = resolved.component.length;
+  return Number.isFinite(length) && length > 0 ? length : null;
+}
+
+/**
+ * Live summary for the split section: "Creates 9 new nodes and 9 new pipes;
+ * each segment 0.305 m."  A split into N segments inserts N−1 internal
+ * nodes and N−1 seam pipes (the original branch survives as the last
+ * segment).  The per-segment clause is omitted when `totalLength` is null —
+ * the length could not be resolved — so the text never carries a NaN.
+ */
+export function splitSummaryText(
+  segments: number,
+  totalLength: number | null,
+): string {
+  const extra = Math.max(0, segments - 1);
+  const nodes = `${extra} new node${extra === 1 ? "" : "s"}`;
+  const pipes = `${extra} new pipe${extra === 1 ? "" : "s"}`;
+  const perSegment =
+    totalLength !== null && Number.isFinite(totalLength) && segments > 0
+      ? `; each segment ${formatSig(totalLength / segments)} m`
+      : "";
+  return `Creates ${nodes} and ${pipes}${perSegment}.`;
+}
+
+/** Raw fields behind the split section (the input stays text while typing). */
+export interface SplitDraft {
+  segments: string;
+  linkParams: boolean;
+}
+
+/** Parsed, typed arguments for the store's splitBranch action. */
+export interface SplitArgs {
+  segments: number;
+  linkParams: boolean;
+}
+
+export type SplitArgsBuild =
+  { ok: true; args: SplitArgs } | { ok: false; error: string };
+
+/**
+ * Fold the section's raw fields into splitBranch arguments.  The apply
+ * button is enabled exactly when this returns ok, so the store action never
+ * sees an invalid draft (same contract as buildRepeatArgs).
+ */
+export function buildSplitArgs(draft: SplitDraft): SplitArgsBuild {
+  const segments = parseSplitCount(draft.segments);
+  if (!segments.ok) return segments;
+  return {
+    ok: true,
+    args: { segments: segments.value, linkParams: draft.linkParams },
   };
 }
