@@ -97,8 +97,11 @@ export interface RepeatOptions {
   count: number;
   /** Bind cloned literal parameters to instance 1 (Rule 2). */
   linkParams: boolean;
-  /** Canvas-pixel offset applied per instance step (instance i: ×(i-1)). */
-  canvasOffset: { x: number; y: number };
+  /**
+   * Canvas-pixel offset applied per instance step (instance i: ×(i-1)).
+   * Optional; defaults to `{ x: 0, y: 0 }` (copies land on the template).
+   */
+  canvasOffset?: { x: number; y: number };
   /** Physical-position offset [m] applied per instance step. */
   physicalOffset?: { x: number; y: number; z: number };
   /**

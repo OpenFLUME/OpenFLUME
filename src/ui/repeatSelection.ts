@@ -9,6 +9,7 @@ import type { NetworkConfig, RepeatMembers } from "../core";
 import { analyzeRepeatUnit, previewNetworkParameters } from "../core";
 import type { Selection } from "./types";
 import { formatSig } from "./format";
+import { segmentFormula } from "./formulaTokens";
 import {
   CANVAS_GRID_SIZE,
   SOLID_NODE_SIZE,
@@ -418,27 +419,8 @@ function defaultPhysicalOffset(
 ): { x: number; y: number; z: number } {
   const zero = { x: 0, y: 0, z: 0 };
   if (!seamBranch) return zero;
-  const seam = config.branches.find((b) => b.id === seamBranch);
-  if (
-    !seam ||
-    (seam.component.type !== "pipe" && seam.component.type !== "heatedPipe")
-  ) {
-    return zero;
-  }
-  const resolution = previewNetworkParameters(config);
-  if (!resolution.ok) return zero;
-  const resolved = resolution.config.branches.find((b) => b.id === seamBranch);
-  if (
-    !resolved ||
-    (resolved.component.type !== "pipe" &&
-      resolved.component.type !== "heatedPipe")
-  ) {
-    return zero;
-  }
-  const length = resolved.component.length;
-  return Number.isFinite(length) && length > 0
-    ? { x: length, y: 0, z: 0 }
-    : zero;
+  const length = resolvedBranchLength(config, seamBranch);
+  return length === null ? zero : { x: length, y: 0, z: 0 };
 }
 
 /** The dialog's initial canvas + physical spacing fields. */
@@ -621,4 +603,199 @@ export function buildSplitArgs(draft: SplitDraft): SplitArgsBuild {
     ok: true,
     args: { segments: segments.value, linkParams: draft.linkParams },
   };
+}
+
+/* ------------------------------------------------------------------ */
+/* Uncloned-record detection (the "not copied" warnings)               */
+/*                                                                     */
+/* repeatUnit clones nodes, solid nodes, branches and conductors ONLY:  */
+/* controllers, junctions and logic rules are top-level records keyed   */
+/* by id and are never cloned or retargeted (user manual §3.13).  A     */
+/* repeat of a unit one of them references therefore produces           */
+/* UNCONTROLLED copies (and a copied reacting-junction node is a plain  */
+/* internal node).  These helpers detect that situation so the Repeat   */
+/* dialog and the split section can warn exactly when it applies,       */
+/* rather than carrying a permanent scary notice.                       */
+/* ------------------------------------------------------------------ */
+
+/** One top-level record that references the unit but is never cloned. */
+export interface UnclonedReference {
+  /** Which kind of top-level record holds the reference. */
+  source: "controller" | "junction" | "logic rule";
+  /** Id of the controller / junction / logic rule. */
+  id: string;
+  /** The unit entity ids it references, deduplicated in encounter order. */
+  targets: string[];
+}
+
+/**
+ * The ids a repeat would clone: member fluid + solid nodes, the unit's
+ * induced branches/conductors, the shared crossing conductors, and the seam
+ * branch itself.  Empty id lists (and no seam) when the selection cannot
+ * repeat — the dialog then shows the reason instead of a warning.
+ */
+export function repeatUnitReferenceIds(
+  config: NetworkConfig,
+  repeatability: Repeatability,
+): { nodes: string[]; branches: string[]; conductors: string[] } {
+  const none = { nodes: [], branches: [], conductors: [] };
+  if (!repeatability.canRepeat) return none;
+  const analysis = analyzeRepeatUnit(config, repeatability.members);
+  if (!analysis.ok) return none;
+  return {
+    nodes: [
+      ...repeatability.members.nodes,
+      ...repeatability.members.solidNodes,
+    ],
+    branches: [
+      ...analysis.inducedBranches,
+      ...(repeatability.seamBranch ? [repeatability.seamBranch] : []),
+    ],
+    conductors: [...analysis.inducedConductors, ...analysis.crossingConductors],
+  };
+}
+
+/**
+ * Find the controllers, junctions and logic rules that reference any of the
+ * given unit ids — the records repeatUnit will NOT clone (docs §3.13).
+ * `nodes` covers fluid AND solid node ids (a controller's heatInput output
+ * may target either); `branches` the unit's branch ids; `conductors` its
+ * conductor ids (reachable only from logic-rule expressions).
+ *
+ * Controllers and junctions reference entities by typed id fields.  Logic
+ * rules carry expression STRINGS, which are scanned with the tolerant
+ * formula segmenter (ui/formulaTokens): only syntactically complete
+ * accessor references match, `reg('…')` register reads never do, and a
+ * malformed expression simply yields no reference.  Pure; never throws.
+ */
+export function unclonedUnitReferences(
+  config: NetworkConfig,
+  unit: {
+    nodes: readonly string[];
+    branches: readonly string[];
+    conductors?: readonly string[];
+  },
+): UnclonedReference[] {
+  const nodeIds = new Set(unit.nodes);
+  const branchIds = new Set(unit.branches);
+  const conductorIds = new Set(unit.conductors ?? []);
+  const refs: UnclonedReference[] = [];
+  const push = (
+    source: UnclonedReference["source"],
+    id: string,
+    targets: string[],
+  ) => {
+    if (targets.length > 0) refs.push({ source, id, targets });
+  };
+
+  for (const ctrl of config.controllers ?? []) {
+    const targets: string[] = [];
+    const note = (id: string, isNode: boolean) => {
+      if ((isNode ? nodeIds : branchIds).has(id) && !targets.includes(id)) {
+        targets.push(id);
+      }
+    };
+    // A PID senses a node quantity or a branch mass flow…
+    if (ctrl.type === "pid") note(ctrl.sense.id, ctrl.sense.kind === "node");
+    // …and either kind actuates a valve/flowSource branch (valvePosition,
+    // flowRate) or a fluid/solid node (boundaryPressure,
+    // boundaryTemperature, heatInput).
+    const out = ctrl.output;
+    note(out.id, out.kind !== "valvePosition" && out.kind !== "flowRate");
+    push("controller", ctrl.id, targets);
+  }
+
+  for (const junction of config.junctions ?? []) {
+    const targets: string[] = [];
+    if (nodeIds.has(junction.node)) targets.push(junction.node);
+    for (const inlet of junction.inlets) {
+      if (branchIds.has(inlet.branch) && !targets.includes(inlet.branch)) {
+        targets.push(inlet.branch);
+      }
+    }
+    push("junction", junction.id, targets);
+  }
+
+  for (const rule of config.logic ?? []) {
+    const targets: string[] = [];
+    const scan = (source: string) => {
+      for (const seg of segmentFormula(source)) {
+        if (seg.type !== "chip" || seg.chip.accessor === "reg") continue;
+        const { accessor, id } = seg.chip;
+        const inUnit =
+          accessor === "conductor"
+            ? conductorIds.has(id)
+            : accessor === "node" || accessor === "solid"
+              ? nodeIds.has(id)
+              : branchIds.has(id);
+        if (inUnit && !targets.includes(id)) targets.push(id);
+      }
+    };
+    scan(rule.when);
+    for (const value of Object.values(rule.set ?? {})) scan(value);
+    push("logic rule", rule.id, targets);
+  }
+
+  return refs;
+}
+
+/** `label ?? id` of an entity, for warning text that names what is hit. */
+function entityDisplayName(config: NetworkConfig, id: string): string {
+  const found =
+    config.nodes.find((n) => n.id === id) ??
+    (config.solidNodes ?? []).find((s) => s.id === id) ??
+    config.branches.find((b) => b.id === id) ??
+    (config.conductors ?? []).find((c) => c.id === id);
+  return found?.label ?? id;
+}
+
+/**
+ * The Repeat dialog's warning sentences, one per referencing record —
+ * e.g. "Controller pid1 references Segment 1 and will not be copied — the
+ * new instances will be uncontrolled."  Empty when nothing applies.
+ */
+export function repeatUnclonedWarnings(
+  config: NetworkConfig,
+  repeatability: Repeatability,
+): string[] {
+  const refs = unclonedUnitReferences(
+    config,
+    repeatUnitReferenceIds(config, repeatability),
+  );
+  return refs.map((ref) => {
+    const targets = ref.targets
+      .map((id) => entityDisplayName(config, id))
+      .join(", ");
+    if (ref.source === "controller") {
+      return `Controller ${ref.id} references ${targets} and will not be copied — the new instances will be uncontrolled.`;
+    }
+    if (ref.source === "junction") {
+      return `Junction ${ref.id} references ${targets} and will not be copied — the copies will be plain internal nodes.`;
+    }
+    return `Logic rule ${ref.id} references ${targets} and will not be copied — it keeps referencing the original instance only.`;
+  });
+}
+
+/**
+ * The split section's warning sentences.  A split branch KEEPS its id (it
+ * becomes the last segment), so a referencing record does not break — but
+ * it then sees only that one segment, not the new ones upstream of it.
+ */
+export function splitUnclonedWarnings(
+  config: NetworkConfig,
+  branchId: string,
+): string[] {
+  const refs = unclonedUnitReferences(config, {
+    nodes: [],
+    branches: [branchId],
+  });
+  return refs.map((ref) => {
+    const kind =
+      ref.source === "controller"
+        ? `Controller ${ref.id}`
+        : ref.source === "junction"
+          ? `Junction ${ref.id}`
+          : `Logic rule ${ref.id}`;
+    return `${kind} references this branch — after the split it sees only the last segment (which keeps the id); the new segments are not covered.`;
+  });
 }

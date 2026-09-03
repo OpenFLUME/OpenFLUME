@@ -650,6 +650,29 @@ describe("duplicate mode (seamBranch: null)", () => {
     expect(r.config.conductors).toHaveLength(3); // w1, cx + w2: cx not cloned
     expect(r.created.conductors).toEqual(["w2"]);
   });
+
+  it("copies inherit the template's subnetwork group membership", () => {
+    // Membership is the member node's own `group` field, so structuredClone
+    // carries it onto every copy — pin that so it holds by DESIGN, not by
+    // accident.  The group registry itself is untouched (the copies join
+    // the EXISTING group), which the unknown-group validation confirms.
+    const config = duplicateBase();
+    config.groups = [{ id: "G1", label: "Unit", x: 0, y: 0 }];
+    nodeById(config, "n1").group = "G1";
+    nodeById(config, "n2").group = "G1";
+    solidById(config, "wall1").group = "G1";
+    const r = repeatUnit(config, DUP_OPTIONS);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(nodeById(r.config, "n3").group).toBe("G1");
+    expect(nodeById(r.config, "n4").group).toBe("G1");
+    expect(solidById(r.config, "wall2").group).toBe("G1");
+    // No "unknown group" reference errors: every copy's membership resolves
+    // against the untouched registry.
+    expect(
+      validateNetwork(r.config).filter((e) => e.includes("group")),
+    ).toEqual([]);
+  });
 });
 
 /* ------------------------------------------------------------------ */

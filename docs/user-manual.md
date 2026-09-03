@@ -1111,6 +1111,21 @@ Canvas and physical positions are never linked; they are offset per instance.
 The expression syntax and the bindable-field allowlist are specified in
 [`docs/parameter-bindings.md`](parameter-bindings.md) (see section 3.10).
 
+Linking interacts with two other features worth knowing about:
+
+- **Sweeps.** A formula-bound field cannot be a sweep target (a sweep writes
+  literal numbers, and overwriting a binding would silently lose the
+  formula), so the linked copies' parameters are not sweepable directly.
+  Instance 1 keeps the literal and stays sweepable — sweeping it propagates
+  through the links to every copy, which is usually exactly what you want
+  from a uniform line.
+- **Actuator set points are linked too.** Valve positions, dynamic
+  check-valve initial positions and regulator set pressures are bindable
+  fields like any other, so with linking on they follow instance 1 as well.
+  That is consistent with the checkbox contract, but if your copies are
+  meant to be actuated or tuned _differently_, link parameters off (or
+  re-point those fields by hand afterwards).
+
 **Split pipe.** For the common case — one pipe that needs more resolution and
 nothing else — the property panel's **Discretize** section splits a selected
 pipe or heated pipe into N equal series segments in place: N−1 internal nodes
@@ -1132,10 +1147,22 @@ volume to its own upstream pipe, so a split line stays transient-ready.
   retargeted.** They are top-level records keyed by id (sections 3.8 and
   3.9.2), and Repeat touches only nodes, solid nodes, branches, and
   conductors — a copied valve arrives uncontrolled, and a copy of a combustor
-  node is a plain internal node.
+  node is a plain internal node. The Repeat dialog and the Split section warn
+  when the unit you are about to copy is actually referenced by one of these
+  records; the copies themselves are always left out of them.
+- **Discretize on Base.** Repeating or splitting while a named variant is
+  active records the whole structural change in that variant's patch (the
+  copies become variant-only additions, and switching back to Base hides the
+  chain). That round-trips correctly, but a discretization is structural —
+  run it on Base unless the segment count itself is what the variant varies.
 - **The count is not stored.** A repeat has no memory of how it was made; to
   change N, undo (Ctrl/Cmd+Z — the whole repeat is one undo step) and run it
   again.
+
+Copied nodes and solid nodes keep the template's subnetwork membership (the
+`group` field is cloned with the node), so a repeated unit lands inside the
+same subnetwork tab, tiled by the canvas spacing exactly as on the main
+canvas.
 
 ---
 

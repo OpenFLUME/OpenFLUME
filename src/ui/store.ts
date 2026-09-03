@@ -2049,12 +2049,28 @@ export const useStore = create<StoreState>((set, get) => {
         branches: result.created.branches.length,
         conductors: result.created.conductors.length,
       };
+      // Panel selection mirrors duplicateSelection: exactly one created node
+      // selects it (the count: 2 single-member case IS a duplicate); a
+      // multi-instance repeat keeps the panel on the template, which is the
+      // sweepable/editable instance 1 whenever parameters are linked.
+      const newNodeIds = [
+        ...result.created.nodes,
+        ...result.created.solidNodes,
+      ];
+      const only = newNodeIds.length === 1 ? newNodeIds[0] : undefined;
       set({
-        canvasSelection: [
-          ...result.created.nodes,
-          ...result.created.solidNodes,
-        ],
+        canvasSelection: newNodeIds,
         duplicateNotice: `Repeated unit ${opts.count}×: ${formatRepeatCounts(counts)}`,
+        ...(only
+          ? {
+              selection: {
+                kind: result.config.nodes.some((n) => n.id === only)
+                  ? ("node" as const)
+                  : ("solidNode" as const),
+                id: only,
+              },
+            }
+          : {}),
       });
       return counts;
     },

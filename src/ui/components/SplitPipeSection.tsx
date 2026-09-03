@@ -23,6 +23,7 @@ import {
   parseSplitCount,
   resolvedBranchLength,
   splitSummaryText,
+  splitUnclonedWarnings,
   REPEAT_COUNT_MAX,
   REPEAT_COUNT_MIN,
 } from "../repeatSelection";
@@ -44,6 +45,22 @@ export default function SplitPipeSection({
   const [linkParams, setLinkParams] = React.useState(true);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+  // Memoized (and before the early return below — rules of hooks):
+  // resolving the length runs a full-model parameter preview
+  // (collectBindings + compile + topological sort + a frozen deep clone),
+  // which must not re-run on every keystroke in an unrelated field.
+  const totalLength = React.useMemo(
+    () => resolvedBranchLength(config, branchId),
+    [config, branchId],
+  );
+  // Targeted caveat: only when a controller/junction/logic rule actually
+  // references THIS branch — it keeps its id as the last segment, so the
+  // record then sees only that segment.
+  const unclonedWarnings = React.useMemo(
+    () => splitUnclonedWarnings(config, branchId),
+    [config, branchId],
+  );
+
   const branch = config.branches.find((b) => b.id === branchId);
   if (!branch || !isSplittableComponentType(branch.component.type)) {
     return null;
@@ -52,7 +69,6 @@ export default function SplitPipeSection({
 
   const parsed = parseSplitCount(segments);
   const built = buildSplitArgs({ segments, linkParams });
-  const totalLength = resolvedBranchLength(config, branchId);
   const summary = parsed.ok
     ? splitSummaryText(parsed.value, totalLength)
     : null;
@@ -128,10 +144,24 @@ export default function SplitPipeSection({
           Link parameters to the first segment
         </label>
         <div className="field__hint">
-          Editing the first segment then updates them all. Uncheck for
+          Editing the first segment then updates them all — and the first
+          segment stays the sweepable one (formula-bound fields cannot be swept
+          directly; sweeping it propagates through the links). Uncheck for
           independent segments.
         </div>
       </div>
+      {unclonedWarnings.length > 0 && (
+        <div
+          className="banner banner--warn"
+          role="note"
+          data-testid="split-uncloned-warning"
+          style={{ marginBottom: 8 }}
+        >
+          {unclonedWarnings.map((warning) => (
+            <div key={warning}>{warning}</div>
+          ))}
+        </div>
+      )}
       <div className="field__hint" style={{ marginBottom: 8 }}>
         {heated
           ? "Total length, elevation change and UA are preserved — each is divided across the segments, not duplicated."

@@ -22,6 +22,9 @@ import {
   parseRepeatCount,
   perInstanceRepeatCounts,
   repeatSummaryText,
+  repeatUnclonedWarnings,
+  repeatUnitReferenceIds,
+  unclonedUnitReferences,
   REPEAT_COUNT_MAX,
   REPEAT_COUNT_MIN,
   type RepeatDraft,
@@ -566,5 +569,224 @@ describe("confirm flow against the store", () => {
     const clone = s().config.nodes.find((n) => n.id === "n2")!;
     // Instance 2 sits one seam length (1 m) past the original's x = 1.
     expect(clone.position).toEqual({ x: 2, y: 0, z: 0 });
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Uncloned-record warnings (controllers / junctions / logic rules)    */
+/*                                                                     */
+/* repeatUnit never clones controllers, junctions or logic rules       */
+/* (user manual §3.13): the helpers below detect when the selected     */
+/* unit is actually referenced by one of them, so the dialog warns     */
+/* exactly then — and stays quiet otherwise.                           */
+/* ------------------------------------------------------------------ */
+
+/** The chain with a PID controller sensing AND heating member n1. */
+const controlledCfg = (): NetworkConfig => {
+  const base = chainCfg();
+  base.nodes[1]!.label = "Segment 1";
+  return {
+    ...base,
+    settings: { ...base.settings, mode: "transient" },
+    controllers: [
+      {
+        id: "pid1",
+        type: "pid",
+        sense: { kind: "node", id: "n1", quantity: "pressure" },
+        setpoint: 1.5e5,
+        gains: { kp: 1, ki: 0, kd: 0 },
+        output: { kind: "heatInput", id: "n1" },
+      },
+    ],
+  };
+};
+
+/** The chain with a reacting junction on member n1 fed by the seam seg1. */
+const junctionCfg = (): NetworkConfig => ({
+  ...chainCfg(),
+  junctions: [
+    {
+      id: "j1",
+      node: "n1",
+      inlets: [{ branch: "seg1", role: "fuel" }],
+      model: { type: "ceaTable", propellants: "lox-rp1" },
+      productFluid: "exhaust",
+    },
+  ],
+});
+
+/** The chain with a logic rule reading member n1 and the seam in `set`. */
+const logicCfg = (): NetworkConfig => ({
+  ...chainCfg(),
+  logic: [
+    {
+      id: "r1",
+      when: "node('n1').pressure > 1e5",
+      set: { reg1: "pipe('seg1').length" },
+    },
+  ],
+});
+
+describe("unclonedUnitReferences", () => {
+  it("finds controllers referencing a unit node (sense and output)", () => {
+    const refs = unclonedUnitReferences(controlledCfg(), {
+      nodes: ["n1"],
+      branches: [],
+    });
+    expect(refs).toEqual([
+      { source: "controller", id: "pid1", targets: ["n1"] },
+    ]);
+  });
+
+  it("finds controllers referencing a unit branch (valve output)", () => {
+    const cfg = controlledCfg();
+    cfg.controllers = [
+      {
+        id: "reg1",
+        type: "register",
+        register: "r",
+        output: { kind: "valvePosition", id: "seg1" },
+      },
+    ];
+    expect(
+      unclonedUnitReferences(cfg, { nodes: [], branches: ["seg1"] }),
+    ).toEqual([{ source: "controller", id: "reg1", targets: ["seg1"] }]);
+  });
+
+  it("finds junctions by member node and by inlet branch", () => {
+    // junction.node = n1 (member) and inlets → seg1 (the seam): both are
+    // unit references, deduplicated into one record.
+    expect(
+      unclonedUnitReferences(junctionCfg(), {
+        nodes: ["n1"],
+        branches: ["seg1"],
+      }),
+    ).toEqual([{ source: "junction", id: "j1", targets: ["n1", "seg1"] }]);
+    // Only the inlet branch inside the id set still flags the junction.
+    expect(
+      unclonedUnitReferences(junctionCfg(), {
+        nodes: [],
+        branches: ["seg1"],
+      }),
+    ).toEqual([{ source: "junction", id: "j1", targets: ["seg1"] }]);
+  });
+
+  it("finds logic-rule references in `when` and `set` expressions", () => {
+    const refs = unclonedUnitReferences(logicCfg(), {
+      nodes: ["n1"],
+      branches: ["seg1"],
+    });
+    expect(refs).toEqual([
+      { source: "logic rule", id: "r1", targets: ["n1", "seg1"] },
+    ]);
+  });
+
+  it("ignores reg() reads, malformed references and non-unit ids", () => {
+    const cfg: NetworkConfig = {
+      ...chainCfg(),
+      logic: [
+        // A REGISTER named like a member id is not an entity reference.
+        { id: "r-reg", when: "reg('n1') > 1" },
+        // Syntactically incomplete references stay plain text (tolerant
+        // segmenter): no chip, no match.
+        { id: "r-broken", when: "pipe('n1'" },
+        // A well-formed reference to an entity OUTSIDE the unit.
+        { id: "r-outside", when: "pipe('seg2').length > 0.5" },
+      ],
+    };
+    expect(
+      unclonedUnitReferences(cfg, { nodes: ["n1"], branches: ["seg1"] }),
+    ).toEqual([]);
+    expect(
+      unclonedUnitReferences(cfg, { nodes: [], branches: ["seg2"] }),
+    ).toEqual([{ source: "logic rule", id: "r-outside", targets: ["seg2"] }]);
+  });
+
+  it("returns nothing when no record references the unit (no noise)", () => {
+    expect(
+      unclonedUnitReferences(chainCfg(), { nodes: ["n1"], branches: ["seg1"] }),
+    ).toEqual([]);
+  });
+});
+
+describe("repeatUnitReferenceIds", () => {
+  it("covers members, induced + crossing conductors and the seam", () => {
+    const cfg = chainWithWallCfg();
+    const repeatable = analyzeRepeatSelection(cfg, { kind: "none" }, [
+      "n1",
+      "wall1",
+    ]);
+    expect(repeatUnitReferenceIds(cfg, repeatable)).toEqual({
+      nodes: ["n1", "wall1"],
+      branches: ["seg1"],
+      conductors: ["conv1", "cx"],
+    });
+  });
+
+  it("is empty when the selection cannot repeat (the reason shows instead)", () => {
+    const cfg = ambiguousCfg();
+    const blocked = analyzeRepeatSelection(cfg, { kind: "none" }, ["n1"]);
+    expect(blocked.canRepeat).toBe(false);
+    expect(repeatUnitReferenceIds(cfg, blocked)).toEqual({
+      nodes: [],
+      branches: [],
+      conductors: [],
+    });
+  });
+});
+
+describe("repeatUnclonedWarnings", () => {
+  it("words the controller warning plainly, using the entity label", () => {
+    const cfg = controlledCfg();
+    const repeatable = analyzeRepeatSelection(cfg, { kind: "none" }, ["n1"]);
+    expect(repeatUnclonedWarnings(cfg, repeatable)).toEqual([
+      "Controller pid1 references Segment 1 and will not be copied — the new instances will be uncontrolled.",
+    ]);
+  });
+
+  it("words the junction and logic-rule warnings", () => {
+    const jcfg = junctionCfg();
+    const jrep = analyzeRepeatSelection(jcfg, { kind: "none" }, ["n1"]);
+    expect(repeatUnclonedWarnings(jcfg, jrep)).toEqual([
+      "Junction j1 references n1, seg1 and will not be copied — the copies will be plain internal nodes.",
+    ]);
+    const lcfg = logicCfg();
+    const lrep = analyzeRepeatSelection(lcfg, { kind: "none" }, ["n1"]);
+    expect(repeatUnclonedWarnings(lcfg, lrep)).toEqual([
+      "Logic rule r1 references n1, seg1 and will not be copied — it keeps referencing the original instance only.",
+    ]);
+  });
+
+  it("stays silent for an unreferenced unit", () => {
+    const cfg = chainCfg();
+    expect(repeatUnclonedWarnings(cfg, okChain())).toEqual([]);
+  });
+});
+
+describe("RepeatDialog uncloned-record warning", () => {
+  it("shows the targeted warning when a controller references the unit", () => {
+    const cfg = controlledCfg();
+    const html = render(
+      <RepeatDialog
+        config={cfg}
+        repeatability={analyzeRepeatSelection(cfg, { kind: "none" }, ["n1"])}
+        onClose={() => {}}
+      />,
+    );
+    const banner = tagOf(html, "repeat-uncloned-warning");
+    expect(banner).toContain('role="note"');
+    expect(html).toContain("Controller pid1 references Segment 1");
+    expect(html).toContain("the new instances will be uncontrolled");
+  });
+
+  it("renders no warning when nothing references the unit", () => {
+    const html = render(
+      <RepeatDialog
+        config={chainCfg()}
+        repeatability={okChain()}
+        onClose={() => {}}
+      />,
+    );
+    expect(html).not.toContain('data-testid="repeat-uncloned-warning"');
   });
 });

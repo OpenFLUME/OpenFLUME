@@ -25,6 +25,7 @@ import {
   parseSplitCount,
   resolvedBranchLength,
   splitSummaryText,
+  splitUnclonedWarnings,
   REPEAT_COUNT_MAX,
   REPEAT_COUNT_MIN,
 } from "../repeatSelection";
@@ -497,5 +498,63 @@ describe("apply flow against the store", () => {
     expect(validateNetwork(s().config)).toEqual([]);
     expect(s().past).toHaveLength(0);
     expect(s().dirty).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* splitUnclonedWarnings — the targeted "references see only the last  */
+/* segment" caveat (a split branch KEEPS its id).                       */
+/* ------------------------------------------------------------------ */
+
+/** A controller sensing the split pipe's mass flow. */
+const sensedCfg = (): NetworkConfig => ({
+  ...pipeCfg(),
+  settings: { ...pipeCfg().settings, mode: "transient" },
+  controllers: [
+    {
+      id: "pid1",
+      type: "pid",
+      sense: { kind: "branch", id: "p1", quantity: "massFlow" },
+      setpoint: 0.5,
+      gains: { kp: 1, ki: 0, kd: 0 },
+      output: { kind: "boundaryPressure", id: "A" },
+    },
+  ],
+});
+
+/** A logic rule reading the split pipe's length. */
+const splitLogicCfg = (): NetworkConfig => ({
+  ...pipeCfg(),
+  logic: [{ id: "r1", when: "pipe('p1').length > 0.5" }],
+});
+
+describe("splitUnclonedWarnings", () => {
+  it("warns when a controller or logic rule references the split branch", () => {
+    expect(splitUnclonedWarnings(sensedCfg(), "p1")).toEqual([
+      "Controller pid1 references this branch — after the split it sees only the last segment (which keeps the id); the new segments are not covered.",
+    ]);
+    expect(splitUnclonedWarnings(splitLogicCfg(), "p1")).toEqual([
+      "Logic rule r1 references this branch — after the split it sees only the last segment (which keeps the id); the new segments are not covered.",
+    ]);
+  });
+
+  it("stays silent when nothing references the branch", () => {
+    expect(splitUnclonedWarnings(pipeCfg(), "p1")).toEqual([]);
+    // References to OTHER entities do not fire it either.
+    expect(splitUnclonedWarnings(sensedCfg(), "ghost")).toEqual([]);
+  });
+});
+
+describe("SplitPipeSection uncloned-record warning", () => {
+  it("shows the targeted warning when the branch is controller-referenced", () => {
+    const html = renderSection(sensedCfg(), "2");
+    expect(tagOf(html, "split-uncloned-warning")).toContain('role="note"');
+    expect(html).toContain("Controller pid1 references this branch");
+    expect(html).toContain("sees only the last segment");
+  });
+
+  it("renders no warning for an unreferenced branch", () => {
+    const html = renderSection(pipeCfg(), "2");
+    expect(html).not.toContain('data-testid="split-uncloned-warning"');
   });
 });

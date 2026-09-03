@@ -279,6 +279,10 @@ test.describe("Repeat and split (discretize)", () => {
     // The dialog previews what one more instance costs before committing.
     await repeatAction.click();
     await expect(page.locator('[data-testid="repeat-dialog"]')).toBeVisible();
+    // Nothing references this unit, so there is no uncloned-record warning.
+    await expect(
+      page.locator('[data-testid="repeat-uncloned-warning"]'),
+    ).toHaveCount(0);
     await page.locator('[data-testid="repeat-count"]').fill("3");
     await expect(page.locator('[data-testid="repeat-summary"]')).toContainText(
       "Creates 2 more instances: 2 nodes, 2 branches",
@@ -447,6 +451,65 @@ test.describe("Repeat and split (discretize)", () => {
     );
 
     fs.unlinkSync(tmpFile);
+
+    consoleWatcher.assertNoErrors();
+  });
+
+  test("6. The Repeat dialog and Split section warn exactly when a controller references the unit", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+    // The repeatable line, plus two PID controllers: one senses member n1,
+    // one senses the seam pipe seg1's mass flow (transient mode, so the
+    // controllers are valid).
+    await injectConfig(page, {
+      ...REPEAT_LINE_CONFIG,
+      settings: {
+        mode: "transient",
+        dt: 0.1,
+        endTime: 1,
+        tolerance: 1e-8,
+        maxIterations: 100,
+      },
+      controllers: [
+        {
+          id: "pid-heat",
+          type: "pid",
+          sense: { kind: "node", id: "n1", quantity: "pressure" },
+          setpoint: 150000,
+          gains: { kp: 1, ki: 0, kd: 0 },
+          output: { kind: "heatInput", id: "n1" },
+        },
+        {
+          id: "pid-flow",
+          type: "pid",
+          sense: { kind: "branch", id: "seg1", quantity: "massFlow" },
+          setpoint: 0.1,
+          gains: { kp: 1, ki: 0, kd: 0 },
+          output: { kind: "boundaryPressure", id: "B1" },
+        },
+      ],
+    });
+
+    // Repeat dialog: the controller on member n1 is not cloned, and the
+    // dialog says so before the user commits.
+    await selectFluidNode(page, "n1");
+    await page.locator('[data-testid="repeat-menu-action"]').click();
+    await expect(page.locator('[data-testid="repeat-dialog"]')).toBeVisible();
+    const warning = page.locator('[data-testid="repeat-uncloned-warning"]');
+    await expect(warning).toBeVisible();
+    await expect(warning).toContainText("Controller pid-heat");
+    await expect(warning).toContainText("will not be copied");
+    await expect(warning).toContainText("uncontrolled");
+    await page.locator('[data-testid="repeat-dialog-cancel"]').click();
+
+    // Split section: the controller sensing seg1 keeps tracking only the
+    // last segment after a split — the section says so as well.
+    await selectBranch(page, "seg1");
+    const splitWarning = page.locator('[data-testid="split-uncloned-warning"]');
+    await expect(splitWarning).toBeVisible();
+    await expect(splitWarning).toContainText("Controller pid-flow");
+    await expect(splitWarning).toContainText("last segment");
 
     consoleWatcher.assertNoErrors();
   });

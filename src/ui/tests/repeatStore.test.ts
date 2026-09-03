@@ -20,7 +20,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import { useStore } from "../store";
 import { analyzeRepeatSelection } from "../repeatSelection";
 import type { NetworkConfig } from "../types";
-import { validateNetwork } from "../../core";
+import { applyVariant, validateNetwork } from "../../core";
 import { parseText } from "../../substrate/textProjection";
 
 const PIPE = {
@@ -428,6 +428,73 @@ describe("repeatSelection", () => {
     const parsed = parseText(s().modelText);
     expect(parsed.errors).toEqual([]);
     expect(parsed.config).toStrictEqual(s().config);
+  });
+
+  it("with a variant active, the repeat diffs into the variant patch and survives switching away and back", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("Cold day");
+    expect(s().activeVariantId).toBe(id);
+    s().setCanvasSelection(["n1"]);
+    const res = s().repeatSelection({ count: 3, linkParams: false });
+    expect(res).toEqual({
+      nodes: 2,
+      solidNodes: 0,
+      branches: 2,
+      conductors: 0,
+    });
+
+    // The whole structural diff lands in the VARIANT patch: the created
+    // entities as `added` and the rewired exit crossing as a field override.
+    const variant = s().baseConfig.variants!.find((v) => v.id === id)!;
+    expect(variant.patch?.added?.nodes?.map((n) => n.id)).toEqual(["n2", "n3"]);
+    expect(variant.patch?.added?.branches?.map((b) => b.id)).toEqual([
+      "seg3",
+      "seg4",
+    ]);
+    expect(variant.patch?.branches).toEqual({ seg2: { from: "n3" } });
+
+    // The patch round-trips exactly: base + patch IS the resolved chain…
+    const resolved = applyVariant(s().baseConfig, variant);
+    expect(resolved).toStrictEqual(s().config);
+    // …and the file text still parses back to the same base (variants
+    // included).
+    const parsed = parseText(s().modelText);
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.config).toStrictEqual(s().baseConfig);
+
+    // Switching to Base hides the chain (Base was never touched)…
+    s().setActiveVariant(null);
+    expect(s().config.nodes).toHaveLength(3);
+    expect(s().config.branches).toHaveLength(2);
+    // …and switching back restores it exactly.
+    s().setActiveVariant(id);
+    expect(s().config.nodes.map((n) => n.id)).toEqual([
+      "a",
+      "n1",
+      "b",
+      "n2",
+      "n3",
+    ]);
+    expect(wiring(s().config)).toEqual({
+      seg1: ["a", "n1"],
+      seg2: ["n3", "b"],
+      seg3: ["n1", "n2"],
+      seg4: ["n2", "n3"],
+    });
+    expect(validateNetwork(s().config)).toEqual([]);
+  });
+
+  it("a single-copy repeat also selects the copy in the property panel (like Duplicate)", () => {
+    const s = () => useStore.getState();
+    s().setCanvasSelection(["n1"]);
+    expect(s().selection).toEqual({ kind: "none" });
+    s().repeatSelection({ count: 2, linkParams: false });
+    // Exactly one node was created: the panel selection follows it, exactly
+    // as duplicateSelection's single-copy case does.  Multi-instance
+    // repeats (count > 2) leave the panel on the template — instance 1 is
+    // the sweepable/editable one when parameters are linked.
+    expect(s().selection).toEqual({ kind: "node", id: "n2" });
+    expect(s().canvasSelection).toEqual(["n2"]);
   });
 });
 

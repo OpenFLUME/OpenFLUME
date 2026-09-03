@@ -24,6 +24,7 @@ import {
   parseRepeatCount,
   perInstanceRepeatCounts,
   repeatSummaryText,
+  repeatUnclonedWarnings,
   REPEAT_COUNT_MAX,
   REPEAT_COUNT_MIN,
   type Repeatability,
@@ -71,6 +72,13 @@ export default function RepeatDialog({
   );
   const perInstance = React.useMemo(
     () => perInstanceRepeatCounts(config, repeatability),
+    [config, repeatability],
+  );
+  // Targeted caveat (user manual §3.13): controllers, junctions and logic
+  // rules are never cloned — warn only when one actually references the
+  // selected unit, rather than carrying a permanent notice.
+  const unclonedWarnings = React.useMemo(
+    () => repeatUnclonedWarnings(config, repeatability),
     [config, repeatability],
   );
 
@@ -213,6 +221,18 @@ export default function RepeatDialog({
           Chains the selected unit end-to-end: the seam branch is cloned per
           instance and the exit rewires to the last copy. One undo step.
         </div>
+        {unclonedWarnings.length > 0 && (
+          <div
+            className="banner banner--warn"
+            role="note"
+            data-testid="repeat-uncloned-warning"
+            style={{ marginBottom: 12 }}
+          >
+            {unclonedWarnings.map((warning) => (
+              <div key={warning}>{warning}</div>
+            ))}
+          </div>
+        )}
         {!repeatability.canRepeat && (
           <div
             className="field__error"
@@ -262,8 +282,10 @@ export default function RepeatDialog({
             Link parameters to the first instance
           </label>
           <div className="field__hint">
-            Editing the first instance then updates them all. Uncheck for
-            independent copies.
+            Editing the first instance then updates them all — and the first
+            instance stays the sweepable one (formula-bound fields cannot be
+            swept directly; sweeping it propagates through the links). Uncheck
+            for independent copies.
           </div>
         </div>
         <div className="field-row">
