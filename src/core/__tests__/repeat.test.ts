@@ -558,8 +558,9 @@ describe("duplicate mode (seamBranch: null)", () => {
     const got = r.config;
 
     // Mirrors ui/store.ts duplicateSelection with canvasSelection
-    // [n1, n2, wall1]: members cloned at +30/+30 (id NAMING differs —
-    // createId vs per-instance trailing-int — topology is what matters).
+    // [n1, n2, wall1]: members cloned at +30/+30.  The store passes
+    // idStrategy: "firstFree" (the legacy createId naming); on this fixture
+    // both strategies mint the same ids, so the default is exercised here.
     expect(nodeById(got, "n3").x).toBe(130);
     expect(nodeById(got, "n3").y).toBe(130);
     expect(nodeById(got, "n4").x).toBe(230);
@@ -927,6 +928,115 @@ describe("id allocation and labels", () => {
     expect(nodeById(r.config, "n3").label).toBe("Segment 3");
     expect(branchById(r.config, "seg2").label).toBe("Segment 2");
     expect(branchById(r.config, "seg3").label).toBe("Segment 3");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* idStrategy: "firstFree" — the legacy Duplicate naming               */
+/* ------------------------------------------------------------------ */
+
+describe('idStrategy: "firstFree" (legacy Duplicate naming)', () => {
+  /**
+   * src → j → n12 → 9up → sink with the three internal nodes as the unit
+   * (induced branches p, p12).  Chosen to distinguish the strategies: `j`
+   * has no trailing integer, `n12` has one, and `9up` starts with a digit
+   * (the "N" prefix fallback).
+   */
+  function firstFreeBase(): NetworkConfig {
+    return {
+      meta: { name: "ff", version: 2 },
+      settings: { mode: "steady", tolerance: 1e-8, maxIterations: 100 },
+      fluid: { model: "incompressible", preset: "water" },
+      nodes: [
+        {
+          id: "src",
+          type: "boundary",
+          x: 0,
+          y: 0,
+          pressure: 2e5,
+          temperature: 300,
+        },
+        { id: "j", type: "internal", x: 1, y: 0, volume: 1e-3 },
+        { id: "n12", type: "internal", x: 2, y: 0, volume: 1e-3 },
+        { id: "9up", type: "internal", x: 3, y: 0, volume: 1e-3 },
+        {
+          id: "sink",
+          type: "boundary",
+          x: 4,
+          y: 0,
+          pressure: 1e5,
+          temperature: 300,
+        },
+      ],
+      branches: [
+        { id: "in", from: "src", to: "j", component: { ...PIPE } },
+        { id: "p", from: "j", to: "n12", component: { ...PIPE } },
+        { id: "p12", from: "n12", to: "9up", component: { ...PIPE } },
+        { id: "out", from: "9up", to: "sink", component: { ...PIPE } },
+      ],
+    };
+  }
+  const FF_BASE: RepeatOptions = {
+    members: { nodes: ["j", "n12", "9up"], solidNodes: [] },
+    seamBranch: null,
+    count: 2,
+    linkParams: false,
+    canvasOffset: { x: 30, y: 30 },
+    crossingConductors: "drop",
+  };
+
+  it("mints the first free id for the letter prefix (j → j1, n12 → n1)", () => {
+    const r = repeatUnit(firstFreeBase(), {
+      ...FF_BASE,
+      idStrategy: "firstFree",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    // j: no trailing integer → prefix "j" → j1.  n12: the trailing integer
+    // is DROPPED — prefix "n", first free is n1.  9up starts with a digit →
+    // the "N" fallback prefix → N1.  p → p1; p12 → prefix "p" with p1 now
+    // taken → p2.
+    expect(r.created.nodes).toEqual(["j1", "n1", "N1"]);
+    expect(r.created.branches).toEqual(["p1", "p2"]);
+    const p1 = branchById(r.config, "p1");
+    expect([p1.from, p1.to]).toEqual(["j1", "n1"]);
+    const p2 = branchById(r.config, "p2");
+    expect([p2.from, p2.to]).toEqual(["n1", "N1"]);
+    // Crossing branches stay attached to the templates.
+    expect(branchById(r.config, "in").to).toBe("j");
+    expect(branchById(r.config, "out").from).toBe("9up");
+    expect(validateNetwork(r.config)).toEqual([]);
+  });
+
+  it('skips pre-existing ids under the "N" fallback prefix', () => {
+    const config = firstFreeBase();
+    config.nodes.push({ id: "N1", type: "internal", x: 9, y: 9, volume: 1e-3 });
+    const r = repeatUnit(config, { ...FF_BASE, idStrategy: "firstFree" });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.created.nodes).toEqual(["j1", "n1", "N2"]);
+  });
+
+  it("allocates the next free id per generated instance when count > 2", () => {
+    // Two generated instances mint j1/j2, n1/n2, N1/N2 — the same sequence
+    // two successive legacy duplicate calls produced.
+    const r = repeatUnit(firstFreeBase(), {
+      ...FF_BASE,
+      count: 3,
+      idStrategy: "firstFree",
+    });
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.instances[0]!.slice(0, 3)).toEqual(["j1", "n1", "N1"]);
+    expect(r.instances[1]!.slice(0, 3)).toEqual(["j2", "n2", "N2"]);
+  });
+
+  it('"instance" stays the default when idStrategy is omitted', () => {
+    const r = repeatUnit(firstFreeBase(), FF_BASE); // no idStrategy
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.created.nodes).toEqual(["j_2", "n13", "9up_2"]);
+    expect(r.created.branches).toEqual(["p_2", "p13"]);
   });
 });
 

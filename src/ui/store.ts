@@ -2130,6 +2130,9 @@ export const useStore = create<StoreState>((set, get) => {
       // expression remapping now also retargets `{ expr }` references on the
       // copies to the copied members — previously a duplicated node whose
       // volume was e.g. `pipe('p1').volume` kept pointing at the ORIGINAL.
+      // idStrategy: "firstFree" keeps Duplicate's long-established id naming
+      // (j → j1, n12 → first free n<k>) rather than repeatUnit's per-instance
+      // trailing-int bump, which is Repeat/Split's naming.
       const members = {
         nodes: targetIds.filter((id) => nodeIdSet.has(id)),
         solidNodes: targetIds.filter((id) => solidIdSet.has(id)),
@@ -2142,6 +2145,7 @@ export const useStore = create<StoreState>((set, get) => {
         linkParams: false,
         canvasOffset: { x: 30, y: 30 },
         crossingConductors: "drop",
+        idStrategy: "firstFree",
       });
       // Members were just validated against the config, so Duplicate mode
       // (which needs no seam) cannot fail — but never throw from an action.

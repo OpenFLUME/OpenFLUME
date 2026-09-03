@@ -36,10 +36,6 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Changed
 
-- **Duplicate-generated ids now bump the trailing integer** (`n12` → `n13`)
-  instead of taking the first free integer for the alphabetic prefix
-  (`n12` → `n1`), keeping a numbered series monotone as copies accrue. On a
-  collision the search still walks upward from the candidate.
 - **The formula tokenizer moved to `src/core/usercode/`** so core-side
   authoring transforms (`core/usercode/rewriteIds.ts`, used by Repeat and
   Duplicate) can share it without a ui→core dependency inversion;

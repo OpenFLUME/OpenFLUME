@@ -34,8 +34,9 @@
  *
  * Everything here is pure and never throws: inputs are structuredClone'd,
  * never mutated, and all failures are returned as `{ ok: false, error }`.
- * Core must not import from src/ui, so the id allocator is implemented
- * locally (same first-free-integer spirit as ui/utils.ts createId).
+ * Core must not import from src/ui, so the id allocators are implemented
+ * locally: the default "instance" strategy (trailing-integer bump) and the
+ * "firstFree" strategy, which replicates ui/utils.ts createId exactly.
  */
 
 import type {
@@ -96,6 +97,22 @@ export interface RepeatOptions {
    * Ignored when `seamBranch` is null (Duplicate drops all crossings).
    */
   crossingConductors: "share" | "drop";
+  /**
+   * How ids for the copies are minted.
+   *   "instance"  (default) — bump the id's trailing integer per instance
+   *               (`n1` → `n2`), falling back to `<id>_<i>` when there is no
+   *               trailing integer; collisions walk upward from the
+   *               candidate.  Monotone with the chain's per-instance
+   *               numbering — the right naming for Repeat and Split.
+   *   "firstFree" — the legacy Duplicate naming: the leading [A-Za-z]+ run
+   *               of the old id is the prefix ("N" when the id starts with
+   *               a digit or symbol) and the first free integer is taken,
+   *               checked against every existing id plus the ids already
+   *               allocated by this operation (`j` → `j1`, `n12` → `n1`
+   *               when `n1` is free).  Exactly the semantics of the store's
+   *               pre-repeat `createId(prefixOf(id), existingIds)`.
+   */
+  idStrategy?: "instance" | "firstFree";
 }
 
 export type RepeatResult =
@@ -165,6 +182,30 @@ function instanceId(baseId: string, i: number, taken: Set<string>): string {
   const m = /^(.*?)(\d+)$/.exec(baseId);
   const prefix = m ? m[1] : `${baseId}_`;
   let n = m ? Number.parseInt(m[2], 10) + i - 1 : i;
+  let candidate = `${prefix}${n}`;
+  while (taken.has(candidate)) {
+    n += 1;
+    candidate = `${prefix}${n}`;
+  }
+  taken.add(candidate);
+  return candidate;
+}
+
+/**
+ * Legacy-Duplicate id: the leading `[A-Za-z]+` run of `baseId` is the
+ * prefix ("N" when the id starts with a digit or symbol — the old store's
+ * `prefixOf`), then the first integer whose `${prefix}${n}` is free against
+ * `taken` — an exact replica of the pre-repeat store's
+ * `createId(prefixOf(id), existingIds)` (`j` → `j1`, `n12` → the first free
+ * `n<k>`).  The instance number plays no role: the numbering is per-prefix,
+ * not per-instance, so consecutive duplicates of the same template mint
+ * `j1`, `j2`, … across operations exactly as repeated legacy duplicates
+ * did.  The allocated id is added to `taken`.
+ */
+function firstFreeId(baseId: string, taken: Set<string>): string {
+  const m = /^[A-Za-z]+/.exec(baseId);
+  const prefix = m ? m[0] : "N";
+  let n = 1;
   let candidate = `${prefix}${n}`;
   while (taken.has(candidate)) {
     n += 1;
@@ -686,6 +727,13 @@ function repeatUnitInner(
     ...cfg.branches.map((b) => b.id),
     ...(cfg.conductors ?? []).map((c) => c.id),
   ]);
+  // The id pool above (nodes + solid nodes + branches + conductors, plus
+  // everything allocated as the operation proceeds) is exactly the pool the
+  // legacy duplicateSelection's createId checked against.
+  const allocateId: (id: string, i: number) => string =
+    (opts.idStrategy ?? "instance") === "firstFree"
+      ? (id) => firstFreeId(id, taken)
+      : (id, i) => instanceId(id, i, taken);
 
   const created = emptyCreated;
   const instances: string[][] = [];
@@ -698,18 +746,16 @@ function repeatUnitInner(
     // 1. Build the ENTIRE id map for instance i before cloning anything, so
     //    expression rewriting sees every new id of the instance.
     const idMap = new Map<string, string>();
-    for (const n of analysis.memberNodes)
-      idMap.set(n.id, instanceId(n.id, i, taken));
-    for (const s of analysis.memberSolids)
-      idMap.set(s.id, instanceId(s.id, i, taken));
+    for (const n of analysis.memberNodes) idMap.set(n.id, allocateId(n.id, i));
+    for (const s of analysis.memberSolids) idMap.set(s.id, allocateId(s.id, i));
     for (const b of analysis.inducedBranches)
-      idMap.set(b.id, instanceId(b.id, i, taken));
+      idMap.set(b.id, allocateId(b.id, i));
     for (const c of analysis.inducedConductors)
-      idMap.set(c.id, instanceId(c.id, i, taken));
-    if (seam) idMap.set(seam.id, instanceId(seam.id, i, taken));
+      idMap.set(c.id, allocateId(c.id, i));
+    if (seam) idMap.set(seam.id, allocateId(seam.id, i));
     if (shareCrossings) {
       for (const c of analysis.crossingConductors) {
-        idMap.set(c.id, instanceId(c.id, i, taken));
+        idMap.set(c.id, allocateId(c.id, i));
       }
     }
     const ctx: CloneContext = {

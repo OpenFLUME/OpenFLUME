@@ -7,10 +7,11 @@
  *   splitBranch — split a pipe into N equal segments (core splitPipeBranch)
  *     with the same undo/notice conventions.
  *   duplicateSelection — now delegates to repeatUnit in Duplicate mode
- *     (seamBranch: null).  Ids moved from createId(prefix) to the
- *     trailing-int bump (A → A_2, b1 → b2) and — the bug fix — `{ expr }`
- *     fields on copies are retargeted to the copied members (Rule 1);
- *     labels keep the legacy " copy" suffix.
+ *     (seamBranch: null, idStrategy: "firstFree").  Duplicate keeps its
+ *     legacy naming: the first free integer for the id's letter prefix
+ *     (A → A1, b1 → b2, j → j1) and " copy" labels.  The bug fix is that
+ *     `{ expr }` fields on copies are retargeted to the copied members
+ *     (Rule 1).
  *
  * analyzeRepeatSelection (src/ui/repeatSelection.ts) is the pure helper a
  * Repeat button uses to enable/disable without duplicating the seam logic.
@@ -186,6 +187,47 @@ const dupCfg = (): NetworkConfig => ({
       component: { ...PIPE },
       label: "Pipe",
     },
+  ],
+});
+
+/** a → j → n12 → b: pins the legacy duplicate id naming (j → j1, n12 → n1). */
+const legacyNamingCfg = (): NetworkConfig => ({
+  meta: { name: "Legacy", version: 2 },
+  settings: { mode: "steady", tolerance: 1e-6, maxIterations: 100 },
+  fluid: { model: "incompressible", preset: "water" },
+  nodes: [
+    { id: "a", type: "boundary", x: 0, y: 0, pressure: 2e5, temperature: 300 },
+    {
+      id: "j",
+      type: "internal",
+      x: 100,
+      y: 0,
+      volume: 1e-3,
+      pressure: 1.5e5,
+      temperature: 300,
+    },
+    {
+      id: "n12",
+      type: "internal",
+      x: 200,
+      y: 0,
+      volume: 1e-3,
+      pressure: 1.2e5,
+      temperature: 300,
+    },
+    {
+      id: "b",
+      type: "boundary",
+      x: 300,
+      y: 0,
+      pressure: 1e5,
+      temperature: 300,
+    },
+  ],
+  branches: [
+    { id: "in", from: "a", to: "j", component: { ...PIPE } },
+    { id: "p9", from: "j", to: "n12", component: { ...PIPE } },
+    { id: "out", from: "n12", to: "b", component: { ...PIPE } },
   ],
 });
 
@@ -456,23 +498,51 @@ describe("splitBranch", () => {
 describe("duplicateSelection via repeatUnit", () => {
   beforeEach(() => loadConfig(dupCfg()));
 
-  it('pins the trailing-int-bump naming (A → A_2, b1 → b2) with legacy " copy" labels', () => {
+  it('pins the legacy first-free naming (A → A1, B → B1, b1 → b2) with " copy" labels', () => {
     const s = () => useStore.getState();
     s().setCanvasSelection(["A", "B"]);
     const res = s().duplicateSelection();
     expect(res).toEqual({ nodes: 2, branches: 1, conductors: 0 });
     const c = s().config;
-    const copyA = c.nodes.find((n) => n.id === "A_2")!;
-    const copyB = c.nodes.find((n) => n.id === "B_2")!;
+    const copyA = c.nodes.find((n) => n.id === "A1")!;
+    const copyB = c.nodes.find((n) => n.id === "B1")!;
     expect(copyA.label).toBe("In copy");
     expect(copyB.label).toBe("Out copy");
     expect([copyA.x, copyA.y]).toEqual([130, 130]);
     expect([copyB.x, copyB.y]).toEqual([330, 130]);
     const copyBranch = c.branches.find((b) => b.id === "b2")!;
-    expect([copyBranch.from, copyBranch.to]).toEqual(["A_2", "B_2"]);
+    expect([copyBranch.from, copyBranch.to]).toEqual(["A1", "B1"]);
     expect(copyBranch.label).toBe("Pipe copy");
-    expect(s().canvasSelection).toEqual(["A_2", "B_2"]);
+    expect(s().canvasSelection).toEqual(["A1", "B1"]);
     expect(s().duplicateNotice).toBe("Duplicated 2 nodes, 1 branch");
+  });
+
+  it("pins the restored naming: j → j1 and n12 → the first free n<k>", () => {
+    // A digitless id takes prefix+1 (j → j1); an id with a trailing integer
+    // DROPS it and takes the first free integer for the letter prefix
+    // (n12 → n1 while n1 is free) — the pre-repeat createId semantics that
+    // delegating to repeatUnit must not change (e2e network.spec test 33).
+    loadConfig(legacyNamingCfg());
+    const s = () => useStore.getState();
+    s().setCanvasSelection(["j", "n12"]);
+    const res = s().duplicateSelection();
+    expect(res).toEqual({ nodes: 2, branches: 1, conductors: 0 });
+    const c = s().config;
+    expect(c.nodes.map((n) => n.id)).toEqual([
+      "a",
+      "j",
+      "n12",
+      "b",
+      "j1",
+      "n1",
+    ]);
+    const p1 = c.branches.find((br) => br.id === "p1")!;
+    expect([p1.from, p1.to]).toEqual(["j1", "n1"]);
+    // A second duplicate of j takes the next free integer (j2), exactly as
+    // repeated legacy duplicates did.
+    s().setCanvasSelection(["j"]);
+    s().duplicateSelection();
+    expect(s().config.nodes.some((n) => n.id === "j2")).toBe(true);
   });
 
   it("retargets { expr } references on copies to the copied members (Rule 1 regression)", () => {
