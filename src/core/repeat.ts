@@ -308,7 +308,11 @@ function cloneFluidNode(
 ): FluidNode {
   const clone = structuredClone(node);
   clone.id = newId;
-  clone.label = instanceLabel(node.label, ctx.i, ctx.idMap);
+  // Only assign a defined label: an explicit `label: undefined` own-property
+  // would survive structuredClone where the store's JSON cloning never
+  // produced one, breaking exact serialize→parse round-trip equality.
+  const label = instanceLabel(node.label, ctx.i, ctx.idMap);
+  if (label !== undefined) clone.label = label;
   clone.x = node.x + ctx.canvasOffset.x * (ctx.i - 1);
   clone.y = node.y + ctx.canvasOffset.y * (ctx.i - 1);
   if (clone.position) {
@@ -341,7 +345,8 @@ function cloneSolidNode(
 ): SolidNode {
   const clone = structuredClone(node);
   clone.id = newId;
-  clone.label = instanceLabel(node.label, ctx.i, ctx.idMap);
+  const label = instanceLabel(node.label, ctx.i, ctx.idMap);
+  if (label !== undefined) clone.label = label;
   clone.x = node.x + ctx.canvasOffset.x * (ctx.i - 1);
   clone.y = node.y + ctx.canvasOffset.y * (ctx.i - 1);
   if (clone.position) {
@@ -368,7 +373,8 @@ function cloneBranch(
 ): Branch {
   const clone = structuredClone(branch);
   clone.id = newId;
-  clone.label = instanceLabel(branch.label, ctx.i, ctx.idMap);
+  const label = instanceLabel(branch.label, ctx.i, ctx.idMap);
+  if (label !== undefined) clone.label = label;
   clone.from = from;
   clone.to = to;
   const accessor = branchAccessor(branch.component.type);
@@ -396,7 +402,8 @@ function cloneConductor(
 ): Conductor {
   const clone = structuredClone(conductor);
   clone.id = newId;
-  clone.label = instanceLabel(conductor.label, ctx.i, ctx.idMap);
+  const label = instanceLabel(conductor.label, ctx.i, ctx.idMap);
+  if (label !== undefined) clone.label = label;
   clone.from = from;
   clone.to = to;
   const type = clone.type as unknown as Record<string, unknown>;

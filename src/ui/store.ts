@@ -45,6 +45,13 @@ import {
 } from "./runsFile";
 import { applyVariant, diffVariant } from "../core/variants";
 import type { VariantSpec } from "../core";
+import { analyzeRepeatUnit, repeatUnit, splitPipeBranch } from "../core";
+import {
+  analyzeRepeatSelection,
+  applyDuplicateCopyLabels,
+  formatRepeatCounts,
+  type RepeatCounts,
+} from "./repeatSelection";
 import { normalizeCanvasLayout } from "./canvasLayout";
 import {
   getComponentLibrarySnapshot,
@@ -275,8 +282,37 @@ interface StoreState {
   } | null;
   /** Screen-reader announcement of the last duplication ("" when none). Set
    *  inside the store action so the toolbar button AND the Ctrl/Cmd+D global
-   *  shortcut announce identically. */
+   *  shortcut announce identically.  repeatSelection / splitBranch reuse the
+   *  same channel so every canvas-mutating action announces alike. */
   duplicateNotice: string;
+  /**
+   * Repeat the selected subgraph unit into `count` TOTAL chained instances:
+   * the seam branch (the single branch entering the unit — derived, or
+   * disambiguated by including it in a `multi` selection) is cloned per
+   * instance and the unit's exit crossings rewire to the last instance.
+   * Crossing conductors are cloned "share"-style so every instance ties to
+   * the same external node.  Returns the created counts, or null when the
+   * selection is not a repeatable unit — the reason is announced via
+   * `duplicateNotice` and NO undo entry is created for a failed no-op.  A
+   * success is exactly one undo step and selects the created node ids.
+   */
+  repeatSelection: (opts: {
+    count: number;
+    linkParams: boolean;
+    canvasOffset?: { x: number; y: number };
+    physicalOffset?: { x: number; y: number; z: number };
+  }) => RepeatCounts | null;
+  /**
+   * Split one pipe/heatedPipe branch into `segments` equal series segments
+   * (core splitPipeBranch).  Same single-undo-step, canvas-selection and
+   * notice conventions as repeatSelection; failures return null without
+   * touching history.
+   */
+  splitBranch: (
+    branchId: string,
+    segments: number,
+    opts?: { linkParams?: boolean },
+  ) => RepeatCounts | null;
   /** True when config differs from the last New/Load/Save baseline. */
   dirty: boolean;
   preparingOperation: "save" | "run" | null;
@@ -1972,6 +2008,82 @@ export const useStore = create<StoreState>((set, get) => {
     clearCanvasFocusRequest: () => set({ canvasFocusRequest: null }),
 
     // ── Duplication (Ctrl/Cmd+D) ────────────────────────────────────────
+    repeatSelection: (opts) => {
+      const { config, selection, canvasSelection } = get();
+      if (!Number.isInteger(opts.count) || opts.count < 2) {
+        set({
+          duplicateNotice: `Cannot repeat: count must be an integer of at least 2 (got ${String(opts.count)})`,
+        });
+        return null;
+      }
+      const repeatable = analyzeRepeatSelection(
+        config,
+        selection,
+        canvasSelection,
+      );
+      if (!repeatable.canRepeat) {
+        set({
+          duplicateNotice: `Cannot repeat: ${repeatable.reason ?? "the selection is not a repeatable unit"}`,
+        });
+        return null;
+      }
+      const result = repeatUnit(config, {
+        members: repeatable.members,
+        seamBranch: repeatable.seamBranch,
+        count: opts.count,
+        linkParams: opts.linkParams,
+        canvasOffset: opts.canvasOffset ?? { x: 30, y: 30 },
+        ...(opts.physicalOffset ? { physicalOffset: opts.physicalOffset } : {}),
+        crossingConductors: "share",
+      });
+      if (!result.ok) {
+        // A failed no-op burns no undo entry.
+        set({ duplicateNotice: `Cannot repeat: ${result.error}` });
+        return null;
+      }
+      pushHistory();
+      commitConfig(result.config);
+      const counts: RepeatCounts = {
+        nodes: result.created.nodes.length,
+        solidNodes: result.created.solidNodes.length,
+        branches: result.created.branches.length,
+        conductors: result.created.conductors.length,
+      };
+      set({
+        canvasSelection: [
+          ...result.created.nodes,
+          ...result.created.solidNodes,
+        ],
+        duplicateNotice: `Repeated unit ${opts.count}×: ${formatRepeatCounts(counts)}`,
+      });
+      return counts;
+    },
+
+    splitBranch: (branchId, segments, opts) => {
+      const result = splitPipeBranch(get().config, branchId, segments, opts);
+      if (!result.ok) {
+        // A failed no-op burns no undo entry.
+        set({ duplicateNotice: `Cannot split branch: ${result.error}` });
+        return null;
+      }
+      pushHistory();
+      commitConfig(result.config);
+      const counts: RepeatCounts = {
+        nodes: result.created.nodes.length,
+        solidNodes: result.created.solidNodes.length,
+        branches: result.created.branches.length,
+        conductors: result.created.conductors.length,
+      };
+      set({
+        canvasSelection: [
+          ...result.created.nodes,
+          ...result.created.solidNodes,
+        ],
+        duplicateNotice: `Split ${branchId} into ${segments} segments: ${formatRepeatCounts(counts)}`,
+      });
+      return counts;
+    },
+
     duplicateSelection: () => {
       const { config, canvasSelection, selection } = get();
       const nodeIdSet = new Set(config.nodes.map((n) => n.id));
@@ -1983,7 +2095,8 @@ export const useStore = create<StoreState>((set, get) => {
       );
       if (
         targetIds.length === 0 &&
-        (selection.kind === "node" || selection.kind === "solidNode")
+        (selection.kind === "node" || selection.kind === "solidNode") &&
+        (nodeIdSet.has(selection.id) || solidIdSet.has(selection.id))
       ) {
         targetIds = [selection.id];
       }
@@ -2011,84 +2124,40 @@ export const useStore = create<StoreState>((set, get) => {
         return { nodes: 0, branches: 1, conductors: 0 };
       }
 
-      pushHistory();
-      const cfg = cloneConfig(config);
-      const allIds = new Set<string>([
-        ...cfg.nodes.map((n) => n.id),
-        ...(cfg.solidNodes ?? []).map((n) => n.id),
-        ...cfg.branches.map((b) => b.id),
-        ...(cfg.conductors ?? []).map((c) => c.id),
-      ]);
-      const prefixOf = (id: string) => {
-        const m = /^[A-Za-z]+/.exec(id);
-        return m ? m[0] : "N";
+      // Node duplication delegates to the core repeat primitive in Duplicate
+      // mode (seamBranch: null): induced edges are cloned, crossings dropped,
+      // +30/+30 canvas offset, literal copies (linkParams: false).  Rule 1
+      // expression remapping now also retargets `{ expr }` references on the
+      // copies to the copied members — previously a duplicated node whose
+      // volume was e.g. `pipe('p1').volume` kept pointing at the ORIGINAL.
+      const members = {
+        nodes: targetIds.filter((id) => nodeIdSet.has(id)),
+        solidNodes: targetIds.filter((id) => solidIdSet.has(id)),
       };
-      const idMap = new Map<string, string>();
-      for (const oldId of targetIds) {
-        const newId = createId(prefixOf(oldId), allIds);
-        allIds.add(newId);
-        idMap.set(oldId, newId);
-      }
-      let branchCount = 0;
-      let conductorCount = 0;
-      for (const [oldId, newId] of idMap) {
-        const fluid = cfg.nodes.find((n) => n.id === oldId);
-        if (fluid) {
-          cfg.nodes.push({
-            ...fluid,
-            id: newId,
-            x: fluid.x + 30,
-            y: fluid.y + 30,
-            label: `${fluid.label || fluid.id} copy`,
-          });
-          continue;
-        }
-        const solid = (cfg.solidNodes ?? []).find((n) => n.id === oldId);
-        if (solid) {
-          cfg.solidNodes!.push({
-            ...solid,
-            id: newId,
-            x: solid.x + 30,
-            y: solid.y + 30,
-            label: `${solid.label || solid.id} copy`,
-          });
-        }
-      }
-      // Internal edges: both endpoints duplicated → clone with remapped ids.
-      for (const b of [...cfg.branches]) {
-        const from = idMap.get(b.from);
-        const to = idMap.get(b.to);
-        if (!from || !to) continue;
-        const newId = createId("b", allIds);
-        allIds.add(newId);
-        cfg.branches.push({
-          ...b,
-          id: newId,
-          from,
-          to,
-          label: `${b.label || b.id} copy`,
-        });
-        branchCount++;
-      }
-      if (cfg.conductors) {
-        for (const c of [...cfg.conductors]) {
-          const from = idMap.get(c.from);
-          const to = idMap.get(c.to);
-          if (!from || !to) continue;
-          const newId = createId("c", allIds);
-          allIds.add(newId);
-          cfg.conductors.push({
-            ...c,
-            id: newId,
-            from,
-            to,
-            label: `${c.label || c.id} copy`,
-          });
-          conductorCount++;
-        }
-      }
+      const analysis = analyzeRepeatUnit(config, members);
+      const result = repeatUnit(config, {
+        members,
+        seamBranch: null,
+        count: 2,
+        linkParams: false,
+        canvasOffset: { x: 30, y: 30 },
+        crossingConductors: "drop",
+      });
+      // Members were just validated against the config, so Duplicate mode
+      // (which needs no seam) cannot fail — but never throw from an action.
+      if (!analysis.ok || !result.ok) return null;
+      pushHistory();
+      const cfg = result.config;
+      // Duplicate keeps its legacy "<label> copy" naming rather than
+      // repeatUnit's id-remapping / trailing-int labels.
+      applyDuplicateCopyLabels(config, cfg, members, analysis, result.created);
       commitConfig(cfg);
-      const newNodeIds = [...idMap.values()];
+      const newNodeIds = [
+        ...result.created.nodes,
+        ...result.created.solidNodes,
+      ];
+      const branchCount = result.created.branches.length;
+      const conductorCount = result.created.conductors.length;
       const parts: string[] = [];
       if (newNodeIds.length)
         parts.push(
