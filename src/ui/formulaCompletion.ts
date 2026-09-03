@@ -3,8 +3,9 @@
  * editor's static model bindings (core/paramBindings.ts is the resolution
  * authority; core/schema.ts `NumberOrExpression` is the storage form).
  *
- * Built on the tolerant lexer of ui/formulaTokens.ts (tokenizeFormula only —
- * no chips, no parsing, no evaluation) plus the PUBLIC core surface
+ * Built on the tolerant lexer of core/usercode/formulaTokens.ts (via the
+ * ui/formulaTokens.ts shim; tokenizeFormula only — no chips, no parsing, no
+ * evaluation) plus the PUBLIC core surface
  * (NetworkConfig, previewNetworkParameters consumers, expressionBuiltinNames).
  * There is no React/DOM here and NOTHING throws: malformed sources,
  * out-of-range carets, and partial configs all degrade to a plain toplevel
@@ -41,7 +42,12 @@ import {
   BINDABLE_POSITION_AXES,
   BINDABLE_SOLID_FIELDS,
 } from "../core/formulaFields";
-import { tokenizeFormula, type FormulaToken } from "./formulaTokens";
+import {
+  escapeFormulaId,
+  quoteFormulaId,
+  tokenizeFormula,
+  type FormulaToken,
+} from "./formulaTokens";
 
 /* ------------------------------------------------------------------ */
 /* Public types                                                        */
@@ -607,28 +613,10 @@ export function formulaCatalogForConfig(config: NetworkConfig): FormulaCatalog {
 /* Insertion text / escaping                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * Escape an id for inclusion in a formula string literal delimited by
- * `quote`.  Matches the decode semantics of core/usercode/expression.ts and
- * ui/formulaTokens.ts: backslash and the active quote are backslash-escaped,
- * newline/tab use their special escapes; every other character (including
- * the OTHER quote and \r) stays literal.
- */
-export function escapeFormulaId(id: string, quote: "'" | '"' = "'"): string {
-  let out = "";
-  for (const ch of String(id)) {
-    if (ch === "\\" || ch === quote) out += `\\${ch}`;
-    else if (ch === "\n") out += "\\n";
-    else if (ch === "\t") out += "\\t";
-    else out += ch;
-  }
-  return out;
-}
-
-/** Fully quoted + escaped id literal, e.g. 'seg1' or 'we\\'ird'. */
-export function quoteFormulaId(id: string, quote: "'" | '"' = "'"): string {
-  return `${quote}${escapeFormulaId(id, quote)}${quote}`;
-}
+// escapeFormulaId / quoteFormulaId live in core/usercode/formulaTokens.ts
+// (the encode side of its decodeStringLiteral) so core-side transforms
+// share them; re-exported here for existing UI consumers of this module.
+export { escapeFormulaId, quoteFormulaId };
 
 /** Complete reference source, e.g. pipe('seg1').volume or reg('gain'). */
 export function referenceSource(
@@ -671,8 +659,8 @@ export function applyFormulaCompletion(
 
 /**
  * Decode a string literal's raw inner text — mirrors decodeStringLiteral in
- * ui/formulaTokens.ts / core/usercode/expression.ts (\n and \t special, any
- * other escaped char stands for itself).
+ * core/usercode/formulaTokens.ts / core/usercode/expression.ts (\n and \t
+ * special, any other escaped char stands for itself).
  */
 function decodeLiteralInner(raw: string): string {
   let out = "";

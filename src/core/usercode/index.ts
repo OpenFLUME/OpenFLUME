@@ -7,6 +7,8 @@
  *   sandbox.ts       User-defined component compiler (defineComponent /
  *                   compileUserComponent) backing components/userDefinedComponent.ts,
  *                   plus syntax-only checking for the UI editor.
+ *   rewriteIds.ts    Entity-id rewriting inside formula expressions
+ *                   (rewriteExpressionIds) for authoring transforms.
  */
 export {
   ExpressionError,
@@ -38,3 +40,5 @@ export type {
   UserHeatArgs,
   UserComponentDefinition,
 } from "./sandbox";
+
+export { rewriteExpressionIds } from "./rewriteIds";

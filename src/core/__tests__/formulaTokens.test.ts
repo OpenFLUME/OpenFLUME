@@ -6,7 +6,7 @@ import {
   removeSegmentSource,
   explodeSegmentSource,
   type FormulaSegment,
-} from "../formulaTokens";
+} from "../usercode/formulaTokens";
 
 /** Collect the chip segments of a segmentation result. */
 function chipsOf(
@@ -96,6 +96,8 @@ describe("segmentFormula", () => {
         chip: {
           accessor: "pipe",
           id: "inlet",
+          idStart: 5,
+          idEnd: 12,
           properties: ["diameter"],
           label: "inlet · diameter",
         },
@@ -127,6 +129,8 @@ describe("segmentFormula", () => {
     expect(chipsOf(reg)[0].chip).toEqual({
       accessor: "reg",
       id: "coolant flow",
+      idStart: 4,
+      idEnd: 18,
       properties: [],
       label: "coolant flow",
     });
@@ -143,6 +147,8 @@ describe("segmentFormula", () => {
         chip: {
           accessor: "conductor",
           id: "wall1",
+          idStart: 10,
+          idEnd: 17,
           properties: ["correlation", "diameter"],
           label: "wall1 · diameter",
         },
@@ -187,6 +193,32 @@ describe("segmentFormula", () => {
     expect(chips).toHaveLength(1);
     expect(chips[0].chip.id).toBe("a'b");
     expect(src.slice(chips[0].start, chips[0].end)).toBe(src);
+  });
+
+  it("exposes the exact id-literal span (quotes included) on every chip", () => {
+    // slice(idStart, idEnd) is the literal as written, so in-place rewrites
+    // can preserve the original quote style (see usercode/rewriteIds.ts).
+    const cases: Array<{ src: string; literal: string }> = [
+      { src: "pipe('inlet').diameter", literal: "'inlet'" },
+      { src: 'node("n1").volume', literal: '"n1"' },
+      { src: String.raw`node('a\'b').volume`, literal: String.raw`'a\'b'` },
+      { src: "  pipe( 'a' ) . diameter  ", literal: "'a'" },
+      { src: "reg('coolant flow')", literal: "'coolant flow'" },
+      {
+        src: "conductor('w').correlation.diameter",
+        literal: "'w'",
+      },
+    ];
+    for (const { src, literal } of cases) {
+      const chips = chipsOf(segmentFormula(src));
+      expect(chips, src).toHaveLength(1);
+      expect(src.slice(chips[0].chip.idStart, chips[0].chip.idEnd)).toBe(
+        literal,
+      );
+      // The span always sits inside the chip's own span.
+      expect(chips[0].chip.idStart).toBeGreaterThanOrEqual(chips[0].start);
+      expect(chips[0].chip.idEnd).toBeLessThanOrEqual(chips[0].end);
+    }
   });
 
   it("keeps malformed and incomplete references as plain text", () => {
