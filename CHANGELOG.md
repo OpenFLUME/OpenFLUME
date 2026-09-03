@@ -26,8 +26,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   **Link parameters to the first instance** checkbox, on by default — copied
   literal parameters bound to instance 1 as `{ "expr": "pipe('seg1').length" }`-style
   formulas, so retuning the first segment retunes the whole line. A pipe or
-  heated pipe can instead be split in place from the property panel's
-  **Discretize** section, which divides the extensive fields (length,
+  heated pipe can instead be split in place via **Split…** in the canvas
+  selection-actions menu, which divides the extensive fields (length,
   elevation change, and a heated pipe's `ua`) across the segments rather than
   duplicating them. Each operation is a single undo step. Known limitations
   (series chaining only; controllers, logic rules, and reacting junctions are

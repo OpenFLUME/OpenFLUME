@@ -7,12 +7,16 @@
  *  2. A repeat is ONE undo step: Ctrl/Cmd+Z reverts the whole chain.
  *  3. A selection with no unambiguous seam (two branches enter the unit)
  *     leaves the Repeat menu action disabled with the reason as its tooltip.
- *  4. Split pipe: the property panel's Discretize section divides a pipe
- *     into N series segments (inserting mid nodes and seam pipes) and the
- *     model still runs.
+ *  4. Split pipe: the selection menu's **Split…** action opens a dialog
+ *     that divides a pipe into N series segments (inserting mid nodes and
+ *     seam pipes) and the model still runs.
  *  5. Persistence: a repeated model saves to the unchanged .fn format
  *     (parameter links included) and reloads to the same, still-solvable
  *     network.
+ *  6. The Repeat dialog and Split dialog warn exactly when a controller
+ *     references the unit/branch.
+ *  7. Split is not offered for non-pipe branches (orifice, valve) or node
+ *     selections — the menu action is disabled with the reason as tooltip.
  */
 import { test, expect, Page } from "@playwright/test";
 import * as fs from "fs";
@@ -198,6 +202,64 @@ const MERGE_CONFIG = {
   ],
 };
 
+/** A line of non-splittable branches: B1 --orifice--> n1 --valve--> B2. */
+const NON_PIPE_CONFIG = {
+  meta: { name: "Non-pipe line", version: 2 },
+  settings: {
+    mode: "steady",
+    tolerance: 1e-8,
+    maxIterations: 100,
+    relaxation: 0.9,
+  },
+  fluid: { model: "incompressible", preset: "water" },
+  nodes: [
+    {
+      id: "B1",
+      type: "boundary",
+      x: 250,
+      y: 400,
+      pressure: 200000,
+      temperature: 300,
+      label: "In",
+    },
+    {
+      id: "n1",
+      type: "internal",
+      x: 450,
+      y: 400,
+      pressure: 150000,
+      temperature: 300,
+      volume: 0.001,
+      label: "Mid",
+    },
+    {
+      id: "B2",
+      type: "boundary",
+      x: 650,
+      y: 400,
+      pressure: 100000,
+      temperature: 300,
+      label: "Out",
+    },
+  ],
+  branches: [
+    {
+      id: "or1",
+      from: "B1",
+      to: "n1",
+      component: { type: "orifice", area: 1e-3, cd: 0.6 },
+      label: "Orifice",
+    },
+    {
+      id: "v1",
+      from: "n1",
+      to: "B2",
+      component: { type: "valve", area: 1e-3, cd: 0.6, position: 1 },
+      label: "Valve",
+    },
+  ],
+};
+
 async function injectConfig(page: Page, config: unknown) {
   await page.evaluate((cfg) => {
     localStorage.setItem("fluids-network-config-v1", JSON.stringify(cfg));
@@ -365,15 +427,21 @@ test.describe("Repeat and split (discretize)", () => {
 
     await selectBranch(page, "seg1");
 
-    // The property panel's inline Discretize section: count, live summary,
-    // and the divided-not-duplicated hint.
+    // The selection menu's Split… action opens the dialog: count, live
+    // summary, and the confirm button.
+    const splitAction = page.locator('[data-testid="split-menu-action"]');
+    await expect(splitAction).toBeEnabled();
+    await splitAction.click();
+    await expect(page.locator('[data-testid="split-dialog"]')).toBeVisible();
     const segments = page.locator('[data-testid="split-segments"]');
-    await expect(segments).toBeVisible();
     await segments.fill("3");
     await expect(page.locator('[data-testid="split-summary"]')).toContainText(
       "Creates 2 new nodes and 2 new pipes",
     );
-    await page.locator('[data-testid="split-apply"]').click();
+    await page.locator('[data-testid="split-dialog-accept"]').click();
+    await expect(
+      page.locator('[data-testid="split-dialog"]'),
+    ).not.toBeVisible();
     await page.waitForTimeout(300);
 
     // m1/m2 are the inserted mid nodes; seg1 survives as the last segment.
@@ -455,7 +523,7 @@ test.describe("Repeat and split (discretize)", () => {
     consoleWatcher.assertNoErrors();
   });
 
-  test("6. The Repeat dialog and Split section warn exactly when a controller references the unit", async ({
+  test("6. The Repeat dialog and Split dialog warn exactly when a controller references the unit", async ({
     page,
   }) => {
     const consoleWatcher = attachConsoleWatcher(page);
@@ -503,13 +571,49 @@ test.describe("Repeat and split (discretize)", () => {
     await expect(warning).toContainText("uncontrolled");
     await page.locator('[data-testid="repeat-dialog-cancel"]').click();
 
-    // Split section: the controller sensing seg1 keeps tracking only the
-    // last segment after a split — the section says so as well.
+    // Split dialog: the controller sensing seg1 keeps tracking only the
+    // last segment after a split — the dialog says so as well.
     await selectBranch(page, "seg1");
+    await page.locator('[data-testid="split-menu-action"]').click();
+    await expect(page.locator('[data-testid="split-dialog"]')).toBeVisible();
     const splitWarning = page.locator('[data-testid="split-uncloned-warning"]');
     await expect(splitWarning).toBeVisible();
     await expect(splitWarning).toContainText("Controller pid-flow");
     await expect(splitWarning).toContainText("last segment");
+    await page.locator('[data-testid="split-dialog-cancel"]').click();
+
+    consoleWatcher.assertNoErrors();
+  });
+
+  test("7. Split is not offered for non-pipe branches or node selections", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+    await injectConfig(page, NON_PIPE_CONFIG);
+
+    const splitAction = page.locator('[data-testid="split-menu-action"]');
+
+    // An orifice branch: disabled, with the actual component type named.
+    await selectBranch(page, "or1");
+    await expect(splitAction).toBeDisabled();
+    let tooltip = await splitAction.getAttribute("title");
+    expect(tooltip).toContain("Cannot split");
+    expect(tooltip).toContain("only pipe and heatedPipe");
+    expect(tooltip).toContain("orifice");
+
+    // A valve branch: same gate.
+    await selectBranch(page, "v1");
+    await expect(splitAction).toBeDisabled();
+    tooltip = await splitAction.getAttribute("title");
+    expect(tooltip).toContain("only pipe and heatedPipe");
+    expect(tooltip).toContain("valve");
+
+    // A node selection: the selection menu still appears (Duplicate, Delete),
+    // but Split is disabled with the single-branch reason.
+    await selectFluidNode(page, "n1");
+    await expect(splitAction).toBeDisabled();
+    tooltip = await splitAction.getAttribute("title");
+    expect(tooltip).toContain("select a single pipe or heated pipe branch");
 
     consoleWatcher.assertNoErrors();
   });

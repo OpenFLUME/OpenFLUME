@@ -123,7 +123,11 @@ import CanvasNote from "./CanvasNote";
 import PidSymbol from "./PidSymbol";
 import ComponentEditorDialog from "./ComponentEditorDialog";
 import RepeatDialog, { RepeatMenuAction } from "./RepeatDialog";
-import { analyzeRepeatSelection } from "../repeatSelection";
+import SplitPipeDialog, { SplitMenuAction } from "./SplitPipeDialog";
+import {
+  analyzeRepeatSelection,
+  analyzeSplitSelection,
+} from "../repeatSelection";
 import InteractiveChart, { type Series } from "./InteractiveChart";
 import { resolveChannel } from "../channels";
 import { formatChannelValue } from "../channelExplorer";
@@ -859,6 +863,19 @@ export default function FlowCanvas({
     [config, selection, canvasSelection],
   );
   const [repeatDialogOpen, setRepeatDialogOpen] = useState(false);
+
+  // ── Split-pipe (discretize one branch) ──────────────────────────────
+  // analyzeSplitSelection returns a fresh object per call, so it must be
+  // memoized here rather than used as a bare zustand selector.
+  const splittability = useMemo(
+    () => analyzeSplitSelection(config, selection, canvasSelection),
+    [config, selection, canvasSelection],
+  );
+  // The target branch is frozen when the dialog opens: a selection change
+  // while it is open must not swap (or unmount) the branch mid-edit.
+  const [splitDialogBranch, setSplitDialogBranch] = useState<string | null>(
+    null,
+  );
 
   const deleteSelected = useCallback(() => {
     if (selection.kind === "multi") {
@@ -2821,6 +2838,12 @@ export default function FlowCanvas({
               onClick={() => setRepeatDialogOpen(true)}
             />
           )}
+          {!groupId && (
+            <SplitMenuAction
+              splittability={splittability}
+              onClick={() => setSplitDialogBranch(splittability.branchId)}
+            />
+          )}
           {!groupId && canvasSelection.length > 0 && (
             <button
               type="button"
@@ -2966,6 +2989,13 @@ export default function FlowCanvas({
           config={config}
           repeatability={repeatability}
           onClose={() => setRepeatDialogOpen(false)}
+        />
+      )}
+      {splitDialogBranch && (
+        <SplitPipeDialog
+          config={config}
+          branchId={splitDialogBranch}
+          onClose={() => setSplitDialogBranch(null)}
         />
       )}
 

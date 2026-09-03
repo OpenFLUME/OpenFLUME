@@ -252,7 +252,7 @@ const REPEAT_COUNT_WORDING: CountWording = {
   minDetail: " (the original plus one copy)",
 };
 
-/** The split section's count is the TOTAL segment count, original included. */
+/** The split dialog's count is the TOTAL segment count, original included. */
 export const SPLIT_COUNT_WORDING: CountWording = {
   empty: "Enter the number of segments.",
   noun: "segments",
@@ -502,24 +502,62 @@ export function buildRepeatArgs(draft: RepeatDraft): RepeatArgsBuild {
 }
 
 /* ------------------------------------------------------------------ */
-/* Split-pipe section derivations (Phase 4b)                           */
+/* Split-pipe derivations (Phase 4b)                                   */
 /*                                                                     */
-/* Pure helpers behind the property panel's inline "Split into N       */
-/* segments" section: eligibility, the RESOLVED branch length behind   */
-/* the live summary, the summary text itself, and the final argument   */
-/* object handed to the store's splitBranch.                           */
+/* Pure helpers behind the selection menu's "Split into N segments"    */
+/* dialog: eligibility, the RESOLVED branch length behind the live     */
+/* summary, the summary text itself, and the final argument object     */
+/* handed to the store's splitBranch.                                  */
 /* ------------------------------------------------------------------ */
 
 /**
  * Split eligibility by component type — mirrors the gate in core
- * splitPipeBranch so the panel shows the section exactly when the store
+ * splitPipeBranch so the menu action is enabled exactly when the store
  * action could accept it.
  */
 export function isSplittableComponentType(type: string): boolean {
   return type === "pipe" || type === "heatedPipe";
 }
 
-/** Validate the split section's segment-count field (a string, as typed). */
+/** Button-state analysis for a would-be split of the current selection. */
+export interface Splittability {
+  /** The branch a split would divide (null when the selection is not
+   *  exactly one splittable branch). */
+  branchId: string | null;
+  /** Why a split is not offered (present iff `branchId` is null). */
+  reason?: string;
+}
+
+/**
+ * Fold the current selection into the Split menu action's state: enabled
+ * iff the selection is EXACTLY one branch (no canvas node selection, no
+ * multi selection) whose component is a pipe or heatedPipe — the same gate
+ * as core splitPipeBranch.  A stale canvas selection disables the action
+ * too: the selection menu then targets those nodes (Duplicate/Delete act
+ * on them), so the split target would be ambiguous.
+ */
+export function analyzeSplitSelection(
+  config: NetworkConfig,
+  selection: Selection,
+  canvasSelection: string[],
+): Splittability {
+  const no = (reason: string): Splittability => ({ branchId: null, reason });
+  if (selection.kind !== "branch" || canvasSelection.length > 0) {
+    return no("select a single pipe or heated pipe branch");
+  }
+  const branch = config.branches.find((b) => b.id === selection.id);
+  if (!branch) {
+    return no("select a single pipe or heated pipe branch");
+  }
+  if (!isSplittableComponentType(branch.component.type)) {
+    return no(
+      `only pipe and heatedPipe branches can be split — this branch's component is '${branch.component.type}'`,
+    );
+  }
+  return { branchId: branch.id };
+}
+
+/** Validate the split dialog's segment-count field (a string, as typed). */
 export function parseSplitCount(raw: string): RepeatCountParse {
   return parseCount(raw, SPLIT_COUNT_WORDING);
 }
@@ -556,7 +594,7 @@ export function resolvedBranchLength(
 }
 
 /**
- * Live summary for the split section: "Creates 9 new nodes and 9 new pipes;
+ * Live summary for the split dialog: "Creates 9 new nodes and 9 new pipes;
  * each segment 0.305 m."  A split into N segments inserts N−1 internal
  * nodes and N−1 seam pipes (the original branch survives as the last
  * segment).  The per-segment clause is omitted when `totalLength` is null —
@@ -576,7 +614,7 @@ export function splitSummaryText(
   return `Creates ${nodes} and ${pipes}${perSegment}.`;
 }
 
-/** Raw fields behind the split section (the input stays text while typing). */
+/** Raw fields behind the split dialog (the input stays text while typing). */
 export interface SplitDraft {
   segments: string;
   linkParams: boolean;
@@ -592,7 +630,7 @@ export type SplitArgsBuild =
   { ok: true; args: SplitArgs } | { ok: false; error: string };
 
 /**
- * Fold the section's raw fields into splitBranch arguments.  The apply
+ * Fold the dialog's raw fields into splitBranch arguments.  The confirm
  * button is enabled exactly when this returns ok, so the store action never
  * sees an invalid draft (same contract as buildRepeatArgs).
  */
@@ -614,7 +652,7 @@ export function buildSplitArgs(draft: SplitDraft): SplitArgsBuild {
 /* repeat of a unit one of them references therefore produces           */
 /* UNCONTROLLED copies (and a copied reacting-junction node is a plain  */
 /* internal node).  These helpers detect that situation so the Repeat   */
-/* dialog and the split section can warn exactly when it applies,       */
+/* dialog and the split dialog can warn exactly when it applies,        */
 /* rather than carrying a permanent scary notice.                       */
 /* ------------------------------------------------------------------ */
 
@@ -777,7 +815,7 @@ export function repeatUnclonedWarnings(
 }
 
 /**
- * The split section's warning sentences.  A split branch KEEPS its id (it
+ * The split dialog's warning sentences.  A split branch KEEPS its id (it
  * becomes the last segment), so a referencing record does not break — but
  * it then sees only that one segment, not the new ones upstream of it.
  */

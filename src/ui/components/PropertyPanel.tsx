@@ -17,7 +17,6 @@ import ConvectionModelEditor from "./ConvectionModelEditor";
 import MultiPropertyPanel from "./MultiPropertyPanel";
 import ScheduleEditor, { ScheduleRow as ScheduleRowT } from "./ScheduleEditor";
 import SolidPropertyField from "./SolidPropertyField";
-import SplitPipeSection from "./SplitPipeSection";
 import { NOTE_MIN_HEIGHT, NOTE_MIN_WIDTH } from "../canvasGeometry";
 import { convertToSI, convertFromSI } from "../units";
 import { formatWithUnit, formatSig, siNumber } from "../format";
@@ -2794,9 +2793,6 @@ export default function PropertyPanel() {
             />
           ))}
         </>
-      )}
-      {(comp.type === "pipe" || comp.type === "heatedPipe") && (
-        <SplitPipeSection config={config} branchId={branch.id} />
       )}
       <SelectionResults selection={selection} />
     </div>

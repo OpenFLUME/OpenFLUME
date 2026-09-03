@@ -1,25 +1,30 @@
 /**
- * SplitPipeSection — the property panel's inline "Split into N segments"
- * control (Phase 4b), plus the pure helpers behind it in
+ * SplitPipeDialog + SplitMenuAction — the selection menu's "Split into N
+ * segments" flow (Phase 4b), plus the pure helpers behind it in
  * ../repeatSelection.ts.
  *
  * The repo has no DOM test environment (every .test.tsx renders with
- * react-dom/server), so these tests split the section along the same line
+ * react-dom/server), so these tests split the dialog along the same line
  * the implementation does: the interactive shell is asserted on its SSR
- * HTML (gating by component type, defaults, the disabled/invalid wiring via
- * the initialSegments seed), and everything that would need a typed
- * keystroke — count validation, the live summary's count dependence, the
- * exact apply arguments — is pinned through the pure helpers that the
- * section's render/apply paths call directly.  The store-level flow (the
- * arguments splitBranch actually receives, the preserved totals, the
- * failure path) is exercised against the real store.
+ * HTML (dialog semantics, defaults, the disabled/invalid wiring via the
+ * initialSegments seed, the menu action's enabled/disabled tooltips), and
+ * everything that would need a typed keystroke — count validation, the live
+ * summary's count dependence, the exact confirm arguments — is pinned
+ * through the pure helpers that the dialog's render/confirm paths call
+ * directly.  The store-level flow (the arguments splitBranch actually
+ * receives, the preserved totals, the failure path) is exercised against
+ * the real store.  Escape-closes / Enter-confirms follow the shared
+ * ConfirmDialog keydown pattern and are covered by e2e, not here.
  */
 import { describe, it, expect, beforeEach } from "vitest";
 import { renderToString } from "react-dom/server";
 import type { ReactElement } from "react";
 import PropertyPanel from "../components/PropertyPanel";
-import SplitPipeSection from "../components/SplitPipeSection";
+import SplitPipeDialog, {
+  SplitMenuAction,
+} from "../components/SplitPipeDialog";
 import {
+  analyzeSplitSelection,
   buildSplitArgs,
   isSplittableComponentType,
   parseSplitCount,
@@ -124,15 +129,16 @@ function renderPanel(config: NetworkConfig, selection: Selection = P1) {
 }
 
 /**
- * SSR render of the section alone with its count field seeded (the repo has
- * no DOM to type into).  The section takes config by prop and only touches
- * the store inside apply, so no state seeding is needed here.
+ * SSR render of the dialog alone with its count field seeded (the repo has
+ * no DOM to type into).  The dialog takes config by prop and only touches
+ * the store inside confirm, so no state seeding is needed here.
  */
-function renderSection(config: NetworkConfig, segments: string) {
+function renderDialog(config: NetworkConfig, segments?: string) {
   return render(
-    <SplitPipeSection
+    <SplitPipeDialog
       config={config}
       branchId="p1"
+      onClose={() => {}}
       initialSegments={segments}
     />,
   );
@@ -284,17 +290,85 @@ describe("buildSplitArgs", () => {
 });
 
 /* ------------------------------------------------------------------ */
-/* Section rendering inside the property panel (react-dom/server)      */
+/* analyzeSplitSelection — the menu action's enabled/disabled state    */
 /* ------------------------------------------------------------------ */
 
-describe("SplitPipeSection in PropertyPanel", () => {
-  it("renders for a pipe branch", () => {
-    const html = renderPanel(pipeCfg());
+describe("analyzeSplitSelection", () => {
+  it("enables the split for exactly one selected pipe or heatedPipe branch", () => {
+    expect(analyzeSplitSelection(pipeCfg(), P1, [])).toEqual({
+      branchId: "p1",
+    });
+    expect(analyzeSplitSelection(heatedCfg(), P1, [])).toEqual({
+      branchId: "p1",
+    });
+  });
+
+  it("refuses non-pipe components (orifice, valve), naming the actual type", () => {
+    const orifice = cfgWith({ type: "orifice", area: 1e-3, cd: 0.6 });
+    const valve = cfgWith({ type: "valve", area: 1e-3, cd: 0.6, position: 1 });
+    for (const [cfg, type] of [
+      [orifice, "orifice"],
+      [valve, "valve"],
+    ] as const) {
+      const result = analyzeSplitSelection(cfg, P1, []);
+      expect(result.branchId).toBeNull();
+      expect(result.reason).toContain("only pipe and heatedPipe");
+      expect(result.reason).toContain(`'${type}'`);
+    }
+  });
+
+  it("refuses node, none, and multi selections — exactly one branch only", () => {
+    for (const selection of [
+      { kind: "node", id: "A" },
+      { kind: "none" },
+      {
+        kind: "multi",
+        items: [
+          { kind: "node", id: "A" },
+          { kind: "branch", id: "p1" },
+        ],
+      },
+    ] as Selection[]) {
+      const result = analyzeSplitSelection(pipeCfg(), selection, []);
+      expect(result.branchId).toBeNull();
+      expect(result.reason).toContain(
+        "select a single pipe or heated pipe branch",
+      );
+    }
+  });
+
+  it("refuses when a canvas node selection owns the menu, and for unknown branches", () => {
+    const stale = analyzeSplitSelection(pipeCfg(), P1, ["A"]);
+    expect(stale.branchId).toBeNull();
+    expect(stale.reason).toContain(
+      "select a single pipe or heated pipe branch",
+    );
+    const ghost = analyzeSplitSelection(
+      pipeCfg(),
+      { kind: "branch", id: "ghost" },
+      [],
+    );
+    expect(ghost.branchId).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* SplitPipeDialog rendering (react-dom/server)                        */
+/* ------------------------------------------------------------------ */
+
+describe("SplitPipeDialog", () => {
+  it("renders a labelled modal dialog with the expected test ids", () => {
+    const html = renderDialog(pipeCfg());
+    const dialog = tagOf(html, "split-dialog");
+    expect(dialog).toContain('role="dialog"');
+    expect(dialog).toContain('aria-modal="true"');
+    expect(dialog).toContain("aria-labelledby");
     for (const testid of [
       "split-segments",
       "split-link-params",
-      "split-apply",
       "split-summary",
+      "split-dialog-cancel",
+      "split-dialog-accept",
     ]) {
       expect(html).toContain(`data-testid="${testid}"`);
     }
@@ -302,36 +376,14 @@ describe("SplitPipeSection in PropertyPanel", () => {
   });
 
   it("renders for a heatedPipe branch with the UA preservation hint", () => {
-    const html = renderPanel(heatedCfg());
+    const html = renderDialog(heatedCfg());
     expect(html).toContain('data-testid="split-segments"');
     expect(html).toContain("Total length, elevation change and UA");
     expect(html).toContain("divided across the segments, not duplicated");
   });
 
-  it("does NOT render for non-pipe components (orifice, valve, pump)", () => {
-    const orifice = renderPanel(
-      cfgWith({ type: "orifice", area: 1e-3, cd: 0.6 }),
-    );
-    const valve = renderPanel(
-      cfgWith({ type: "valve", area: 1e-3, cd: 0.6, position: 1 }),
-    );
-    const pump = renderPanel(
-      cfgWith({
-        type: "pump",
-        curve: [
-          [0, 0],
-          [0.001, 100000],
-        ],
-      }),
-    );
-    for (const html of [orifice, valve, pump]) {
-      expect(html).not.toContain('data-testid="split-segments"');
-      expect(html).not.toContain('data-testid="split-apply"');
-    }
-  });
-
   it("bounds the count field 2…200 with the pipe's eventual role explained", () => {
-    const html = renderPanel(pipeCfg());
+    const html = renderDialog(pipeCfg());
     const count = tagOf(html, "split-segments");
     expect(count).toContain('type="number"');
     expect(count).toContain(`value="${REPEAT_COUNT_MIN}"`);
@@ -341,63 +393,135 @@ describe("SplitPipeSection in PropertyPanel", () => {
   });
 
   it("defaults link-parameters ON, consistent with the Repeat dialog", () => {
-    const html = renderPanel(pipeCfg());
+    const html = renderDialog(pipeCfg());
     expect(tagOf(html, "split-link-params")).toContain("checked");
     expect(html).toContain("Link parameters to the first segment");
     expect(html).toContain("Uncheck for independent segments");
   });
 
   it("shows the live summary with the literal per-segment length", () => {
-    const html = renderPanel(pipeCfg());
+    const html = renderDialog(pipeCfg());
     expect(html).toContain("Creates 1 new node and 1 new pipe");
     expect(html).toContain("each segment 0.5 m");
   });
 
   it("resolves an { expr } length for the summary rather than reading it raw", () => {
-    const html = renderPanel(exprLengthCfg());
+    const html = renderDialog(exprLengthCfg());
     expect(html).toContain("each segment 0.5 m");
   });
 
   it("scales the summary with the seeded count", () => {
-    const html = renderSection(cfgWith({ ...PIPE, length: 3.05 }), "10");
+    const html = renderDialog(cfgWith({ ...PIPE, length: 3.05 }), "10");
     expect(html).toContain("Creates 9 new nodes and 9 new pipes");
     expect(html).toContain("each segment 0.305 m");
   });
 
   it("degrades gracefully when the length cannot be resolved (no NaN)", () => {
-    const html = renderPanel(brokenLengthCfg());
+    const html = renderDialog(brokenLengthCfg());
     expect(html).toContain("Creates 1 new node and 1 new pipe.");
     expect(html).not.toContain("each segment");
     expect(html).not.toContain("NaN");
   });
 
-  it("enables apply for a valid count and shows no error", () => {
-    const html = renderPanel(pipeCfg());
-    expect(tagOf(html, "split-apply")).not.toContain("disabled");
+  it("enables confirm for a valid count and shows no error", () => {
+    const html = renderDialog(pipeCfg());
+    expect(tagOf(html, "split-dialog-accept")).not.toContain("disabled");
     expect(tagOf(html, "split-segments")).toContain('aria-invalid="false"');
   });
 
-  it("disables apply and shows the message for an invalid count", () => {
-    const low = renderSection(pipeCfg(), "1");
-    expect(tagOf(low, "split-apply")).toContain("disabled");
+  it("disables confirm and shows the message for an invalid count", () => {
+    const low = renderDialog(pipeCfg(), "1");
+    expect(tagOf(low, "split-dialog-accept")).toContain("disabled");
     expect(tagOf(low, "split-segments")).toContain('aria-invalid="true"');
     expect(low).toContain("Split needs at least 2 segments");
     expect(low).toContain('role="alert"');
 
-    const fractional = renderSection(pipeCfg(), "2.5");
-    expect(tagOf(fractional, "split-apply")).toContain("disabled");
+    const fractional = renderDialog(pipeCfg(), "2.5");
+    expect(tagOf(fractional, "split-dialog-accept")).toContain("disabled");
     expect(fractional).toContain("Segments must be an integer");
   });
 });
 
 /* ------------------------------------------------------------------ */
-/* Apply flow against the store                                        */
+/* SplitMenuAction — the FlowCanvas selection-menu entry point         */
 /* ------------------------------------------------------------------ */
 
-describe("apply flow against the store", () => {
+describe("SplitMenuAction", () => {
+  it("is enabled with an affirmative tooltip for a splittable branch", () => {
+    const html = render(
+      <SplitMenuAction
+        splittability={analyzeSplitSelection(pipeCfg(), P1, [])}
+        onClick={() => {}}
+      />,
+    );
+    const tag = tagOf(html, "split-menu-action");
+    expect(tag).not.toContain("disabled");
+    expect(tag).toContain("Split the branch into equal series segments");
+    expect(html).toContain("Split…");
+  });
+
+  it("is disabled with the reason as tooltip for a non-pipe branch", () => {
+    const cfg = cfgWith({ type: "orifice", area: 1e-3, cd: 0.6 });
+    const html = render(
+      <SplitMenuAction
+        splittability={analyzeSplitSelection(cfg, P1, [])}
+        onClick={() => {}}
+      />,
+    );
+    const tag = tagOf(html, "split-menu-action");
+    expect(tag).toContain("disabled");
+    expect(tag).toContain("Cannot split: only pipe and heatedPipe");
+  });
+
+  it("says what is missing when the selection is not a single branch", () => {
+    const html = render(
+      <SplitMenuAction
+        splittability={analyzeSplitSelection(
+          pipeCfg(),
+          { kind: "node", id: "A" },
+          [],
+        )}
+        onClick={() => {}}
+      />,
+    );
+    const tag = tagOf(html, "split-menu-action");
+    expect(tag).toContain("disabled");
+    expect(tag).toContain("select a single pipe or heated pipe branch");
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* The property panel no longer carries a split control — the verb     */
+/* lives in the canvas selection menu.                                  */
+/* ------------------------------------------------------------------ */
+
+describe("PropertyPanel without a split section", () => {
+  it("shows no Discretize section for a pipe or heatedPipe branch", () => {
+    for (const cfg of [pipeCfg(), heatedCfg()]) {
+      const html = renderPanel(cfg);
+      expect(html).not.toContain("Discretize");
+      expect(html).not.toContain("Split into segments");
+      for (const testid of [
+        "split-segments",
+        "split-link-params",
+        "split-summary",
+        "split-dialog",
+        "split-dialog-accept",
+      ]) {
+        expect(html).not.toContain(`data-testid="${testid}"`);
+      }
+    }
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* Confirm flow against the store                                      */
+/* ------------------------------------------------------------------ */
+
+describe("confirm flow against the store", () => {
   beforeEach(() => loadConfig(pipeCfg()));
 
-  it("splitBranch accepts the section's default arguments verbatim", () => {
+  it("splitBranch accepts the dialog's default arguments verbatim", () => {
     const s = () => useStore.getState();
     const built = buildSplitArgs({
       segments: String(REPEAT_COUNT_MIN),
@@ -478,8 +602,9 @@ describe("apply flow against the store", () => {
   });
 
   it("a failed split surfaces the error and leaves the model untouched", () => {
-    // The panel never shows the section for an orifice, but the store action
-    // is the real gate: a stale panel (type changed mid-edit) must fail safe.
+    // The menu action never offers a split for an orifice, but the store
+    // action is the real gate: a stale dialog (type changed mid-edit) must
+    // fail safe.
     loadConfig(cfgWith({ type: "orifice", area: 1e-3, cd: 0.6 }));
     const s = () => useStore.getState();
     const before = s().config;
@@ -490,7 +615,7 @@ describe("apply flow against the store", () => {
       linkParams: built.args.linkParams,
     });
     expect(res).toBeNull();
-    // What the section surfaces as its submit error (duplicateNotice).
+    // What the dialog surfaces as its submit error (duplicateNotice).
     expect(s().duplicateNotice).toBe(
       "Cannot split branch: only pipe and heatedPipe branches can be split ('p1' is a orifice)",
     );
@@ -545,16 +670,16 @@ describe("splitUnclonedWarnings", () => {
   });
 });
 
-describe("SplitPipeSection uncloned-record warning", () => {
+describe("SplitPipeDialog uncloned-record warning", () => {
   it("shows the targeted warning when the branch is controller-referenced", () => {
-    const html = renderSection(sensedCfg(), "2");
+    const html = renderDialog(sensedCfg(), "2");
     expect(tagOf(html, "split-uncloned-warning")).toContain('role="note"');
     expect(html).toContain("Controller pid1 references this branch");
     expect(html).toContain("sees only the last segment");
   });
 
   it("renders no warning for an unreferenced branch", () => {
-    const html = renderSection(pipeCfg(), "2");
+    const html = renderDialog(pipeCfg(), "2");
     expect(html).not.toContain('data-testid="split-uncloned-warning"');
   });
 });

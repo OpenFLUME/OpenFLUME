@@ -1127,8 +1127,10 @@ Linking interacts with two other features worth knowing about:
   re-point those fields by hand afterwards).
 
 **Split pipe.** For the common case — one pipe that needs more resolution and
-nothing else — the property panel's **Discretize** section splits a selected
-pipe or heated pipe into N equal series segments in place: N−1 internal nodes
+nothing else — select the pipe and choose **Split…** from the canvas
+selection-actions menu (the same menu as **Duplicate** and **Repeat…**). The
+dialog asks for the segment count and splits a selected pipe or heated pipe
+into N equal series segments in place: N−1 internal nodes
 and N−1 new pipes are inserted, and the original branch keeps its id as the
 last segment. The extensive quantities are _divided_, not duplicated — total
 length, elevation change, and a heated pipe's $UA$ come out of the split
@@ -1147,7 +1149,7 @@ volume to its own upstream pipe, so a split line stays transient-ready.
   retargeted.** They are top-level records keyed by id (sections 3.8 and
   3.9.2), and Repeat touches only nodes, solid nodes, branches, and
   conductors — a copied valve arrives uncontrolled, and a copy of a combustor
-  node is a plain internal node. The Repeat dialog and the Split section warn
+  node is a plain internal node. The Repeat dialog and the Split dialog warn
   when the unit you are about to copy is actually referenced by one of these
   records; the copies themselves are always left out of them.
 - **Discretize on Base.** Repeating or splitting while a named variant is
@@ -2113,7 +2115,8 @@ through when exactly one does.
 **To select,** click an element; shift-click adds to the selection, and the
 **Select** tool allows marquee selection. A selection-actions menu offers
 **Duplicate**, **Repeat…** (chain the selected unit into N series instances —
-section 3.13), **Create subnetwork**, and **Delete**.
+section 3.13), **Split…** (divide a selected pipe or heated pipe into N equal
+series segments — section 3.13), **Create subnetwork**, and **Delete**.
 
 **Groups.** Select two or more nodes and create a subnetwork; a colored container
 appears. Double-click the container — or use **Open Tab** in its property panel —
@@ -2183,11 +2186,11 @@ frictionless pipe, so an emptied field must not read as one. A **Tapered
 outlet** checkbox reveals **Outlet Diameter** (`diameterOut`); friction uses the
 mean diameter, and the hint says whether the endpoint areas are currently
 feeding the acceleration and kinetic-energy terms. Heated pipes add a **Boiling
-model** selector of **UA·ΔT only** or **Miropolskii film boiling**. Pipes and
-heated pipes also carry a **Discretize** section: **Split into segments**
-divides the branch into N equal series segments, with length, elevation
-change, and $UA$ divided across the segments rather than duplicated
-(section 3.13).
+model** selector of **UA·ΔT only** or **Miropolskii film boiling**. Splitting a
+pipe or heated pipe into segments is an action, not a property: select the
+branch and choose **Split…** from the canvas selection-actions menu — length,
+elevation change, and $UA$ are divided across the segments rather than
+duplicated (section 3.13).
 
 A `customResistance` branch edits its K(Re) curve in place, as a Reynolds/K
 point grid beside a readout of the point count, the Reynolds span, and the K the
