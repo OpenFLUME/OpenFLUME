@@ -182,6 +182,13 @@ export type {
   FindingSeverity,
   FindingTarget,
 } from "./resultFindings";
+export { repeatUnit, analyzeRepeatUnit, splitPipeBranch } from "./repeat";
+export type {
+  RepeatMembers,
+  RepeatOptions,
+  RepeatResult,
+  RepeatAnalysis,
+} from "./repeat";
 export {
   withDerivedGeometry,
   derivedAxialPosition,
