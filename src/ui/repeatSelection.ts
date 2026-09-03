@@ -6,7 +6,12 @@
  * zustand: everything here is a plain function of (config, selection).
  */
 import type { NetworkConfig, RepeatMembers } from "../core";
-import { analyzeRepeatUnit, previewNetworkParameters } from "../core";
+import {
+  analyzeRepeatUnit,
+  previewNetworkParameters,
+  validateRepeatUnit,
+  validateSplitBranch,
+} from "../core";
 import type { Selection } from "./types";
 import { formatSig } from "./format";
 import { segmentFormula } from "./formulaTokens";
@@ -93,10 +98,18 @@ export interface Repeatability {
 }
 
 /**
- * Run analyzeRepeatUnit against the current selection and fold the result
+ * Run the unit derivation against the current selection and fold the result
  * into a single canRepeat/seamBranch/reason triple, so a Repeat button can
  * be enabled/disabled and a dialog can pre-fill the seam without
  * re-implementing the derivation.
+ *
+ * Enablement is predicted by the SAME predicate that executes the repeat —
+ * core validateRepeatUnit, called with the exact members, seam and "share"
+ * crossing mode the store's repeatSelection action uses — so every topology
+ * guard (boundary members, cross-namespace id collisions, exit-node and
+ * reachability failures, …) disables the button with the verbatim error as
+ * its reason instead of failing after the dialog.  The invariant is pinned
+ * by ui/tests/repeatGuardParity.test.ts.
  */
 export function analyzeRepeatSelection(
   config: NetworkConfig,
@@ -117,7 +130,8 @@ export function analyzeRepeatSelection(
   }
   const analysis = analyzeRepeatUnit(config, members);
   if (!analysis.ok) return no(analysis.error);
-  // An explicitly selected entry branch disambiguates the seam.
+  // An explicitly selected ENTRY branch disambiguates the seam; two or more
+  // selected entry branches are contradictory.
   const explicit = selectedBranches.filter((id) =>
     analysis.entryCrossings.includes(id),
   );
@@ -126,16 +140,24 @@ export function analyzeRepeatSelection(
       `multiple selected branches enter the unit: ${explicit.join(", ")}`,
     );
   }
+  // A selected branch that does NOT enter the unit would be rejected as the
+  // seam at execution time — surface that exact error now rather than
+  // silently falling back to the derived seam and ignoring the user's pick.
+  if (explicit.length === 0 && selectedBranches.length > 0) {
+    const rejected = validateRepeatUnit(
+      config,
+      members,
+      selectedBranches[0]!,
+      "share",
+    );
+    if (!rejected.ok) return no(rejected.error);
+  }
   const seamBranch = explicit.length === 1 ? explicit[0]! : analysis.seamBranch;
   if (seamBranch === null) {
     return no(analysis.seamError ?? "no seam branch could be derived");
   }
-  if (analysis.exitNode === null) {
-    return no(
-      analysis.exitError ?? "cannot determine the unit's exit node",
-      seamBranch,
-    );
-  }
+  const validation = validateRepeatUnit(config, members, seamBranch, "share");
+  if (!validation.ok) return no(validation.error, seamBranch);
   return { canRepeat: true, seamBranch, members };
 }
 
@@ -531,10 +553,12 @@ export interface Splittability {
 /**
  * Fold the current selection into the Split menu action's state: enabled
  * iff the selection is EXACTLY one branch (no canvas node selection, no
- * multi selection) whose component is a pipe or heatedPipe — the same gate
- * as core splitPipeBranch.  A stale canvas selection disables the action
- * too: the selection menu then targets those nodes (Duplicate/Delete act
- * on them), so the split target would be ambiguous.
+ * multi selection) that core validateSplitBranch accepts — the same
+ * predicate splitPipeBranch runs (known id, pipe/heatedPipe component, no
+ * dangling endpoints), so the menu can never offer a split the store action
+ * would reject.  A stale canvas selection disables the action too: the
+ * selection menu then targets those nodes (Duplicate/Delete act on them),
+ * so the split target would be ambiguous.
  */
 export function analyzeSplitSelection(
   config: NetworkConfig,
@@ -545,16 +569,9 @@ export function analyzeSplitSelection(
   if (selection.kind !== "branch" || canvasSelection.length > 0) {
     return no("select a single pipe or heated pipe branch");
   }
-  const branch = config.branches.find((b) => b.id === selection.id);
-  if (!branch) {
-    return no("select a single pipe or heated pipe branch");
-  }
-  if (!isSplittableComponentType(branch.component.type)) {
-    return no(
-      `only pipe and heatedPipe branches can be split — this branch's component is '${branch.component.type}'`,
-    );
-  }
-  return { branchId: branch.id };
+  const validity = validateSplitBranch(config, selection.id);
+  if (!validity.ok) return no(validity.error);
+  return { branchId: validity.branch.id };
 }
 
 /** Validate the split dialog's segment-count field (a string, as typed). */

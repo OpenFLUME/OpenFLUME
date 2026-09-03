@@ -617,7 +617,7 @@ describe("confirm flow against the store", () => {
     expect(res).toBeNull();
     // What the dialog surfaces as its submit error (duplicateNotice).
     expect(s().duplicateNotice).toBe(
-      "Cannot split branch: only pipe and heatedPipe branches can be split ('p1' is a orifice)",
+      "Cannot split branch: only pipe and heatedPipe branches can be split ('p1' is a 'orifice')",
     );
     expect(s().config).toBe(before);
     expect(validateNetwork(s().config)).toEqual([]);

@@ -513,7 +513,12 @@ function cloneConductor(
 /* Analysis                                                            */
 /* ------------------------------------------------------------------ */
 
-interface FullAnalysis {
+/**
+ * The full member/crossing analysis behind a candidate unit.  Returned by
+ * {@link validateRepeatUnit} so repeatUnit (and tests) can act on the
+ * validated topology without re-deriving it.
+ */
+export interface RepeatUnitAnalysis {
   memberNodes: FluidNode[];
   memberSolids: SolidNode[];
   inducedBranches: Branch[];
@@ -530,7 +535,7 @@ interface FullAnalysis {
 function analyzeMembers(
   config: NetworkConfig,
   members: RepeatMembers,
-): { ok: true; analysis: FullAnalysis } | { ok: false; error: string } {
+): { ok: true; analysis: RepeatUnitAnalysis } | { ok: false; error: string } {
   const nodeIds = Array.isArray(members?.nodes) ? members.nodes : [];
   const solidIds = Array.isArray(members?.solidNodes) ? members.solidNodes : [];
   if (nodeIds.length + solidIds.length === 0) {
@@ -696,6 +701,181 @@ export function analyzeRepeatUnit(
 }
 
 /* ------------------------------------------------------------------ */
+/* validateRepeatUnit — the ONE guard set                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The outcome of validating a candidate unit against a concrete seam.
+ * On success the caller gets the resolved seam, the exit node and the full
+ * analysis, so executing the repeat never re-derives (or disagrees with)
+ * what was validated.
+ */
+export type RepeatUnitValidation =
+  | {
+      ok: true;
+      /** The validated seam branch id (`null` in Duplicate mode). */
+      seamBranch: string | null;
+      /**
+       * The unit's exit node.  Always set when `seamBranch` is set (chaining
+       * needs it); informational only in Duplicate mode, where exit
+       * rewiring does not happen and an underivable exit is not an error.
+       */
+      exitNode: string | null;
+      analysis: RepeatUnitAnalysis;
+    }
+  | { ok: false; error: string };
+
+/**
+ * EVERY guard repeatUnit (count ≥ 2) can reject on, in one place, so the
+ * UI's Repeat-button enablement (ui/repeatSelection.ts) and the execution
+ * path can never drift apart: `analyzeRepeatSelection` reports
+ * `canRepeat: true` for exactly the (members, seam) pairs this accepts, and
+ * repeatUnit returns this function's error verbatim.  When you add a guard
+ * here, add a row to ui/tests/repeatGuardParity.test.ts — that suite pins
+ * the UI's reason to this function's wording for every rejection.
+ *
+ * `seamBranch: null` is Duplicate mode: only the member set itself is
+ * validated (a free-floating copy of a boundary node is legitimate, and
+ * neither the exit node nor reachability matters without chaining).
+ * `crossingConductors` must match the intended execution mode: the
+ * shared-crossing collision guard applies only in "share" mode (the mode
+ * the store's repeatSelection always uses).  Never throws.
+ */
+export function validateRepeatUnit(
+  config: NetworkConfig,
+  members: RepeatMembers,
+  seamBranch: string | null,
+  crossingConductors: "share" | "drop",
+): RepeatUnitValidation {
+  try {
+    const analysisResult = analyzeMembers(config, members);
+    if (!analysisResult.ok) {
+      return { ok: false, error: analysisResult.error };
+    }
+    const analysis = analysisResult.analysis;
+
+    // Duplicate mode: no seam cloning, no exit rewiring — the member-set
+    // guards above are the whole story.
+    if (seamBranch === null) {
+      return {
+        ok: true,
+        seamBranch: null,
+        exitNode: analysis.exitNode,
+        analysis,
+      };
+    }
+
+    // An explicit seam must be one of the entry crossings.
+    const seam = analysis.entryCrossings.find((b) => b.id === seamBranch);
+    if (!seam) {
+      const entries =
+        analysis.entryCrossings.length === 0
+          ? "none — no branch enters the unit"
+          : analysis.entryCrossings.map((b) => b.id).join(", ");
+      return {
+        ok: false,
+        error: `seam branch '${seamBranch}' is not a branch entering the unit (entry crossings: ${entries})`,
+      };
+    }
+
+    // A chained unit must not contain a BOUNDARY fluid node: Repeat/Split
+    // clone the members per instance, and a cloned pressure/temperature
+    // boundary in the middle of the chain silently re-imposes the boundary
+    // condition on every segment.  Duplicate (seamBranch: null) is
+    // unaffected — free-floating copies of a boundary are legitimate.
+    const boundaryMembers = analysis.memberNodes.filter(
+      (n) => n.type === "boundary",
+    );
+    if (boundaryMembers.length > 0) {
+      return {
+        ok: false,
+        error: `the unit contains boundary node(s) ${boundaryMembers
+          .map((n) => n.id)
+          .join(
+            ", ",
+          )} — chaining would clone the boundary condition into every instance; use Duplicate instead`,
+      };
+    }
+
+    if (analysis.exitNode === null) {
+      return {
+        ok: false,
+        error: analysis.exitError ?? "cannot determine the unit's exit node",
+      };
+    }
+
+    // Reachability guard: instance i is fed from instance i−1's exit node
+    // through the seam clone, so EVERY member fluid node must be reachable
+    // from the seam's target along the unit's own (induced) branches —
+    // otherwise its per-instance copies have no inflow at all (orphaned
+    // zero-inflow nodes).  The exit node is itself a fluid member, so this
+    // single check subsumes exit-node reachability.
+    const reachable = new Set<string>([seam.to]);
+    const stack = [seam.to];
+    while (stack.length > 0) {
+      const at = stack.pop()!;
+      for (const b of analysis.inducedBranches) {
+        if (b.from === at && !reachable.has(b.to)) {
+          reachable.add(b.to);
+          stack.push(b.to);
+        }
+      }
+    }
+    const orphaned = analysis.memberNodes.filter((n) => !reachable.has(n.id));
+    if (orphaned.length > 0) {
+      return {
+        ok: false,
+        error: `member node(s) ${orphaned
+          .map((n) => `'${n.id}'`)
+          .join(
+            ", ",
+          )} are not reachable from the seam's target '${seam.to}' along branches inside the unit — their copies would have no inflow`,
+      };
+    }
+
+    // The seam branch and (when shared) the crossing conductors also enter
+    // the per-instance id map, so the cross-namespace uniqueness that
+    // analyzeMembers enforced among the unit's own entities must extend to
+    // them (see the collision guard there for why).
+    const unitEntityIds = new Set<string>([
+      ...analysis.memberNodes.map((n) => n.id),
+      ...analysis.memberSolids.map((s) => s.id),
+      ...analysis.inducedBranches.map((b) => b.id),
+      ...analysis.inducedConductors.map((c) => c.id),
+    ]);
+    if (unitEntityIds.has(seam.id)) {
+      return {
+        ok: false,
+        error:
+          `the seam branch '${seam.id}' shares its id with another unit entity — ` +
+          "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
+      };
+    }
+    if (crossingConductors === "share") {
+      for (const c of analysis.crossingConductors) {
+        if (unitEntityIds.has(c.id)) {
+          return {
+            ok: false,
+            error:
+              `the crossing conductor '${c.id}' shares its id with another unit entity — ` +
+              "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
+          };
+        }
+      }
+    }
+
+    return {
+      ok: true,
+      seamBranch: seam.id,
+      exitNode: analysis.exitNode,
+      analysis,
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /* repeatUnit                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -725,10 +905,6 @@ function repeatUnitInner(
       error: `count must be a positive integer (got ${String(count)})`,
     };
   }
-  const analysisResult = analyzeMembers(config, opts.members);
-  if (!analysisResult.ok) return { ok: false, error: analysisResult.error };
-  const analysis = analysisResult.analysis;
-
   const emptyCreated = {
     nodes: [] as string[],
     solidNodes: [] as string[],
@@ -736,10 +912,14 @@ function repeatUnitInner(
     conductors: [] as string[],
   };
 
-  // count === 1 is a strict no-op: the unit is validated but nothing is
-  // cloned, chained or rewired (any exit rewiring would target instance 1,
-  // i.e. be the identity), so seam/exit derivation is not required.
+  // count === 1 is a strict no-op: the member set is validated (empty /
+  // duplicate / unknown / colliding member ids still report), but nothing
+  // is cloned, chained or rewired (any exit rewiring would target instance
+  // 1, i.e. be the identity), so the chained-mode guards — seam validity,
+  // boundary members, exit node, reachability — are not required.
   if (count === 1) {
+    const membersOnly = analyzeMembers(config, opts.members);
+    if (!membersOnly.ok) return { ok: false, error: membersOnly.error };
     return {
       ok: true,
       config: structuredClone(config),
@@ -748,112 +928,30 @@ function repeatUnitInner(
     };
   }
 
-  // Seam resolution.  An explicit seam must be one of the entry crossings;
-  // seamBranch: null is Duplicate mode — no chaining, and every crossing
-  // (branch and conductor) is left attached to the template only.
+  // Seam resolution and every other topology guard live in ONE place —
+  // validateRepeatUnit — shared with the UI's Repeat-button enablement
+  // (ui/repeatSelection.ts), which validates with the same members, seam
+  // and "share" crossing mode the store action executes with.  An explicit
+  // seam must be one of the entry crossings; seamBranch: null is Duplicate
+  // mode — no chaining, and every crossing (branch and conductor) is left
+  // attached to the template only.
   const seamId = opts.seamBranch ?? null;
-  let seam: Branch | undefined;
-  let exitNode: string | undefined;
-  if (seamId !== null) {
-    seam = config.branches.find((b) => b.id === seamId);
-    if (!seam || !analysis.entryCrossings.includes(seam)) {
-      const entries =
-        analysis.entryCrossings.length === 0
-          ? "none — no branch enters the unit"
-          : analysis.entryCrossings.map((b) => b.id).join(", ");
-      return {
-        ok: false,
-        error: `seam branch '${seamId}' is not a branch entering the unit (entry crossings: ${entries})`,
-      };
-    }
-
-    // A chained unit must not contain a BOUNDARY fluid node: Repeat/Split
-    // clone the members per instance, and a cloned pressure/temperature
-    // boundary in the middle of the chain silently re-imposes the boundary
-    // condition on every segment.  Duplicate (seamBranch: null) is
-    // unaffected — free-floating copies of a boundary are legitimate.
-    const boundaryMembers = analysis.memberNodes.filter(
-      (n) => n.type === "boundary",
-    );
-    if (boundaryMembers.length > 0) {
-      return {
-        ok: false,
-        error: `cannot repeat a unit containing boundary node(s) ${boundaryMembers
-          .map((n) => n.id)
-          .join(
-            ", ",
-          )} — chaining would clone the boundary condition into every instance; use Duplicate (no seam) to copy them instead`,
-      };
-    }
-
-    if (analysis.exitNode === null) {
-      return {
-        ok: false,
-        error: analysis.exitError ?? "cannot determine the unit's exit node",
-      };
-    }
-    exitNode = analysis.exitNode;
-
-    // Reachability guard: instance i is fed from instance i−1's exit node
-    // through the seam clone, so EVERY member fluid node must be reachable
-    // from the seam's target along the unit's own (induced) branches —
-    // otherwise its per-instance copies have no inflow at all (orphaned
-    // zero-inflow nodes).  The exit node is itself a fluid member, so this
-    // single check subsumes exit-node reachability.
-    const reachable = new Set<string>([seam.to]);
-    const stack = [seam.to];
-    while (stack.length > 0) {
-      const at = stack.pop()!;
-      for (const b of analysis.inducedBranches) {
-        if (b.from === at && !reachable.has(b.to)) {
-          reachable.add(b.to);
-          stack.push(b.to);
-        }
-      }
-    }
-    const orphaned = analysis.memberNodes.filter((n) => !reachable.has(n.id));
-    if (orphaned.length > 0) {
-      return {
-        ok: false,
-        error: `cannot repeat: member node(s) ${orphaned
-          .map((n) => `'${n.id}'`)
-          .join(
-            ", ",
-          )} are not reachable from the seam's target '${seam.to}' along branches inside the unit — their copies would have no inflow`,
-      };
-    }
-
-    // The seam branch and (when shared) the crossing conductors also enter
-    // the per-instance id map, so the cross-namespace uniqueness that
-    // analyzeMembers enforced among the unit's own entities must extend to
-    // them (see the collision guard there for why).
-    const unitEntityIds = new Set<string>([
-      ...analysis.memberNodes.map((n) => n.id),
-      ...analysis.memberSolids.map((s) => s.id),
-      ...analysis.inducedBranches.map((b) => b.id),
-      ...analysis.inducedConductors.map((c) => c.id),
-    ]);
-    if (unitEntityIds.has(seam.id)) {
-      return {
-        ok: false,
-        error:
-          `the seam branch '${seam.id}' shares its id with another unit entity — ` +
-          "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
-      };
-    }
-    if (opts.crossingConductors === "share") {
-      for (const c of analysis.crossingConductors) {
-        if (unitEntityIds.has(c.id)) {
-          return {
-            ok: false,
-            error:
-              `the crossing conductor '${c.id}' shares its id with another unit entity — ` +
-              "repeat needs ids unique across the unit's nodes, solid nodes, branches and conductors; rename one of them",
-          };
-        }
-      }
-    }
-  }
+  const validation = validateRepeatUnit(
+    config,
+    opts.members,
+    seamId,
+    opts.crossingConductors,
+  );
+  if (!validation.ok) return { ok: false, error: validation.error };
+  const analysis = validation.analysis;
+  // validateRepeatUnit guarantees the seam is an entry crossing and (in
+  // chained mode) that the exit node was derivable.
+  const seam =
+    seamId !== null
+      ? analysis.entryCrossings.find((b) => b.id === seamId)!
+      : undefined;
+  const exitNode =
+    seam !== undefined ? (validation.exitNode ?? undefined) : undefined;
 
   const cfg = structuredClone(config);
   const taken = new Set<string>([
@@ -1022,6 +1120,44 @@ function repeatUnitInner(
 /* ------------------------------------------------------------------ */
 
 /**
+ * The branch gates a split applies — known id, pipe/heatedPipe component,
+ * both endpoints present — exported so the UI's Split-menu enablement
+ * (ui/repeatSelection.ts analyzeSplitSelection) runs the SAME predicate as
+ * splitPipeBranch and can never offer a split the core would reject.
+ * Segment-count validation is a separate, dialog-level concern
+ * (parseSplitCount) and stays out of this predicate.  Never throws.
+ */
+export type SplitBranchValidation =
+  { ok: true; branch: Branch } | { ok: false; error: string };
+
+export function validateSplitBranch(
+  config: NetworkConfig,
+  branchId: string,
+): SplitBranchValidation {
+  const branch = config.branches.find((b) => b.id === branchId);
+  if (!branch) {
+    return { ok: false, error: `unknown branch '${branchId}'` };
+  }
+  if (
+    branch.component.type !== "pipe" &&
+    branch.component.type !== "heatedPipe"
+  ) {
+    return {
+      ok: false,
+      error: `only pipe and heatedPipe branches can be split ('${branchId}' is a '${branch.component.type}')`,
+    };
+  }
+  const nodeIds = new Set(config.nodes.map((n) => n.id));
+  if (!nodeIds.has(branch.from) || !nodeIds.has(branch.to)) {
+    return {
+      ok: false,
+      error: `branch '${branchId}' has dangling endpoint(s)`,
+    };
+  }
+  return { ok: true, branch };
+}
+
+/**
  * Split a pipe/heatedPipe branch into `segments` series segments of equal
  * length, dividing the EXTENSIVE fields — length, elevationChange and a
  * heatedPipe's ua (U·A ∝ π·D·L, the wall heat-leak conductance) — so the
@@ -1077,27 +1213,24 @@ function splitPipeInner(
     };
   }
   const cfg = structuredClone(config);
-  const branch = cfg.branches.find((b) => b.id === branchId);
-  if (!branch) {
-    return { ok: false, error: `unknown branch '${branchId}'` };
-  }
+  // One predicate with the UI (analyzeSplitSelection): unknown id,
+  // non-pipe/heatedPipe component, dangling endpoints.
+  const validity = validateSplitBranch(config, branchId);
+  if (!validity.ok) return { ok: false, error: validity.error };
+  const branch = cfg.branches.find((b) => b.id === branchId)!;
   if (
     branch.component.type !== "pipe" &&
     branch.component.type !== "heatedPipe"
   ) {
+    // Unreachable — validateSplitBranch already rejected this; the re-check
+    // only narrows the component union for the compiler.
     return {
       ok: false,
-      error: `only pipe and heatedPipe branches can be split ('${branchId}' is a ${branch.component.type})`,
+      error: `only pipe and heatedPipe branches can be split ('${branchId}' is a '${branch.component.type}')`,
     };
   }
-  const from = cfg.nodes.find((n) => n.id === branch.from);
-  const to = cfg.nodes.find((n) => n.id === branch.to);
-  if (!from || !to) {
-    return {
-      ok: false,
-      error: `branch '${branchId}' has dangling endpoint(s)`,
-    };
-  }
+  const from = cfg.nodes.find((n) => n.id === branch.from)!;
+  const to = cfg.nodes.find((n) => n.id === branch.to)!;
   const component = branch.component; // narrowed: pipe | heatedPipe
 
   const taken = new Set<string>([

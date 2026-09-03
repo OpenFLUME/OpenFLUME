@@ -698,7 +698,7 @@ describe("validation errors", () => {
     expect(splitPipeBranch(config, "o1", 2)).toEqual({
       ok: false,
       error:
-        "only pipe and heatedPipe branches can be split ('o1' is a orifice)",
+        "only pipe and heatedPipe branches can be split ('o1' is a 'orifice')",
     });
 
     config.branches = [
@@ -711,7 +711,8 @@ describe("validation errors", () => {
     ];
     expect(splitPipeBranch(config, "v1", 2)).toEqual({
       ok: false,
-      error: "only pipe and heatedPipe branches can be split ('v1' is a valve)",
+      error:
+        "only pipe and heatedPipe branches can be split ('v1' is a 'valve')",
     });
   });
 });

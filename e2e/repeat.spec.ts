@@ -17,6 +17,8 @@
  *     references the unit/branch.
  *  7. Split is not offered for non-pipe branches (orifice, valve) or node
  *     selections — the menu action is disabled with the reason as tooltip.
+ *  8. Repeat is disabled for a selection containing a boundary node, with
+ *     the boundary guard's reason (and the Duplicate guidance) as tooltip.
  */
 import { test, expect, Page } from "@playwright/test";
 import * as fs from "fs";
@@ -614,6 +616,26 @@ test.describe("Repeat and split (discretize)", () => {
     await expect(splitAction).toBeDisabled();
     tooltip = await splitAction.getAttribute("title");
     expect(tooltip).toContain("select a single pipe or heated pipe branch");
+
+    consoleWatcher.assertNoErrors();
+  });
+
+  test("8. Repeat is disabled with the boundary reason for a boundary-node selection", async ({
+    page,
+  }) => {
+    const consoleWatcher = attachConsoleWatcher(page);
+    await injectConfig(page, REPEAT_LINE_CONFIG);
+
+    // B2 is a boundary node: chaining would clone its boundary condition
+    // into every instance, so Repeat must be disabled BEFORE the dialog can
+    // open — the user should never reach the execution-time error.
+    await selectFluidNode(page, "B2");
+    const repeatAction = page.locator('[data-testid="repeat-menu-action"]');
+    await expect(repeatAction).toBeDisabled();
+    const tooltip = await repeatAction.getAttribute("title");
+    expect(tooltip).toContain("Cannot repeat");
+    expect(tooltip).toContain("boundary node(s) B2");
+    expect(tooltip).toContain("use Duplicate instead");
 
     consoleWatcher.assertNoErrors();
   });
