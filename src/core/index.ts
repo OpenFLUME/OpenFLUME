@@ -183,6 +183,22 @@ export type {
   FindingTarget,
 } from "./resultFindings";
 export {
+  repeatUnit,
+  analyzeRepeatUnit,
+  validateRepeatUnit,
+  splitPipeBranch,
+  validateSplitBranch,
+} from "./repeat";
+export type {
+  RepeatMembers,
+  RepeatOptions,
+  RepeatResult,
+  RepeatAnalysis,
+  RepeatUnitAnalysis,
+  RepeatUnitValidation,
+  SplitBranchValidation,
+} from "./repeat";
+export {
   withDerivedGeometry,
   derivedAxialPosition,
   physicalPosition,
