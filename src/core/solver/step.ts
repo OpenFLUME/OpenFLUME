@@ -135,6 +135,10 @@ export interface SolveStepOptions {
 
 export interface SolveStepResult {
   state: StepState;
+  /**
+   * True only when the transport Newton met the certifying bar AND every
+   * operator-split sub-step that mutates the state afterwards succeeded.
+   */
   converged: boolean;
   iterations: number;
   residual: number;
@@ -142,6 +146,9 @@ export interface SolveStepResult {
   aborted?: boolean;
   ptcDeltaTau?: number | number[];
   ptcShrinks?: number;
+  /** Internal nodes whose reaction sub-step integration failed (present
+   *  only when non-empty; forces `converged: false`). */
+  chemistryFailed?: string[];
 }
 
 export function solveStateStep(
@@ -944,11 +951,21 @@ function refreshNodeProperties(ctx: SolverContext, state: StepState): void {
 
 /** Node-local stiff chemistry sub-step (transient only, operator-split).
  *  Runs once per time step after the outer loop converges. */
+/**
+ * Operator-split reaction sub-step: after the transport solve of a step,
+ * integrate the Arrhenius kinetics at every internal node over dt with the
+ * node's post-transport (P, Y, T) as the initial condition.
+ *
+ * Returns the ids of nodes whose stiff integration FAILED. Their species and
+ * temperature are left at the transport solution, which is not a solution of
+ * the split equations, so the caller must not certify the step.
+ */
 function runChemistrySubStep(
   ctx: SolverContext,
   state: StepState,
   dt: number | undefined,
-): void {
+): string[] {
+  const failed: string[] = [];
   if (
     dt === undefined ||
     !ctx.hasSpecies ||
@@ -957,7 +974,7 @@ function runChemistrySubStep(
     !ctx.mixtureFluid ||
     !state.nodeY
   ) {
-    return;
+    return failed;
   }
   for (const nodeId of ctx.internalIds) {
     const P = state.nodeP.get(nodeId)!;
@@ -990,10 +1007,12 @@ function runChemistrySubStep(
       state.nodeY.set(nodeId, Ynew);
       state.nodeT.set(nodeId, chemRes.y[ctx.speciesNames.length]);
     } catch {
-      // If the stiff ODE integrator fails, skip chemistry for this node
-      // so the solver can continue.  The transport step already updated Y.
+      // The transport solution stands for this node; the step is reported
+      // unconverged (adaptive stepping then rejects it and shrinks dt).
+      failed.push(nodeId);
     }
   }
+  return failed;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -2299,15 +2318,19 @@ function solveStateStepAttempt(
     }
   }
 
-  runChemistrySubStep(ctx, state, dt);
+  // Operator split: the reaction sub-step runs after the transport solve is
+  // certified, and its own failure withdraws the certification — a state
+  // whose kinetics could not be integrated is not a solution of the step.
+  const chemistryFailed = runChemistrySubStep(ctx, state, dt);
 
   return {
     state,
-    converged: outerConverged,
+    converged: outerConverged && chemistryFailed.length === 0,
     iterations: totalIter,
     residual: returnResidual < 1e99 ? returnResidual : finalResidual,
     residualScaled: lastInnerBestResScaled,
     ptcDeltaTau: ptcActive ? deltaTau : undefined,
     ptcShrinks: ptcActive ? ptcShrinks : undefined,
+    ...(chemistryFailed.length > 0 ? { chemistryFailed } : {}),
   };
 }

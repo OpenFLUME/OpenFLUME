@@ -61,6 +61,11 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   in the fluid-inertia term behind a closed valve) and was reported converged.
   The example now starts its water column at rest, and `initialMdot` is
   documented as a true initial condition for inertia pipes.
+- A transient step whose reaction sub-step (Arrhenius kinetics, integrated
+  after the transport solve) fails to integrate is no longer reported
+  `converged`. The failure was silently swallowed, leaving the node at its
+  pre-reaction state inside a certified step; the step now reports
+  `converged: false` (and adaptive stepping rejects and shrinks it).
 - Variant patches now record every top-level document edit (`fluids`,
   `species`, `controllers`, `notes`, `groups`, `logic`, `registers`,
   `junctions`, `closureParams`, `componentLibrary`) via a new `patch.fields`
