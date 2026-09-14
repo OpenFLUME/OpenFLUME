@@ -36,7 +36,7 @@
  *    model.
  */
 
-import { interpolateAtPosition, thresholdCrossingTime } from './stationInterp';
+import { interpolateAtPosition, thresholdCrossingTime } from "./stationInterp";
 
 // ---------------------------------------------------------------------------
 // Basic shapes
@@ -78,7 +78,9 @@ export interface AlignedTraces {
 
 function checkSample(name: string, tr: TraceSample): void {
   if (tr.timesS.length !== tr.valuesK.length) {
-    throw new Error(`${name}: times (${tr.timesS.length}) / values (${tr.valuesK.length}) length mismatch`);
+    throw new Error(
+      `${name}: times (${tr.timesS.length}) / values (${tr.valuesK.length}) length mismatch`,
+    );
   }
   for (let i = 0; i < tr.timesS.length; i++) {
     if (!Number.isFinite(tr.timesS[i]) || !Number.isFinite(tr.valuesK[i])) {
@@ -105,15 +107,15 @@ function checkSample(name: string, tr: TraceSample): void {
 export function alignTraces(
   model: TraceSample,
   data: TraceSample,
-  opts?: { minSamples?: number }
+  opts?: { minSamples?: number },
 ): AlignedTraces {
-  checkSample('alignTraces(model)', model);
-  checkSample('alignTraces(data)', data);
+  checkSample("alignTraces(model)", model);
+  checkSample("alignTraces(data)", data);
   const minSamples = opts?.minSamples ?? 2;
   const start = Math.max(model.timesS[0] ?? NaN, data.timesS[0] ?? NaN);
   const end = Math.min(
     model.timesS[model.timesS.length - 1] ?? NaN,
-    data.timesS[data.timesS.length - 1] ?? NaN
+    data.timesS[data.timesS.length - 1] ?? NaN,
   );
   const timesS: number[] = [];
   const modelK: number[] = [];
@@ -128,7 +130,13 @@ export function alignTraces(
     }
   }
   if (timesS.length < minSamples) {
-    return { timesS: [], modelK: [], dataK: [], overlapStartS: start, overlapEndS: end };
+    return {
+      timesS: [],
+      modelK: [],
+      dataK: [],
+      overlapStartS: start,
+      overlapEndS: end,
+    };
   }
   return { timesS, modelK, dataK, overlapStartS: start, overlapEndS: end };
 }
@@ -148,7 +156,8 @@ export function traceRmseK(a: AlignedTraces): number | undefined {
 export function traceMaeK(a: AlignedTraces): number | undefined {
   if (a.timesS.length === 0) return undefined;
   let acc = 0;
-  for (let k = 0; k < a.timesS.length; k++) acc += Math.abs(a.modelK[k] - a.dataK[k]);
+  for (let k = 0; k < a.timesS.length; k++)
+    acc += Math.abs(a.modelK[k] - a.dataK[k]);
   return acc / a.timesS.length;
 }
 
@@ -160,7 +169,10 @@ export function traceMaeK(a: AlignedTraces): number | undefined {
  * initial-to-coldest span.  Returns undefined if RMSE is undefined or the
  * scale is not positive.
  */
-export function traceNrmseK(a: AlignedTraces, scaleK: number): number | undefined {
+export function traceNrmseK(
+  a: AlignedTraces,
+  scaleK: number,
+): number | undefined {
   const rmse = traceRmseK(a);
   if (rmse === undefined || !(scaleK > 0)) return undefined;
   return rmse / scaleK;
@@ -171,7 +183,7 @@ export function traceNrmseK(a: AlignedTraces, scaleK: number): number | undefine
  * record — the per-run initial-to-coldest reference scale for NRMSE.
  */
 export function observedTemperatureSpanK(tr: TraceSample): number {
-  checkSample('observedTemperatureSpanK', tr);
+  checkSample("observedTemperatureSpanK", tr);
   if (tr.valuesK.length === 0) return 0;
   let lo = Infinity;
   let hi = -Infinity;
@@ -204,7 +216,7 @@ export interface StationTraceMetrics {
 export function stationTraceMetrics(
   model: TraceSample,
   data: DataTraceLike,
-  opts?: { scaleK?: number }
+  opts?: { scaleK?: number },
 ): StationTraceMetrics {
   const a = alignTraces(model, data);
   const scaleK = opts?.scaleK ?? observedTemperatureSpanK(data);
@@ -242,7 +254,9 @@ export interface RunTraceMetrics {
  * Pool station metrics WITHIN one run (quality-weighted).  Stations
  * without a defined RMSE (no overlap) are skipped.
  */
-export function poolRunMetrics(stations: StationTraceMetrics[]): RunTraceMetrics {
+export function poolRunMetrics(
+  stations: StationTraceMetrics[],
+): RunTraceMetrics {
   let wn = 0;
   let mse = 0;
   let mae = 0;
@@ -282,7 +296,9 @@ export interface CampaignTraceMetrics {
 }
 
 /** Aggregate runs into a campaign objective — EQUAL weight per run. */
-export function aggregateRunLevelMetrics(runs: RunTraceMetrics[]): CampaignTraceMetrics {
+export function aggregateRunLevelMetrics(
+  runs: RunTraceMetrics[],
+): CampaignTraceMetrics {
   let nRuns = 0;
   let mse = 0;
   let mae = 0;
@@ -305,7 +321,8 @@ export function aggregateRunLevelMetrics(runs: RunTraceMetrics[]): CampaignTrace
 // ---------------------------------------------------------------------------
 
 /** A feature is either available (with value) or unavailable (with reason). */
-export type Feature<T> = { available: true; value: T } | { available: false; reason: string };
+export type Feature<T> =
+  { available: true; value: T } | { available: false; reason: string };
 
 function available<T>(value: T): Feature<T> {
   return { available: true, value };
@@ -322,7 +339,9 @@ export interface TraceFeatureOptions {
    * traces starting near ambient (~293–300 K).  'dropFromStart' (default
    * 5 K) suits digitized traces whose record starts already below 290 K.
    */
-  onset?: { mode: 'belowThreshold'; thresholdK?: number } | { mode: 'dropFromStart'; dropK?: number };
+  onset?:
+    | { mode: "belowThreshold"; thresholdK?: number }
+    | { mode: "dropFromStart"; dropK?: number };
   /**
    * Knee threshold (K), e.g. Tsat_local + marginK per the chilldown-time
    * definition.  If omitted, kneeTimeS and plateauFractionPreKnee are
@@ -372,7 +391,9 @@ export interface TraceFeatures {
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   const n = sorted.length;
-  return n % 2 === 1 ? sorted[(n - 1) / 2] : 0.5 * (sorted[n / 2 - 1] + sorted[n / 2]);
+  return n % 2 === 1
+    ? sorted[(n - 1) / 2]
+    : 0.5 * (sorted[n / 2 - 1] + sorted[n / 2]);
 }
 
 /**
@@ -385,9 +406,9 @@ function median(values: number[]): number {
 export function coolingRateProfileKperS(
   timesS: number[],
   valuesK: number[],
-  halfWindowS: number
+  halfWindowS: number,
 ): number[] {
-  checkSample('coolingRateProfileKperS', { timesS, valuesK });
+  checkSample("coolingRateProfileKperS", { timesS, valuesK });
   const n = timesS.length;
   const rate = new Array<number>(n).fill(NaN);
   let lo = 0;
@@ -443,25 +464,27 @@ function guardedCrossing(
   timesS: number[],
   valuesK: number[],
   thresholdK: number,
-  featureName: string
+  featureName: string,
 ): Feature<number> {
-  const t = thresholdCrossingTime(timesS, valuesK, thresholdK, 'below');
+  const t = thresholdCrossingTime(timesS, valuesK, thresholdK, "below");
   if (t === undefined) {
-    return unavailable(`${featureName}: threshold ${thresholdK} K never crossed within the recorded support`);
+    return unavailable(
+      `${featureName}: threshold ${thresholdK} K never crossed within the recorded support`,
+    );
   }
   const n = timesS.length;
   if (n >= 2 && t > timesS[n - 2]) {
     return unavailable(
       `${featureName}: crossing falls in the final sample interval (record ends at ` +
-        `${timesS[n - 1]} s) — cannot distinguish a true crossing from a truncation artifact`
+        `${timesS[n - 1]} s) — cannot distinguish a true crossing from a truncation artifact`,
     );
   }
   return available(t);
 }
 
 const COLD_TAIL_REASON =
-  'cold tail flagged unusable by QC (truncated/ambiguous record) — ' +
-  'feature not computed, never extrapolated';
+  "cold tail flagged unusable by QC (truncated/ambiguous record) — " +
+  "feature not computed, never extrapolated";
 
 /**
  * Extract the pre-registered morphology feature set from one trace
@@ -469,63 +492,74 @@ const COLD_TAIL_REASON =
  */
 export function extractTraceFeatures(
   trace: TraceSample,
-  opts?: TraceFeatureOptions
+  opts?: TraceFeatureOptions,
 ): TraceFeatures {
-  checkSample('extractTraceFeatures', trace);
+  checkSample("extractTraceFeatures", trace);
   const { timesS, valuesK } = trace;
   const n = timesS.length;
   const coldTailUsable = opts?.coldTailUsable ?? true;
 
   // Onset of cooling.
-  const onsetMode = opts?.onset?.mode ?? 'belowThreshold';
+  const onsetMode = opts?.onset?.mode ?? "belowThreshold";
   const onsetThresholdK =
-    onsetMode === 'belowThreshold'
-      ? (opts?.onset as { thresholdK?: number } | undefined)?.thresholdK ?? 290
-      : valuesK[0] - ((opts?.onset as { dropK?: number } | undefined)?.dropK ?? 5);
+    onsetMode === "belowThreshold"
+      ? ((opts?.onset as { thresholdK?: number } | undefined)?.thresholdK ??
+        290)
+      : valuesK[0] -
+        ((opts?.onset as { dropK?: number } | undefined)?.dropK ?? 5);
   const onsetTimeS =
     n === 0
-      ? unavailable<number>('onset: empty trace')
-      : guardedCrossing(timesS, valuesK, onsetThresholdK, 'onset');
+      ? unavailable<number>("onset: empty trace")
+      : guardedCrossing(timesS, valuesK, onsetThresholdK, "onset");
 
   // Mid-front marker: 150 K crossing (available even on truncated traces —
   // early/mid-front morphology remains usable per the trace audit).
   const crossing150KS =
     n === 0
-      ? unavailable<number>('crossing150K: empty trace')
-      : guardedCrossing(timesS, valuesK, 150, 'crossing150K');
+      ? unavailable<number>("crossing150K: empty trace")
+      : guardedCrossing(timesS, valuesK, 150, "crossing150K");
 
   // Cold-side features: categorically gated by the QC cold-tail flag.
   const crossing50KS: Feature<number> = !coldTailUsable
     ? unavailable(`crossing50K: ${COLD_TAIL_REASON}`)
     : n === 0
-      ? unavailable('crossing50K: empty trace')
-      : guardedCrossing(timesS, valuesK, 50, 'crossing50K');
+      ? unavailable("crossing50K: empty trace")
+      : guardedCrossing(timesS, valuesK, 50, "crossing50K");
 
   const kneeTimeS: Feature<number> = !coldTailUsable
     ? unavailable(`knee: ${COLD_TAIL_REASON}`)
     : opts?.kneeThresholdK === undefined
-      ? unavailable('knee: no kneeThresholdK supplied (the knee threshold is a caller definition)')
+      ? unavailable(
+          "knee: no kneeThresholdK supplied (the knee threshold is a caller definition)",
+        )
       : n === 0
-        ? unavailable('knee: empty trace')
-        : guardedCrossing(timesS, valuesK, opts.kneeThresholdK, 'knee');
+        ? unavailable("knee: empty trace")
+        : guardedCrossing(timesS, valuesK, opts.kneeThresholdK, "knee");
 
   const drop150to50S: Feature<number> =
     crossing150KS.available && crossing50KS.available
       ? available(crossing50KS.value - crossing150KS.value)
       : unavailable(
           `drop150to50: requires both 150 K and 50 K crossings (${
-            !crossing150KS.available ? crossing150KS.reason : crossing50KS.available ? '' : (crossing50KS as { reason: string }).reason
-          })`
+            !crossing150KS.available
+              ? crossing150KS.reason
+              : crossing50KS.available
+                ? ""
+                : (crossing50KS as { reason: string }).reason
+          })`,
         );
 
   // Peak cooling rate (robust sliding-window least-squares derivative).
-  const halfWindowS = opts?.rateHalfWindowS ?? (n > 1 ? adaptiveHalfWindowS(timesS) : 1);
-  let peakCoolingRate: TraceFeatures['peakCoolingRate'];
+  const halfWindowS =
+    opts?.rateHalfWindowS ?? (n > 1 ? adaptiveHalfWindowS(timesS) : 1);
+  let peakCoolingRate: TraceFeatures["peakCoolingRate"];
   if (n < 5) {
-    peakCoolingRate = unavailable(`peakCoolingRate: only ${n} samples (need ≥ 5)`);
+    peakCoolingRate = unavailable(
+      `peakCoolingRate: only ${n} samples (need ≥ 5)`,
+    );
   } else if (timesS[n - 1] - timesS[0] < 2 * halfWindowS) {
     peakCoolingRate = unavailable(
-      `peakCoolingRate: record span ${(timesS[n - 1] - timesS[0]).toFixed(3)} s < 2×halfWindow (${(2 * halfWindowS).toFixed(3)} s)`
+      `peakCoolingRate: record span ${(timesS[n - 1] - timesS[0]).toFixed(3)} s < 2×halfWindow (${(2 * halfWindowS).toFixed(3)} s)`,
     );
   } else {
     const rate = coolingRateProfileKperS(timesS, valuesK, halfWindowS);
@@ -536,7 +570,7 @@ export function extractTraceFeatures(
     }
     peakCoolingRate =
       kMax < 0
-        ? unavailable('peakCoolingRate: no valid derivative window')
+        ? unavailable("peakCoolingRate: no valid derivative window")
         : available({ rateKperS: rate[kMax], timeS: timesS[kMax] });
   }
 
@@ -544,7 +578,7 @@ export function extractTraceFeatures(
   let plateauFractionPreKnee: Feature<number>;
   if (!kneeTimeS.available) {
     plateauFractionPreKnee = unavailable(
-      `plateauFractionPreKnee: needs the knee crossing (${kneeTimeS.reason})`
+      `plateauFractionPreKnee: needs the knee crossing (${kneeTimeS.reason})`,
     );
   } else {
     const rate = coolingRateProfileKperS(timesS, valuesK, halfWindowS);
@@ -554,7 +588,9 @@ export function extractTraceFeatures(
       if (Number.isFinite(rate[k]) && rate[k] > peak) peak = rate[k];
     }
     if (!(peak > 0)) {
-      plateauFractionPreKnee = unavailable('plateauFractionPreKnee: no positive pre-knee cooling rate');
+      plateauFractionPreKnee = unavailable(
+        "plateauFractionPreKnee: no positive pre-knee cooling rate",
+      );
     } else {
       let slow = 0;
       let total = 0;
@@ -566,7 +602,7 @@ export function extractTraceFeatures(
       }
       plateauFractionPreKnee =
         total === 0
-          ? unavailable('plateauFractionPreKnee: no pre-knee samples')
+          ? unavailable("plateauFractionPreKnee: no pre-knee samples")
           : available(slow / total);
     }
   }
@@ -611,24 +647,32 @@ export interface FrontArrivalOrdering {
  */
 export function frontArrivalOrdering(
   traces: { station: 1 | 2 | 3 | 4; timesS: number[]; valuesK: number[] }[],
-  thresholdK: number
+  thresholdK: number,
 ): FrontArrivalOrdering {
   const arrivals: FrontArrival[] = [];
   const missingStations: (1 | 2 | 3 | 4)[] = [];
   for (const tr of traces) {
-    const t = thresholdCrossingTime(tr.timesS, tr.valuesK, thresholdK, 'below');
+    const t = thresholdCrossingTime(tr.timesS, tr.valuesK, thresholdK, "below");
     if (t === undefined) missingStations.push(tr.station);
     else arrivals.push({ station: tr.station, timeS: t });
   }
   arrivals.sort((a, b) => a.timeS - b.timeS);
-  return { thresholdK, arrivals, complete: missingStations.length === 0, missingStations };
+  return {
+    thresholdK,
+    arrivals,
+    complete: missingStations.length === 0,
+    missingStations,
+  };
 }
 
 /**
  * Discordant-pair count between two orderings over the stations present in
  * BOTH (Kendall-style): 0 = identical order; higher = more disagreement.
  */
-export function discordantArrivalPairs(a: FrontArrivalOrdering, b: FrontArrivalOrdering): number {
+export function discordantArrivalPairs(
+  a: FrontArrivalOrdering,
+  b: FrontArrivalOrdering,
+): number {
   const posA = new Map<number, number>();
   const posB = new Map<number, number>();
   a.arrivals.forEach((ar, i) => posA.set(ar.station, i));

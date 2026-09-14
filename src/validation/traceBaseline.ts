@@ -52,8 +52,8 @@
  *    is available.
  */
 
-import { stationXM } from './nbsChilldown';
-import { interpolateTraceToStation } from './stationInterp';
+import { stationXM } from "./nbsChilldown";
+import { interpolateTraceToStation } from "./stationInterp";
 import {
   adaptiveHalfWindowS,
   discordantArrivalPairs,
@@ -68,19 +68,19 @@ import {
   type TraceFeatureOptions,
   type TraceFeatures,
   type TraceSample,
-} from './traceObjectives';
-import type { CorpusWallTempTrace, TraceRun } from './nbsTraceCorpus';
+} from "./traceObjectives";
+import type { CorpusWallTempTrace, TraceRun } from "./nbsTraceCorpus";
 
 // ---------------------------------------------------------------------------
 // Pre-registered solve plan for the trusted saturated runs (protocol §3.1.6)
 // ---------------------------------------------------------------------------
 
-export type TraceBaselineClosure = 'miropolskii' | 'darrHartwig';
+export type TraceBaselineClosure = "miropolskii" | "darrHartwig";
 
 export interface TrustedRunSolveSpec {
   runId: string;
   /** CoolProp HEOS fluid name (ParaHydrogen for LH2; calibration protocol §3.1.6). */
-  fluidName: 'Nitrogen' | 'ParaHydrogen';
+  fluidName: "Nitrogen" | "ParaHydrogen";
   /** Spatial segments (frozen: N=6 for all trusted runs). */
   segments: number;
   /** Fixed time step (s).  dt=2.5 for LH2, dt=10 for LN2 (protocol §3.1.6). */
@@ -99,10 +99,34 @@ export interface TrustedRunSolveSpec {
  * are inputs, not fitted outputs.
  */
 export const TRACE_BASELINE_SOLVE_PLAN: readonly TrustedRunSolveSpec[] = [
-  { runId: 'nbs9264-fig02', fluidName: 'ParaHydrogen', segments: 6, dtS: 2.5, endTimeS: 300 },
-  { runId: 'nbs9264-fig10', fluidName: 'Nitrogen', segments: 6, dtS: 10, endTimeS: 300 },
-  { runId: 'nbs9264-fig11', fluidName: 'Nitrogen', segments: 6, dtS: 10, endTimeS: 300 },
-  { runId: 'nbs9264-fig12', fluidName: 'Nitrogen', segments: 6, dtS: 10, endTimeS: 300 },
+  {
+    runId: "nbs9264-fig02",
+    fluidName: "ParaHydrogen",
+    segments: 6,
+    dtS: 2.5,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig10",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig11",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig12",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
 ] as const;
 
 export function solveSpecForRun(runId: string): TrustedRunSolveSpec {
@@ -110,7 +134,7 @@ export function solveSpecForRun(runId: string): TrustedRunSolveSpec {
   if (!spec) {
     throw new Error(
       `solveSpecForRun: ${runId} is not a trusted pre-fit run ` +
-        `(${TRACE_BASELINE_SOLVE_PLAN.map((s) => s.runId).join(', ')})`
+        `(${TRACE_BASELINE_SOLVE_PLAN.map((s) => s.runId).join(", ")})`,
     );
   }
   return spec;
@@ -137,11 +161,15 @@ export interface ModelWallHistory {
  */
 export function extractModelStationTrace(
   model: ModelWallHistory,
-  station: 1 | 2 | 3 | 4
+  station: 1 | 2 | 3 | 4,
 ): TraceSample {
   return {
     timesS: model.timesS,
-    valuesK: interpolateTraceToStation(model.wallXM, model.wallTracesK, stationXM(station)),
+    valuesK: interpolateTraceToStation(
+      model.wallXM,
+      model.wallTracesK,
+      stationXM(station),
+    ),
   };
 }
 
@@ -156,13 +184,19 @@ export function dataNativeKneeThresholdK(run: TraceRun): number {
 
 /** Onset convention per trace (convention 2). */
 export function onsetOptionsFor(trace: TraceSample): {
-  opts: TraceFeatureOptions['onset'];
-  convention: 'belowThreshold290' | 'dropFromStart5';
+  opts: TraceFeatureOptions["onset"];
+  convention: "belowThreshold290" | "dropFromStart5";
 } {
   if (trace.valuesK.length > 0 && trace.valuesK[0] > 290) {
-    return { opts: { mode: 'belowThreshold', thresholdK: 290 }, convention: 'belowThreshold290' };
+    return {
+      opts: { mode: "belowThreshold", thresholdK: 290 },
+      convention: "belowThreshold290",
+    };
   }
-  return { opts: { mode: 'dropFromStart', dropK: 5 }, convention: 'dropFromStart5' };
+  return {
+    opts: { mode: "dropFromStart", dropK: 5 },
+    convention: "dropFromStart5",
+  };
 }
 
 /**
@@ -171,7 +205,7 @@ export function onsetOptionsFor(trace: TraceSample): {
  */
 export function runRateHalfWindowS(
   modelTraces: TraceSample[],
-  dataTraces: TraceSample[]
+  dataTraces: TraceSample[],
 ): number {
   let hw = 0;
   for (const tr of [...modelTraces, ...dataTraces]) {
@@ -199,10 +233,13 @@ export interface StationTraceComparison {
 export function compareStationTrace(
   model: TraceSample,
   data: CorpusWallTempTrace,
-  opts: { kneeThresholdK: number; rateHalfWindowS: number }
+  opts: { kneeThresholdK: number; rateHalfWindowS: number },
 ): StationTraceComparison {
   // CorpusWallTempTrace carries wallTempsK; the objectives take valuesK.
-  const dataSample: TraceSample = { timesS: data.timesS, valuesK: data.wallTempsK };
+  const dataSample: TraceSample = {
+    timesS: data.timesS,
+    valuesK: data.wallTempsK,
+  };
   const dataLike: DataTraceLike = {
     ...dataSample,
     station: data.station,
@@ -233,7 +270,10 @@ export function compareStationTrace(
     scaleK: observedTemperatureSpanK(dataSample),
     modelFeatures,
     dataFeatures,
-    onsetConvention: { model: onsetModel.convention, data: onsetData.convention },
+    onsetConvention: {
+      model: onsetModel.convention,
+      data: onsetData.convention,
+    },
   };
 }
 
@@ -244,17 +284,23 @@ export function compareStationTrace(
  * truncation artifact, so such stations land in `missingStations`.
  */
 export function guardedFrontOrdering150K(
-  traces: { station: 1 | 2 | 3 | 4; timesS: number[]; valuesK: number[] }[]
+  traces: { station: 1 | 2 | 3 | 4; timesS: number[]; valuesK: number[] }[],
 ): FrontArrivalOrdering {
-  const arrivals: FrontArrivalOrdering['arrivals'] = [];
+  const arrivals: FrontArrivalOrdering["arrivals"] = [];
   const missingStations: (1 | 2 | 3 | 4)[] = [];
   for (const tr of traces) {
     const crossing = extractTraceFeatures(tr, {}).crossing150KS;
-    if (crossing.available) arrivals.push({ station: tr.station, timeS: crossing.value });
+    if (crossing.available)
+      arrivals.push({ station: tr.station, timeS: crossing.value });
     else missingStations.push(tr.station);
   }
   arrivals.sort((a, b) => a.timeS - b.timeS);
-  return { thresholdK: 150, arrivals, complete: missingStations.length === 0, missingStations };
+  return {
+    thresholdK: 150,
+    arrivals,
+    complete: missingStations.length === 0,
+    missingStations,
+  };
 }
 
 export interface FrontOrderingComparison {
@@ -279,24 +325,38 @@ export interface RunTraceComparison {
  * Full run comparison: model wall history vs the run's 4 corpus traces.
  * Pure — the caller supplies the solved model history.
  */
-export function compareRunTraces(run: TraceRun, model: ModelWallHistory): RunTraceComparison {
+export function compareRunTraces(
+  run: TraceRun,
+  model: ModelWallHistory,
+): RunTraceComparison {
   const modelTraces = run.traces.map((tr) =>
-    extractModelStationTrace(model, tr.station)
+    extractModelStationTrace(model, tr.station),
   );
   const rateHalfWindowS = runRateHalfWindowS(
     modelTraces,
-    run.traces.map((tr) => ({ timesS: tr.timesS, valuesK: tr.wallTempsK }))
+    run.traces.map((tr) => ({ timesS: tr.timesS, valuesK: tr.wallTempsK })),
   );
   const kneeThresholdK = dataNativeKneeThresholdK(run);
   const stations = run.traces.map((tr, i) =>
-    compareStationTrace(modelTraces[i], tr, { kneeThresholdK, rateHalfWindowS })
+    compareStationTrace(modelTraces[i], tr, {
+      kneeThresholdK,
+      rateHalfWindowS,
+    }),
   );
   const pooled = poolRunMetrics(stations.map((s) => s.metrics));
   const modelOrdering = guardedFrontOrdering150K(
-    modelTraces.map((t, i) => ({ station: run.traces[i].station, timesS: t.timesS, valuesK: t.valuesK }))
+    modelTraces.map((t, i) => ({
+      station: run.traces[i].station,
+      timesS: t.timesS,
+      valuesK: t.valuesK,
+    })),
   );
   const dataOrdering = guardedFrontOrdering150K(
-    run.traces.map((tr) => ({ station: tr.station, timesS: tr.timesS, valuesK: tr.wallTempsK }))
+    run.traces.map((tr) => ({
+      station: tr.station,
+      timesS: tr.timesS,
+      valuesK: tr.wallTempsK,
+    })),
   );
   return {
     runId: run.runId,

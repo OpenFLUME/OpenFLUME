@@ -27,15 +27,18 @@
  * rate-window conventions, QC gating, run-level pooling.
  */
 
-import { stationXM } from './nbsChilldown';
-import { interpolateTraceToStation, thresholdCrossingTime } from './stationInterp';
+import { stationXM } from "./nbsChilldown";
+import {
+  interpolateTraceToStation,
+  thresholdCrossingTime,
+} from "./stationInterp";
 import type {
   TtWfCaseConfigEcho,
   TtWfCaseSolveRecord,
   TtWfEnergyAudit,
   TtWfStationCaseRecord,
   TtWfTraceCaseArtifact,
-} from './ttwfTraceEvaluation';
+} from "./ttwfTraceEvaluation";
 
 // ---------------------------------------------------------------------------
 // Fixed configuration echo (pre-registered — NEVER tuned in this study)
@@ -81,13 +84,13 @@ export function summarizeFluidFrontNodeHistory(
   nodeId: string,
   axialPositionM: number,
   timesS: number[],
-  fraction: number[]
+  fraction: number[],
 ): FluidFrontNodeSummary {
   if (fraction.length !== timesS.length) {
     throw new Error(
       `summarizeFluidFrontNodeHistory(${nodeId}): history/time length mismatch ` +
         `(fraction ${fraction.length}, times ${timesS.length}) — ` +
-        `the accepted-step alignment contract is broken`
+        `the accepted-step alignment contract is broken`,
     );
   }
   let minA = Infinity;
@@ -99,8 +102,8 @@ export function summarizeFluidFrontNodeHistory(
   return {
     nodeId,
     axialPositionM,
-    a50S: thresholdCrossingTime(timesS, fraction, 0.5, 'above'),
-    a99S: thresholdCrossingTime(timesS, fraction, 0.99, 'above'),
+    a50S: thresholdCrossingTime(timesS, fraction, 0.5, "above"),
+    a99S: thresholdCrossingTime(timesS, fraction, 0.99, "above"),
     finalA: fraction[fraction.length - 1] ?? NaN,
     minA,
     maxA,
@@ -133,7 +136,7 @@ export function fluidFrontStationArrivals(
   timesS: number[],
   nodes: { axialPositionM: number; fraction: number[] }[],
   opts: { inletXM: number; inletA: number; outletXM: number },
-  levels: number[] = [0.5, 0.99]
+  levels: number[] = [0.5, 0.99],
 ): FluidFrontStationSummary[] {
   // Sort by position, then augment with the boundary anchors.
   const sorted = [...nodes].sort((a, b) => a.axialPositionM - b.axialPositionM);
@@ -152,7 +155,7 @@ export function fluidFrontStationArrivals(
     const atStation = interpolateTraceToStation(xs, traces, stationXM(station));
     const out: FluidFrontStationSummary = { station };
     for (const lv of levels) {
-      const t = thresholdCrossingTime(timesS, atStation, lv, 'above');
+      const t = thresholdCrossingTime(timesS, atStation, lv, "above");
       if (lv === 0.5) out.a50S = t;
       else if (lv === 0.99) out.a99S = t;
     }
@@ -182,7 +185,7 @@ export interface FluidFrontTracerAudit {
   dStoredTracerKg: number;
   integralBoundaryInfluxKg: number;
   scaleKg: number;
-  method: 'right-rectangle (backward-Euler-consistent), upwind boundary tracer fluxes (inlet a_bnd = 1, outlet carries the upwind internal a)';
+  method: "right-rectangle (backward-Euler-consistent), upwind boundary tracer fluxes (inlet a_bnd = 1, outlet carries the upwind internal a)";
 }
 
 export function fluidFrontTracerAudit(input: {
@@ -213,7 +216,10 @@ export function fluidFrontTracerAudit(input: {
   for (let k = 0; k + 1 < timesS.length; k++) {
     const dt = timesS[k + 1] - timesS[k];
     const aOut = input.fraction[input.outletUpwindNodeId]?.[k + 1] ?? 0;
-    influx += (input.inletMdot[k + 1] * input.inletBoundaryA - input.outletMdot[k + 1] * aOut) * dt;
+    influx +=
+      (input.inletMdot[k + 1] * input.inletBoundaryA -
+        input.outletMdot[k + 1] * aOut) *
+      dt;
   }
   const dStored = stored(timesS.length - 1) - stored(0);
   const scale = Math.max(Math.abs(dStored), Math.abs(influx), 1e-12);
@@ -223,7 +229,7 @@ export function fluidFrontTracerAudit(input: {
     integralBoundaryInfluxKg: influx,
     scaleKg: scale,
     method:
-      'right-rectangle (backward-Euler-consistent), upwind boundary tracer fluxes (inlet a_bnd = 1, outlet carries the upwind internal a)',
+      "right-rectangle (backward-Euler-consistent), upwind boundary tracer fluxes (inlet a_bnd = 1, outlet carries the upwind internal a)",
   };
 }
 
@@ -245,12 +251,12 @@ export interface TtWfFluidFrontCaseSolveRecord extends TtWfCaseSolveRecord {
 }
 
 export interface TtWfFluidFrontTraceCaseArtifact {
-  schema: 'ttwf-fluid-front-trace-case@1';
+  schema: "ttwf-fluid-front-trace-case@1";
   commitSha: string;
   measuredAt: string;
   datasetVersion: string;
   runId: string;
-  closure: 'ttWf+fluidFront';
+  closure: "ttWf+fluidFront";
   /** Pre-registered fixed configuration actually used (echoed). */
   ttwfParams: { frontEnergyFactor: number; rewetHysteresisOffsetK: number };
   fluidFrontConfig: { fluidFront: true; fluidFrontInlet: 1 };
@@ -264,10 +270,23 @@ export interface TtWfFluidFrontTraceCaseArtifact {
   kneeThresholdK: number;
   rateHalfWindowS: number;
   stations: TtWfStationCaseRecord[];
-  pooled: { nStations: number; nSamples: number; rmseK?: number; maeK?: number };
+  pooled: {
+    nStations: number;
+    nSamples: number;
+    rmseK?: number;
+    maeK?: number;
+  };
   front150: {
-    model: { arrivals: { station: number; timeS: number }[]; missingStations: number[]; complete: boolean };
-    data: { arrivals: { station: number; timeS: number }[]; missingStations: number[]; complete: boolean };
+    model: {
+      arrivals: { station: number; timeS: number }[];
+      missingStations: number[];
+      complete: boolean;
+    };
+    data: {
+      arrivals: { station: number; timeS: number }[];
+      missingStations: number[];
+      complete: boolean;
+    };
     discordantPairs: number;
   };
   scalar: {
@@ -275,12 +294,21 @@ export interface TtWfFluidFrontTraceCaseArtifact {
     thresholdK: number;
     tSatLocalK?: number;
     dataKneeS?: number;
-    table6?: { conditionId: string; experimentalS: number; gfsspS: number; errorPct?: number };
+    table6?: {
+      conditionId: string;
+      experimentalS: number;
+      gfsspS: number;
+      errorPct?: number;
+    };
   };
-  modelStationTraces: { station: 1 | 2 | 3 | 4; timesS: number[]; valuesK: number[] }[];
+  modelStationTraces: {
+    station: 1 | 2 | 3 | 4;
+    timesS: number[];
+    valuesK: number[];
+  }[];
   /** TT-WF accepted-step state histories + summaries (same shape as the
    *  ungated TT-WF artifact). */
-  ttwf?: TtWfTraceCaseArtifact['ttwf'];
+  ttwf?: TtWfTraceCaseArtifact["ttwf"];
   /** Fluid-front accepted-step state: per-node a histories, per-node and
    *  per-station summaries, and the configured boundary values.  Present
    *  whenever the result carries TransientResult.fluidFront (including

@@ -181,7 +181,7 @@ export const NBS_CHILLDOWN_RIG = {
   innerDiameterIn: 0.625,
   outerDiameterM: inchToM(0.75), // 0.01905 m (3/4 in OD)
   outerDiameterIn: 0.75,
-  material: 'copper' as const,
+  material: "copper" as const,
   vacuumJacketed: true,
   /**
    * Thermocouple/pressure stations, measured from the line inlet.
@@ -197,10 +197,10 @@ export const NBS_CHILLDOWN_RIG = {
   /** Pressurized supply dewar capacity, US gallons (AIAA 2015-3850 §4.3). */
   supplyDewarGal: 80,
   /** Line discharge condition: vapor vents to atmosphere at the outlet. */
-  discharge: 'atmospheric' as const,
+  discharge: "atmospheric" as const,
   provenance: {
-    sourceDoc: 'AIAA 2015-3850 (NTRS 20150016531) §4.3',
-    underlyingExperiment: 'NBS-9264 / NASA-CR-81338 (NTRS 19670007291)',
+    sourceDoc: "AIAA 2015-3850 (NTRS 20150016531) §4.3",
+    underlyingExperiment: "NBS-9264 / NASA-CR-81338 (NTRS 19670007291)",
   },
 } as const;
 
@@ -215,12 +215,12 @@ export type ChilldownThreshold =
    * P_local,late = mean of the spatially-interpolated pressure trace at
    * the station over the final 10 % of samples.
    */
-  | { mode: 'aboveLocalTsat'; marginK: number }
+  | { mode: "aboveLocalTsat"; marginK: number }
   /** T_thresh = T_inlet_liquid + marginK (inlet Tsat for saturated cases,
    *  the subcooling reference temperature for subcooled cases). */
-  | { mode: 'aboveInletLiquid'; marginK: number }
+  | { mode: "aboveInletLiquid"; marginK: number }
   /** T_thresh = valueK outright (e.g. the repo's historical 100 K). */
-  | { mode: 'fixed'; valueK: number };
+  | { mode: "fixed"; valueK: number };
 
 export interface ChilldownTimeDefinition {
   /**
@@ -235,7 +235,7 @@ export interface ChilldownTimeDefinition {
 
 export const DEFAULT_CHILLDOWN_TIME_DEFINITION: ChilldownTimeDefinition = {
   station: 4,
-  threshold: { mode: 'aboveLocalTsat', marginK: 15 },
+  threshold: { mode: "aboveLocalTsat", marginK: 15 },
 };
 
 // ---------------------------------------------------------------------------
@@ -245,8 +245,8 @@ export const DEFAULT_CHILLDOWN_TIME_DEFINITION: ChilldownTimeDefinition = {
 export interface ChilldownDataPoint {
   /** Stable identifier, e.g. 'satLN2-P74.97'. */
   id: string;
-  fluid: 'LH2' | 'LN2';
-  inletCondition: 'saturated' | 'subcooled';
+  fluid: "LH2" | "LN2";
+  inletCondition: "saturated" | "subcooled";
   /** Tank/dewar driving pressure. */
   drivingPressure: { psia: number; pa: number };
   /**
@@ -287,25 +287,27 @@ export interface ChilldownDataPoint {
 }
 
 const TABLE6_PROVENANCE = {
-  sourceDoc: 'AIAA 2015-3850 (GFSSP Version 6), NTRS 20150016531',
-  sourceTable: 'Table 6 "Measured and Predicted Chilldown Time for NBS Test Setup", p. 23',
-  underlyingExperiment: 'NBS-9264 / NASA-CR-81338 (Brennan et al. 1966), NTRS 19670007291',
+  sourceDoc: "AIAA 2015-3850 (GFSSP Version 6), NTRS 20150016531",
+  sourceTable:
+    'Table 6 "Measured and Predicted Chilldown Time for NBS Test Setup", p. 23',
+  underlyingExperiment:
+    "NBS-9264 / NASA-CR-81338 (Brennan et al. 1966), NTRS 19670007291",
 } as const;
 
 const CHART_READING_BASIS =
-  'Estimate (not from source): oscillograph chart reading at a visual ' +
-  'low-temperature knee; ±5 s is conservative against the 30–250 s ' +
-  'measured times.  NBS-9264 flags low-temperature TC inaccuracies and ' +
-  'physically-inconsistent curve crossings (see module header).';
+  "Estimate (not from source): oscillograph chart reading at a visual " +
+  "low-temperature knee; ±5 s is conservative against the 30–250 s " +
+  "measured times.  NBS-9264 flags low-temperature TC inaccuracies and " +
+  "physically-inconsistent curve crossings (see module header).";
 
 function point(
   id: string,
-  fluid: 'LH2' | 'LN2',
-  inletCondition: 'saturated' | 'subcooled',
+  fluid: "LH2" | "LN2",
+  inletCondition: "saturated" | "subcooled",
   psia: number,
   tempDegF: number,
   experimentalS: number,
-  gfsspS: number
+  gfsspS: number,
 ): ChilldownDataPoint {
   const base: ChilldownDataPoint = {
     id,
@@ -321,7 +323,7 @@ function point(
       notes: [],
     },
   };
-  if (inletCondition === 'saturated') {
+  if (inletCondition === "saturated") {
     base.saturationTemperature = { degF: tempDegF, K: degFtoK(tempDegF) };
   } else {
     base.subcooledAtTemperature = { degF: tempDegF, K: degFtoK(tempDegF) };
@@ -335,43 +337,43 @@ function point(
  */
 const NBS_LOW_T_CAVEAT =
   'NBS-9264: "The crossing of temperature curves in the low temperature ' +
-  'region in some tests is undoubtedly the result of inaccuracies in the ' +
+  "region in some tests is undoubtedly the result of inaccuracies in the " +
   'measurement" — e.g. station 3 observed warmer than station 4; ' +
-  'temperature accuracy sacrificed to span ambient→liquid range ' +
-  '(copper-constantan TCs referenced to LN2).';
+  "temperature accuracy sacrificed to span ambient→liquid range " +
+  "(copper-constantan TCs referenced to LN2).";
 
 /** Saturated LH2 — Table 6 upper-left. */
 const SAT_LH2: ChilldownDataPoint[] = [
-  point('satLH2-P74.97', 'LH2', 'saturated', 74.97, -411.06, 68, 70),
-  point('satLH2-P86.73', 'LH2', 'saturated', 86.73, -409.08, 62, 69),
-  point('satLH2-P111.72', 'LH2', 'saturated', 111.72, -406.4, 42, 50),
-  point('satLH2-P161.72', 'LH2', 'saturated', 161.72, -402.13, 30, 33),
+  point("satLH2-P74.97", "LH2", "saturated", 74.97, -411.06, 68, 70),
+  point("satLH2-P86.73", "LH2", "saturated", 86.73, -409.08, 62, 69),
+  point("satLH2-P111.72", "LH2", "saturated", 111.72, -406.4, 42, 50),
+  point("satLH2-P161.72", "LH2", "saturated", 161.72, -402.13, 30, 33),
 ];
 
 /** Subcooled LH2 (subcooled at −424.57 °F) — Table 6 upper-right. */
 const SUB_LH2: ChilldownDataPoint[] = [
-  point('subLH2-P36.75', 'LH2', 'subcooled', 36.75, -424.57, 148, 150),
-  point('subLH2-P61.74', 'LH2', 'subcooled', 61.74, -424.57, 75, 80),
-  point('subLH2-P86.73', 'LH2', 'subcooled', 86.73, -424.57, 62, 60),
-  point('subLH2-P111.72', 'LH2', 'subcooled', 111.72, -424.57, 41, 45),
-  point('subLH2-P136.72', 'LH2', 'subcooled', 136.72, -424.57, 32, 35),
-  point('subLH2-P161.7', 'LH2', 'subcooled', 161.7, -424.57, 28, 30),
+  point("subLH2-P36.75", "LH2", "subcooled", 36.75, -424.57, 148, 150),
+  point("subLH2-P61.74", "LH2", "subcooled", 61.74, -424.57, 75, 80),
+  point("subLH2-P86.73", "LH2", "subcooled", 86.73, -424.57, 62, 60),
+  point("subLH2-P111.72", "LH2", "subcooled", 111.72, -424.57, 41, 45),
+  point("subLH2-P136.72", "LH2", "subcooled", 136.72, -424.57, 32, 35),
+  point("subLH2-P161.7", "LH2", "subcooled", 161.7, -424.57, 28, 30),
 ];
 
 /** Saturated LN2 — Table 6 lower-left. */
 const SAT_LN2: ChilldownDataPoint[] = [
-  point('satLN2-P61.74', 'LN2', 'saturated', 61.74, -294.09, 165, 185),
-  point('satLN2-P74.97', 'LN2', 'saturated', 74.97, -289.71, 150, 160),
-  point('satLN2-P86.73', 'LN2', 'saturated', 86.73, -286.24, 130, 140),
+  point("satLN2-P61.74", "LN2", "saturated", 61.74, -294.09, 165, 185),
+  point("satLN2-P74.97", "LN2", "saturated", 74.97, -289.71, 150, 160),
+  point("satLN2-P86.73", "LN2", "saturated", 86.73, -286.24, 130, 140),
 ];
 
 /** Subcooled LN2 (subcooled at −322.87 °F) — Table 6 lower-right. */
 const SUB_LN2: ChilldownDataPoint[] = [
-  point('subLN2-P36.75', 'LN2', 'subcooled', 36.75, -322.87, 222, 250),
-  point('subLN2-P49.97', 'LN2', 'subcooled', 49.97, -322.87, 170, 175),
-  point('subLN2-P61.74', 'LN2', 'subcooled', 61.74, -322.87, 129, 140),
-  point('subLN2-P74.97', 'LN2', 'subcooled', 74.97, -322.87, 100, 100),
-  point('subLN2-P86.73', 'LN2', 'subcooled', 86.73, -322.87, 85, 90),
+  point("subLN2-P36.75", "LN2", "subcooled", 36.75, -322.87, 222, 250),
+  point("subLN2-P49.97", "LN2", "subcooled", 49.97, -322.87, 170, 175),
+  point("subLN2-P61.74", "LN2", "subcooled", 61.74, -322.87, 129, 140),
+  point("subLN2-P74.97", "LN2", "subcooled", 74.97, -322.87, 100, 100),
+  point("subLN2-P86.73", "LN2", "subcooled", 86.73, -322.87, 85, 90),
 ];
 
 /** All 18 Table-6 rows: 4 sat LH2 + 6 subcooled LH2 + 3 sat LN2 + 5 subcooled LN2. */
@@ -380,7 +382,10 @@ export const NBS_CHILLDOWN_DATA: ChilldownDataPoint[] = [
   ...SUB_LH2,
   ...SAT_LN2,
   ...SUB_LN2,
-].map((p) => ({ ...p, uncertainty: { ...p.uncertainty, notes: [NBS_LOW_T_CAVEAT] } }));
+].map((p) => ({
+  ...p,
+  uncertainty: { ...p.uncertainty, notes: [NBS_LOW_T_CAVEAT] },
+}));
 
 // ---------------------------------------------------------------------------
 // Documented nuisance/uncertainty notes (module level) — see header.
@@ -389,24 +394,24 @@ export const NBS_CHILLDOWN_DATA: ChilldownDataPoint[] = [
 export const NBS_CHILLDOWN_UNCERTAINTY_NOTES: string[] = [
   'NBS-9264 (self-flagged): temperature accuracy "sacrificed in order to ' +
     'cover the entire range from ambient to liquid temperatures"; ' +
-    'copper-constantan thermocouples referenced to liquid nitrogen.',
-  'NBS-9264 (self-flagged): low-temperature curve crossings (e.g. station 3 ' +
+    "copper-constantan thermocouples referenced to liquid nitrogen.",
+  "NBS-9264 (self-flagged): low-temperature curve crossings (e.g. station 3 " +
     'warmer than station 4) "undoubtedly the result of inaccuracies in the ' +
     'measurement" — treat per-station low-T readings as suspect.',
-  'NBS-9264 (self-flagged): chilldown time is a visual knee read off ' +
+  "NBS-9264 (self-flagged): chilldown time is a visual knee read off " +
     'oscillograph charts; "within a few seconds of the time taken to ' +
     'achieve steady flow and steady pressures".',
-  'Later re-analysis (CRTech digitization study, passed-down context): ' +
-    'dominant modeling unknowns are the unrecorded initial liquid ' +
-    'temperature, unknown ortho/para hydrogen fraction (LH2), unknown ' +
-    'copper-alloy cp, and ±1% tube-ID tolerance sensitivity.',
+  "Later re-analysis (CRTech digitization study, passed-down context): " +
+    "dominant modeling unknowns are the unrecorded initial liquid " +
+    "temperature, unknown ortho/para hydrogen fraction (LH2), unknown " +
+    "copper-alloy cp, and ±1% tube-ID tolerance sensitivity.",
   'This module: GFSSP "predicted" times are a 33-node-network model ' +
-    'output (Miropolskii film-boiling correlation) — the published ' +
-    'baseline to compare against, NOT experimental data.',
-  'This module: chilldown-time operationalization (station-4 knee as a ' +
-    'configurable threshold crossing) contributes a definitional ' +
-    'sensitivity that is QUANTIFIED in the chilldown baseline and ' +
-    'must be carried into any calibration likelihood.',
+    "output (Miropolskii film-boiling correlation) — the published " +
+    "baseline to compare against, NOT experimental data.",
+  "This module: chilldown-time operationalization (station-4 knee as a " +
+    "configurable threshold crossing) contributes a definitional " +
+    "sensitivity that is QUANTIFIED in the chilldown baseline and " +
+    "must be carried into any calibration likelihood.",
 ];
 
 // ---------------------------------------------------------------------------
@@ -470,11 +475,11 @@ export const NBS_CHILLDOWN_TRACES: DigitizedWallTempTrace[] = [];
 // ---------------------------------------------------------------------------
 
 export function getChilldownPoints(
-  fluid: 'LH2' | 'LN2',
-  inletCondition: 'saturated' | 'subcooled'
+  fluid: "LH2" | "LN2",
+  inletCondition: "saturated" | "subcooled",
 ): ChilldownDataPoint[] {
   return NBS_CHILLDOWN_DATA.filter(
-    (p) => p.fluid === fluid && p.inletCondition === inletCondition
+    (p) => p.fluid === fluid && p.inletCondition === inletCondition,
   );
 }
 

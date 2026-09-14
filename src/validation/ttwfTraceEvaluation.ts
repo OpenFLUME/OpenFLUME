@@ -25,13 +25,16 @@
  * run-level pooling (see traceBaseline.ts §Scope).
  */
 
-import { stationXM } from './nbsChilldown';
-import { interpolateTraceToStation, thresholdCrossingTime } from './stationInterp';
+import { stationXM } from "./nbsChilldown";
+import {
+  interpolateTraceToStation,
+  thresholdCrossingTime,
+} from "./stationInterp";
 import {
   aggregateRunLevelMetrics,
   type RunTraceMetrics,
-} from './traceObjectives';
-import type { TtWfConductorHistory } from '../core/schema';
+} from "./traceObjectives";
+import type { TtWfConductorHistory } from "../core/schema";
 
 // ---------------------------------------------------------------------------
 // Fixed TT-WF parameter echo (pre-registered — NEVER tuned in this study)
@@ -56,7 +59,7 @@ export const TTWF_PREREGISTERED_PARAMS = {
 // TT-WF history summarization (per conductor / per station)
 // ---------------------------------------------------------------------------
 
-export type TtWfRegimeLabel = 'DB' | 'NB' | 'TB' | 'FB' | 'SP';
+export type TtWfRegimeLabel = "DB" | "NB" | "TB" | "FB" | "SP";
 
 export interface TtWfRegimeRun {
   regime: TtWfRegimeLabel;
@@ -92,13 +95,16 @@ export function summarizeTtWfConductorHistory(
   conductorId: string,
   axialPositionM: number,
   timesS: number[],
-  h: TtWfConductorHistory
+  h: TtWfConductorHistory,
 ): TtWfConductorSummary {
-  if (h.fWet.length !== timesS.length || h.rewetLatched.length !== timesS.length) {
+  if (
+    h.fWet.length !== timesS.length ||
+    h.rewetLatched.length !== timesS.length
+  ) {
     throw new Error(
       `summarizeTtWfConductorHistory(${conductorId}): history/time length mismatch ` +
         `(fWet ${h.fWet.length}, latch ${h.rewetLatched.length}, times ${timesS.length}) — ` +
-        `the accepted-step alignment contract is broken`
+        `the accepted-step alignment contract is broken`,
     );
   }
   let sets = 0;
@@ -112,7 +118,8 @@ export function summarizeTtWfConductorHistory(
     }
     if (h.rewetLatched[k - 1] && !h.rewetLatched[k]) {
       clears++;
-      if (latchSetS !== undefined && latchClearS === undefined) latchClearS = timesS[k];
+      if (latchSetS !== undefined && latchClearS === undefined)
+        latchClearS = timesS[k];
     }
   }
   let minF = Infinity;
@@ -138,8 +145,8 @@ export function summarizeTtWfConductorHistory(
     latchClearS,
     latchSetCount: sets,
     latchClearCount: clears,
-    fWet50S: thresholdCrossingTime(timesS, h.fWet, 0.5, 'above'),
-    fWet99S: thresholdCrossingTime(timesS, h.fWet, 0.99, 'above'),
+    fWet50S: thresholdCrossingTime(timesS, h.fWet, 0.5, "above"),
+    fWet99S: thresholdCrossingTime(timesS, h.fWet, 0.99, "above"),
     finalFWet: h.fWet[h.fWet.length - 1] ?? NaN,
     minFWet: minF,
     maxFWet: maxF,
@@ -168,7 +175,7 @@ export interface TtWfStationFrontSummary {
 export function ttwfStationFrontArrivals(
   timesS: number[],
   conductors: { axialPositionM: number; fWet: number[] }[],
-  levels: number[] = [0.5, 0.99]
+  levels: number[] = [0.5, 0.99],
 ): TtWfStationFrontSummary[] {
   const xs = conductors.map((c) => c.axialPositionM);
   const traces = conductors.map((c) => c.fWet);
@@ -176,7 +183,7 @@ export function ttwfStationFrontArrivals(
     const atStation = interpolateTraceToStation(xs, traces, stationXM(station));
     const out: TtWfStationFrontSummary = { station };
     for (const lv of levels) {
-      const t = thresholdCrossingTime(timesS, atStation, lv, 'above');
+      const t = thresholdCrossingTime(timesS, atStation, lv, "above");
       if (lv === 0.5) out.fWet50S = t;
       else if (lv === 0.99) out.fWet99S = t;
     }
@@ -199,14 +206,14 @@ export interface TtWfCaseConfigEcho {
   initialTemperatureK: number;
   dtS: number;
   endTimeS: number;
-  timeStepping: 'fixed';
-  outletWallCoupling: 'upwind';
-  solidProperties: 'ofhc-copper';
-  closureParams: 'defaults (untouched)';
+  timeStepping: "fixed";
+  outletWallCoupling: "upwind";
+  solidProperties: "ofhc-copper";
+  closureParams: "defaults (untouched)";
 }
 
 export interface TtWfCaseSolveRecord {
-  status: 'ok' | 'timeout' | 'not-converged';
+  status: "ok" | "timeout" | "not-converged";
   converged: boolean;
   aborted: boolean;
   timedOut: boolean;
@@ -214,11 +221,22 @@ export interface TtWfCaseSolveRecord {
   steps: number;
   finalTimeS?: number;
   hFloorClampCount: number;
-  statePHFallbackCount: { freshFactory: number; propsSI: number; saturationDome: number; lastResort: number };
+  statePHFallbackCount: {
+    freshFactory: number;
+    propsSI: number;
+    saturationDome: number;
+    lastResort: number;
+  };
   /** D-H validity guards firing INSIDE TT-WF evaluations (inherited
    *  sub-correlations — counted per h-map evaluation, as for darrHartwig). */
   darrHartwig: {
-    validityClamps: { relin: number; twetCrit: number; tvapLimit: number; frontDistance: number; regimeCollapse: number };
+    validityClamps: {
+      relin: number;
+      twetCrit: number;
+      tvapLimit: number;
+      frontDistance: number;
+      regimeCollapse: number;
+    };
     propertyFailureCount: number;
     missingWallTempCount: number;
   };
@@ -251,7 +269,7 @@ export interface TtWfEnergyAudit {
    *  conv0 wall conductor (tracked-domain sink; documented bookkeeping). */
   integralBoundaryReservoirJ: number;
   scaleJ: number;
-  method: 'right-rectangle (implicit-Euler-consistent), upwind boundary enthalpy fluxes; conv0→f0 wall heat treated as a boundary-reservoir sink';
+  method: "right-rectangle (implicit-Euler-consistent), upwind boundary enthalpy fluxes; conv0→f0 wall heat treated as a boundary-reservoir sink";
 }
 
 /**
@@ -278,18 +296,22 @@ export interface TtWfStationCaseRecord {
     crossing50KS: { model?: number; data?: number; dataReason?: string };
     kneeS: { model?: number; data?: number; dataReason?: string };
     drop150to50S: { model?: number; data?: number; dataReason?: string };
-    peakRateKperS: { model?: number; data?: number; atS?: { model?: number; data?: number } };
+    peakRateKperS: {
+      model?: number;
+      data?: number;
+      atS?: { model?: number; data?: number };
+    };
     plateauFraction: { model?: number; data?: number; dataReason?: string };
   };
 }
 
 export interface TtWfTraceCaseArtifact {
-  schema: 'ttwf-trace-case@1';
+  schema: "ttwf-trace-case@1";
   commitSha: string;
   measuredAt: string;
   datasetVersion: string;
   runId: string;
-  closure: 'ttWf';
+  closure: "ttWf";
   /** Pre-registered fixed parameters actually used (echoed; never tuned). */
   ttwfParams: { frontEnergyFactor: number; rewetHysteresisOffsetK: number };
   /** TT-WF inherits the D-H LH2-fit sub-correlations; LN2 runs are a
@@ -303,10 +325,23 @@ export interface TtWfTraceCaseArtifact {
   kneeThresholdK: number;
   rateHalfWindowS: number;
   stations: TtWfStationCaseRecord[];
-  pooled: { nStations: number; nSamples: number; rmseK?: number; maeK?: number };
+  pooled: {
+    nStations: number;
+    nSamples: number;
+    rmseK?: number;
+    maeK?: number;
+  };
   front150: {
-    model: { arrivals: { station: number; timeS: number }[]; missingStations: number[]; complete: boolean };
-    data: { arrivals: { station: number; timeS: number }[]; missingStations: number[]; complete: boolean };
+    model: {
+      arrivals: { station: number; timeS: number }[];
+      missingStations: number[];
+      complete: boolean;
+    };
+    data: {
+      arrivals: { station: number; timeS: number }[];
+      missingStations: number[];
+      complete: boolean;
+    };
     discordantPairs: number;
   };
   scalar: {
@@ -314,9 +349,18 @@ export interface TtWfTraceCaseArtifact {
     thresholdK: number;
     tSatLocalK?: number;
     dataKneeS?: number;
-    table6?: { conditionId: string; experimentalS: number; gfsspS: number; errorPct?: number };
+    table6?: {
+      conditionId: string;
+      experimentalS: number;
+      gfsspS: number;
+      errorPct?: number;
+    };
   };
-  modelStationTraces: { station: 1 | 2 | 3 | 4; timesS: number[]; valuesK: number[] }[];
+  modelStationTraces: {
+    station: 1 | 2 | 3 | 4;
+    timesS: number[];
+    valuesK: number[];
+  }[];
   /** TT-WF accepted-step state histories + summaries (present whenever the
    *  result carries TransientResult.ttWf, including partial/timeout
    *  results — histories are sliced consistently by the solver). */
@@ -328,7 +372,12 @@ export interface TtWfTraceCaseArtifact {
      *  regeneration and audit replay. */
     histories: Record<
       string,
-      { axialPositionM: number; fWet: number[]; rewetLatched: boolean[]; regime: TtWfRegimeLabel[] }
+      {
+        axialPositionM: number;
+        fWet: number[];
+        rewetLatched: boolean[];
+        regime: TtWfRegimeLabel[];
+      }
     >;
   };
 }
@@ -352,14 +401,14 @@ export interface CampaignPooledRow {
 export function poolCampaign(
   closure: string,
   runs: { runId: string; status: string; rmseK?: number; maeK?: number }[],
-  restrictToRunIds?: string[]
+  restrictToRunIds?: string[],
 ): CampaignPooledRow {
   const ok = runs.filter(
     (r) =>
-      r.status === 'ok' &&
+      r.status === "ok" &&
       r.rmseK !== undefined &&
       r.maeK !== undefined &&
-      (restrictToRunIds === undefined || restrictToRunIds.includes(r.runId))
+      (restrictToRunIds === undefined || restrictToRunIds.includes(r.runId)),
   );
   const metrics: RunTraceMetrics[] = ok.map((r) => ({
     nStations: 0,

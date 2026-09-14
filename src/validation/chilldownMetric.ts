@@ -20,8 +20,8 @@
 import {
   interpolateTraceToStation,
   thresholdCrossingTime,
-} from './stationInterp';
-import { stationXM, type ChilldownTimeDefinition } from './nbsChilldown';
+} from "./stationInterp";
+import { stationXM, type ChilldownTimeDefinition } from "./nbsChilldown";
 
 export interface ChilldownMetricInput {
   /** Common time grid (s). */
@@ -62,30 +62,30 @@ const LATE_FRACTION = 0.1;
 
 export function predictedChilldownTime(
   input: ChilldownMetricInput,
-  def: ChilldownTimeDefinition
+  def: ChilldownTimeDefinition,
 ): ChilldownMetricResult {
   const xStation = stationXM(def.station);
   const wallAtStation = interpolateTraceToStation(
     input.wallXM,
     input.wallTracesK,
-    xStation
+    xStation,
   );
 
   let thresholdK: number;
   let pLocalLatePa: number | undefined;
   let tSatLocalK: number | undefined;
   switch (def.threshold.mode) {
-    case 'fixed':
+    case "fixed":
       thresholdK = def.threshold.valueK;
       break;
-    case 'aboveInletLiquid':
+    case "aboveInletLiquid":
       thresholdK = input.inletLiquidTempK + def.threshold.marginK;
       break;
-    case 'aboveLocalTsat': {
+    case "aboveLocalTsat": {
       const pTrace = interpolateTraceToStation(
         input.fluidXM,
         input.pressureTracesPa,
-        xStation
+        xStation,
       );
       const nLate = Math.max(1, Math.floor(pTrace.length * LATE_FRACTION));
       pLocalLatePa = pTrace.slice(-nLate).reduce((a, b) => a + b, 0) / nLate;
@@ -96,7 +96,12 @@ export function predictedChilldownTime(
   }
 
   return {
-    timeS: thresholdCrossingTime(input.timesS, wallAtStation, thresholdK, 'below'),
+    timeS: thresholdCrossingTime(
+      input.timesS,
+      wallAtStation,
+      thresholdK,
+      "below",
+    ),
     stationXM: xStation,
     thresholdK,
     pLocalLatePa,
@@ -111,7 +116,7 @@ export function predictedChilldownTime(
  */
 export function predictedChilldownTimeSweep(
   input: ChilldownMetricInput,
-  defs: ChilldownTimeDefinition[]
+  defs: ChilldownTimeDefinition[],
 ): ChilldownMetricResult[] {
   return defs.map((d) => predictedChilldownTime(input, d));
 }

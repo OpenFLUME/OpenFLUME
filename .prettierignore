@@ -3,7 +3,13 @@ coverage/
 node_modules/
 playwright-report/
 test-results/
-validation/
-docs/validation/figures/
+# Digitized experimental data workspace (CSV/JSON/notes), not source.
+# Anchored: an unanchored `validation/` also matched `src/validation/`.
+/validation/
+# Generated validation reports + figures (scripts/*-validation-report.ts).
+docs/validation/
 public/*.svg
-src/core/fluids/generatedFluidCatalogue.ts
+# Generated code — regenerate with the scripts, never hand-format.
+src/core/fluids/generated/
+src/core/combustion/generated/
+src/validation/generated/

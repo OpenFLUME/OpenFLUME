@@ -40,18 +40,20 @@
 export function interpolateAtPosition(
   x: number[],
   y: number[],
-  xQuery: number
+  xQuery: number,
 ): number {
   if (x.length !== y.length) {
-    throw new Error(`interpolateAtPosition: x (${x.length}) and y (${y.length}) length mismatch`);
+    throw new Error(
+      `interpolateAtPosition: x (${x.length}) and y (${y.length}) length mismatch`,
+    );
   }
   if (x.length === 0) {
-    throw new Error('interpolateAtPosition: empty sample arrays');
+    throw new Error("interpolateAtPosition: empty sample arrays");
   }
   for (let i = 1; i < x.length; i++) {
     if (!(x[i] > x[i - 1])) {
       throw new Error(
-        `interpolateAtPosition: x must be strictly ascending (x[${i - 1}]=${x[i - 1]}, x[${i}]=${x[i]})`
+        `interpolateAtPosition: x must be strictly ascending (x[${i - 1}]=${x[i - 1]}, x[${i}]=${x[i]})`,
       );
     }
   }
@@ -79,11 +81,11 @@ export function interpolateAtPosition(
 export function interpolateTraceToStation(
   xPositions: number[],
   nodeTraces: number[][],
-  stationX: number
+  stationX: number,
 ): number[] {
   if (nodeTraces.length !== xPositions.length) {
     throw new Error(
-      `interpolateTraceToStation: ${nodeTraces.length} traces for ${xPositions.length} positions`
+      `interpolateTraceToStation: ${nodeTraces.length} traces for ${xPositions.length} positions`,
     );
   }
   const nT = nodeTraces[0]?.length ?? 0;
@@ -92,7 +94,7 @@ export function interpolateTraceToStation(
     out[k] = interpolateAtPosition(
       xPositions,
       nodeTraces.map((tr) => tr[k]),
-      stationX
+      stationX,
     );
   }
   return out;
@@ -123,13 +125,16 @@ export function thresholdCrossingTime(
   times: number[],
   values: number[],
   threshold: number,
-  direction: 'below' | 'above' = 'below'
+  direction: "below" | "above" = "below",
 ): number | undefined {
   if (times.length !== values.length) {
-    throw new Error(`thresholdCrossingTime: times (${times.length}) / values (${values.length}) length mismatch`);
+    throw new Error(
+      `thresholdCrossingTime: times (${times.length}) / values (${values.length}) length mismatch`,
+    );
   }
   if (times.length === 0) return undefined;
-  const past = (v: number) => (direction === 'below' ? v < threshold : v > threshold);
+  const past = (v: number) =>
+    direction === "below" ? v < threshold : v > threshold;
   if (past(values[0])) return times[0];
   for (let k = 1; k < values.length; k++) {
     if (past(values[k])) {
