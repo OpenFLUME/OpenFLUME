@@ -20,15 +20,15 @@
  * compared to summation-order precision rather than exactly.
  */
 import { describe, it, expect } from "vitest";
-import type { Conductor, NetworkConfig } from "../schema";
-import { repeatUnit, analyzeRepeatUnit } from "../repeat";
-import type { RepeatOptions } from "../repeat";
+import type { Conductor, NetworkConfig } from "../../core/schema";
+import { repeatUnit, analyzeRepeatUnit } from "../../core/repeat";
+import type { RepeatOptions } from "../../core/repeat";
 import {
   isParameterExpression,
   resolveNetworkParameters,
-} from "../paramBindings";
-import { validateNetwork } from "../validate";
-import { sindaFluintCryoLineCooldown } from "../../ui/examples";
+} from "../../core/paramBindings";
+import { validateNetwork } from "../../core/validate";
+import { sindaFluintCryoLineCooldown } from "../examples";
 
 type FluidNode = NetworkConfig["nodes"][number];
 type Branch = NetworkConfig["branches"][number];

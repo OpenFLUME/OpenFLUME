@@ -34,14 +34,15 @@
  */
 
 import type { NetworkConfig } from "../core";
-import { expressionBuiltinNames, isParameterExpression } from "../core";
 import {
+  expressionBuiltinNames,
+  isParameterExpression,
   BINDABLE_COMPONENT_FIELDS,
   BINDABLE_CORRELATION_FIELDS,
   BINDABLE_NODE_FIELDS,
   BINDABLE_POSITION_AXES,
   BINDABLE_SOLID_FIELDS,
-} from "../core/formulaFields";
+} from "../core";
 import {
   escapeFormulaId,
   quoteFormulaId,

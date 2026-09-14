@@ -91,7 +91,7 @@
  * (there is no fast transient for step-doubling error control to protect
  * against, only an expensive quasi-static solve at every sample point).
  */
-import type { NetworkConfig } from "../core/schema";
+import type { NetworkConfig } from "../core";
 import {
   GAS_STATIONS,
   JACKET_D,

@@ -7,10 +7,10 @@
  * alarming is reported.
  */
 import { describe, it, expect, beforeAll } from "vitest";
-import { assessResult } from "../resultFindings";
-import { initRealFluids, solveSteady } from "../index";
-import { examples } from "../../ui/examples";
-import type { NetworkConfig, SteadyResult } from "../schema";
+import { assessResult } from "../../core/resultFindings";
+import { initRealFluids, solveSteady } from "../../core";
+import { examples } from "../examples";
+import type { NetworkConfig, SteadyResult } from "../../core";
 
 const config = (
   branches: Array<{ id: string; from: string; to: string; label?: string }>,

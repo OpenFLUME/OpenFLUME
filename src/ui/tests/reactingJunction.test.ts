@@ -24,18 +24,18 @@
  *      that an arbitrarily uninformed start is not a supported contract.
  */
 import { describe, it, expect } from "vitest";
-import type { NetworkConfig } from "../schema";
-import { decodeAndValidateNetwork } from "../config";
-import { solveSteady } from "../solver";
-import { solveTransient } from "../transient";
-import { createCombustionModel } from "../combustion/model";
+import type { NetworkConfig } from "../../core";
+import { decodeAndValidateNetwork } from "../../core";
+import { solveSteady } from "../../core";
+import { solveTransient } from "../../core";
+import { createCombustionModel } from "../../core/combustion/model";
 import {
   lookupCombustionGas,
   lookupChamberT0Dual,
   combustionGasBounds,
-} from "../combustion/combustionGas";
-import { constant } from "../dual";
-import { thrusterCombustor } from "../../ui/thrusterCombustor";
+} from "../../core/combustion/combustionGas";
+import { constant } from "../../core/dual";
+import { thrusterCombustor } from "../thrusterCombustor";
 
 /* ==========================================================================
  * 1. Thermochemistry model

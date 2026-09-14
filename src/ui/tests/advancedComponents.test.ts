@@ -22,10 +22,10 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import * as path from "node:path";
 import { fileURLToPath } from "node:url";
-import { compileUserComponent } from "../usercode";
-import type { UserPressureDropArgs, UserHeatArgs } from "../usercode";
-import { validateNetwork } from "../validate";
-import { extensionAdvancedExample } from "../../ui/examples";
+import { compileUserComponent } from "../../core/usercode";
+import type { UserPressureDropArgs, UserHeatArgs } from "../../core/usercode";
+import { validateNetwork } from "../../core";
+import { extensionAdvancedExample } from "../examples";
 
 const COMPONENTS_DIR = path.join(
   path.dirname(fileURLToPath(import.meta.url)),

@@ -56,6 +56,95 @@ export default tseslint.config(
       ],
     },
   },
+  // ── Layering (docs/architecture.md "Dependency direction") ─────────────
+  // Dependencies point inward: core ← substrate ← ui. Enforced here so the
+  // documented boundary cannot erode one import at a time.
+  {
+    files: ["src/core/**/*.{ts,tsx}"],
+    ignores: ["src/core/__tests__/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/ui/**", "**/substrate/**", "**/validation/**"],
+              message:
+                "src/core must not depend on the UI, the text projection, or validation data (docs/architecture.md).",
+            },
+            {
+              group: ["react", "react-dom", "zustand", "@xyflow/*"],
+              message: "src/core must stay framework-free.",
+            },
+            {
+              group: ["**/scripts/**"],
+              message: "Runtime modules must not depend on scripts/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // Core tests may reach the substrate for text round-trips, but fixtures
+    // that live in the UI (examples, thruster builders) make a test a UI
+    // tier test — it belongs in src/ui/tests.
+    files: ["src/core/__tests__/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/ui/**"],
+              message:
+                "Core tests must not import UI fixtures; move the test to src/ui/tests.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["src/substrate/**/*.ts", "src/validation/**/*.ts"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/ui/**"],
+              message: "The substrate and validation layers sit below the UI.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The UI consumes core through its public barrel. Deep imports bind the
+    // UI to solver internals that the barrel header declares unstable.
+    files: ["src/ui/**/*.{ts,tsx}", "src/App.tsx", "src/main.tsx"],
+    ignores: ["src/ui/tests/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["**/core/*", "**/core/**/*", "!**/core/index"],
+              message:
+                "Import from the core barrel (src/core/index.ts). Add an export there if something is missing.",
+            },
+            {
+              group: ["**/scripts/**", "**/validation/**"],
+              message: "The UI must not depend on scripts/ or validation data.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     // Tests deliberately feed malformed shapes into decoders and validators
     // and reach into internals; `any` is the honest way to write those.

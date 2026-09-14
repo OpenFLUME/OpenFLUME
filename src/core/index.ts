@@ -123,6 +123,14 @@ export {
 } from "./paramBindings";
 export type { ParameterResolution } from "./paramBindings";
 export {
+  BINDABLE_NODE_FIELDS,
+  BINDABLE_SOLID_FIELDS,
+  BINDABLE_POSITION_AXES,
+  BINDABLE_COMPONENT_FIELDS,
+  BINDABLE_CONDUCTOR_FIELDS,
+  BINDABLE_CORRELATION_FIELDS,
+} from "./formulaFields";
+export {
   ExpressionError,
   parseExpression,
   compileExpression,
@@ -147,6 +155,7 @@ export type {
   UserHeatArgs,
   UserComponentDefinition,
 } from "./usercode";
+export * from "./usercode/formulaTokens";
 export type {
   ClosureParams,
   ResolvedClosureParams,

@@ -48,6 +48,11 @@ Dependencies should point inward:
 6. `src/validation` and validation data evaluate scientific claims; production
    solver code must not import fitted outcomes or test data from them.
 
+These rules are enforced by `no-restricted-imports` in `eslint.config.js`
+(core → ui/substrate/validation/frameworks, substrate/validation → ui,
+ui → core internals other than the barrel, anything → scripts). A core test
+that needs a UI fixture is a UI-tier test and lives in `src/ui/tests`.
+
 ### Public API and internal APIs
 
 The supported source-level API is the export surface in `src/core/index.ts`, especially `NetworkConfig`, validation, solver entry points, result types, and documented fluid/component constructors. `DynamicCheckValve` is currently exported from `src/core/components` rather than that barrel; treat constructing it as a `NetworkConfig` component as the supported path.

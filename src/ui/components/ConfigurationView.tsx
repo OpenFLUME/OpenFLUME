@@ -17,14 +17,12 @@ import {
   ExpandableLiquid,
   validateNetwork,
   DEFAULT_CLOSURE_PARAMS,
-} from "../../core";
-import {
   FLUID_CATALOGUE,
   CURATED_REAL_FLUIDS,
   canonicalizeFluidName,
   getFluidCatalogueEntry,
   type FluidCatalogueEntry,
-} from "../../core/fluids/fluidCatalogue";
+} from "../../core";
 import { cloneConfig } from "../utils";
 import {
   AdvancedConfigSection,

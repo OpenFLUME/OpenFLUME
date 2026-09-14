@@ -91,7 +91,7 @@
  * guesses (see the robustness test in
  * src/core/__tests__/reactingJunction.test.ts).
  */
-import type { Conductor, NetworkConfig, SolidNode } from "../core/schema";
+import type { Conductor, NetworkConfig, SolidNode } from "../core";
 
 export const metres = (x: number, y = 0, z = 0) => ({ x, y, z });
 

@@ -22,7 +22,7 @@ import { convertToSI, convertFromSI } from "../units";
 import { formatWithUnit, formatSig, siNumber } from "../format";
 import { resolveSnapshot } from "../colorData";
 import { isTransientResult } from "../runHistory";
-import { CustomResistance } from "../../core/components";
+import { CustomResistance } from "../../core";
 import { BRANCH_COMPONENTS, migrateComponent } from "../componentRegistry";
 import {
   compatibleConductorKinds,

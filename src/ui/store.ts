@@ -46,7 +46,7 @@ import {
   loadRunsFromLocalStorage,
   clearRunsLocalStorage,
 } from "./runsFile";
-import { applyVariant, diffVariant } from "../core/variants";
+import { applyVariant, diffVariant } from "../core";
 import type { VariantSpec } from "../core";
 import { analyzeRepeatUnit, repeatUnit, splitPipeBranch } from "../core";
 import {
