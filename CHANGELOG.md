@@ -69,6 +69,14 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   past, so any edit after a run silently orphaned the session's history on
   the next reload. It is now keyed on a per-document session token.
 
+### Security
+
+- Sweeps now pass through the same preflight as a manual run before any
+  variant reaches the solver worker: embedded user-component code must be
+  trusted, referenced components must be embedded, and the model must
+  validate. Previously a sweep could execute embedded component code that the
+  manual Run button would have blocked pending the user's approval.
+
 ## [0.2.1] - 2026-08-23
 
 ### Added

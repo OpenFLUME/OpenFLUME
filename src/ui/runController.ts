@@ -9,46 +9,23 @@
  *
  * Behavioral contract (unchanged from the Toolbar implementation):
  *  - a running sweep owns the shared solver client → manual runs are refused;
- *  - preflight embeds/trusts user components and validates BEFORE any diary
- *    session exists (preflight failures never produce a diary);
+ *  - preflight (`runPreflight.ts`, shared with sweeps) embeds/trusts user
+ *    components and validates BEFORE any diary session exists (preflight
+ *    failures never produce a diary);
  *  - cancel finalizes a partial cancelled diary and never fabricates a
  *    completed RunRecord.
  */
 import { flushSync } from "react-dom";
 import { useStore } from "./store";
-import { cloneConfig } from "./utils";
-import { examples } from "./examples";
-import { validateNetwork } from "../core";
 import { getSolverWorkerClient } from "./workerClient";
 import { createRunDiarySession, type RunDiarySession } from "./runDiarySession";
 import { useSweepStore } from "./sweep/store";
+import { prepareRunConfig } from "./runPreflight";
 import type { NetworkConfig } from "./types";
-import {
-  compareEmbeddedComponents,
-  embedReferencedComponents,
-  isComponentSourceTrusted,
-  refreshComponentLibrary,
-} from "./componentLibrary";
 
 // Diary session of the in-flight/latest manual run.  Null outside a run (and
 // during preflight, which by design never produces a diary).
 let runSession: RunDiarySession | null = null;
-
-// Component sources shipped with the bundled examples are implicitly trusted
-// (the user got them from this app, not from an untrusted file).
-let bundledComponentSources: Set<string> | null = null;
-function getBundledComponentSources(): Set<string> {
-  if (!bundledComponentSources) {
-    bundledComponentSources = new Set(
-      Object.values(examples).flatMap((example) =>
-        Object.values(example.componentLibrary ?? {}).map(
-          (entry) => entry.code,
-        ),
-      ),
-    );
-  }
-  return bundledComponentSources;
-}
 
 /** Start a manual solver run. Safe to call from any UI surface. */
 export async function startRun(): Promise<void> {
@@ -75,59 +52,19 @@ export async function startRun(): Promise<void> {
   // what it was STARTED from, never under whatever is active when it ends.
   let owner: { variantId: string | null; documentToken: string };
   try {
-    const library = await refreshComponentLibrary();
     const snapshot = useStore.getState();
-    cloned = cloneConfig(snapshot.config);
     owner = {
       variantId: snapshot.activeVariantId,
       documentToken: snapshot.documentToken,
     };
-    const bundled = getBundledComponentSources();
-    const untrustedEmbedded = (
-      await compareEmbeddedComponents(
-        cloned.componentLibrary,
-        library.components,
-      )
-    ).filter((entry) => {
-      const source = cloned.componentLibrary?.[entry.key]?.code;
-      return (
-        entry.status !== "match" &&
-        !isComponentSourceTrusted(entry.embeddedHash) &&
-        !(source && bundled.has(source))
-      );
-    });
-    if (untrustedEmbedded.length > 0) {
-      store.setValidationErrors([
-        `Run blocked: embedded component code is not trusted (${untrustedEmbedded.map((entry) => entry.key).join(", ")}). ` +
-          "Load the model file and approve its component code before running.",
-      ]);
+    const prepared = await prepareRunConfig(snapshot.config);
+    if (!prepared.ok) {
+      store.setValidationErrors(prepared.errors);
       store.setRunStatus("error");
       return;
     }
-    const unavailable = embedReferencedComponents(cloned, library.components);
-    if (unavailable.length > 0) {
-      store.setValidationErrors(
-        unavailable.map(
-          (key) =>
-            `User component "${key}" is not embedded and is unavailable from the local component library.`,
-        ),
-      );
-      store.setRunStatus("error");
-      return;
-    }
-    const errs = validateNetwork(cloned);
-    if (errs.length > 0) {
-      store.setValidationErrors(errs);
-      store.setRunStatus("error");
-      return;
-    }
+    cloned = prepared.config;
     store.setRunStatus("running");
-  } catch (error) {
-    store.setValidationErrors([
-      error instanceof Error ? error.message : String(error),
-    ]);
-    store.setRunStatus("error");
-    return;
   } finally {
     store.endPreparation("run");
   }

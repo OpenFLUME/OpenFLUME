@@ -69,12 +69,14 @@ import { configHash } from "../provenance";
 import type { ProgressPayload, SolverWorkerClient } from "../workerClient";
 import { getSolverWorkerClient } from "../workerClient";
 import type { RunRecord } from "../runHistory";
+import type { NetworkConfig } from "../types";
 import type { RunDiary } from "../convergenceDiary";
 import {
   buildDiaryFromResult,
   createDiaryCollector,
   type DiaryCollector,
 } from "../convergenceDiary";
+import { prepareRunConfig, type PreflightResult } from "../runPreflight";
 import { createSweepJob } from "./variants";
 import { summarizeVariant } from "./summary";
 import { runSolveQueue, sweepSolveUnits, type SolveUnit } from "./runner";
@@ -103,6 +105,12 @@ export interface SweepStoreDeps {
   createClient?: () => SolverWorkerClient;
   /** Clock override for deterministic tests. */
   now?: () => number;
+  /**
+   * Preflight applied to the job's frozen base before any variant reaches a
+   * worker — the same trust/validation gate as a manual run (runPreflight).
+   * Injectable so tests can exercise the failure path deterministically.
+   */
+  prepare?: (config: NetworkConfig) => Promise<PreflightResult>;
 }
 
 export interface SweepStoreState {
@@ -177,6 +185,10 @@ let jobCounter = 0;
 export function createSweepStore(deps: SweepStoreDeps = {}) {
   const createClient = deps.createClient ?? getSolverWorkerClient;
   const now = deps.now ?? (() => Date.now());
+  const prepare =
+    deps.prepare ??
+    ((config: NetworkConfig) =>
+      prepareRunConfig(config, { embedLocal: false }));
   const runtime: { generation: number; active: ActiveRun | null } = {
     generation: 0,
     active: null,
@@ -289,10 +301,7 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
         throw new Error(`Sweep job ${jobId} disappeared before execution`);
       }
 
-      let units: SolveUnit[];
-      try {
-        units = sweepSolveUnits(jobAtStart);
-      } catch (err) {
+      const failJob = (message: string) => {
         if (isCurrent()) {
           runtime.active = null;
           const finishedAt = now();
@@ -301,11 +310,26 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
             status: "failed",
             finishedAt,
             durationMs: finishedAt - (j.startedAt ?? finishedAt),
-            error: err instanceof Error ? err.message : String(err),
+            error: message,
           }));
           clearActive();
         }
         return getJob(jobId) ?? jobAtStart;
+      };
+
+      // Gate: embedded user components execute as trusted code in the
+      // worker, so a sweep must pass the same consent/validation preflight
+      // as a manual run. The variant configs are hash-pinned, so the gate
+      // is applied to the frozen base without embedding anything into it.
+      const preflight = await prepare(jobAtStart.baseConfig);
+      if (!isCurrent()) return getJob(jobId) ?? jobAtStart;
+      if (!preflight.ok) return failJob(preflight.errors.join(" "));
+
+      let units: SolveUnit[];
+      try {
+        units = sweepSolveUnits(jobAtStart);
+      } catch (err) {
+        return failJob(err instanceof Error ? err.message : String(err));
       }
 
       // Only variants still pending run; completed results (kept by

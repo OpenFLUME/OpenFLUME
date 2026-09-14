@@ -906,6 +906,45 @@ describe("discardJob", () => {
 /* ------------------------------------------------------------------ */
 
 describe("start gates", () => {
+  it("fails the job — and spends no worker — when the run preflight refuses the base", async () => {
+    // Regression: sweeps used to reach the worker without the trust /
+    // validation gate that manual Run enforces, so an untrusted embedded
+    // component could be executed by sweeping instead of running.
+    const factory = makeFactory([{ kind: "resolve", result: steadyAt(1) }]);
+    const store = createSweepStore({
+      createClient: factory.createClient,
+      prepare: async () => ({
+        ok: false,
+        errors: ["Run blocked: embedded component code is not trusted (x)."],
+      }),
+    });
+    store.getState().createJob(sweep3(), { id: "j1" });
+    const job = await finished(store.getState().startJob("j1"));
+
+    expect(job.status).toBe("failed");
+    expect(job.error).toMatch(/not trusted/);
+    expect(factory.clients).toHaveLength(0);
+    expect(job.variants.every((v) => v.status === "pending")).toBe(true);
+    expect(store.getState().activeJobId).toBeNull();
+  });
+
+  it("passes the frozen base — not the live canonical config — to the preflight", async () => {
+    const seen: NetworkConfig[] = [];
+    const store = createSweepStore({
+      createClient: makeFactory([{ kind: "resolve", result: steadyAt(1) }])
+        .createClient,
+      prepare: async (config) => {
+        seen.push(config);
+        return { ok: true, config };
+      },
+    });
+    const job = store.getState().createJob(sweep3(), { id: "j1" });
+    useStore.getState().updateNode("in", { pressure: 123456 });
+    await finished(store.getState().startJob("j1"));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).toBe(job.baseConfig);
+  });
+
   it("refuses to start while a manual run or preparation is active", () => {
     const store = makeStore(
       makeFactory([{ kind: "resolve", result: steadyAt(1) }]),

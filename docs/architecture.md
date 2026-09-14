@@ -226,6 +226,13 @@ boundary:
 - Manual Run and a sweep are mutually exclusive in both directions (toolbar
   and store boundary checks, backed by the shared worker client rejecting a
   concurrent run).
+- Both paths pass through the same preflight (`src/ui/runPreflight.ts`):
+  embedded-component trust, local-component embedding (manual) or an
+  un-embedded-component error (sweeps, whose variant configs are hash-pinned
+  at creation and cannot be rewritten), then semantic validation. A sweep job
+  whose frozen base fails preflight is marked failed before any worker is
+  spawned. Embedded user code executes as trusted code in the worker, so no
+  path may reach it without this gate.
 
 Future optimization seam: the queue already accepts an injected client
 factory and any unit source, so a warm-worker pool (avoiding per-variant
