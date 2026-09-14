@@ -413,7 +413,7 @@ describe("RealFluid solver-level: N2 tank blowdown transient", () => {
     const orificeMdot = (P: number, T: number) => {
       state.update(cp.input_pairs.PT_INPUTS, P, T);
       const rho = state.rhomass();
-      const a = state.speed_sound();
+      const a = state.speed_sound!();
       const kappa = (a * a * rho) / P;
       return orifice.massFlowFromState(P, Pout, rho, kappa);
     };

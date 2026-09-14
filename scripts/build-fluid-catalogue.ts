@@ -63,7 +63,7 @@ interface CatalogueEntry {
 
 async function probeChild(fluidName: string): Promise<void> {
   const mod = await import("coolprop-wasm");
-  const cp = (await mod.default()) as any;
+  const cp = await mod.default();
 
   const constant = (key: string): number => {
     try {
@@ -128,6 +128,9 @@ async function probeChild(fluidName: string): Promise<void> {
       }
       if (conductivity !== "yes") {
         try {
+          // Optional in the binding: a build without the method has no
+          // transport model, same as one that throws.
+          if (!st.conductivity) throw new Error("no conductivity binding");
           const k = st.conductivity();
           if (isFinite(k) && k > 0) conductivity = "yes";
           else if (conductivity === "unknown") conductivity = "no";
@@ -305,7 +308,7 @@ async function main(): Promise<void> {
   const checkOnly = args.includes("--check");
 
   const mod = await import("coolprop-wasm");
-  const cp = (await mod.default()) as any;
+  const cp = await mod.default();
   let version = "unknown";
   try {
     version = cp.get_global_param_string("version");

@@ -28,7 +28,7 @@ export default tseslint.config(
       },
     },
     rules: {
-      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-explicit-any": "error",
       "@typescript-eslint/no-unused-vars": [
         "warn",
         { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
@@ -54,6 +54,14 @@ export default tseslint.config(
         "warn",
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    // Tests deliberately feed malformed shapes into decoders and validators
+    // and reach into internals; `any` is the honest way to write those.
+    files: ["**/__tests__/**", "**/tests/**", "e2e/**"],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
   {

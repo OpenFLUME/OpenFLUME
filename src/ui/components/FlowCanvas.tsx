@@ -1859,7 +1859,7 @@ export default function FlowCanvas({
   const updateGroup = useStore((s) => s.updateGroup);
   const updateNote = useStore((s) => s.updateNote);
   const onNodeDragStop = useCallback(
-    (_event: any, node: Node) => {
+    (_event: MouseEvent | TouchEvent, node: Node) => {
       if (node.type === "groupContainer") {
         const gid = groupIdFromNode(node);
         if (!gid) return;

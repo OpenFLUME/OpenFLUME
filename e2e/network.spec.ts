@@ -48,7 +48,7 @@ async function captureTextDownload(
 }
 
 /** Extract the `data: {…}` JSON payload of the first line starting with `prefix`. */
-function recordData(fnText: string, prefix: string): any {
+function recordData(fnText: string, prefix: string): Record<string, unknown> {
   const line = fnText.split("\n").find((l) => l.startsWith(prefix));
   expect(
     line,

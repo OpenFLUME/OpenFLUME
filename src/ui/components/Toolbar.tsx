@@ -22,7 +22,7 @@ import { matchSelectionFromError } from "../selectionFromError";
 import { useSweepStore } from "../sweep/store";
 import ConfirmDialog, { ConfirmRequest } from "./ConfirmDialog";
 import NewModelDialog from "./NewModelDialog";
-import type { Selection } from "../types";
+import type { Selection, SteadyResult, TransientResult } from "../types";
 import { configHash } from "../provenance";
 import {
   compareEmbeddedComponents,
@@ -705,7 +705,7 @@ function HealthPill({
   onSelectElement,
 }: {
   validationErrors: string[];
-  result: any;
+  result: SteadyResult | TransientResult | null;
   runStatus: string;
   resultStale: boolean;
   onSelectElement: (sel: Selection) => void;

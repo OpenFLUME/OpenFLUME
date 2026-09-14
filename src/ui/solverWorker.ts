@@ -188,8 +188,11 @@ function installWorkerHandlers(): void {
         const result = solveSteady(config, { onProgress });
         self.postMessage({ type: "done", result });
       }
-    } catch (err: any) {
-      self.postMessage({ type: "error", message: err?.message ?? String(err) });
+    } catch (err: unknown) {
+      self.postMessage({
+        type: "error",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 
