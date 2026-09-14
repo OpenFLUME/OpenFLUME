@@ -102,6 +102,22 @@ export class DynamicCheckValve implements BranchComponent {
    * (e.g. a future flow-force term) but this simple model is driven purely
    * by the static pressure force on the disc.
    */
+  snapshotState(): { x: number; v: number } {
+    return { x: this.x, v: this.v };
+  }
+
+  restoreState(snapshot: unknown): void {
+    const s = snapshot as { x: number; v: number };
+    this.x = s.x;
+    this.v = s.v;
+  }
+
+  /** Fractional opening: the quantity whose intra-step motion (slam-shut,
+   *  chatter) the adaptive controller must resolve. */
+  dynamicState(): number[] {
+    return [this.position];
+  }
+
   advanceState(dt: number, _mdot: number, pFrom: number, pTo: number): void {
     const dP = pFrom - pTo;
     const Fnet =

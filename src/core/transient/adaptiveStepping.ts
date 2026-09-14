@@ -17,7 +17,12 @@ import {
 } from "../solver";
 import { cloneState } from "./stateUtils";
 import { applyBoundaryConditions } from "./boundaryConditions";
-import { advanceStatefulComponents } from "./statefulComponents";
+import {
+  advanceStatefulComponents,
+  restoreStatefulComponents,
+  snapshotStatefulComponents,
+  statefulComponentState,
+} from "./statefulComponents";
 import type { HistoryRecorders } from "./historyRecorders";
 import { recordTransientStep } from "./resultRecorder";
 import { collectScheduleBreakpoints } from "./breakpoints";
@@ -38,6 +43,9 @@ export function runAdaptiveTimeStepping(
   const relTol = a.relTol;
   const absTolP = a.absTolP ?? 100;
   const absTolT = a.absTolT ?? 0.01;
+  const absTolMdot = a.absTolMdot ?? 1e-4;
+  /** Component dynamic states are O(1) dimensionless (fractional opening). */
+  const ABS_TOL_COMPONENT = 1e-3;
   const safety = a.safety ?? 0.9;
   const dtInitial =
     a.dtInitial ?? config.settings.dt ?? Math.sqrt(dtMin * dtMax);
@@ -86,7 +94,15 @@ export function runAdaptiveTimeStepping(
     options?.progressInterval ??
     Math.max(1, Math.floor(endTime / (currentDt * 200)));
 
-  while (t < endTime) {
+  // `t` accumulates the accepted dts, so after the step that lands on
+  // endTime it can sit a few ulps short of it (0.49999999999999994 for 0.5).
+  // Treating that residue as "one more step" would attempt a ~1e-16 s step,
+  // which a stiff momentum row (fluid inertia: (L/A)·Δṁ/dt) cannot converge
+  // — and the run would be reported unconverged at its own end time.
+  const T_EPS = 1e-12 * Math.max(endTime, 1);
+  const reachedEnd = () => endTime - t <= T_EPS;
+
+  while (!reachedEnd()) {
     if (options?.shouldAbort && options.shouldAbort()) {
       logic?.fire("solveEnd", buildLogicScope(ctx, state), {
         t,
@@ -185,10 +201,18 @@ export function runAdaptiveTimeStepping(
           ? { s, iterations: res.iterations, residual: res.residual }
           : undefined;
       };
+      // Stateful components (a check valve's poppet) advance along EACH
+      // candidate trajectory so their motion enters the error estimate and
+      // the two-half-step path sees the mid-step state; every exit that does
+      // not accept must first return them to the accepted state's components.
+      const componentsAtStart = snapshotStatefulComponents(ctx);
+      const rollbackComponents = () =>
+        restoreStatefulComponents(ctx, componentsAtStart);
       // A candidate that failed to converge: retry at half the step, or give
       // up when already at the floor. Returns true when the retry loop must
       // stop (the caller breaks out).
       const halveOrGiveUp = (): boolean => {
+        rollbackComponents();
         rejectCandidate();
         if (dt <= dtMin) {
           allConverged = false;
@@ -199,21 +223,26 @@ export function runAdaptiveTimeStepping(
         return false;
       };
 
-      // One full BE step of size dt -> y1
+      // One full BE step of size dt -> y1, components advanced once by dt.
       const c1 = candidate(state, dt, t + dt);
       if (!c1) {
         if (halveOrGiveUp()) break;
         continue;
       }
       const s1 = c1.s;
+      advanceStatefulComponents(ctx, s1, dt);
+      const components1 = statefulComponentState(ctx);
+      rollbackComponents();
 
-      // Two BE steps of dt/2 -> y2
+      // Two BE steps of dt/2 -> y2, components advanced twice by dt/2 (the
+      // second half-step solves against the mid-step component state).
       const cMid = candidate(state, dt / 2, t + dt / 2);
       if (!cMid) {
         if (halveOrGiveUp()) break;
         continue;
       }
       const sMid = cMid.s;
+      advanceStatefulComponents(ctx, sMid, dt / 2);
 
       const c2 = candidate(sMid, dt / 2, t + dt);
       if (!c2) {
@@ -221,9 +250,14 @@ export function runAdaptiveTimeStepping(
         continue;
       }
       const s2 = c2.s;
+      advanceStatefulComponents(ctx, s2, dt / 2);
+      const components2 = statefulComponentState(ctx);
       const res2 = { iterations: c2.iterations, residual: c2.residual };
 
-      // Error estimate (weighted RMS over all internal P, T (or H for realFluid) and solid T)
+      // Error estimate: weighted RMS over every DYNAMIC state — internal-node
+      // P and T (or h for enthalpy-state fluids), solid T, the mass flow of
+      // branches with fluid inertia (an ODE state, not an algebraic result),
+      // and the components' own integrated state.
       let sumSq = 0;
       let nVars = 0;
       for (const id of ctx.internalIds) {
@@ -254,6 +288,20 @@ export function runAdaptiveTimeStepping(
         sumSq += (diffT / scaleT) ** 2;
         nVars++;
       }
+      for (let j = 0; j < ctx.branches.length; j++) {
+        if (!ctx.branches[j].inertia) continue;
+        const y2m = s2.mdots[j];
+        const diffM = y2m - s1.mdots[j];
+        const scaleM = absTolMdot + relTol * Math.abs(y2m);
+        sumSq += (diffM / scaleM) ** 2;
+        nVars++;
+      }
+      for (let k = 0; k < components2.length; k++) {
+        const diffC = components2[k] - components1[k];
+        const scaleC = ABS_TOL_COMPONENT + relTol * Math.abs(components2[k]);
+        sumSq += (diffC / scaleC) ** 2;
+        nVars++;
+      }
       const err = nVars > 0 ? Math.sqrt(sumSq / nVars) : 0;
 
       if (err <= 1) {
@@ -281,8 +329,10 @@ export function runAdaptiveTimeStepping(
           acceptedResidual = res2.residual;
           currentDt = dtMin;
         } else {
-          // Error-estimate rejection: roll back the speculative stepStart
-          // writes, THEN fire stepRejected (its own writes commit).
+          // Error-estimate rejection: roll back the components and the
+          // speculative stepStart writes, THEN fire stepRejected (its own
+          // writes commit).
+          rollbackComponents();
           rejectCandidate();
           let growth = safety * Math.pow(err, -0.5);
           if (!isFinite(growth) || growth > 5) growth = 5;
@@ -328,11 +378,9 @@ export function runAdaptiveTimeStepping(
     // subtracts the fluid-inertia term against exactly that pair).
     recordTransientStep(ctx, config, acc, t, state, acceptedMid, dt / 2);
 
-    // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE):
-    // advance from the ACCEPTED step state — same "certified accepted"
-    // gate as the correlation latches above, so an error-control floor
-    // acceptance still advances it exactly once with the accepted dt.
-    if (certifiedAccepted) advanceStatefulComponents(ctx, state, dt);
+    // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE)
+    // were advanced along the accepted two-half-step trajectory inside the
+    // candidate loop, so their state already belongs to `state` here.
 
     // Controller lifecycle: execute PIDs against the ACCEPTED step state
     // with the accepted dt — outputs take effect on the NEXT step.
@@ -368,7 +416,7 @@ export function runAdaptiveTimeStepping(
 
     if (
       options?.onProgress &&
-      (acceptedSteps % progressInterval === 0 || t >= endTime)
+      (acceptedSteps % progressInterval === 0 || reachedEnd())
     ) {
       options.onProgress({
         step: acceptedSteps,
@@ -384,7 +432,7 @@ export function runAdaptiveTimeStepping(
   // with every step converged (NOT on the nrFailedAtMin break); solveEnd
   // on every exit that reaches this point.
   if (logic) {
-    if (t >= endTime && allConverged) {
+    if (reachedEnd() && allConverged) {
       logic.fire("converged", buildLogicScope(ctx, state), {
         t,
         dt: currentDt,

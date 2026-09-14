@@ -707,6 +707,13 @@ export interface NetworkConfig {
       relTol: number;
       absTolP?: number;
       absTolT?: number;
+      /**
+       * Absolute mass-flow tolerance [kg/s] for the error norm's ṁ channel.
+       * Only branches whose ṁ is a genuine dynamic state (fluid inertia)
+       * enter the norm; algebraic branches follow the node states and are
+       * already controlled through them. Default 1e-4.
+       */
+      absTolMdot?: number;
       safety?: number;
     };
   };

@@ -52,6 +52,13 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Changed
 
+- Adaptive step-doubling error control now covers every dynamic state: the
+  mass flow of fluid-inertia branches (new `adaptive.absTolMdot`, default
+  1e-4 kg/s) and the integrated state of stateful components (a dynamic check
+  valve's opening). Components are advanced along both candidate trajectories
+  and rolled back on rejection — the two-half-step path sees the mid-step
+  valve position — so slam-shut and chatter now drive the step size instead
+  of being integrated once after the fact. Fixed stepping is unchanged.
 - CoolProp is now loaded only inside the solver worker. The toolbar used to
   initialise a second instance on the main thread to show a "CoolProp ready"
   pill, costing a duplicate 6.5 MB WASM fetch and a duplicated chunk; the
@@ -60,6 +67,10 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Fixed
 
+- Adaptive time stepping no longer attempts a ~1e-16 s step when the
+  accumulated time lands a few ulps short of `endTime`. With a fluid-inertia
+  branch that degenerate step could not converge and the whole run was
+  reported unconverged at its own end time.
 - A saved work-in-progress model that the solver would reject (no boundary
   node yet, a transient without volumes, …) now reopens. Load used to run
   full solver validation and refuse the file, while Save had written it

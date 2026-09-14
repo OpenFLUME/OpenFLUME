@@ -54,6 +54,23 @@ export interface BranchComponent {
    * state.
    */
   advanceState?(dt: number, mdot: number, pFrom: number, pTo: number): void;
+  /**
+   * Snapshot / restore of the time-integrated state, so a driver can
+   * advance the component along a CANDIDATE trajectory and roll back when
+   * the candidate is rejected (adaptive step doubling does exactly this).
+   * Required together with `advanceState`; the snapshot is opaque to the
+   * caller and must be a value copy, never an alias into the component.
+   */
+  snapshotState?(): unknown;
+  restoreState?(snapshot: unknown): void;
+  /**
+   * The time-integrated state as O(1) dimensionless numbers (e.g. a valve's
+   * fractional opening), same length and order on every call, for the
+   * adaptive error norm. A component whose dynamics can drive the step size
+   * — a poppet that slams shut inside a step — must expose them here, or
+   * the error controller cannot see the motion it is failing to resolve.
+   */
+  dynamicState?(): number[];
 }
 
 export function interpolateSchedule(

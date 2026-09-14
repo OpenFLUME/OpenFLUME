@@ -986,6 +986,7 @@ specified in [`docs/parameter-bindings.md`](parameter-bindings.md).
 | `adaptive.relTol`         | number                       | adaptive        | —                           | Relative error tolerance                                                                                                                                     |
 | `adaptive.absTolP`        | number                       | no              | 100                         | Absolute pressure tolerance, Pa                                                                                                                              |
 | `adaptive.absTolT`        | number                       | no              | 0.01                        | Absolute temperature tolerance, K                                                                                                                            |
+| `adaptive.absTolMdot`     | number                       | no              | 1e-4                        | Absolute mass-flow tolerance for fluid-inertia branches, kg/s                                                                                                |
 | `adaptive.safety`         | number                       | no              | 0.9                         | Step-size safety factor                                                                                                                                      |
 | `adaptive.dtInitial`      | number                       | no              | derived                     | First step size, s                                                                                                                                           |
 | `steadySolver`            | `ptc` / `direct`             | no              | `ptc`                       | Real-fluid steady strategy                                                                                                                                   |
@@ -1794,8 +1795,13 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
 
 Adaptive stepping uses step doubling for local error control. Each candidate step
 takes one full backward-Euler step of size $\Delta t$ giving $y_1$, and two
-half-steps giving $y_2$. The weighted RMS error over all internal fluid and solid
-node pressures and temperatures is
+half-steps giving $y_2$. The weighted RMS error runs over every dynamic state:
+internal fluid-node pressures and temperatures (enthalpies for enthalpy-state
+fluids), solid temperatures, the mass flow of branches with fluid inertia
+(scaled by `absTolMdot`), and the integrated state of stateful components such
+as a dynamic check valve's opening. Those components are advanced along both
+candidate trajectories and rolled back when a candidate is rejected, so the
+step is a transaction over the complete state. The norm is
 
 $$\text{err} = \sqrt{\frac{1}{N}\sum\left(\frac{y_2 - y_1}{\text{absTol} + \text{relTol}|y_2|}\right)^{2}}$$
 
