@@ -20,27 +20,21 @@
  */
 
 import type { NetworkConfig, SteadyResult, TransientResult } from "../core";
+import {
+  parseWorkerToMainMessage,
+  type MainToWorkerMessage,
+  type ProgressPayload,
+  type RunMode,
+} from "./workerProtocol";
+
+export type {
+  ProgressPayload,
+  SteadyProgress,
+  TransientProgress,
+} from "./workerProtocol";
 
 export type RunStatus =
   "idle" | "loadingFluids" | "running" | "done" | "error" | "cancelled";
-
-export interface TransientProgress {
-  kind: "transient";
-  step: number;
-  totalSteps?: number;
-  time: number;
-  endTime: number;
-  dt?: number;
-  partial: TransientResult;
-}
-
-export interface SteadyProgress {
-  kind: "steady";
-  iteration: number;
-  residual: number;
-}
-
-export type ProgressPayload = TransientProgress | SteadyProgress;
 
 export interface RunCallbacks {
   onStatusChange?: (status: RunStatus) => void;
@@ -53,17 +47,11 @@ export interface RunCallbacks {
 export interface SolverWorkerClient {
   run: (
     config: NetworkConfig,
-    mode: "steady" | "transient",
+    mode: RunMode,
     callbacks: RunCallbacks,
   ) => Promise<SteadyResult | TransientResult>;
   cancel: () => void;
   isRunning: () => boolean;
-}
-
-function record(value: unknown): Record<string, unknown> | null {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
-    : null;
 }
 
 export function createSolverWorkerClient(): SolverWorkerClient {
@@ -83,8 +71,8 @@ export function createSolverWorkerClient(): SolverWorkerClient {
       // was terminated/superseded — e.g. a message queued just before
       // cancel's terminate()).
       if (worker !== w) return;
-      const msg = record(event.data);
-      if (!msg || typeof msg.type !== "string") return;
+      const msg = parseWorkerToMainMessage(event.data);
+      if (!msg) return;
 
       switch (msg.type) {
         case "ready":
@@ -95,12 +83,7 @@ export function createSolverWorkerClient(): SolverWorkerClient {
           currentCallbacks.onStatusChange?.("loadingFluids");
           break;
         case "progress": {
-          const payload = msg.payload as ProgressPayload;
-          if (
-            !payload ||
-            (payload.kind !== "steady" && payload.kind !== "transient")
-          )
-            break;
+          const payload: ProgressPayload = msg.payload;
           currentCallbacks.onProgress?.(payload);
           if (payload.kind === "transient") {
             currentCallbacks.onLiveResult?.(payload.partial);
@@ -109,11 +92,9 @@ export function createSolverWorkerClient(): SolverWorkerClient {
         }
         case "done": {
           _running = false;
-          const result = msg.result as SteadyResult | TransientResult;
-          if (!result || typeof result !== "object") break;
           currentCallbacks.onStatusChange?.("done");
-          currentCallbacks.onDone?.(result);
-          currentResolve?.(result);
+          currentCallbacks.onDone?.(msg.result);
+          currentResolve?.(msg.result);
           cleanup();
           // One worker per solve: terminate on settle too, otherwise every
           // completed run leaks an idle worker.
@@ -122,10 +103,9 @@ export function createSolverWorkerClient(): SolverWorkerClient {
         }
         case "error": {
           _running = false;
-          const message = String(msg.message ?? "Unknown worker error");
           currentCallbacks.onStatusChange?.("error");
-          currentCallbacks.onError?.(message);
-          currentReject?.(new Error(message));
+          currentCallbacks.onError?.(msg.message);
+          currentReject?.(new Error(msg.message));
           cleanup();
           terminate();
           break;
@@ -174,7 +154,8 @@ export function createSolverWorkerClient(): SolverWorkerClient {
         currentReject = reject;
         try {
           worker = spawnWorker();
-          worker.postMessage({ type: "run", config, mode });
+          const message: MainToWorkerMessage = { type: "run", config, mode };
+          worker.postMessage(message);
         } catch (error) {
           const message =
             error instanceof Error ? error.message : String(error);

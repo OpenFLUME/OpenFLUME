@@ -1,15 +1,9 @@
 /**
  * Solver Web Worker (module type).
  *
- * Protocol (typed messages via postMessage / onmessage):
- *   Main → Worker:
- *     { type: 'run', config: NetworkConfig, mode: 'steady' | 'transient' }
- *   Worker → Main:
- *     { type: 'ready' }
- *     { type: 'coolpropLoading' }
- *     { type: 'progress', payload: TransientProgress | SteadyProgress }
- *     { type: 'done', result: SteadyResult | TransientResult }
- *     { type: 'error', message: string }
+ * Protocol: see workerProtocol.ts (`MainToWorkerMessage` in,
+ * `WorkerToMainMessage` out). Every postMessage below goes through the typed
+ * `post` helper so a shape change in the protocol is a compile error here.
  *
  * Cancellation:
  *   The solve loops are synchronous and run to completion in a single event-loop
@@ -29,6 +23,7 @@
  */
 
 import type { NetworkConfig } from "../core";
+import type { RunMode, WorkerToMainMessage } from "./workerProtocol";
 import {
   decodeAndValidateNetwork,
   ConfigDecodeError,
@@ -40,7 +35,12 @@ import {
 
 export interface PreparedWorkerRun {
   config: NetworkConfig;
-  mode: "steady" | "transient";
+  mode: RunMode;
+}
+
+/** The only way this module talks to the main thread. */
+function post(message: WorkerToMainMessage): void {
+  self.postMessage(message);
 }
 
 /**
@@ -121,18 +121,18 @@ function installWorkerHandlers(): void {
 
     const prepared = prepareWorkerRun(event.data);
     if (!prepared.ok) {
-      self.postMessage({ type: "error", message: prepared.message });
+      post({ type: "error", message: prepared.message });
       return;
     }
     const { config, mode } = prepared.run;
 
     try {
       if (networkUsesRealFluid(config)) {
-        self.postMessage({ type: "coolpropLoading" });
+        post({ type: "coolpropLoading" });
         try {
           await initRealFluids();
         } catch (err) {
-          self.postMessage({
+          post({
             type: "error",
             message: `CoolProp init failed: ${err instanceof Error ? err.message : String(err)}`,
           });
@@ -153,7 +153,7 @@ function installWorkerHandlers(): void {
             if (hasSentFirstProgress && now - lastProgressTime < 100) return; // throttle to ~10/s
             hasSentFirstProgress = true;
             lastProgressTime = now;
-            self.postMessage({
+            post({
               type: "progress",
               payload: {
                 kind: "transient",
@@ -167,7 +167,7 @@ function installWorkerHandlers(): void {
             });
           },
         });
-        self.postMessage({ type: "done", result });
+        post({ type: "done", result });
       } else {
         let lastProgressTime = 0;
         let hasSentFirstProgress = false;
@@ -176,7 +176,7 @@ function installWorkerHandlers(): void {
           if (hasSentFirstProgress && now - lastProgressTime < 100) return;
           hasSentFirstProgress = true;
           lastProgressTime = now;
-          self.postMessage({
+          post({
             type: "progress",
             payload: {
               kind: "steady",
@@ -186,10 +186,10 @@ function installWorkerHandlers(): void {
           });
         };
         const result = solveSteady(config, { onProgress });
-        self.postMessage({ type: "done", result });
+        post({ type: "done", result });
       }
     } catch (err: unknown) {
-      self.postMessage({
+      post({
         type: "error",
         message: err instanceof Error ? err.message : String(err),
       });
@@ -197,7 +197,7 @@ function installWorkerHandlers(): void {
   };
 
   // Notify main thread that worker is ready
-  self.postMessage({ type: "ready" });
+  post({ type: "ready" });
 }
 
 // Install the handler only inside a real worker global scope, so this module
