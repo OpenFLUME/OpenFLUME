@@ -165,7 +165,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
    *  model, but only ever for another IdealGas), while the query sits in the
    *  innermost residual loops. */
   const computeUsePH = (id: string): boolean =>
-    hPrimary || fluidOf(id) instanceof RealFluid;
+    hPrimary || fluidOf(id).capabilities.enthalpyState;
   const usePHByNode = new Map<string, boolean>();
   for (const id of nodeMap.keys()) usePHByNode.set(id, computeUsePH(id));
   const usePHFor = (id: string): boolean =>
@@ -276,7 +276,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
     if (junctionInletBranches.has(k)) return false;
     const f = ctx.fluidAssignment.branch(bb.id);
     if (f.R !== undefined && f.gamma !== undefined) return true;
-    return ctx.kineticEnergy && f instanceof RealFluid;
+    return ctx.kineticEnergy && f.capabilities.enthalpyState;
   });
   const upwindEligible = (k: number): boolean => upwindEligibleTable[k];
   /** Static incidence for the upwind momentum-flux stencil: per node, the

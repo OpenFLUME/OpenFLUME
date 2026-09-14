@@ -15,7 +15,6 @@ import {
   updateConductorLatches,
   updateFluidFrontStates,
 } from "../solver";
-import { RealFluid } from "../fluids/realFluid";
 import { cloneState } from "./stateUtils";
 import { applyBoundaryConditions } from "./boundaryConditions";
 import { advanceStatefulComponents } from "./statefulComponents";
@@ -234,7 +233,7 @@ export function runAdaptiveTimeStepping(
         sumSq += (diffP / scaleP) ** 2;
         nVars++;
 
-        if (ctx.fluidAssignment.node(id) instanceof RealFluid) {
+        if (ctx.fluidAssignment.node(id).capabilities.enthalpyState) {
           const y2h = s2.nodeH!.get(id)!;
           const diffH = y2h - s1.nodeH!.get(id)!;
           const scaleH = 1000 + relTol * Math.abs(y2h);

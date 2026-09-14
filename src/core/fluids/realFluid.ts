@@ -1,5 +1,8 @@
 import { getCoolProp, realFluidsReady } from "./coolprop";
 import type { AbstractState } from "coolprop-wasm";
+// Type-only (erased at runtime): index.ts owns the interface this class
+// implements and re-exports the class, so the value graph stays acyclic.
+import type { FluidModel, FluidCapabilities } from "./index";
 import type { Dual } from "../dual";
 import {
   perfEnabled,
@@ -1082,8 +1085,12 @@ function phaseValueOf(state: AbstractState): number | undefined {
   }
 }
 
-export class RealFluid {
+export class RealFluid implements FluidModel {
   readonly fluidName: SupportedRealFluid;
+  readonly capabilities: Readonly<FluidCapabilities> = {
+    twoPhase: true,
+    enthalpyState: true,
+  };
 
   constructor(fluidName: string) {
     if (!realFluidsReady()) {

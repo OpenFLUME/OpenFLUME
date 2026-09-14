@@ -21,7 +21,41 @@ import type { Dual } from "../dual";
 import { constant, div } from "../dual";
 import { R_UNIVERSAL } from "../constants";
 
+/**
+ * What the solver may assume about an equation of state, declared by the
+ * model rather than inferred from its class.
+ *
+ * Solver DECISIONS — which energy unknown to carry, whether a node can sit in
+ * the dome, which channel the adaptive error norm reads — dispatch on these
+ * flags. Sites that need the CoolProp-backed property API itself (saturation
+ * bundles, P–h envelope clamps, dual-number statePH) still narrow with
+ * `instanceof RealFluid`; that is a type narrowing to a richer API, not a
+ * capability test, and the two must not be conflated.
+ */
+export interface FluidCapabilities {
+  /**
+   * The EOS has a saturation dome: statePH can return a two-phase state and
+   * saturation properties are meaningful. Analytic single-phase models
+   * declare false and their saturation methods throw.
+   */
+  twoPhase: boolean;
+  /**
+   * The solver should carry specific enthalpy (P–h) rather than temperature
+   * (P–T) as this fluid's energy unknown. h is single-valued through the
+   * dome where T is not, so any model that can flash needs it; a
+   * supercritical-only tabulated model could set it without `twoPhase`.
+   */
+  enthalpyState: boolean;
+}
+
+/** Constant-property / analytic closures: never two-phase, T is the state. */
+export const ANALYTIC_FLUID_CAPABILITIES: Readonly<FluidCapabilities> = {
+  twoPhase: false,
+  enthalpyState: false,
+};
+
 export interface FluidModel {
+  readonly capabilities: Readonly<FluidCapabilities>;
   density(P: number, T: number): number;
   viscosity(P: number, T: number): number;
   cp(P: number, T: number): number;
@@ -78,6 +112,7 @@ export interface FluidModel {
 }
 
 export class IncompressibleLiquid implements FluidModel {
+  readonly capabilities = ANALYTIC_FLUID_CAPABILITIES;
   readonly rho: number;
   readonly mu: number;
   private readonly _cp: number;
@@ -201,6 +236,7 @@ export class IncompressibleLiquid implements FluidModel {
 }
 
 export class IdealGas implements FluidModel {
+  readonly capabilities = ANALYTIC_FLUID_CAPABILITIES;
   readonly R: number;
   readonly gamma: number;
   readonly mu: number;
@@ -338,6 +374,7 @@ export class IdealGas implements FluidModel {
 
 /** Thermal-expansion liquid: density varies linearly with temperature. */
 export class ExpandableLiquid implements FluidModel {
+  readonly capabilities = ANALYTIC_FLUID_CAPABILITIES;
   readonly rho0: number;
   readonly beta: number;
   readonly T0: number;

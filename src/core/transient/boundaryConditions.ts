@@ -7,7 +7,7 @@
 import type { NetworkConfig } from "../schema";
 import type { SolverContext, StepState } from "../solver";
 import { interpolateSchedule } from "../components";
-import { RealFluid } from "../fluids/realFluid";
+import type { FluidModel } from "../fluids";
 
 export function applyBoundaryConditions(
   ctx: SolverContext,
@@ -47,8 +47,8 @@ export function applyBoundaryConditions(
       }
       if (updated) {
         const nodeFluid = ctx.fluidAssignment.node(node.id);
-        if (nodeFluid instanceof RealFluid && state.nodeH) {
-          // Real-fluid NODE (per-node dispatch — mixed-EOS networks carry
+        if (nodeFluid.capabilities.enthalpyState && state.nodeH) {
+          // Enthalpy-state NODE (per-node dispatch — mixed-EOS networks carry
           // analytic boundaries too): use PH-path (statePH) so two-phase
           // boundary nodes receive HEM mixture density and McAdams viscosity
           // consistently with the solver's momentum residual path.  ATOMIC:
@@ -57,7 +57,7 @@ export function applyBoundaryConditions(
           // previous (consistent) state untouched.
           const fluid = nodeFluid;
           let h: number;
-          let ph: ReturnType<RealFluid["statePH"]>;
+          let ph: ReturnType<FluidModel["statePH"]>;
           try {
             h =
               node.quality !== undefined

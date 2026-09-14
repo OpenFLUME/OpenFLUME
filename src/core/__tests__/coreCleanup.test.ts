@@ -3,7 +3,6 @@ import type { NetworkConfig } from "../schema";
 import { buildSolverContext, createInitialState, solveSteady } from "../solver";
 import type { SolverContext, StepState } from "../solver";
 import { applyBoundaryConditions } from "../transient";
-import { RealFluid } from "../fluids/realFluid";
 import { ControllerRuntime } from "../controllerRuntime";
 import { createFluidAssignment } from "../fluidAssignment";
 
@@ -347,11 +346,15 @@ describe("applyBoundaryConditions — atomic real-fluid updates", () => {
     solidNodes: [],
   } as unknown as NetworkConfig;
 
-  /** Method stub carrying the RealFluid prototype — the boundary update
-   *  dispatches per node via `instanceof RealFluid` (mixed-EOS networks),
-   *  so a plain duck-typed object would take the analytic path. */
+  /** Method stub declaring an enthalpy-state fluid — the boundary update
+   *  dispatches per node on `capabilities.enthalpyState` (mixed-EOS
+   *  networks), so a stub without the declaration would take the analytic
+   *  path. No RealFluid prototype is needed: the capability IS the contract. */
   function realFluidStub(methods: Record<string, unknown>): unknown {
-    return Object.assign(Object.create(RealFluid.prototype), methods);
+    return {
+      capabilities: { twoPhase: true, enthalpyState: true },
+      ...methods,
+    };
   }
 
   function ctxWithFluid(methods: Record<string, unknown>): SolverContext {

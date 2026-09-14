@@ -254,7 +254,7 @@ const rfOf = (ctx: SolverContext, id: string) =>
 function anyTwoPhaseNode(ctx: SolverContext, state: StepState): boolean {
   for (const id of ctx.internalIds) {
     const fluid = ctx.fluidAssignment.node(id);
-    if (!(fluid instanceof RealFluid)) continue; // analytic: never two-phase
+    if (!fluid.capabilities.twoPhase) continue;
     const h = state.nodeH!.get(id)!;
     const P = state.nodeP.get(id)!;
     const ph = safeStatePH(fluid, P, h, `phase check`);
@@ -1126,7 +1126,7 @@ function solveStateStepAttemptInner(
     if (!state.nodeH) state.nodeH = new Map();
     for (const id of nodeMap.keys()) {
       const f = ctx.fluidAssignment.node(id);
-      if (!(f instanceof RealFluid)) {
+      if (!f.capabilities.enthalpyState) {
         state.nodeH.set(
           id,
           f.enthalpyPT(state.nodeP.get(id)!, state.nodeT.get(id)!),

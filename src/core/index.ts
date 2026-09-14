@@ -20,8 +20,15 @@
  *   diagnostics.ts — opt-in solver instrumentation counters
  *   perf.ts        — opt-in exact-attribution timers for real-fluid studies
  */
-export type { FluidModel, FluidPhase, PHState, PHStateDual } from "./fluids";
+export type {
+  FluidModel,
+  FluidCapabilities,
+  FluidPhase,
+  PHState,
+  PHStateDual,
+} from "./fluids";
 export {
+  ANALYTIC_FLUID_CAPABILITIES,
   IncompressibleLiquid,
   IdealGas,
   ExpandableLiquid,

@@ -354,7 +354,11 @@ function branchSoundSpeed(
     const fluid = ctx.fluidAssignment.branch(branchId);
     // Real fluids would need a fresh CoolProp flash here; the caller passes
     // the node map precisely so that path is not taken per branch.
-    return fluid instanceof RealFluid ? undefined : fluid.speedOfSound?.(P, T);
+    // Enthalpy-state fluids publish sound speed through the P–h reporting
+    // path above; the P–T inverse would evaluate the wrong state in the dome.
+    return fluid.capabilities.enthalpyState
+      ? undefined
+      : fluid.speedOfSound?.(P, T);
   });
 }
 
