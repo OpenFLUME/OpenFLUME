@@ -9,6 +9,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-09-14
+
 ### Added
 
 - Transient reacting junctions: CEA-coupled chambers now run in transient
@@ -41,17 +43,6 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   Duplicate) can share it without a ui→core dependency inversion;
   `src/ui/formulaTokens.ts` remains as a re-export shim, so existing UI
   imports keep working.
-
-### Fixed
-
-- **Duplicate now retargets formulas at the copies.** Duplicating entities
-  whose fields held `{ expr }` references to fellow copied members (a node
-  whose volume is `pipe('p1').volume`, duplicated together with `p1`)
-  previously produced copies that silently kept pointing at the _originals_;
-  the expressions are now rewritten through the duplicate's id map.
-
-### Changed
-
 - Adaptive step-doubling error control now covers every dynamic state: the
   mass flow of fluid-inertia branches (new `adaptive.absTolMdot`, default
   1e-4 kg/s) and the integrated state of stateful components (a dynamic check
@@ -76,6 +67,11 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Fixed
 
+- **Duplicate now retargets formulas at the copies.** Duplicating entities
+  whose fields held `{ expr }` references to fellow copied members (a node
+  whose volume is `pipe('p1').volume`, duplicated together with `p1`)
+  previously produced copies that silently kept pointing at the _originals_;
+  the expressions are now rewritten through the duplicate's id map.
 - Adaptive time stepping no longer attempts a ~1e-16 s step when the
   accumulated time lands a few ulps short of `endTime`. With a fluid-inertia
   branch that degenerate step could not converge and the whole run was
@@ -675,7 +671,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/OpenFLUME/OpenFLUME/releases/tag/v0.1.0

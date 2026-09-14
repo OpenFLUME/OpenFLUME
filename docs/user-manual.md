@@ -2,7 +2,7 @@
   <img src="../public/logo.svg" alt="OpenFLUME" width="320" />
 </p>
 
-# OpenFLUME, Version 0.2.1
+# OpenFLUME, Version 0.2.2
 
 _Open FLUid Model Environment_
 
@@ -12,11 +12,11 @@ John Rising
 
 ---
 
-**Document status:** This manual covers OpenFLUME v0.2.1 and is maintained within the repository. In the event of a conflict between this documentation and the source code, [`src/core/schema.ts`](../src/core/schema.ts) and [`src/core/validate.ts`](../src/core/validate.ts) serve as the authoritative source of truth.
+**Document status:** This manual covers OpenFLUME v0.2.2 and is maintained within the repository. In the event of a conflict between this documentation and the source code, [`src/core/schema.ts`](../src/core/schema.ts) and [`src/core/validate.ts`](../src/core/validate.ts) serve as the authoritative source of truth.
 
 **How to cite.** See [CITATION.cff](../CITATION.cff), or:
 
-> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (v0.2.1).
+> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (v0.2.2).
 > [https://github.com/OpenFLUME/OpenFLUME](https://github.com/OpenFLUME/OpenFLUME)
 
 ---

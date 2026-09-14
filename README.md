@@ -166,7 +166,7 @@ Project policies: [Code of Conduct](CODE_OF_CONDUCT.md) · [Security](SECURITY.m
 
 If this software contributes to your research, please cite it. See [CITATION.cff](CITATION.cff) for current metadata, or use:
 
-> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.1). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
+> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.2). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
 
 ## License
 
