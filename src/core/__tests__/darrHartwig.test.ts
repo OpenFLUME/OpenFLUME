@@ -37,6 +37,7 @@ import {
 import { getSolverDiagnostics, resetSolverDiagnostics } from "../diagnostics";
 import { getFluidLimits } from "../fluids/realFluid";
 import { solveSteady, solveTransient } from "..";
+import { expectGoldenTrace } from "../../testUtils/golden";
 
 let fluid: RealFluid;
 let sat: Sat;
@@ -1162,34 +1163,55 @@ describe("Bit-identity of existing models", () => {
     };
     const rt = solveTransient(cfg);
     expect(rt.converged).toBe(true);
-    expect(rt.solidNodes!.w1.temperature).toEqual([
-      250, 248.1318359054469, 246.33683079985227, 244.5593191303614,
-      242.8010865507715,
-    ]);
-    expect(rt.solidNodes!.w2.temperature).toEqual([
-      250, 247.99023628332407, 246.1577345960308, 244.3407590130666,
-      242.54303566789494,
-    ]);
-    expect(rt.conductors!.c1.heatTransferCoeff).toEqual([
-      90.81838218567584, 92.17931277821674, 89.5339986169411, 89.6813103226151,
-      89.68273020710521,
-    ]);
-    expect(rt.conductors!.c1.heatRate).toEqual([
-      -72.81023458383926, -74.72448511738017, -71.78493495728279,
-      -71.10624165100933, -70.31899654982645,
-    ]);
-    expect(rt.nodes.m1.pressure).toEqual([
-      350000, 251814.08179956267, 251368.52937083866, 251355.5656651236,
-      251353.21261500122,
-    ]);
-    expect(rt.nodes.m1.temperature).toEqual([
-      89.65749481205114, 86.00329997859065, 85.98448182367225,
-      85.98393392420137, 85.98383447238784,
-    ]);
-    expect(rt.nodes.m1.quality).toEqual([
-      0.09999999999999992, 0.15408101982052433, 0.159404205479823,
-      0.1600913986723134, 0.16014107939023123,
-    ]);
+    expectGoldenTrace(
+      rt.solidNodes!.w1.temperature,
+      [
+        250, 248.1318359054469, 246.33683079985227, 244.5593191303614,
+        242.8010865507715,
+      ],
+    );
+    expectGoldenTrace(
+      rt.solidNodes!.w2.temperature,
+      [
+        250, 247.99023628332407, 246.1577345960308, 244.3407590130666,
+        242.54303566789494,
+      ],
+    );
+    expectGoldenTrace(
+      rt.conductors!.c1.heatTransferCoeff!,
+      [
+        90.81838218567584, 92.17931277821674, 89.5339986169411,
+        89.6813103226151, 89.68273020710521,
+      ],
+    );
+    expectGoldenTrace(
+      rt.conductors!.c1.heatRate,
+      [
+        -72.81023458383926, -74.72448511738017, -71.78493495728279,
+        -71.10624165100933, -70.31899654982645,
+      ],
+    );
+    expectGoldenTrace(
+      rt.nodes.m1.pressure,
+      [
+        350000, 251814.08179956267, 251368.52937083866, 251355.5656651236,
+        251353.21261500122,
+      ],
+    );
+    expectGoldenTrace(
+      rt.nodes.m1.temperature,
+      [
+        89.65749481205114, 86.00329997859065, 85.98448182367225,
+        85.98393392420137, 85.98383447238784,
+      ],
+    );
+    expectGoldenTrace(
+      rt.nodes.m1.quality!,
+      [
+        0.09999999999999992, 0.15408101982052433, 0.159404205479823,
+        0.1600913986723134, 0.16014107939023123,
+      ],
+    );
   }, 20000);
 });
 

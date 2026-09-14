@@ -267,14 +267,27 @@ describe("statePH performance", () => {
     // (fluid, P, h) value cache AND pays a real HmassP flash.  (In-dome
     // misses no longer flash at all once satProps is cached, so they are
     // useless as a flash-latency probe.)
+    // Latency probes under a parallel test runner see scheduler preemption
+    // as noise (a batch that measures ~110 µs alone reads ~500 µs when
+    // sharing the machine with other workers). Taking the best of a few
+    // batches filters the preemption without loosening the bound: a genuine
+    // regression — say a fresh AbstractState per call — costs milliseconds
+    // on EVERY batch and still trips it.
     const runs = 500;
-    const t0 = performance.now();
-    for (let i = 0; i < runs; i++) {
-      fluid.statePH(P, hf - 5e3 - i * 1e-3);
+    const batches = 3;
+    let missUs = Infinity;
+    for (let b = 0; b < batches; b++) {
+      const t0 = performance.now();
+      for (let i = 0; i < runs; i++) {
+        // Distinct h per call across batches too, so nothing hits the cache.
+        fluid.statePH(P, hf - 5e3 - (b * runs + i) * 1e-3);
+      }
+      const t1 = performance.now();
+      missUs = Math.min(missUs, ((t1 - t0) * 1000) / runs); // ms → µs
     }
-    const t1 = performance.now();
-    const missUs = ((t1 - t0) * 1000) / runs; // ms → µs
-    console.log(`statePH miss latency: ${missUs.toFixed(2)} µs (${runs} runs)`);
+    console.log(
+      `statePH miss latency: ${missUs.toFixed(2)} µs (best of ${batches}×${runs})`,
+    );
     expect(missUs).toBeLessThan(500); // generous upper bound for CI
 
     // Cached path: repeated exact key rides the bounded LRU.

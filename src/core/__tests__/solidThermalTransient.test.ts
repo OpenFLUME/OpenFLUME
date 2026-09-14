@@ -28,6 +28,7 @@ import {
   type StepState,
 } from "../solver";
 import { solveTransient } from "../transient";
+import { expectGoldenTrace } from "../../testUtils/golden";
 import {
   resolveSolidProperty,
   getSolidMaterialTable,
@@ -704,8 +705,8 @@ describe("golden constant-cp bit-identity", () => {
       286.26242798099554, 287.04416628589007, 287.8003766953427,
       288.53188590715104,
     ];
-    expect(res.solidNodes!.gA.temperature).toEqual(gA);
-    expect(res.solidNodes!.gB.temperature).toEqual(gB);
+    expectGoldenTrace(res.solidNodes!.gA.temperature, gA);
+    expectGoldenTrace(res.solidNodes!.gB.temperature, gB);
     const cdHeat = [
       329.06666666666666, 318.47880964602086, 308.23404844088697,
       298.32127833314445, 288.72975345079243, 279.4490752025378,
@@ -718,8 +719,8 @@ describe("golden constant-cp bit-identity", () => {
       3.1458063906624165, 3.1817714464419997, 3.216853421757848,
       3.251063626130428, 3.284413970391067,
     ];
-    expect(res.conductors!.cd.heatRate).toEqual(cdHeat);
-    expect(res.conductors!.rd.heatRate).toEqual(rdHeat);
+    expectGoldenTrace(res.conductors!.cd.heatRate, cdHeat);
+    expectGoldenTrace(res.conductors!.rd.heatRate, rdHeat);
   });
 
   it("steady state identical to the pre-feature solver", () => {
