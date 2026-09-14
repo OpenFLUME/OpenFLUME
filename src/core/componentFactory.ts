@@ -15,34 +15,16 @@
  *      independent branches through that hidden state.  Per-branch
  *      compilation gives every branch an isolated closure — see the purity
  *      contract on UserDefinedComponent (components/index.ts).
- *   3. Unknown component types throw — never silently substitute a
- *      resistance for a component type this solver build does not know.
- *
- * Numerical behaviour is unchanged: the same component classes are
- * constructed with the same arguments as the former inline code.
+ *   3. Construction itself is table-driven: components/registry.ts holds one
+ *      exhaustively-typed descriptor per component type, so adding a type
+ *      to the schema union without a constructor is a compile error and an
+ *      unknown type at runtime throws — never a silently substituted
+ *      resistance.
  */
 
 import type { NetworkConfig, ResolvedNetworkConfig } from "./schema";
 import type { BranchComponent } from "./components";
-import {
-  Pipe,
-  Orifice,
-  FlowResistance,
-  Valve,
-  CheckValve,
-  DynamicCheckValve,
-  Pump,
-  Bend,
-  AreaChange,
-  FlowSource,
-  Regulator,
-  ReliefValve,
-  CavitatingVenturi,
-  HeatedPipe,
-  DpTable,
-  CustomResistance,
-  UserDefinedComponent,
-} from "./components";
+import { constructBranchComponent } from "./components/registry";
 import {
   compileUserComponent,
   compileInlinePressureDrop,
@@ -107,88 +89,11 @@ export function buildBranchComponents(
   preflightLibraryReferences(config);
 
   return config.branches.map((b) => {
-    let comp: BranchComponent;
-    const c = b.component;
-    let inertia: boolean | undefined;
-    if (c.type === "pipe") {
-      comp = new Pipe(
-        c.length,
-        c.diameter,
-        c.roughness,
-        c.elevationChange ?? 0,
-        closureParams.swameeJain,
-        c.frictionFactor,
-        c.diameterOut,
-      );
-      inertia = c.inertia;
-    } else if (c.type === "orifice") comp = new Orifice(c.area, c.cd);
-    else if (c.type === "cavitatingVenturi")
-      comp = new CavitatingVenturi(c.throatArea, c.cd, c.recoveryFactor ?? 0.0);
-    else if (c.type === "resistance") comp = new FlowResistance(c.k, c.area);
-    else if (c.type === "valve")
-      comp = new Valve(c.area, c.cd, c.position, c.positionSchedule);
-    else if (c.type === "checkValve") comp = new CheckValve(c.area, c.cd);
-    else if (c.type === "dynamicCheckValve")
-      comp = new DynamicCheckValve(
-        c.area,
-        c.cd,
-        c.mass,
-        c.springRate,
-        c.preload,
-        c.damping,
-        c.stroke,
-        c.discArea,
-        c.initialPosition ?? 0,
-      );
-    else if (c.type === "reliefValve")
-      comp = new ReliefValve(c.crackPressure, c.fullOpenPressure, c.area, c.cd);
-    else if (c.type === "pump") comp = new Pump(c.curve);
-    else if (c.type === "bend")
-      comp = new Bend(
-        c.diameter,
-        c.angle,
-        c.rOverD,
-        c.roughness ?? 0,
-        closureParams.swameeJain,
-      );
-    else if (c.type === "areaChange")
-      comp = new AreaChange(c.areaIn, c.areaOut);
-    else if (c.type === "flowSource")
-      comp = new FlowSource(c.massFlow, c.massFlowSchedule);
-    else if (c.type === "regulator")
-      comp = new Regulator(c.setPressure, c.maxCdA);
-    else if (c.type === "heatedPipe")
-      comp = new HeatedPipe(
-        c.length,
-        c.diameter,
-        c.roughness,
-        c.elevationChange ?? 0,
-        c.ua,
-        c.wallTemperature,
-        c.boilingModel,
-        closureParams,
-      );
-    else if (c.type === "dpTable")
-      comp = new DpTable(c.points, c.extrapolate ?? "clamp");
-    else if (c.type === "customResistance")
-      comp = new CustomResistance(c.k, c.area, c.diameter);
-    else if (c.type === "userComponent") {
-      comp = new UserDefinedComponent(
-        instantiateUserDefinition(config, c.component),
-        {
-          params: c.params,
-          area: c.area,
-          sourceId: `branch ${b.id} (${c.component})`,
-        },
-      );
-    } else {
-      // Never silently substitute a resistance for a component type this
-      // solver build does not know (validate.ts reports unknown types
-      // earlier; this is the solver-side guard).
-      throw new Error(
-        `Branch ${b.id}: unknown component type "${(c as { type: string }).type}"`,
-      );
-    }
-    return { id: b.id, from: b.from, to: b.to, component: comp, inertia };
+    const { component, inertia } = constructBranchComponent(b.component, {
+      branchId: b.id,
+      closureParams,
+      userDefinition: (name) => instantiateUserDefinition(config, name),
+    });
+    return { id: b.id, from: b.from, to: b.to, component, inertia };
   });
 }

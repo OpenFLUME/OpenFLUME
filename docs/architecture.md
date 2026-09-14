@@ -53,6 +53,17 @@ These rules are enforced by `no-restricted-imports` in `eslint.config.js`
 ui → core internals other than the barrel, anything → scripts). A core test
 that needs a UI fixture is a UI-tier test and lives in `src/ui/tests`.
 
+### Adding a branch component
+
+`src/core/components/registry.ts` holds one exhaustively-typed descriptor per
+member of the schema's `component` union: adding a type to the union without
+a registry entry (or an entry for a type the union lacks) is a compile error.
+A descriptor constructs the runtime component from its own, fully-narrowed
+config and declares whether the branch carries fluid inertia. Semantic
+validation (`validate/branches.ts`) and the formula-bindable field lists
+(`formulaFields.ts`) are still separate per-type tables; the registry is the
+seam they should migrate onto.
+
 ### Public API and internal APIs
 
 The supported source-level API is the export surface in `src/core/index.ts`, especially `NetworkConfig`, validation, solver entry points, result types, and documented fluid/component constructors. `DynamicCheckValve` is currently exported from `src/core/components` rather than that barrel; treat constructing it as a `NetworkConfig` component as the supported path.
