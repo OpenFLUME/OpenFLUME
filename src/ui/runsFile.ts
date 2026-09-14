@@ -26,6 +26,13 @@ export interface RunsFile {
   modelName: string;
   /** Hash of the base network, so a mismatch can be reported on load. */
   baseModelHash: string;
+  /**
+   * Session identity of the document these runs belong to (see
+   * `newDocumentToken`). Written by the localStorage mirror only: it is
+   * meaningless outside the browser that minted it, so the portable
+   * `.runs.json` omits it.
+   */
+  documentToken?: string;
   savedAt: string;
   runs: RunRecord[];
 }
@@ -37,11 +44,13 @@ export function runsFileName(config: NetworkConfig): string {
 export function serializeRunsFile(
   baseConfig: NetworkConfig,
   runs: readonly RunRecord[],
+  options: { documentToken?: string } = {},
 ): string {
   const payload: RunsFile = {
     format: FORMAT,
     modelName: baseConfig.meta.name,
     baseModelHash: configHash(baseConfig),
+    ...(options.documentToken ? { documentToken: options.documentToken } : {}),
     savedAt: new Date().toISOString(),
     runs: [...runs],
   };
@@ -97,6 +106,9 @@ export function parseRunsFile(text: string): RunsFile {
     modelName: typeof obj.modelName === "string" ? obj.modelName : "",
     baseModelHash:
       typeof obj.baseModelHash === "string" ? obj.baseModelHash : "",
+    ...(typeof obj.documentToken === "string"
+      ? { documentToken: obj.documentToken }
+      : {}),
     savedAt: typeof obj.savedAt === "string" ? obj.savedAt : "",
     runs: obj.runs as RunRecord[],
   };
@@ -132,13 +144,14 @@ export function downloadRunsFile(
 export function saveRunsToLocalStorage(
   baseConfig: NetworkConfig,
   runs: readonly RunRecord[],
+  documentToken: string,
 ): void {
   let candidate = [...runs];
   while (true) {
     try {
       localStorage.setItem(
         RUNS_STORAGE_KEY,
-        serializeRunsFile(baseConfig, candidate),
+        serializeRunsFile(baseConfig, candidate, { documentToken }),
       );
       return;
     } catch {
@@ -148,18 +161,30 @@ export function saveRunsToLocalStorage(
   }
 }
 
-/** Restore the mirrored runs when they belong to `baseConfig`. */
+/**
+ * Restore the mirrored runs when they belong to the current document.
+ *
+ * Identity is the document token, not the config hash: the mirror is written
+ * when runs change, the autosave when the model changes, and a model edited
+ * after its last run must still find its history on reload (each record
+ * carries its own hash and shows as stale, exactly as when selected live).
+ * Mirrors written before tokens existed fall back to the hash comparison.
+ */
 export function loadRunsFromLocalStorage(
   baseConfig: NetworkConfig,
+  documentToken: string,
 ): RunRecord[] {
   try {
     const raw = localStorage.getItem(RUNS_STORAGE_KEY);
     if (!raw) return [];
     const file = parseRunsFile(raw);
-    // Only reattach to the same model: showing another file's runs is the
+    // Only reattach to the same document: showing another file's runs is the
     // exact confusion the sidecar exists to avoid.
-    if (file.baseModelHash !== configHash(baseConfig)) return [];
-    return file.runs;
+    const sameDocument =
+      file.documentToken !== undefined
+        ? file.documentToken === documentToken
+        : file.baseModelHash === configHash(baseConfig);
+    return sameDocument ? file.runs : [];
   } catch {
     return [];
   }

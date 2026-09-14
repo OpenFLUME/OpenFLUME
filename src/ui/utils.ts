@@ -8,8 +8,35 @@ import {
 import { UnitPreferences, SI_PRESET } from "./units";
 
 const STORAGE_KEY = "fluids-network-config-v1";
+const DOCUMENT_KEY = "fluids-network-document-v1";
 const UNITS_KEY = "fluids-network-units-v1";
 const SIGFIGS_KEY = "fluids-network-sigfigs-v1";
+
+/**
+ * Identity of the model SESSION, as opposed to its content. A fresh token is
+ * minted whenever a model is replaced wholesale (New / Load / example) and
+ * survives every edit in between, so anything keyed on it — the runs mirror —
+ * stays attached to the document while the config hash moves on.
+ */
+export function newDocumentToken(): string {
+  return `doc-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+export function saveDocumentToken(token: string): void {
+  try {
+    localStorage.setItem(DOCUMENT_KEY, token);
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function loadDocumentToken(): string | null {
+  try {
+    return localStorage.getItem(DOCUMENT_KEY);
+  } catch {
+    return null;
+  }
+}
 
 export function saveToLocalStorage(config: NetworkConfig): void {
   try {

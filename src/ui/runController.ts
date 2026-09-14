@@ -73,14 +73,14 @@ export async function startRun(): Promise<void> {
   // solve is asynchronous and nothing stops the user switching variants or
   // loading another model meanwhile, so completion must file the run under
   // what it was STARTED from, never under whatever is active when it ends.
-  let owner: { variantId: string | null; documentSeq: number };
+  let owner: { variantId: string | null; documentToken: string };
   try {
     const library = await refreshComponentLibrary();
     const snapshot = useStore.getState();
     cloned = cloneConfig(snapshot.config);
     owner = {
       variantId: snapshot.activeVariantId,
-      documentSeq: snapshot.documentSeq,
+      documentToken: snapshot.documentToken,
     };
     const bundled = getBundledComponentSources();
     const untrustedEmbedded = (
@@ -165,7 +165,7 @@ export async function startRun(): Promise<void> {
         }
         const now = useStore.getState();
         store.setLiveResult(null);
-        if (now.documentSeq !== owner.documentSeq) {
+        if (now.documentToken !== owner.documentToken) {
           // The model this run belonged to was replaced mid-solve. Its
           // result has no home in the new document; drop it rather than
           // filing another model's numbers into this one's history.

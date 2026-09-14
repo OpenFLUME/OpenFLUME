@@ -64,6 +64,10 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   _started_. Switching variants mid-solve used to misfile the completed run
   under the newly active variant; loading another model mid-solve used to
   push the old model's run into the new model's history.
+- Run history now survives a reload after the model has been edited. The
+  localStorage mirror was keyed on the config hash, which every edit moved
+  past, so any edit after a run silently orphaned the session's history on
+  the next reload. It is now keyed on a per-document session token.
 
 ## [0.2.1] - 2026-08-23
 

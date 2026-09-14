@@ -146,14 +146,19 @@ reordering the project outline must not invalidate a pinned baseline.
 Results are scoped to the model that produced them: each `RunRecord` carries a
 `variantId`, the ring-buffer cap applies per variant, and every wholesale model
 replacement clears the history. Ownership is captured when a run STARTS
-(`runController.ts` snapshots `activeVariantId` and `store.documentSeq`
+(`runController.ts` snapshots `activeVariantId` and `store.documentToken`
 alongside the config), not when it completes: a solve is asynchronous and the
 user may switch variants or load another model meanwhile. A completion whose
 variant is no longer active is filed silently under its owner; one whose
 document has been replaced is dropped rather than written into the new
 document's history. Results are not written to the `.fn` file —
 `src/ui/runsFile.ts` mirrors them into localStorage and exports a portable
-`<model>.runs.json` sidecar.
+`<model>.runs.json` sidecar. The mirror is keyed on `store.documentToken` (a
+session identity minted on wholesale replacement and persisted beside the
+autosave), not on the config hash: the hash moves on every edit while the
+mirror is rewritten only when the history changes, so keying on it lost the
+history after any run → edit → reload. Each record still carries its own
+hash, so restored runs show as stale exactly as they would when selected live.
 
 ## Text projection (src/substrate)
 

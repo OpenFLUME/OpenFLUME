@@ -13,6 +13,9 @@ import {
 import {
   loadFromLocalStorage,
   saveToLocalStorage,
+  loadDocumentToken,
+  newDocumentToken,
+  saveDocumentToken,
   cloneConfig,
   saveUnitPreferences,
   loadUnitPreferences,
@@ -279,13 +282,15 @@ interface StoreState {
     variantId?: string | null;
   }) => boolean;
   /**
-   * Bumped whenever the model session is replaced wholesale (New / Load /
-   * example / paste-as-file). A completion callback whose captured
-   * `documentSeq` no longer matches belongs to a document that is gone and
-   * must not write into its replacement. Unlike `configEpoch` this does NOT
-   * change on variant switches, which are the same document.
+   * Identity of the model SESSION: minted whenever the model is replaced
+   * wholesale (New / Load / example / paste-as-file), unchanged across edits
+   * and variant switches (unlike `configEpoch`), and persisted beside the
+   * autosave. Two uses: a run completion whose captured token no longer
+   * matches belongs to a document that is gone and must not write into its
+   * replacement; and the runs mirror is keyed on it so history survives a
+   * run → edit → reload cycle.
    */
-  documentSeq: number;
+  documentToken: string;
   selectRun: (id: string | null) => void;
   renameRun: (id: string, name: string) => void;
   deleteRun: (id: string) => void;
@@ -547,8 +552,23 @@ const initialConfig = persisted
 const initialUnitPreferences =
   loadUnitPreferences() ?? getDefaultUnitPreferences();
 const initialModelText = serializeText(initialConfig);
-/** Mirrored results, reattached only when they belong to this model. */
-const initialRuns = loadRunsFromLocalStorage(initialConfig);
+/**
+ * The autosaved model and its runs mirror share a document token. A missing
+ * token (first boot, or an autosave written before tokens existed) mints one;
+ * the mirror then falls back to its hash check for that single hydration.
+ */
+const initialDocumentToken = (() => {
+  const stored = persisted ? loadDocumentToken() : null;
+  if (stored) return stored;
+  const minted = newDocumentToken();
+  saveDocumentToken(minted);
+  return minted;
+})();
+/** Mirrored results, reattached only when they belong to this document. */
+const initialRuns = loadRunsFromLocalStorage(
+  initialConfig,
+  initialDocumentToken,
+);
 
 /**
  * Session state for the newest restored run, so a reload lands where the last
@@ -686,7 +706,9 @@ export const useStore = create<StoreState>((set, get) => {
    */
   const clearedSession = () => {
     clearRunsLocalStorage();
-    return { ...clearedSessionState(), documentSeq: get().documentSeq + 1 };
+    const documentToken = newDocumentToken();
+    saveDocumentToken(documentToken);
+    return { ...clearedSessionState(), documentToken };
   };
 
   /** The results half of a cleared session, shared with `discardRuns`. */
@@ -725,7 +747,7 @@ export const useStore = create<StoreState>((set, get) => {
    */
   const persistRuns = (base: NetworkConfig, history: readonly RunRecord[]) => {
     if (history.length === 0) clearRunsLocalStorage();
-    else saveRunsToLocalStorage(base, history);
+    else saveRunsToLocalStorage(base, history, get().documentToken);
   };
 
   /**
@@ -822,7 +844,7 @@ export const useStore = create<StoreState>((set, get) => {
     textDraft: initialModelText,
     textDiagnostics: [],
     configEpoch: 0,
-    documentSeq: 0,
+    documentToken: initialDocumentToken,
     // Rehydrate the mirrored results alongside the autosaved model, so a
     // reload resumes the session rather than discarding its runs.
     runHistory: initialRuns,

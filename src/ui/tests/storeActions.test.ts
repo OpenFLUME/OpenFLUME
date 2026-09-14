@@ -942,15 +942,16 @@ describe("simulation variants", () => {
     expect(s().runHistory).toHaveLength(0);
   });
 
-  it("bumps documentSeq on wholesale replacement but not on variant switch", () => {
+  it("mints a new documentToken on wholesale replacement but not on edits or variant switches", () => {
     const s = () => useStore.getState();
-    const before = s().documentSeq;
+    const before = s().documentToken;
     const id = s().createVariant("V");
+    s().updateNode("A", { temperature: 250 });
     s().setActiveVariant(null);
     s().setActiveVariant(id);
-    expect(s().documentSeq).toBe(before);
+    expect(s().documentToken).toBe(before);
     s().newNetwork();
-    expect(s().documentSeq).toBe(before + 1);
+    expect(s().documentToken).not.toBe(before);
   });
 
   it("deleting a variant removes its runs and falls back to Base", () => {

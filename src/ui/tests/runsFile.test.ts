@@ -117,15 +117,50 @@ describe("runs sidecar format", () => {
     );
   });
 
-  it("only reattaches the mirror to the model that produced it", () => {
+  it("only reattaches the mirror to the document that produced it", () => {
     stubStorage();
     const base = cfg("Test");
     useStore.setState({ config: base, baseConfig: base, runHistory: [] });
     useStore.getState().pushRunRecord({ result: steady(2e5), config: base });
 
-    saveRunsToLocalStorage(base, useStore.getState().runHistory);
-    expect(loadRunsFromLocalStorage(base)).toHaveLength(1);
-    expect(loadRunsFromLocalStorage(cfg("Other model"))).toEqual([]);
+    saveRunsToLocalStorage(base, useStore.getState().runHistory, "doc-a");
+    expect(loadRunsFromLocalStorage(base, "doc-a")).toHaveLength(1);
+    expect(loadRunsFromLocalStorage(base, "doc-b")).toEqual([]);
+  });
+
+  it("keeps the mirror attached after the model is edited (run → edit → reload)", () => {
+    // Regression: the mirror used to be gated on the config hash, which the
+    // autosave moves past on every edit while the mirror is only rewritten
+    // when the history changes — so any edit after a run orphaned it.
+    stubStorage();
+    const base = cfg("Test");
+    useStore.setState({ config: base, baseConfig: base, runHistory: [] });
+    useStore.getState().pushRunRecord({ result: steady(2e5), config: base });
+    const token = useStore.getState().documentToken;
+
+    useStore.getState().updateNode("A", { pressure: 3e5 });
+    const edited = useStore.getState().baseConfig;
+    expect(loadRunsFromLocalStorage(edited, token)).toHaveLength(1);
+  });
+
+  it("falls back to the hash check for mirrors written before tokens existed", () => {
+    stubStorage();
+    const base = cfg("Test");
+    useStore.setState({ config: base, baseConfig: base, runHistory: [] });
+    useStore.getState().pushRunRecord({ result: steady(2e5), config: base });
+    // A legacy mirror: no documentToken field.
+    localStorage.setItem(
+      "fluids-network-runs-v1",
+      serializeRunsFile(base, useStore.getState().runHistory),
+    );
+    expect(loadRunsFromLocalStorage(base, "any")).toHaveLength(1);
+    expect(loadRunsFromLocalStorage(cfg("Other model"), "any")).toEqual([]);
+  });
+
+  it("leaves the token out of the portable sidecar", () => {
+    const base = cfg("Test");
+    const text = serializeRunsFile(base, []);
+    expect(parseRunsFile(text).documentToken).toBeUndefined();
   });
 });
 
@@ -147,7 +182,9 @@ describe("discarding results", () => {
     s().pushRunRecord({ result: steady(1.9e5), config: s().config });
     s().setBaselineRunId(s().runHistory[0].id);
     expect(s().runHistory).toHaveLength(2);
-    expect(loadRunsFromLocalStorage(s().baseConfig)).toHaveLength(2);
+    expect(
+      loadRunsFromLocalStorage(s().baseConfig, s().documentToken),
+    ).toHaveLength(2);
 
     s().discardRuns();
 
@@ -159,7 +196,9 @@ describe("discarding results", () => {
     expect(s().resultConfig).toBeNull();
     expect(s().resultStale).toBe(false);
     // And a reload finds nothing to restore.
-    expect(loadRunsFromLocalStorage(s().baseConfig)).toEqual([]);
+    expect(loadRunsFromLocalStorage(s().baseConfig, s().documentToken)).toEqual(
+      [],
+    );
   });
 
   it("discardRuns leaves the model alone", () => {
@@ -184,9 +223,11 @@ describe("discarding results", () => {
 
     expect(s().runHistory.map((r) => r.id)).toEqual([keep]);
     // Without the mirror write, a reload would bring the deleted run back.
-    expect(loadRunsFromLocalStorage(s().baseConfig).map((r) => r.id)).toEqual([
-      keep,
-    ]);
+    expect(
+      loadRunsFromLocalStorage(s().baseConfig, s().documentToken).map(
+        (r) => r.id,
+      ),
+    ).toEqual([keep]);
   });
 
   it("deleting the last run clears the mirror rather than storing an empty file", () => {
@@ -196,7 +237,9 @@ describe("discarding results", () => {
     s().deleteRun(s().runHistory[0].id);
 
     expect(s().runHistory).toEqual([]);
-    expect(loadRunsFromLocalStorage(s().baseConfig)).toEqual([]);
+    expect(loadRunsFromLocalStorage(s().baseConfig, s().documentToken)).toEqual(
+      [],
+    );
     expect([...storage.keys()]).not.toContain("fluids-network-runs-v1");
   });
 
@@ -205,8 +248,8 @@ describe("discarding results", () => {
     s().pushRunRecord({ result: steady(2e5), config: s().config });
     s().renameRun(s().runHistory[0].id, "Baseline case");
 
-    expect(loadRunsFromLocalStorage(s().baseConfig)[0].name).toBe(
-      "Baseline case",
-    );
+    expect(
+      loadRunsFromLocalStorage(s().baseConfig, s().documentToken)[0].name,
+    ).toBe("Baseline case");
   });
 });
