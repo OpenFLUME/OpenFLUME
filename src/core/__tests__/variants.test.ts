@@ -282,6 +282,72 @@ describe("diffVariant round-trip", () => {
     expect(patch.branches).toBeUndefined();
     expect(patch.settings).toBeUndefined();
   });
+
+  it("round-trips a deleted optional settings field", () => {
+    const from = base();
+    from.settings.relaxation = 0.9;
+    const next = base();
+    delete next.settings.relaxation;
+    const out = roundTrip(from, next);
+    expect("relaxation" in out.settings).toBe(false);
+    expect(out).toEqual(next);
+  });
+
+  it("round-trips every editable top-level document field", () => {
+    const next = base();
+    next.closureParams = { solidCpScale: 1.1 };
+    next.fluids = { coolant: { model: "idealGas", preset: "air" } };
+    next.species = { names: ["N2", "O2"], molecularWeights: [0.028, 0.032] };
+    next.registers = { k: 1 };
+    next.logic = [{ id: "L1", when: "t > 1", set: { k: "2" } }];
+    next.groups = [{ id: "g1", label: "Group", x: 0, y: 0 }];
+    next.notes = [{ id: "n1", text: "hello", x: 1, y: 2 }];
+    expect(roundTrip(base(), next)).toEqual(next);
+  });
+
+  it("round-trips the removal of a top-level document field", () => {
+    const from = base();
+    from.notes = [{ id: "n1", text: "hello", x: 1, y: 2 }];
+    from.registers = { k: 1 };
+    const next = base();
+    const out = roundTrip(from, next);
+    expect("notes" in out).toBe(false);
+    expect("registers" in out).toBe(false);
+    expect(out).toEqual(next);
+  });
+
+  it("routes meta to the base rather than the patch", () => {
+    // The file's name and schema version identify the document; a variant
+    // is an alternative network inside that document, not a new file.
+    const next = base();
+    next.meta = { name: "renamed", version: 2 };
+    expect(diffVariant(base(), next)).toBeUndefined();
+  });
+
+  it("survives JSON serialization, including field deletions", () => {
+    // The .fn file and the runs sidecar both carry patches as JSON, which
+    // drops `undefined`. Deletions must therefore use a JSON-safe marker.
+    const from = base();
+    from.notes = [{ id: "n1", text: "hello", x: 1, y: 2 }];
+    const next = base();
+    delete next.nodes[1].volume;
+    delete next.settings.relaxation;
+    const patch = JSON.parse(JSON.stringify(diffVariant(from, next)));
+    const out = applyVariant(from, { id: "v", name: "V", patch });
+    expect("volume" in out.nodes[1]).toBe(false);
+    expect("relaxation" in out.settings).toBe(false);
+    expect("notes" in out).toBe(false);
+    expect(out).toEqual(next);
+  });
+
+  it("still honours in-memory undefined as a deletion", () => {
+    const out = applyVariant(base(), {
+      id: "v",
+      name: "V",
+      patch: { nodes: { mid: { volume: undefined } } },
+    });
+    expect("volume" in out.nodes[1]).toBe(false);
+  });
 });
 
 describe("variant summaries", () => {

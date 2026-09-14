@@ -50,6 +50,17 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   previously produced copies that silently kept pointing at the _originals_;
   the expressions are now rewritten through the duplicate's id map.
 
+### Fixed
+
+- Variant patches now record every top-level document edit (`fluids`,
+  `species`, `controllers`, `notes`, `groups`, `logic`, `registers`,
+  `junctions`, `closureParams`, `componentLibrary`) via a new `patch.fields`
+  bucket, and deleted fields use a JSON-safe `null` marker. Previously such
+  edits were displayed while a variant was active but silently dropped from
+  the saved patch, so they vanished on the next variant switch or reload.
+  Renaming the model while a variant is active now edits the file rather than
+  being lost.
+
 ## [0.2.1] - 2026-08-23
 
 ### Added

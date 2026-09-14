@@ -1044,11 +1044,20 @@ edits to the base keep flowing into every variant that does not override them.
 Its shape is:
 
 - `settings` — field overrides on `settings`;
-- `fluid` — field overrides on the default fluid spec;
+- `fluid` — whole-value replacement of the default fluid spec;
+- `fields` — whole-value overrides of the remaining top-level fields
+  (`closureParams`, `fluids`, `species`, `registers`, `logic`, `controllers`,
+  `junctions`, `componentLibrary`, `groups`, `notes`). `meta` is never
+  patched: it names the file, so renaming the model always edits the base;
 - `nodes`, `branches`, `solidNodes`, `conductors` — each a map from entity `id`
   to a field map for that entity;
 - `added` — entities the variant introduces;
 - `removed` — ids the variant deletes.
+
+Inside `settings`, `fields`, and the per-entity field maps, a value of `null`
+means "delete this key from the base". `null` is not a legal value anywhere
+else in a network, so the marker cannot be confused with data, and it survives
+the JSON encoding used by the `.fn` file.
 
 An absent `patch` means the variant matches the base exactly. The solver never
 sees a variant: the active one is resolved against the base first

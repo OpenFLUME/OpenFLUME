@@ -497,15 +497,31 @@ export interface JunctionConfig {
  *
  * Resolution order in `applyVariant` is removals → field overrides →
  * additions, which makes a patch order-independent to author.
+ *
+ * Deletion marker: inside `settings`, the per-entity override buckets, and
+ * `fields`, a `null` value means "delete this key from the base". `null` is
+ * never a legal value anywhere in a NetworkConfig (the decode boundary
+ * rejects it), so the marker cannot collide with data, and unlike
+ * `undefined` it survives JSON — patches travel in the `.fn` file and the
+ * runs sidecar as JSON.
  */
 export interface VariantSpec {
   id: string;
   name: string;
   patch?: {
     /** Solver settings overrides, merged field-wise over the base. */
-    settings?: Partial<NetworkConfig["settings"]>;
+    settings?: {
+      [K in keyof NetworkConfig["settings"]]?:
+        NetworkConfig["settings"][K] | null;
+    };
     /** Whole-value replacement of the default fluid. */
     fluid?: FluidSpec;
+    /**
+     * Whole-value overrides of the remaining top-level document fields.
+     * `meta` is deliberately absent: the file's name and schema version
+     * identify the document, so edits to them always land in the base.
+     */
+    fields?: { [K in VariantDocumentField]?: NetworkConfig[K] | null };
     /** Per-entity field overrides, keyed by element id. */
     nodes?: Record<string, Record<string, unknown>>;
     branches?: Record<string, Record<string, unknown>>;
@@ -522,6 +538,24 @@ export interface VariantSpec {
     removed?: string[];
   };
 }
+
+/**
+ * Top-level NetworkConfig keys a variant may override whole. Everything the
+ * editor can change while a variant is active must be either here, an entity
+ * array, `settings`, or `fluid` — otherwise the edit could be displayed but
+ * not recorded.
+ */
+export type VariantDocumentField =
+  | "closureParams"
+  | "fluids"
+  | "species"
+  | "registers"
+  | "logic"
+  | "controllers"
+  | "junctions"
+  | "componentLibrary"
+  | "groups"
+  | "notes";
 
 export interface NetworkConfig {
   /**

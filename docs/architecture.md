@@ -119,14 +119,23 @@ functions, which are exact inverses over the shapes the editor can produce:
   variant patches are authored independently, so dangling references are
   ordinary and must not prevent a model from opening.
 - `diffVariant(base, resolved)` — the inverse, used to record edits made while
-  a variant is active.
+  a variant is active. Every top-level key the editor can change is
+  representable: `settings` field-wise, `fluid` whole, the remaining document
+  fields whole via `patch.fields`, and the four entity arrays per element.
+  Deletions are recorded as `null` (JSON-safe; `null` is otherwise illegal in
+  a config). `meta` is the one exception — it names the file, so it always
+  edits the base.
 
 The UI keeps this split in one place. `store.baseConfig` is the file (base
 network plus variant list) and is what the `.fn` text, Save, and the autosave
 all describe; `store.config` is the resolved active variant and is what every
 panel, the canvas, and the solver read, so the variant machinery costs the
 ~59 existing `useStore` subscribers nothing. `commitConfig` routes an edit to
-the base or into the active variant's patch depending on which is active.
+the base or into the active variant's patch depending on which is active, and
+while a variant is active it re-derives `store.config` from the recorded patch
+rather than trusting the edited object, so the invariant
+`config == applyVariant(baseConfig, activeVariant)` holds after every commit
+and an unrepresentable edit can never be displayed as though it were saved.
 
 Variants are authorship, not numerics: they are excluded from the provenance
 hash (like `notes`), so adding one cannot stale another's results. Entity

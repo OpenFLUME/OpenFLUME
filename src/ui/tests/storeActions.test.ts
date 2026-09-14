@@ -8,7 +8,7 @@ import { useStore } from "../store";
 import { RUN_HISTORY_CAP } from "../runHistory";
 import type { NetworkConfig, SteadyResult } from "../types";
 import { configHash } from "../provenance";
-import { validateNetwork } from "../../core";
+import { applyVariant, validateNetwork } from "../../core";
 import { createDiaryCollector, type RunDiary } from "../convergenceDiary";
 import {
   localComponentToolId,
@@ -794,6 +794,49 @@ describe("simulation variants", () => {
     expect(s().config.nodes[0].temperature).toBe(300);
     s().setActiveVariant(id);
     expect(s().config.nodes[0].temperature).toBe(250);
+  });
+
+  it("records non-entity document edits made while a variant is active", () => {
+    // Regression: these edits used to be displayed but never reached the
+    // patch, so they vanished on the next variant switch or reload.
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().addNote({ id: "n1", text: "assumption", x: 0, y: 0 });
+    s().setNamedFluid("coolant", { model: "idealGas", preset: "air" });
+    s().updateSpecies({ names: ["N2"], molecularWeights: [0.028] });
+
+    expect(s().baseConfig.variants![0].patch?.fields).toMatchObject({
+      notes: [{ id: "n1", text: "assumption" }],
+      fluids: { coolant: { model: "idealGas" } },
+      species: { names: ["N2"] },
+    });
+    expect(s().baseConfig.notes).toBeUndefined();
+    expect(s().baseConfig.fluids).toBeUndefined();
+
+    s().setActiveVariant(null);
+    expect(s().config.notes).toBeUndefined();
+    s().setActiveVariant(id);
+    expect(s().config.notes).toHaveLength(1);
+    expect(s().config.fluids?.coolant.model).toBe("idealGas");
+    expect(s().config.species?.names).toEqual(["N2"]);
+  });
+
+  it("routes a rename to the file even while a variant is active", () => {
+    const s = () => useStore.getState();
+    s().createVariant("V");
+    s().updateMeta({ name: "Renamed" });
+    expect(s().baseConfig.meta.name).toBe("Renamed");
+    expect(s().config.meta.name).toBe("Renamed");
+    expect(s().baseConfig.variants![0].patch).toBeUndefined();
+  });
+
+  it("keeps the displayed config equal to the resolved file", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    s().updateNode("A", { temperature: 250 });
+    s().addNote({ id: "n1", text: "x", x: 0, y: 0 });
+    const spec = s().baseConfig.variants!.find((v) => v.id === id)!;
+    expect(s().config).toEqual(applyVariant(s().baseConfig, spec));
   });
 
   it("propagates base edits into variants that do not override them", () => {

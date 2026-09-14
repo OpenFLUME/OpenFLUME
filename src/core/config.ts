@@ -457,6 +457,7 @@ function checkVariant(variant: Record<string, unknown>, path: string): void {
   for (const key of [
     "settings",
     "fluid",
+    "fields",
     "nodes",
     "branches",
     "solidNodes",

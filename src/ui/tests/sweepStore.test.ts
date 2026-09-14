@@ -211,6 +211,9 @@ function resetCanonicalStore() {
   useStore.setState({
     config: baseConfig(),
     baseConfig: baseConfig(),
+    // Promotion tests activate the promoted variant; the reset must clear it
+    // or the next test edits against a variant the fresh base does not have.
+    activeVariantId: null,
     selection: { kind: "none" },
     result: null,
     resultConfig: null,

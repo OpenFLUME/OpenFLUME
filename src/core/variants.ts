@@ -18,7 +18,11 @@
  * caller can report them (`resolveVariant` returns them) but the model must
  * still open.
  */
-import type { NetworkConfig, VariantSpec } from "./schema";
+import type {
+  NetworkConfig,
+  VariantDocumentField,
+  VariantSpec,
+} from "./schema";
 
 type Patch = NonNullable<VariantSpec["patch"]>;
 type EntityKey = "nodes" | "branches" | "solidNodes" | "conductors";
@@ -29,6 +33,36 @@ const ENTITY_KEYS: EntityKey[] = [
   "solidNodes",
   "conductors",
 ];
+
+/**
+ * Top-level keys recorded whole in `patch.fields`. Declared as a Record so
+ * the diff and apply loops cannot drift from the schema type: a
+ * VariantDocumentField missing here (or an extra key) is a compile error.
+ */
+const DOCUMENT_FIELD_SET: Record<VariantDocumentField, true> = {
+  closureParams: true,
+  fluids: true,
+  species: true,
+  registers: true,
+  logic: true,
+  controllers: true,
+  junctions: true,
+  componentLibrary: true,
+  groups: true,
+  notes: true,
+};
+const DOCUMENT_FIELDS = Object.keys(
+  DOCUMENT_FIELD_SET,
+) as readonly VariantDocumentField[];
+
+/**
+ * JSON-safe deletion marker (see VariantSpec). `undefined` is still honoured
+ * on apply so in-memory patches built before this marker existed keep
+ * working; diff only ever emits `null`.
+ */
+function isDeletion(value: unknown): boolean {
+  return value === null || value === undefined;
+}
 
 type Entity = { id: string } & Record<string, unknown>;
 
@@ -79,21 +113,22 @@ function diffFields(
     const b = base[key];
     const n = next[key];
     if (deepEqual(b, n)) continue;
-    // An absent key is recorded as an explicit undefined so applyVariant can
-    // delete it again (JSON drops it; the decoder restores absence).
-    patch[key] = n === undefined ? undefined : clone(n);
+    patch[key] = n === undefined ? null : clone(n);
   }
   return Object.keys(patch).length > 0 ? patch : null;
 }
 
-/** Apply a field patch to a base entity, deleting explicit-undefined keys. */
-function applyFields(base: Entity, patch: Record<string, unknown>): Entity {
+/** Apply a field patch to a base object, deleting marked keys. */
+function applyFields<T extends Record<string, unknown>>(
+  base: T,
+  patch: Record<string, unknown>,
+): T {
   const out: Record<string, unknown> = { ...clone(base) };
   for (const [key, value] of Object.entries(patch)) {
-    if (value === undefined) delete out[key];
+    if (isDeletion(value)) delete out[key];
     else out[key] = clone(value);
   }
-  return out as Entity;
+  return out as T;
 }
 
 export interface VariantResolution {
@@ -151,8 +186,20 @@ export function resolveVariant(
 
   // 2. Singleton overrides.
   if (patch.settings)
-    out.settings = { ...out.settings, ...clone(patch.settings) };
+    out.settings = applyFields(
+      out.settings as unknown as Record<string, unknown>,
+      patch.settings as Record<string, unknown>,
+    ) as unknown as NetworkConfig["settings"];
   if (patch.fluid) out.fluid = clone(patch.fluid);
+  if (patch.fields) {
+    const doc = out as unknown as Record<string, unknown>;
+    for (const key of DOCUMENT_FIELDS) {
+      if (!(key in patch.fields)) continue;
+      const value = patch.fields[key];
+      if (isDeletion(value)) delete doc[key];
+      else doc[key] = clone(value);
+    }
+  }
 
   // 3. Per-entity field overrides.
   for (const key of ENTITY_KEYS) {
@@ -217,6 +264,19 @@ export function diffVariant(
   if (!deepEqual(base.fluid, resolved.fluid))
     patch.fluid = clone(resolved.fluid);
 
+  // `meta` is intentionally not diffed: it identifies the file, not the
+  // network, so the editor routes meta edits to the base (see store).
+  const baseDoc = base as unknown as Record<string, unknown>;
+  const nextDoc = resolved as unknown as Record<string, unknown>;
+  for (const key of DOCUMENT_FIELDS) {
+    const b = baseDoc[key];
+    const n = nextDoc[key];
+    if (deepEqual(b, n)) continue;
+    const fields = (patch.fields ??= {});
+    (fields as Record<string, unknown>)[key] =
+      n === undefined ? null : clone(n);
+  }
+
   const removed: string[] = [];
   const added: NonNullable<Patch["added"]> = {};
 
@@ -259,6 +319,7 @@ export function countVariantChanges(spec: VariantSpec): number {
   let n = 0;
   if (patch.settings) n += Object.keys(patch.settings).length;
   if (patch.fluid) n += 1;
+  if (patch.fields) n += Object.keys(patch.fields).length;
   for (const key of ENTITY_KEYS) n += Object.keys(patch[key] ?? {}).length;
   if (patch.added)
     for (const key of ENTITY_KEYS) n += patch.added[key]?.length ?? 0;
@@ -274,6 +335,8 @@ export function describeVariantChanges(spec: VariantSpec): string[] {
   for (const [key, value] of Object.entries(patch.settings ?? {}))
     lines.push(`settings.${key} = ${JSON.stringify(value)}`);
   if (patch.fluid) lines.push("default fluid replaced");
+  for (const [key, value] of Object.entries(patch.fields ?? {}))
+    lines.push(isDeletion(value) ? `${key} removed` : `${key} replaced`);
   for (const key of ENTITY_KEYS) {
     for (const [id, fields] of Object.entries(patch[key] ?? {})) {
       lines.push(`${id}: ${Object.keys(fields).join(", ")}`);

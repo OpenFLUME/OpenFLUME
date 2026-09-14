@@ -724,6 +724,7 @@ export const useStore = create<StoreState>((set, get) => {
     const stale = options?.stale ?? true;
     const { baseConfig, activeVariantId } = get();
     let nextBase: NetworkConfig;
+    let nextConfig: NetworkConfig;
 
     if (activeVariantId === null) {
       // Editing Base: the edited network IS the new file body; carry the
@@ -731,11 +732,15 @@ export const useStore = create<StoreState>((set, get) => {
       nextBase = cfg;
       if (baseConfig.variants !== undefined)
         nextBase.variants = baseConfig.variants;
+      nextConfig = cfg;
     } else {
       // Editing a variant: re-record its patch against the unchanged base.
+      // `meta` identifies the file rather than the network, so it is the one
+      // edit that lands in the base even while a variant is active.
       const baseOnly = applyVariant(baseConfig, null);
       const patch = diffVariant(baseOnly, cfg);
       nextBase = cloneConfig(baseConfig);
+      nextBase.meta = cloneConfig(cfg).meta;
       nextBase.variants = (nextBase.variants ?? []).map((v) =>
         v.id === activeVariantId
           ? patch === undefined
@@ -743,11 +748,16 @@ export const useStore = create<StoreState>((set, get) => {
             : { ...v, patch }
           : v,
       );
+      // Invariant: what is displayed is what the file can reproduce. Deriving
+      // the resolved config from the recorded patch (rather than trusting
+      // `cfg`) guarantees an edit the patch cannot express is never shown as
+      // though it had been saved.
+      nextConfig = resolveActive(nextBase, activeVariantId);
     }
 
     set({
       baseConfig: nextBase,
-      config: cfg,
+      config: nextConfig,
       dirty: true,
       ...(stale ? { resultStale: true } : {}),
       ...syncText(nextBase),
