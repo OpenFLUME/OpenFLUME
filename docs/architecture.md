@@ -61,11 +61,13 @@ Direct imports from core implementation files, diagnostics, closure internals, d
 
 ### Test tiers
 
-- `npm test` uses `vitest.fast.config.ts` to run core, UI, and companion-server tests, excluding the current filename-based scientific, benchmark, chilldown, two-phase, and real-fluid suites listed in that config.
-- `npm run test:all` discovers all Vitest files, while existing `describeSlow` blocks remain skipped. Use this for broad implementation verification.
-- `npm run test:slow` sets `RUN_SLOW=1` and runs all Vitest files, including expensive opt-in sweeps and convergence studies.
-- `npm run test:e2e:smoke` runs a focused Chromium browser spec against an existing production build. CI uses this after `npm run build`.
-- `npm run test:e2e` builds first and then runs the complete Playwright suite, making the command self-contained on a clean checkout.
+- `npm test` uses `vitest.fast.config.ts` to run core, UI, and companion-server tests, excluding the current filename-based scientific, benchmark, chilldown, two-phase, and real-fluid suites listed in that config. CI runs it in the `check` job on every pull request, alongside lint, format, typecheck and the production build.
+- `npm run test:all` discovers all Vitest files, while existing `describeSlow` blocks remain skipped. CI runs it on every pull request (`scientific-validation`), together with `check:fluid-catalogue` so a `coolprop-wasm` bump cannot ship a stale generated catalogue.
+- `npm run test:slow` sets `RUN_SLOW=1` and runs all Vitest files, including expensive opt-in sweeps and convergence studies. CI runs this form on pushes to `main` and on the weekly schedule, not on pull requests.
+- `npm run test:e2e:smoke` runs a focused Chromium browser spec against an existing production build.
+- `npm run test:e2e` builds first and then runs the complete Playwright suite, making the command self-contained on a clean checkout. CI instead downloads the `dist` artefact the `check` job built and runs the suite in four shards against it, with the Playwright browser cached between runs.
+
+The demo deploy (`deploy.yml`) is triggered by a successful CI run on `main`, never directly by the push, so a red `main` cannot reach the published site.
 
 Exclusions are file based rather than test-name filters so suite membership is
 reviewable and stable. New expensive scientific files should be added to the

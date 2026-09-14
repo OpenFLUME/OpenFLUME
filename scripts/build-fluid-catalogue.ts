@@ -31,6 +31,7 @@ import { execFile } from "node:child_process";
 import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import { format, resolveConfig } from "prettier";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const OUT_PATH = path.resolve(
@@ -373,7 +374,14 @@ async function main(): Promise<void> {
     };
   });
 
-  const output = emitFile(entries, version);
+  // Emit in the repository's Prettier style so the committed file reads
+  // like hand-written source and `--check` compares like with like (the
+  // generated directory is excluded from `format:check`, so nothing else
+  // reformats it after the fact).
+  const output = await format(emitFile(entries, version), {
+    ...(await resolveConfig(OUT_PATH)),
+    filepath: OUT_PATH,
+  });
 
   if (checkOnly) {
     let current = "";

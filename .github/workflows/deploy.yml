@@ -1,7 +1,11 @@
 name: Deploy demo
 
+# Deploys only after CI has passed on main. A red main must never reach the
+# published demo; `workflow_dispatch` remains for a deliberate manual push.
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [main]
   workflow_dispatch:
 
@@ -14,9 +18,14 @@ concurrency:
 
 jobs:
   build:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22.9.0

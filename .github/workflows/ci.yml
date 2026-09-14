@@ -11,7 +11,15 @@ on:
 permissions:
   contents: read
 
+# A newer push to the same branch supersedes the run in progress. Scheduled
+# and main runs are never cancelled by each other (distinct refs).
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Lint, format, typecheck (inside `build`), fast tests, and the one
+  # production build every other job consumes.
   check:
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -24,10 +32,18 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check
-      - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          retention-days: 1
 
+  # Every Vitest file on every PR (expensive `describeSlow` blocks skipped),
+  # plus the generated-catalogue drift check so a coolprop-wasm bump cannot
+  # ship a stale fluid list. The RUN_SLOW sweeps and convergence studies run
+  # on main and on the weekly schedule.
   scientific-validation:
     runs-on: ubuntu-latest
     timeout-minutes: 60
@@ -38,13 +54,15 @@ jobs:
           node-version: 22.9.0
           cache: npm
       - run: npm ci
+      - run: npm run check:fluid-catalogue
       - run: npm run test:all
         env:
-          RUN_SLOW: "1"
+          RUN_SLOW: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
   e2e-full:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: check
     strategy:
       fail-fast: false
       matrix:
@@ -56,8 +74,23 @@ jobs:
           node-version: 22.9.0
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/4
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: pw-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install chromium
+      - run: npx playwright install-deps chromium
+      # Test the artefact `check` built rather than building four more.
+      - uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+      - run: npx playwright test --shard=${{ matrix.shard }}/4
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
