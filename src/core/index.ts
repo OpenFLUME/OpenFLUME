@@ -170,6 +170,7 @@ export {
 } from "./closureParams";
 export { CUSTOM_H_SCOPE_IDENTIFIERS } from "./correlations";
 export { validateNetwork } from "./validate";
+export { validateReferences } from "./validate/references";
 export {
   applyVariant,
   resolveVariant,

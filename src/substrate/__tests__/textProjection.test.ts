@@ -435,6 +435,53 @@ describe("error cases (no config, no throw)", () => {
     expect(semantic.line).toBe(text.split("\n").indexOf(line) + 1);
   });
 
+  it("hands out a work-in-progress document that fails solver validation", () => {
+    // No boundary node: the solver rejects it, the editor must still open
+    // it (Save wrote it without complaint).
+    const text = [
+      HEADER,
+      'network "wip" {',
+      'settings: {"mode":"steady","tolerance":1e-9,"maxIterations":100}',
+      'fluid: {"model":"incompressible","preset":"water"}',
+      'node "a" internal @ (0, 0, 0) data: {"pressure":200000,"temperature":300}',
+      "}",
+      "",
+    ].join("\n");
+    const result = parseText(text);
+    expect(result.config).toBeUndefined();
+    expect(result.document?.nodes.map((n) => n.id)).toEqual(["a"]);
+    expect(result.errors.every((e) => e.stage === "validate")).toBe(true);
+    expect(result.errors.some((e) => /No boundary nodes/.test(e.message))).toBe(
+      true,
+    );
+  });
+
+  it("withholds the document when a reference dangles or a line failed to parse", () => {
+    const dangling = parseText(
+      minimalText([
+        'branch "p1": "a" -> "ghost" pipe data: {"length":1,"diameter":0.05,"roughness":1e-5}',
+      ]),
+    );
+    expect(dangling.document).toBeUndefined();
+    expect(dangling.config).toBeUndefined();
+
+    const badLine = parseText(minimalText(["this is not a record"]));
+    expect(badLine.document).toBeUndefined();
+    expect(badLine.errors.some((e) => e.stage === "syntax")).toBe(true);
+  });
+
+  it("tags decode failures with the decode stage", () => {
+    // A variant without a name is structurally invalid at the decode
+    // boundary (config.ts checkVariant), not a syntax or validation error.
+    const text = serializeText(minimalConfig()).replace(
+      /\n}\n$/,
+      '\nvariants: [{"id":"v"}]\n}\n',
+    );
+    const result = parseText(text);
+    expect(result.document).toBeUndefined();
+    expect(result.errors.some((e) => e.stage === "decode")).toBe(true);
+  });
+
   it("leaves line undefined for whole-document semantic errors", () => {
     // Valid structure, but no boundary node -> whole-document semantic error.
     const text = [

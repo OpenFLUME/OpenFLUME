@@ -60,6 +60,12 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Fixed
 
+- A saved work-in-progress model that the solver would reject (no boundary
+  node yet, a transient without volumes, …) now reopens. Load used to run
+  full solver validation and refuse the file, while Save had written it
+  without complaint; the editor now opens it and shows the remaining issues.
+  Files with dangling references or duplicate ids — states the editor
+  itself can never produce — are still rejected.
 - Transient steps of incompressible / ideal-gas / compressible-liquid networks
   are now certified `converged` only when the inner Newton actually met the
   row-floor-scaled residual bar, the same test real-fluid steps already used.

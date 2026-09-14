@@ -269,21 +269,35 @@ export class ModelFileParseError extends Error {
 }
 
 /**
- * Parse an uploaded model file (the `.fn` text projection).  Throws
- * ModelFileParseError for invalid text (with diagnostics).  Pure: on any
- * failure nothing is consumed or mutated, so a rejected file can never
- * replace the current network.
+ * Parse an uploaded model file (the `.fn` text projection).
+ *
+ * This is the EDITING boundary: a file opens when it decodes to a
+ * NetworkConfig the editor can hold (unique ids, every reference
+ * resolvable), even when the solver would reject it — no boundary node yet,
+ * a transient without volumes. Save never refused to write such a
+ * work-in-progress model, and the editor surfaces the remaining issues
+ * itself. Syntax errors, structural decode failures and dangling references
+ * throw ModelFileParseError. Pure: on failure nothing is consumed or
+ * mutated, so a rejected file can never replace the current network.
+ * Solving still goes through the strict boundary (`runPreflight.ts` / the
+ * worker's decode-and-validate).
  */
 export function parseModelFile(text: string): NetworkConfig {
   const result = parseText(text);
-  if (result.config === undefined || result.errors.length > 0) {
+  if (result.document === undefined) {
     throw new ModelFileParseError(
       result.errors.length > 0
         ? result.errors
-        : [{ message: "no config produced", severity: "error" }],
+        : [
+            {
+              message: "no config produced",
+              severity: "error",
+              stage: "decode",
+            },
+          ],
     );
   }
-  return result.config;
+  return result.document;
 }
 
 export async function uploadModelFile(file: File): Promise<NetworkConfig> {

@@ -200,6 +200,16 @@ describe("utils", () => {
     expect(() => parseModelFile(text)).toThrow(ModelFileParseError);
   });
 
+  it("parseModelFile opens a work-in-progress model the solver would reject", () => {
+    // Regression: Save wrote this file; Load refused to reopen it.
+    const cfg = modelCfg();
+    cfg.nodes = cfg.nodes.map((n) =>
+      n.type === "boundary" ? { ...n, type: "internal" as const } : n,
+    );
+    expect(validateNetwork(cfg).length).toBeGreaterThan(0);
+    expect(parseModelFile(serializeModelFile(cfg))).toStrictEqual(cfg);
+  });
+
   it("parseModelFile rejects JSON content (only the .fn text projection is supported)", () => {
     expect(() => parseModelFile(JSON.stringify(modelCfg()))).toThrow(
       ModelFileParseError,

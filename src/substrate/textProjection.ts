@@ -82,11 +82,15 @@
  * After structural assembly the parser runs the standard boundary pipeline:
  * decodeNetworkConfig (thrown ConfigDecodeErrors are converted to errors,
  * mapped back to the field/entity line where possible) followed by
- * validateNetwork.  Semantic errors are returned with severity 'error' and
- * no config; dangling-reference errors (branch/conductor endpoints, group
- * and component-library references, ...) are attributed to the referencing
- * entity's line, while genuinely whole-document errors carry no line
- * (ParseError.line is left undefined — there is no sentinel line number).
+ * validateNetwork.  Two results come out of it (ParseResult): `document`,
+ * the editing boundary — present when the text decoded and the editor's
+ * own invariants hold (validateReferences), whatever the solver thinks —
+ * and `config`, the solving boundary, present only when there are no
+ * errors at all.  Every error carries its `stage`.  Dangling-reference
+ * errors (branch/conductor endpoints, group and component-library
+ * references, ...) are attributed to the referencing entity's line, while
+ * genuinely whole-document errors carry no line (ParseError.line is left
+ * undefined — there is no sentinel line number).
  *
  * TEMPORARY LIMITATION: SerializeOptions.preset / ParseOptions.preset exist
  * for API compatibility with the UI unit presets (a preset NAME or the
@@ -101,6 +105,7 @@
 import type { NetworkConfig } from "../core/schema";
 import { ConfigDecodeError, decodeNetworkConfig } from "../core/config";
 import { validateNetwork } from "../core/validate";
+import { validateReferences } from "../core/validate/references";
 
 /* ------------------------------------------------------------------ */
 /* Public API types                                                    */
@@ -149,6 +154,17 @@ export type LineMap = Map<string, LineRange>;
 
 export type ParseErrorSeverity = "error" | "warning";
 
+/**
+ * Which boundary an error came from.
+ *  - `syntax`: the line grammar (unknown record, bad JSON, unclosed block).
+ *  - `decode`: the structural boundary (`decodeNetworkConfig`) — the text
+ *    is not a NetworkConfig at all.
+ *  - `validate`: the semantic boundary (`validateNetwork`) — the text IS a
+ *    NetworkConfig, but not one the solver would accept (dangling
+ *    reference, missing required field for the mode, bad range).
+ */
+export type ParseErrorStage = "syntax" | "decode" | "validate";
+
 export interface ParseError {
   /**
    * 1-based line number for line-local problems.  OPTIONAL: omitted
@@ -160,10 +176,23 @@ export interface ParseError {
   line?: number;
   message: string;
   severity: ParseErrorSeverity;
+  stage: ParseErrorStage;
 }
 
 export interface ParseResult {
-  /** Reconstructed v2 config; undefined whenever `errors` is non-empty. */
+  /**
+   * The document as the EDITOR can hold it: decoded to a NetworkConfig with
+   * unique ids and every element reference resolvable
+   * (`validateReferences`), regardless of whether the solver would accept
+   * it. A saved work-in-progress model — no boundary node yet, a transient
+   * without volumes — must reopen, because Save never refused to write it;
+   * the editor then shows the remaining validation issues itself.
+   */
+  document?: NetworkConfig;
+  /**
+   * The same document, but only when `errors` is empty: a valid, solvable
+   * network. This is the solving boundary.
+   */
   config?: NetworkConfig;
   errors: ParseError[];
   lineMap: LineMap;
@@ -628,8 +657,12 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
   void options; // preset / showGeometry are reserved API surface; see ParseOptions.
   const errors: ParseError[] = [];
   const lineMap: LineMap = new Map();
-  const fail = (line: number | undefined, message: string): void => {
-    const error: ParseError = { message, severity: "error" };
+  const fail = (
+    line: number | undefined,
+    message: string,
+    stage: ParseErrorStage = "syntax",
+  ): void => {
+    const error: ParseError = { message, severity: "error", stage };
     if (line !== undefined) error.line = line;
     errors.push(error);
   };
@@ -1241,23 +1274,40 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
       fail(
         e instanceof ConfigDecodeError ? lineForDecodeError(e) : undefined,
         `config decode failed: ${errorMessage(e)}`,
+        "decode",
       );
       return { errors, lineMap };
     }
+    // Syntax errors recorded above (e.g. an unparseable record line that was
+    // skipped) mean the decoded document is incomplete: still validate it so
+    // every problem is reported at once, but never hand it out as a document.
+    // Likewise a document the editor's own invariants reject (dangling
+    // endpoint, duplicate id) is malformed rather than unfinished.
+    const editable =
+      errors.length === 0 && validateReferences(config).length === 0;
 
     // Semantic validation: dangling refs, bad ranges, cross-field rules.
-    let semanticErrors: string[];
     try {
-      semanticErrors = validateNetwork(config);
+      for (const message of validateNetwork(config)) {
+        fail(
+          lineForSemanticError(message, lineMap, fieldLines),
+          message,
+          "validate",
+        );
+      }
     } catch (e) {
-      fail(undefined, `validation failed unexpectedly: ${errorMessage(e)}`);
-      return { errors, lineMap };
+      fail(
+        undefined,
+        `validation failed unexpectedly: ${errorMessage(e)}`,
+        "validate",
+      );
     }
-    for (const message of semanticErrors) {
-      fail(lineForSemanticError(message, lineMap, fieldLines), message);
-    }
-    if (errors.length > 0) return { errors, lineMap };
-    return { config, errors, lineMap };
+    return {
+      ...(editable ? { document: config } : {}),
+      ...(errors.length === 0 ? { config } : {}),
+      errors,
+      lineMap,
+    };
   } catch (e) {
     // Never-throw safety net: the parser must not crash on any input.
     return {
@@ -1265,6 +1315,7 @@ export function parseText(text: string, options?: ParseOptions): ParseResult {
         {
           message: `internal parser error: ${errorMessage(e)}`,
           severity: "error",
+          stage: "syntax",
         },
       ],
       lineMap,
