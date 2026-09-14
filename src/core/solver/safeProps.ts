@@ -140,10 +140,11 @@ export function safeStatePH(
         // ignore
       }
     }
-    // Nothing worked — return a physically-wrong but finite fallback so the solver survives.
-    // The caller (tests) can still assert on the final converged state; a fallback here
-    // only prevents a WASM crash from killing the entire test suite.
-    // Counted: if this EVER fires, results are silently corrupted (see diagnostics.ts).
+    // Nothing worked — return a physically-wrong but finite fallback so the
+    // solver survives instead of dying inside WASM.  Counted: the step solver
+    // refuses to certify any attempt during which this fired (see
+    // diagnostics.ts and SolveStepResult.propertyFallbacks), so the value can
+    // keep an iteration alive but never reaches a state reported as converged.
     recordStatePHFallback("lastResort");
     return {
       T: 300,

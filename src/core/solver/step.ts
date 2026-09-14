@@ -45,6 +45,7 @@ import { RealFluid, clampToValidPH, getFluidLimits } from "../fluids/realFluid";
 import { IdealGas } from "../fluids";
 import { integrateBDF1 } from "../stiffOde";
 import { makeChemistryRHS } from "../chemistry";
+import { getSolverDiagnostics } from "../diagnostics";
 import { FALLBACK_H_FLOOR } from "../correlations";
 
 /**
@@ -149,6 +150,10 @@ export interface SolveStepResult {
   /** Internal nodes whose reaction sub-step integration failed (present
    *  only when non-empty; forces `converged: false`). */
   chemistryFailed?: string[];
+  /** Number of last-resort property fallbacks (fabricated finite states,
+   *  see diagnostics.ts) during this step.  Present only when non-zero;
+   *  forces `converged: false`. */
+  propertyFallbacks?: number;
 }
 
 export function solveStateStep(
@@ -1020,6 +1025,28 @@ function runChemistrySubStep(
 // ──────────────────────────────────────────────────────────────────────────
 
 function solveStateStepAttempt(
+  ctx: SolverContext,
+  state: StepState,
+  options: SolveStepOptions,
+): SolveStepResult {
+  // Property-evaluation failure guard.  safeStatePH's final fallback tier
+  // returns a physically wrong but finite state purely to keep the solver
+  // alive (diagnostics.ts `lastResort`).  Any residual, Jacobian or node
+  // update built on such a value is fiction, and the iteration cannot tell
+  // which of its evaluations were affected, so a step during which the tier
+  // fired at all is not certifiable.  The counter is process-global and the
+  // solver is single-threaded, so the delta across this attempt is exactly
+  // this attempt's count.
+  const lastResortAtEntry =
+    getSolverDiagnostics().statePHFallbackCount.lastResort;
+  const result = solveStateStepAttemptInner(ctx, state, options);
+  const propertyFallbacks =
+    getSolverDiagnostics().statePHFallbackCount.lastResort - lastResortAtEntry;
+  if (propertyFallbacks === 0) return result;
+  return { ...result, converged: false, propertyFallbacks };
+}
+
+function solveStateStepAttemptInner(
   ctx: SolverContext,
   state: StepState,
   options: SolveStepOptions,

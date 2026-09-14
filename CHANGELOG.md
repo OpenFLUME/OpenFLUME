@@ -66,6 +66,12 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   `converged`. The failure was silently swallowed, leaving the node at its
   pre-reaction state inside a certified step; the step now reports
   `converged: false` (and adaptive stepping rejects and shrinks it).
+- A step during which a real-fluid property evaluation fell through to the
+  last-resort fabricated state (`T = 300 K, ρ = 100 kg/m³`, kept only to
+  avoid a WASM crash) is no longer certified. Steady solves report
+  `converged: false` with a `propertyFallbacks` count; transient steps discard
+  the affected retry tier and re-solve, so a fabricated value can never reach
+  an accepted state unnoticed.
 - Variant patches now record every top-level document edit (`fluids`,
   `species`, `controllers`, `notes`, `groups`, `logic`, `registers`,
   `junctions`, `closureParams`, `componentLibrary`) via a new `patch.fields`

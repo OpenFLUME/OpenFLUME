@@ -13,8 +13,11 @@
  *  2. `statePHFallbackCount` — safeStatePH's cascading fallback chain.  Tiers
  *     1–3 (fresh AbstractState, direct PropsSI, saturation-dome analytic) are
  *     slower but physically correct; tier 4 (`lastResort`) returns a
- *     PHYSICALLY WRONG but finite state purely to keep the solver alive — if
- *     it ever fires, results are silently corrupted.
+ *     PHYSICALLY WRONG but finite state purely to keep the solver alive.
+ *     solver/step.ts snapshots this counter around every solve attempt and
+ *     refuses to certify an attempt during which it advanced
+ *     (`SolveStepResult.propertyFallbacks`), so a fabricated value can never
+ *     reach a state reported as converged.
  *
  * Design: module-level counters with reset/snapshot.  Default solver
  * behaviour is unchanged and the cost is one branch + increment per event
