@@ -1781,11 +1781,14 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
    coupled `[P, ṁ, h]` mode this row is resolved implicitly for $T^{n+1}$ by
    successive substitution once the mass-flow field has converged.
 3. Runs logic rules and controllers on acceptance, then stores the converged
-   state. Every step is appended to the trajectory even if the Newton did not
-   converge; those steps are flagged `converged: false` and the per-step
-   residual series `stepResiduals` / `stepResidualsScaled` record the raw and
-   scaled infinity-norm that was achieved. Unlike adaptive stepping, fixed
-   stepping never retries with a smaller $\Delta t$.
+   state. A step is certified `converged` only when the row-floor-scaled
+   residual of its best Newton iterate is below $10^{3}\,\text{tol}$ — the same
+   bar for every fluid model (converged steps sit at $10^{-5}$–$10^{-4}$,
+   stalled ones at $0.1$–$10$). Every step is appended to the trajectory even
+   if the Newton did not converge; those steps are flagged `converged: false`
+   and the per-step residual series `stepResiduals` / `stepResidualsScaled`
+   record the raw and scaled norm that was achieved. Unlike adaptive stepping,
+   fixed stepping never retries with a smaller $\Delta t$.
 
 ### 4.6.3 Transient — Adaptive Step
 
@@ -2186,7 +2189,10 @@ group, out of one, or between two — without deleting and redrawing the branch.
 Conductors expose the same retargeting on their own **From** and **To**, filtered
 to endpoints legal for the conductor kind. **Initial flow guess** is the
 Newton warm start `initialMdot`; left blank it reads _Auto (0.1 kg/s)_ and never
-constrains the converged solution.
+constrains the converged solution — with one exception: a transient pipe with
+**Fluid inertia** enabled uses it as the actual ṁ at t = 0 in its
+(L/A)·dṁ/dt term, so there it is an initial condition and should be set to the
+real starting flow (0 for fluid at rest behind a closed valve).
 
 Pipes carry a **Friction** selector of **Correlation (Swamee–Jain)** or
 **Constant f**. The constant form is a separate mode rather than a bare number

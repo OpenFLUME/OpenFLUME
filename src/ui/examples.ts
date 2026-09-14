@@ -3084,6 +3084,13 @@ export function buildLeeMartin(options?: {
       id: `p${i + 1}`,
       from,
       to,
+      // The valve is closed at t = 0, so the water column starts at rest.
+      // With `inertia: true` the first step's (L/A)·dṁ/dt term uses
+      // initialMdot as ṁ(0): the default 0.1 kg/s warm start would demand
+      // a fictitious 10 ms deceleration to zero (≈11 kPa per segment) that
+      // the pressure floor cannot balance, and the first step would not
+      // converge.
+      initialMdot: 0,
       component: {
         type: "pipe",
         length: L,

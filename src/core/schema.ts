@@ -837,6 +837,13 @@ export interface NetworkConfig {
      * (near-choked ducts) may need a guess near the expected flow to keep
      * Newton on the subsonic solution branch, exactly as GFSSP requires
      * initial flow-rate guesses.  Default 0.1 kg/s.
+     *
+     * One exception to "purely a warm start": a transient pipe with
+     * `inertia: true` uses this value as ṁ(t = 0) in its (L/A)·dṁ/dt term,
+     * so there it is a genuine initial condition. Set it to the real
+     * initial flow (0 for fluid at rest behind a closed valve); otherwise
+     * the first step must decelerate the default 0.1 kg/s to the true
+     * value within one dt, which can be unsolvable.
      */
     initialMdot?: number;
     component:

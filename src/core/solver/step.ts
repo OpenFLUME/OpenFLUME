@@ -1888,7 +1888,7 @@ function solveStateStepAttempt(
     // stale.  One extra residual evaluation per outer iteration (the inner
     // loop performs hundreds).  Coupling settling between Picard outer
     // iterations is governed separately by the maxDeltaT < fluidTol check.
-    if (useExtendedSystem && bestResNorm < 1e99) {
+    if (dt !== undefined && bestResNorm < 1e99) {
       try {
         const Rb = computeResidual(X);
         let acc = 0;
@@ -2185,34 +2185,26 @@ function solveStateStepAttempt(
       : ctx.isRealFluid
         ? tol * SETTLE_FACTOR_REAL
         : tol * SETTLE_FACTOR_ANALYTIC;
-    // For transient non-real-fluid we accept outer convergence even if the
-    // inner loop is not fully converged: the small time step means the state
-    // is close to the previous solution, and the temperature update is
-    // regularising.  For steady-state (dt === undefined) we insist on inner
-    // convergence to avoid garbage temperature updates from unconverged mass
-    // or momentum residuals.  For transient REAL-FLUID we also insist on
-    // inner convergence: the two-phase residual is stiff (raw-Watt energy
-    // rows), and certifying a step whose inner Newton stalled freezes a
-    // physically non-converged state — the subcooled-chilldown parked-state
-    // bug (~46 kW sustained enthalpy-flux imbalance reported as a valid
-    // steady state).
-    // For transient REAL-FLUID steps the convergence flag must distinguish
-    // a settled Newton solution from a STALLED iteration: the
-    // chilldown parked-state bug certified a state with ~2.5e4 W energy
-    // imbalance (scaled norm ~1.3) as converged.  The bar is the row-floor
-    // scaled norm < tol*1e3 — the scaled-norm analogue of the state-settling
-    // fluidTol (= tol*1e6) used below.  Genuinely converged steps sit at the
-    // FD-Newton noise floor (scaled ~1e-5…1e-4, i.e. ~1 W energy imbalance);
-    // stalled steps sit at scaled ~0.1…10 (kW-scale imbalance) — a ~1000×
-    // separation, so the bar is robust to its exact placement.  The raw-norm
-    // tol is unreachable for stiff real-fluid steps (it would require
-    // sub-µW energy residuals), which is why the legacy code bypassed the
-    // residual check for transient entirely (and thereby hid the bug).
+    // Every TRANSIENT step, whatever the EOS, certifies on the row-floor
+    // scaled residual of its best inner iterate: scaled norm < tol*1e3, the
+    // scaled-norm analogue of the state-settling fluidTol used below.  The
+    // raw-norm tol is unreachable for stiff steps (it would require sub-µW
+    // energy residuals), which is why the legacy code bypassed the residual
+    // check for transient entirely — and thereby hid the subcooled-chilldown
+    // parked-state bug, where a stalled inner Newton with ~2.5e4 W of energy
+    // imbalance (scaled norm ~1.3) was certified as converged.  Genuinely
+    // converged steps sit at the FD-Newton noise floor (scaled ~1e-5…1e-4,
+    // i.e. ~1 W energy imbalance); stalled steps sit at scaled ~0.1…10 —
+    // a ~1000× separation, so the bar is robust to its exact placement.
+    // Non-real-fluid transients kept the bypass for a while longer on the
+    // argument that a small dt keeps the state near the previous solution;
+    // that argument bounds the ERROR of an unconverged step, not the claim
+    // that it converged, so it too now certifies on the scaled residual.
+    // Steady solves (dt === undefined) insist on the raw tol, to avoid
+    // garbage temperature updates from unconverged mass/momentum residuals.
     const innerConverged =
       dt !== undefined
-        ? ctx.isRealFluid
-          ? lastInnerBestResScaled < tol * CERTIFY_SCALED_BAR_FACTOR
-          : true
+        ? lastInnerBestResScaled < tol * CERTIFY_SCALED_BAR_FACTOR
         : ctx.isRealFluid
           ? finalResidual < tol
           : // Legacy steady: judge by the CURRENT outer's inner residual,
@@ -2302,7 +2294,7 @@ function solveStateStepAttempt(
     copyStepStateInto(state, bestOuterState);
     returnResidual = bestOuterRaw;
     lastInnerBestResScaled = bestOuterScaled;
-    if (useExtendedSystem && dt !== undefined) {
+    if (dt !== undefined) {
       outerConverged = bestOuterScaled < tol * CERTIFY_SCALED_BAR_FACTOR;
     }
   }

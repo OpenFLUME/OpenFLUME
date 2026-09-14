@@ -52,6 +52,15 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ### Fixed
 
+- Transient steps of incompressible / ideal-gas / compressible-liquid networks
+  are now certified `converged` only when the inner Newton actually met the
+  row-floor-scaled residual bar, the same test real-fluid steps already used.
+  They were previously certified unconditionally, which hid unsolvable steps:
+  the **Entrapped-air line** example's first step could not balance its
+  momentum rows (the pipes' `initialMdot` warm start was being used as ṁ(0)
+  in the fluid-inertia term behind a closed valve) and was reported converged.
+  The example now starts its water column at rest, and `initialMdot` is
+  documented as a true initial condition for inertia pipes.
 - Variant patches now record every top-level document edit (`fluids`,
   `species`, `controllers`, `notes`, `groups`, `logic`, `registers`,
   `junctions`, `closureParams`, `componentLibrary`) via a new `patch.fields`
