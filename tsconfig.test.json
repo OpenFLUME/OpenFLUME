@@ -1,0 +1,21 @@
+{
+  // Test suites straddle both worlds: Vitest runs under Node and exercises
+  // browser modules (SSR renders, stubbed localStorage); Playwright specs
+  // run in Node and evaluate DOM code in the page (as does the Playwright-
+  // driven figure capture script). Both libs, both types.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"]
+  },
+  "include": [
+    "src/**/__tests__/**/*",
+    "src/ui/tests/**/*",
+    "src/testUtils/**/*",
+    "src/**/*.d.ts",
+    "scripts/__tests__/**/*",
+    "scripts/capture-manual-figures.ts",
+    "e2e/**/*"
+  ],
+  "exclude": ["node_modules", "dist"]
+}

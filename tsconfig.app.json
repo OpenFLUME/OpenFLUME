@@ -1,0 +1,17 @@
+{
+  // Browser application: everything Vite bundles. No Node globals — a
+  // `process` or `Buffer` reference here is a bug that used to type-check.
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*", "types/node-debug-shim.d.ts"],
+  "exclude": [
+    "src/**/__tests__/**",
+    "src/ui/tests/**",
+    "src/testUtils/**",
+    "node_modules",
+    "dist"
+  ]
+}
