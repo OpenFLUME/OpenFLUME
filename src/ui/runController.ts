@@ -69,9 +69,19 @@ export async function startRun(): Promise<void> {
   store.setTimeIndex(null);
 
   let cloned: NetworkConfig;
+  // Ownership is captured at the same instant as the config snapshot. The
+  // solve is asynchronous and nothing stops the user switching variants or
+  // loading another model meanwhile, so completion must file the run under
+  // what it was STARTED from, never under whatever is active when it ends.
+  let owner: { variantId: string | null; documentSeq: number };
   try {
     const library = await refreshComponentLibrary();
-    cloned = cloneConfig(useStore.getState().config);
+    const snapshot = useStore.getState();
+    cloned = cloneConfig(snapshot.config);
+    owner = {
+      variantId: snapshot.activeVariantId,
+      documentSeq: snapshot.documentSeq,
+    };
     const bundled = getBundledComponentSources();
     const untrustedEmbedded = (
       await compareEmbeddedComponents(
@@ -153,11 +163,24 @@ export async function startRun(): Promise<void> {
           store.setResultDiary(fin.diary);
           return;
         }
-        store.setResult(res);
-        // Ring-buffer the completed run so re-runs never destroy history;
-        // pushRunRecord also makes the run's diary the current one.
-        store.pushRunRecord({ result: res, config: cloned, diary: fin.diary });
+        const now = useStore.getState();
         store.setLiveResult(null);
+        if (now.documentSeq !== owner.documentSeq) {
+          // The model this run belonged to was replaced mid-solve. Its
+          // result has no home in the new document; drop it rather than
+          // filing another model's numbers into this one's history.
+          return;
+        }
+        if (now.activeVariantId === owner.variantId) store.setResult(res);
+        // Ring-buffer the completed run so re-runs never destroy history,
+        // filed under the variant it started from; pushRunRecord also makes
+        // the run's diary the current one when that variant is still active.
+        store.pushRunRecord({
+          result: res,
+          config: cloned,
+          diary: fin.diary,
+          variantId: owner.variantId,
+        });
       },
       onError: (msg) => {
         const fin = session.finalizeWorkerError(msg);

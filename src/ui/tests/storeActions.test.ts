@@ -904,6 +904,55 @@ describe("simulation variants", () => {
     expect(s().runHistory.some((r) => r.variantId === null)).toBe(true);
   });
 
+  it("files a run under the variant it started from, not the active one", () => {
+    // Regression: the owner used to be read at completion, so switching
+    // variants during a solve misfiled the run under the new variant.
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    const started = s().config;
+    s().setActiveVariant(null);
+
+    const filed = s().pushRunRecord({
+      result: steady(3e5),
+      config: started,
+      variantId: id,
+    });
+    expect(filed).toBe(true);
+    expect(s().runHistory.map((r) => r.variantId)).toEqual([id]);
+    // Filed silently: Base is active, so nothing of V's is displayed.
+    expect(s().selectedRunId).toBeNull();
+    expect(s().resultConfig).toBeNull();
+
+    s().setActiveVariant(id);
+    s().selectRun(s().runHistory[0].id);
+    expect(s().result).toEqual(steady(3e5));
+  });
+
+  it("refuses to file a run under a variant deleted mid-solve", () => {
+    const s = () => useStore.getState();
+    const id = s().createVariant("V");
+    const started = s().config;
+    s().deleteVariant(id);
+    const filed = s().pushRunRecord({
+      result: steady(3e5),
+      config: started,
+      variantId: id,
+    });
+    expect(filed).toBe(false);
+    expect(s().runHistory).toHaveLength(0);
+  });
+
+  it("bumps documentSeq on wholesale replacement but not on variant switch", () => {
+    const s = () => useStore.getState();
+    const before = s().documentSeq;
+    const id = s().createVariant("V");
+    s().setActiveVariant(null);
+    s().setActiveVariant(id);
+    expect(s().documentSeq).toBe(before);
+    s().newNetwork();
+    expect(s().documentSeq).toBe(before + 1);
+  });
+
   it("deleting a variant removes its runs and falls back to Base", () => {
     const s = () => useStore.getState();
     const id = s().createVariant("V");

@@ -60,6 +60,10 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   the saved patch, so they vanished on the next variant switch or reload.
   Renaming the model while a variant is active now edits the file rather than
   being lost.
+- Manual runs are filed under the variant that was active when the run
+  _started_. Switching variants mid-solve used to misfile the completed run
+  under the newly active variant; loading another model mid-solve used to
+  push the old model's run into the new model's history.
 
 ## [0.2.1] - 2026-08-23
 

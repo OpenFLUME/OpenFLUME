@@ -145,7 +145,13 @@ reordering the project outline must not invalidate a pinned baseline.
 
 Results are scoped to the model that produced them: each `RunRecord` carries a
 `variantId`, the ring-buffer cap applies per variant, and every wholesale model
-replacement clears the history. Results are not written to the `.fn` file —
+replacement clears the history. Ownership is captured when a run STARTS
+(`runController.ts` snapshots `activeVariantId` and `store.documentSeq`
+alongside the config), not when it completes: a solve is asynchronous and the
+user may switch variants or load another model meanwhile. A completion whose
+variant is no longer active is filed silently under its owner; one whose
+document has been replaced is dropped rather than written into the new
+document's history. Results are not written to the `.fn` file —
 `src/ui/runsFile.ts` mirrors them into localStorage and exports a portable
 `<model>.runs.json` sidecar.
 

@@ -260,11 +260,32 @@ interface StoreState {
     id: string;
     nonce: number;
   } | null;
+  /**
+   * File a completed run in the history ring buffer.
+   *
+   * `variantId` is the variant the run was STARTED under. Callers that solve
+   * asynchronously must capture it at start and pass it here; defaulting to
+   * the active variant at completion misfiles the run when the user switches
+   * variants mid-solve. A run whose owner still exists and is the active
+   * variant is also selected and displayed; one filed under a non-active
+   * variant is recorded silently (the displayed result always belongs to
+   * the active variant). Returns false — and files nothing — when the owning
+   * variant has since been deleted.
+   */
   pushRunRecord: (input: {
     result: SteadyResult | TransientResult;
     config: NetworkConfig;
     diary?: RunDiary;
-  }) => void;
+    variantId?: string | null;
+  }) => boolean;
+  /**
+   * Bumped whenever the model session is replaced wholesale (New / Load /
+   * example / paste-as-file). A completion callback whose captured
+   * `documentSeq` no longer matches belongs to a document that is gone and
+   * must not write into its replacement. Unlike `configEpoch` this does NOT
+   * change on variant switches, which are the same document.
+   */
+  documentSeq: number;
   selectRun: (id: string | null) => void;
   renameRun: (id: string, name: string) => void;
   deleteRun: (id: string) => void;
@@ -665,7 +686,7 @@ export const useStore = create<StoreState>((set, get) => {
    */
   const clearedSession = () => {
     clearRunsLocalStorage();
-    return clearedSessionState();
+    return { ...clearedSessionState(), documentSeq: get().documentSeq + 1 };
   };
 
   /** The results half of a cleared session, shared with `discardRuns`. */
@@ -801,6 +822,7 @@ export const useStore = create<StoreState>((set, get) => {
     textDraft: initialModelText,
     textDiagnostics: [],
     configEpoch: 0,
+    documentSeq: 0,
     // Rehydrate the mirrored results alongside the autosaved model, so a
     // reload resumes the session rather than discarding its runs.
     runHistory: initialRuns,
@@ -1877,12 +1899,22 @@ export const useStore = create<StoreState>((set, get) => {
     setLiveResult: (result) => set({ liveResult: result }),
 
     // ── Run history (ring buffer, newest last) ─────────────────────────
-    pushRunRecord: ({ result, config, diary }) => {
+    pushRunRecord: ({ result, config, diary, variantId: owner }) => {
+      const { activeVariantId, baseConfig } = get();
+      const variantId = owner === undefined ? activeVariantId : owner;
+      // A run whose variant was deleted mid-solve has no home: deleteVariant
+      // already dropped that variant's runs, and filing a ghost under an id
+      // the picker cannot show would be invisible and unrecoverable.
+      if (
+        variantId !== null &&
+        !(baseConfig.variants ?? []).some((v) => v.id === variantId)
+      )
+        return false;
+      const display = variantId === activeVariantId;
       const seq = get().runSeq + 1;
       // Deep-clone the diary on intake (diaries are plain JSON data), same
       // intake-clone semantics as the config snapshot: later caller-side
       // mutation can never alias into the record.
-      const variantId = get().activeVariantId;
       const record = makeRunRecord(
         seq,
         cloneConfig(config),
@@ -1911,15 +1943,22 @@ export const useStore = create<StoreState>((set, get) => {
       set({
         runHistory: history,
         runSeq: seq,
-        selectedRunId: record.id,
         baselineRunId,
-        resultConfig: record.config,
-        // Pushing selects the new record — its diary becomes current.
-        resultDiary: record.diary ?? null,
+        // Pushing under the active variant selects the new record — its
+        // diary becomes current. Filing under another variant leaves the
+        // display alone: what is shown always belongs to the active variant.
+        ...(display
+          ? {
+              selectedRunId: record.id,
+              resultConfig: record.config,
+              resultDiary: record.diary ?? null,
+            }
+          : {}),
       });
       // Mirror to localStorage so a reload keeps the session's results; the
       // portable copy is the `.runs.json` file that Save writes.
       persistRuns(get().baseConfig, history);
+      return true;
     },
 
     selectRun: (id) => {

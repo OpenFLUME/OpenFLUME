@@ -590,6 +590,7 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
         useStore.getState().pushRunRecord({
           result: record.result,
           config: unit.config,
+          variantId,
           ...(record.diary ? { diary: record.diary } : {}),
         });
         // pushRunRecord selects the new record; selectRun additionally
@@ -597,7 +598,6 @@ export function createSweepStore(deps: SweepStoreDeps = {}) {
         const pushed = useStore.getState().runHistory.at(-1)!;
         useStore.getState().selectRun(pushed.id);
         useStore.getState().renameRun(pushed.id, label);
-        void variantId;
         return { ok: true, record: useStore.getState().runHistory.at(-1)! };
       },
 
