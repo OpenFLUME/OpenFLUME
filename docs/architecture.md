@@ -283,3 +283,42 @@ or local JavaScript user components are different: they execute as trusted
 code and can consume CPU or access capabilities available in their execution
 environment. Source consent and worker execution reduce accidental risk but
 are not a hostile-code sandbox. See [Security](../SECURITY.md).
+
+## Known structural debt
+
+Deliberately recorded so the next contributor does not rediscover it. Each item
+names the seam that already exists and the shape of the change; none is a bug.
+
+- **Scalar/dual residual mirror** (`solver/kernel.ts`). `computeResidual` and
+  `computeResidualDual` are parallel implementations of the same equations, one
+  over `number` and one over `Dual`, ~750 lines each; every physics change must
+  be made twice and the type system cannot catch a divergence. The fix is one
+  residual generic over a small numeric interface (`add/mul/div/…`, which
+  `dual.ts` already nearly is), instantiated for both types. Do it one row kind
+  at a time — plain-branch momentum first — deleting both copies of each row and
+  re-running `probeJacobians`; measure the scalar path's cost before committing
+  to the generic form everywhere. The five `instanceof` component special cases
+  in the momentum rows (`FlowSource`, `Orifice`, `CavitatingVenturi`,
+  `Regulator`, `Pipe` inertia) should first become a `BranchComponent` hook so
+  the row assembly shrinks before it is made generic.
+- **Remaining `instanceof RealFluid` sites** (`solver/step.ts`, `kernel.ts`,
+  `context.ts`, `derivedProperties.ts`, the correlation wrappers, `safeProps.ts`).
+  Solver _decisions_ now dispatch on `FluidModel.capabilities`; these sites
+  narrow to the CoolProp-backed API itself (P–h envelope clamps, saturation
+  bundles, dual-number `statePH`, reporting bundles). Lifting that API into
+  `FluidModel` as optional members — with the analytic models omitting them —
+  is what would let the narrowings go. `safeProps.ts` is the exception: its
+  recovery chain is genuinely about CoolProp failure modes.
+- **Per-type component tables** (`validate/branches.ts`, `formulaFields.ts`,
+  the UI's `componentRegistry.ts` and `sweep/targets.ts`). Construction is
+  table-driven through `components/registry.ts`; the other per-type concerns
+  are still separate chains that must be kept in step by hand. Each can move
+  onto the registry descriptor one concern at a time.
+- **UI store and component granularity** (`src/ui/store.ts`, ~2,100 lines and
+  ~100 actions; `src/ui/components/` flat, several files above 1,000 lines).
+  The store splits cleanly into model/undo, results/runs, session, and
+  preference slices composed into the one `create()` — a file move, not a
+  behaviour change — and `PropertyPanel` / `ConfigurationView` / `FlowCanvas`
+  already contain the sub-components a feature-folder layout would give their
+  own files. `modelText` is re-serialised from the whole file on every commit
+  and could be computed lazily by the Text tab.
