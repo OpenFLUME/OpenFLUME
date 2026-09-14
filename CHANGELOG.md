@@ -59,6 +59,15 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   and rolled back on rejection — the two-half-step path sees the mid-step
   valve position — so slam-shut and chatter now drive the step size instead
   of being integrated once after the fact. Fixed stepping is unchanged.
+- Library API (`src/core/index.ts`): `FluidModel` gains a required
+  `capabilities: { twoPhase, enthalpyState }` member that the solver dispatches
+  its formulation on (`ANALYTIC_FLUID_CAPABILITIES` is exported for
+  constant-property models); `BranchComponent` gains optional `snapshotState` /
+  `restoreState` / `dynamicState` hooks alongside `advanceState` for
+  components with integrated state; `validateReferences` (editor-level
+  referential integrity) is exported beside `validateNetwork`; and the text
+  projection's `ParseResult` now carries `document` (editable) as well as
+  `config` (solvable), with every `ParseError` tagged by `stage`.
 - CoolProp is now loaded only inside the solver worker. The toolbar used to
   initialise a second instance on the main thread to show a "CoolProp ready"
   pill, costing a duplicate 6.5 MB WASM fetch and a duplicated chunk; the

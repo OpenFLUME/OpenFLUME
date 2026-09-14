@@ -543,7 +543,7 @@ over HTTP is restricted to localhost and refuses to overwrite existing files.
 | Artifact                            | Direction                  | Notes                                                                               |
 | ----------------------------------- | -------------------------- | ----------------------------------------------------------------------------------- |
 | `.fn` model file                    | Save / Load                | Line-oriented lossless text projection (Appendix C)                                 |
-| Browser `localStorage`              | Autosave                   | Last network plus unit preferences; restored on reload                              |
+| Browser `localStorage`              | Autosave                   | Last network, unit preferences, and the session's run history; restored on reload   |
 | `library/components/*.component.js` | Read (and optional create) | User components; requires companion server                                          |
 | CSV exports                         | Write                      | Channel data, result tables, transient time series, sweep variants, run comparisons |
 | Solver diary JSON / text            | Write                      | Convergence record with config-hash provenance                                      |
@@ -1785,7 +1785,11 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
    state. A step is certified `converged` only when the row-floor-scaled
    residual of its best Newton iterate is below $10^{3}\,\text{tol}$ — the same
    bar for every fluid model (converged steps sit at $10^{-5}$–$10^{-4}$,
-   stalled ones at $0.1$–$10$). Every step is appended to the trajectory even
+   stalled ones at $0.1$–$10$). Two further conditions withdraw certification
+   regardless of the residual: a real-fluid property evaluation that fell
+   through to the last-resort fabricated state, and a reaction sub-step whose
+   stiff integration failed — a step built on either is not a solution of the
+   equations. Every step is appended to the trajectory even
    if the Newton did not converge; those steps are flagged `converged: false`
    and the per-step residual series `stepResiduals` / `stepResidualsScaled`
    record the raw and scaled norm that was achieved. Unlike adaptive stepping,
@@ -2016,7 +2020,11 @@ otherwise; drag its left edge to resize it. See §6.11 for the outline and
 
 The network name field doubles as the save-file name and shows a dot when there
 are unsaved changes. **New**, **Save**, and **Load** handle `.fn` files;
-**Undo** and **Redo** walk the history. **Examples ▾** lists the thirteen shipped
+**Undo** and **Redo** walk the history. **Load** opens any file the editor can
+hold — including a half-finished model the solver would still reject (no
+boundary node yet, a transient without volumes), whose remaining issues then
+show in the health pill. Only files that are not a network at all, or whose
+element references dangle, are refused. **Examples ▾** lists the thirteen shipped
 models in four groups. **Units ▾** selects the display preset — **SI**, **Metric
 engineering**, or **US customary** — and shows a disabled **Custom** entry when
 preferences match no preset. **Commands** (or `Cmd`/`Ctrl`+`K`) opens the
@@ -2547,15 +2555,17 @@ The variant picker at the top of the outline switches between them and offers
 Creating a variant while another is active branches from that one.
 
 While a variant is active, every edit is recorded into its patch and the base
-network is left untouched. Rows the variant overrides are marked **M**, with
+network is left untouched — every edit except the model **name**, which
+identifies the file rather than the network and always edits the base. Rows the variant overrides are marked **M**, with
 the base value in their hover card, and the picker shows how many changes the
 variant carries. Because the variant name also appears in the toolbar, the
 variant you are editing is visible whether or not the outline is open.
 
 Variants are saved inside the `.fn` file, so they travel with the model.
 
-**Runs and comparison.** Each run is filed under the variant that produced it
-and shown in the outline's **Results** list with that variant's name. Click a run
+**Runs and comparison.** Each run is filed under the variant that was active
+when it _started_ (switching variants while the solver is busy does not move
+it) and shown in the outline's **Results** list with that variant's name. Click a run
 to display it; click the star beside another run to pin it as the comparison
 baseline, and that star stays gold for as long as the pin holds. The baseline
 may come from a _different_ variant, which is how variants are compared: the
@@ -2567,8 +2577,9 @@ that produced them.
 
 **Saving results.** Results are not stored in the `.fn` file — that file stays a
 model description. They are mirrored into browser storage so an ordinary reload
-keeps them, and they are written to a portable `<model>.runs.json` sidecar
-beside the model. **Save** in the toolbar writes both files whenever there are
+keeps them — editing the model in between does not lose them; restored runs
+whose model has since changed simply show as stale — and they are written to a
+portable `<model>.runs.json` sidecar beside the model. **Save** in the toolbar writes both files whenever there are
 runs to save, so one action captures the whole session; **Save** in the Results
 section header writes the sidecar alone. Loading a `.runs.json` through **Load**
 reattaches its runs to the open model. Saving always writes the whole file — the
