@@ -10,29 +10,19 @@
 import type { ResolvedNetworkConfig, TransientResult } from "../schema";
 import type { StepState } from "../solver";
 import {
-  buildSolverContext,
   buildLogicScope,
-  createInitialState,
   solveStateStep,
   updateConductorLatches,
   updateFluidFrontStates,
 } from "../solver";
-import { createLogicRuntime, logicResultFields } from "../logicRuntime";
-import {
-  createControllerRuntime,
-  controllerResultFields,
-} from "../controllerRuntime";
 import { RealFluid } from "../fluids/realFluid";
 import { cloneState } from "./stateUtils";
 import { applyBoundaryConditions } from "./boundaryConditions";
 import { advanceStatefulComponents } from "./statefulComponents";
 import type { HistoryRecorders } from "./historyRecorders";
-import {
-  initTransientResults,
-  recordTransientStep,
-  buildPartialTransientResult,
-} from "./resultRecorder";
+import { recordTransientStep } from "./resultRecorder";
 import { collectScheduleBreakpoints } from "./breakpoints";
+import { prepareTransientRun, fireLogicInit } from "./runSetup";
 import type { SolveTransientOptions } from "./types";
 
 export function runAdaptiveTimeStepping(
@@ -41,12 +31,7 @@ export function runAdaptiveTimeStepping(
   options: SolveTransientOptions | undefined,
   history: HistoryRecorders,
 ): TransientResult {
-  const {
-    recordTtWf,
-    recordFluidFront,
-    ttWfResultField,
-    fluidFrontResultField,
-  } = history;
+  const { recordTtWf, recordFluidFront } = history;
 
   const a = config.settings.adaptive!;
   const dtMin = a.dtMin;
@@ -59,47 +44,9 @@ export function runAdaptiveTimeStepping(
     a.dtInitial ?? config.settings.dt ?? Math.sqrt(dtMin * dtMax);
   let currentDt = Math.min(dtMax, Math.max(dtMin, dtInitial));
 
-  const ctx = buildSolverContext(config);
-  // PID controller runtime (same discipline as the fixed-stepping path).
-  const controllers = createControllerRuntime(config, ctx);
-  controllers?.initialize();
-
-  let state = createInitialState(ctx, config);
-  applyBoundaryConditions(ctx, config, state, 0);
-  // darrHartwig + ttWf: initialize the step-level accepted states from the
-  // t=0 state.
-  recordTtWf(updateConductorLatches(ctx, state));
-  recordFluidFront(updateFluidFrontStates(ctx, state));
-
-  // User-logic runtime (registers + LogicRule lifecycle — see
-  // core/logicRuntime.ts).  Undefined unless the network configures
-  // registers/logic, in which case every path below is unchanged.
-  const logic = createLogicRuntime(config);
-
-  const acc = initTransientResults(ctx, config, state);
-  const {
-    times,
-    nodeResults,
-    branchResults,
-    solidResults,
-    conductorResults,
-    junctionResults,
-  } = acc;
-
-  const partial = (stepIndex: number, converged: boolean, aborted?: boolean) =>
-    buildPartialTransientResult(
-      stepIndex,
-      times,
-      nodeResults,
-      branchResults,
-      solidResults,
-      conductorResults,
-      junctionResults,
-      ttWfResultField(),
-      fluidFrontResultField(),
-      converged,
-      aborted,
-    );
+  const run = prepareTransientRun(config, history);
+  const { ctx, controllers, logic, acc, controls, partial } = run;
+  let state = run.state;
 
   let acceptedSteps = 0;
   let rejectedSteps = 0;
@@ -127,19 +74,8 @@ export function runAdaptiveTimeStepping(
     });
   }
 
-  // Logic lifecycle: init at t = 0 with the fully-initialized state.
-  if (logic) {
-    logic.fire("init", buildLogicScope(ctx, state), { t: 0 });
-    controllers?.syncRegisters(logic);
-    if (logic.userTerminated) {
-      logic.fire("solveEnd", buildLogicScope(ctx, state), { t: 0 });
-      return {
-        ...partial(0, true),
-        stats: stats(),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
-      };
-    }
+  if (fireLogicInit(run)) {
+    return { ...partial(0, true), stats: stats(), ...run.runtimeFields() };
   }
 
   const sortedBreakpoints = collectScheduleBreakpoints(config, endTime);
@@ -161,8 +97,7 @@ export function runAdaptiveTimeStepping(
         ...partial(acceptedSteps, allConverged, true),
         aborted: true,
         stats: stats(),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
 
@@ -203,8 +138,7 @@ export function runAdaptiveTimeStepping(
           ...partial(acceptedSteps, allConverged, true),
           aborted: true,
           stats: stats(),
-          ...logicResultFields(logic),
-          ...controllerResultFields(controllers),
+          ...run.runtimeFields(),
         };
       }
 
@@ -219,8 +153,7 @@ export function runAdaptiveTimeStepping(
         return {
           ...partial(acceptedSteps, allConverged),
           stats: stats(),
-          ...logicResultFields(logic),
-          ...controllerResultFields(controllers),
+          ...run.runtimeFields(),
         };
       }
       if (logic) controllers?.executeRegisters(logic);
@@ -233,79 +166,63 @@ export function runAdaptiveTimeStepping(
         });
       };
 
-      // One full BE step of size dt -> y1
-      const s1 = cloneState(state);
-      applyBoundaryConditions(ctx, config, s1, t + dt);
-      const res1 = solveStateStep(ctx, s1, {
-        dt,
-        t: t + dt,
-        tol: config.settings.tolerance,
-        maxIterations: config.settings.maxIterations,
-        relaxation: config.settings.relaxation ?? 1.0,
-        prevState: state,
-        jacobian: config.settings.jacobian ?? "hybrid",
-        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
-        globalization: config.settings.globalization ?? "lineSearch",
-      });
-      if (!res1.converged) {
+      // One backward-Euler candidate from `from`, boundary conditions
+      // applied at its target time. Returns the solved state, or undefined
+      // when the Newton did not certify.
+      const candidate = (
+        from: StepState,
+        stepDt: number,
+        target: number,
+      ): { s: StepState; iterations: number; residual: number } | undefined => {
+        const s = cloneState(from);
+        applyBoundaryConditions(ctx, config, s, target);
+        const res = solveStateStep(ctx, s, {
+          ...controls,
+          dt: stepDt,
+          t: target,
+          prevState: from,
+        });
+        return res.converged
+          ? { s, iterations: res.iterations, residual: res.residual }
+          : undefined;
+      };
+      // A candidate that failed to converge: retry at half the step, or give
+      // up when already at the floor. Returns true when the retry loop must
+      // stop (the caller breaks out).
+      const halveOrGiveUp = (): boolean => {
         rejectCandidate();
         if (dt <= dtMin) {
           allConverged = false;
           nrFailedAtMin = true;
-          break;
+          return true;
         }
         dt = Math.max(dtMin, dt / 2);
+        return false;
+      };
+
+      // One full BE step of size dt -> y1
+      const c1 = candidate(state, dt, t + dt);
+      if (!c1) {
+        if (halveOrGiveUp()) break;
         continue;
       }
+      const s1 = c1.s;
 
       // Two BE steps of dt/2 -> y2
-      const sMid = cloneState(state);
-      applyBoundaryConditions(ctx, config, sMid, t + dt / 2);
-      const resMid = solveStateStep(ctx, sMid, {
-        dt: dt / 2,
-        t: t + dt / 2,
-        tol: config.settings.tolerance,
-        maxIterations: config.settings.maxIterations,
-        relaxation: config.settings.relaxation ?? 1.0,
-        prevState: state,
-        jacobian: config.settings.jacobian ?? "hybrid",
-        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
-        globalization: config.settings.globalization ?? "lineSearch",
-      });
-      if (!resMid.converged) {
-        rejectCandidate();
-        if (dt <= dtMin) {
-          allConverged = false;
-          nrFailedAtMin = true;
-          break;
-        }
-        dt = Math.max(dtMin, dt / 2);
+      const cMid = candidate(state, dt / 2, t + dt / 2);
+      if (!cMid) {
+        if (halveOrGiveUp()) break;
         continue;
       }
+      const sMid = cMid.s;
 
-      const s2 = cloneState(sMid);
-      applyBoundaryConditions(ctx, config, s2, t + dt);
-      const res2 = solveStateStep(ctx, s2, {
-        dt: dt / 2,
-        t: t + dt,
-        tol: config.settings.tolerance,
-        maxIterations: config.settings.maxIterations,
-        relaxation: config.settings.relaxation ?? 1.0,
-        prevState: sMid,
-        jacobian: config.settings.jacobian ?? "hybrid",
-        certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
-        globalization: config.settings.globalization ?? "lineSearch",
-      });
-      if (!res2.converged) {
-        rejectCandidate();
-        if (dt <= dtMin) {
-          allConverged = false;
-          nrFailedAtMin = true;
-          break;
-        }
-        dt = Math.max(dtMin, dt / 2);
+      const c2 = candidate(sMid, dt / 2, t + dt);
+      if (!c2) {
+        if (halveOrGiveUp()) break;
         continue;
       }
+      const s2 = c2.s;
+      const res2 = { iterations: c2.iterations, residual: c2.residual };
 
       // Error estimate (weighted RMS over all internal P, T (or H for realFluid) and solid T)
       let sumSq = 0;
@@ -385,8 +302,7 @@ export function runAdaptiveTimeStepping(
       return {
         ...partial(acceptedSteps, allConverged),
         stats: stats(),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
 
@@ -447,8 +363,7 @@ export function runAdaptiveTimeStepping(
       return {
         ...partial(acceptedSteps, allConverged),
         stats: stats(),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
 
@@ -481,16 +396,15 @@ export function runAdaptiveTimeStepping(
 
   return {
     converged: allConverged,
-    times,
-    nodes: nodeResults,
-    branches: branchResults,
-    solidNodes: solidResults,
-    conductors: conductorResults,
-    junctions: junctionResults,
-    ttWf: ttWfResultField(),
-    fluidFront: fluidFrontResultField(),
+    times: acc.times,
+    nodes: acc.nodeResults,
+    branches: acc.branchResults,
+    solidNodes: acc.solidResults,
+    conductors: acc.conductorResults,
+    junctions: acc.junctionResults,
+    ttWf: history.ttWfResultField(),
+    fluidFront: history.fluidFrontResultField(),
     stats: stats(),
-    ...logicResultFields(logic),
-    ...controllerResultFields(controllers),
+    ...run.runtimeFields(),
   };
 }

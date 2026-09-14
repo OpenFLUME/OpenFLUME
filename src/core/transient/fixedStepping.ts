@@ -7,27 +7,17 @@
  */
 import type { ResolvedNetworkConfig, TransientResult } from "../schema";
 import {
-  buildSolverContext,
   buildLogicScope,
-  createInitialState,
   solveStateStep,
   updateConductorLatches,
   updateFluidFrontStates,
 } from "../solver";
-import { createLogicRuntime, logicResultFields } from "../logicRuntime";
-import {
-  createControllerRuntime,
-  controllerResultFields,
-} from "../controllerRuntime";
 import { cloneState } from "./stateUtils";
 import { applyBoundaryConditions } from "./boundaryConditions";
 import { advanceStatefulComponents } from "./statefulComponents";
 import type { HistoryRecorders } from "./historyRecorders";
-import {
-  initTransientResults,
-  recordTransientStep,
-  buildPartialTransientResult,
-} from "./resultRecorder";
+import { recordTransientStep } from "./resultRecorder";
+import { prepareTransientRun, fireLogicInit } from "./runSetup";
 import type { SolveTransientOptions } from "./types";
 
 export function runFixedTimeStepping(
@@ -36,67 +26,18 @@ export function runFixedTimeStepping(
   options: SolveTransientOptions | undefined,
   history: HistoryRecorders,
 ): TransientResult {
-  const {
-    recordTtWf,
-    recordFluidFront,
-    ttWfResultField,
-    fluidFrontResultField,
-  } = history;
+  const { recordTtWf, recordFluidFront } = history;
 
   const dt = config.settings.dt;
   if (dt === undefined || dt <= 0) {
     throw new Error("Transient simulation requires settings.dt > 0");
   }
 
-  const ctx = buildSolverContext(config);
+  const run = prepareTransientRun(config, history);
+  const { ctx, state, controllers, logic, acc, controls, partial } = run;
   const steps = Math.round(endTime / dt);
   const progressInterval =
     options?.progressInterval ?? Math.max(1, Math.floor(steps / 200));
-
-  // PID controller runtime (core/controllerRuntime.ts).  Undefined unless
-  // the network configures controllers, in which case every path below is
-  // unchanged.  initialize() writes `initialOutput` actuation BEFORE the
-  // t = 0 boundary application so seeded boundary overrides take effect
-  // from the first step.
-  const controllers = createControllerRuntime(config, ctx);
-  controllers?.initialize();
-
-  const state = createInitialState(ctx, config);
-  applyBoundaryConditions(ctx, config, state, 0);
-  // darrHartwig + ttWf + fluidFront: initialize the step-level accepted
-  // states from the t=0 state (no-op when no such conductor is configured).
-  recordTtWf(updateConductorLatches(ctx, state));
-  recordFluidFront(updateFluidFrontStates(ctx, state));
-
-  // User-logic runtime (registers + LogicRule lifecycle — see
-  // core/logicRuntime.ts).  Undefined unless the network configures
-  // registers/logic, in which case every path below is unchanged.
-  const logic = createLogicRuntime(config);
-
-  const acc = initTransientResults(ctx, config, state);
-  const {
-    times,
-    nodeResults,
-    branchResults,
-    solidResults,
-    conductorResults,
-    junctionResults,
-  } = acc;
-
-  const partial = (stepIndex: number, converged: boolean, aborted?: boolean) =>
-    buildPartialTransientResult(
-      stepIndex,
-      times,
-      nodeResults,
-      branchResults,
-      solidResults,
-      conductorResults,
-      junctionResults,
-      ttWfResultField(),
-      fluidFrontResultField(),
-      converged,
-      aborted,
-    );
 
   if (options?.onProgress) {
     options.onProgress({
@@ -109,18 +50,8 @@ export function runFixedTimeStepping(
     });
   }
 
-  // Logic lifecycle: init at t = 0 with the fully-initialized state.
-  if (logic) {
-    logic.fire("init", buildLogicScope(ctx, state), { t: 0 });
-    controllers?.syncRegisters(logic);
-    if (logic.userTerminated) {
-      logic.fire("solveEnd", buildLogicScope(ctx, state), { t: 0 });
-      return {
-        ...partial(0, true),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
-      };
-    }
+  if (fireLogicInit(run)) {
+    return { ...partial(0, true), ...run.runtimeFields() };
   }
 
   let allConverged = true;
@@ -136,8 +67,7 @@ export function runFixedTimeStepping(
       return {
         ...partial(step - 1, allConverged, true),
         aborted: true,
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
 
@@ -152,25 +82,14 @@ export function runFixedTimeStepping(
       logic.fire("solveEnd", buildLogicScope(ctx, state), { t: t - dt, dt });
       return {
         ...partial(step - 1, allConverged),
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
     if (logic) controllers?.executeRegisters(logic);
     const prevState = cloneState(state);
     applyBoundaryConditions(ctx, config, state, t);
 
-    const res = solveStateStep(ctx, state, {
-      dt,
-      t,
-      tol: config.settings.tolerance,
-      maxIterations: config.settings.maxIterations,
-      relaxation: config.settings.relaxation ?? 1.0,
-      prevState,
-      jacobian: config.settings.jacobian ?? "hybrid",
-      certifyAfterCoupling: config.settings.certifyAfterCoupling === true,
-      globalization: config.settings.globalization ?? "lineSearch",
-    });
+    const res = solveStateStep(ctx, state, { ...controls, dt, t, prevState });
 
     if (!res.converged) allConverged = false;
     // Fixed stepping retains failed states for the legacy diagnostic
@@ -224,8 +143,7 @@ export function runFixedTimeStepping(
         ...partial(step, allConverged),
         stepResiduals,
         stepResidualsScaled,
-        ...logicResultFields(logic),
-        ...controllerResultFields(controllers),
+        ...run.runtimeFields(),
       };
     }
 
@@ -256,17 +174,16 @@ export function runFixedTimeStepping(
 
   return {
     converged: allConverged,
-    times,
-    nodes: nodeResults,
-    branches: branchResults,
-    solidNodes: solidResults,
-    conductors: conductorResults,
-    junctions: junctionResults,
-    ttWf: ttWfResultField(),
-    fluidFront: fluidFrontResultField(),
+    times: acc.times,
+    nodes: acc.nodeResults,
+    branches: acc.branchResults,
+    solidNodes: acc.solidResults,
+    conductors: acc.conductorResults,
+    junctions: acc.junctionResults,
+    ttWf: history.ttWfResultField(),
+    fluidFront: history.fluidFrontResultField(),
     stepResiduals,
     stepResidualsScaled,
-    ...logicResultFields(logic),
-    ...controllerResultFields(controllers),
+    ...run.runtimeFields(),
   };
 }

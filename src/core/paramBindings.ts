@@ -118,6 +118,24 @@ export function isParameterExpression(
  * This function NEVER calls validateNetwork (no recursive validation);
  * validateNetwork calls this, then validates the resolved clone.
  */
+/**
+ * `resolveNetworkParameters` for callers that cannot proceed on failure —
+ * the solver entry points and the context builder. One message template,
+ * naming the caller, instead of one copy per entry point.
+ */
+export function resolveNetworkParametersOrThrow(
+  config: NetworkConfig,
+  caller: string,
+): ResolvedNetworkConfig {
+  const resolution = resolveNetworkParameters(config);
+  if (!resolution.ok) {
+    throw new Error(
+      `${caller}: invalid parameter bindings:\n${resolution.errors.map((e) => `  - ${e}`).join("\n")}`,
+    );
+  }
+  return resolution.config;
+}
+
 export function resolveNetworkParameters(
   config: NetworkConfig,
 ): ParameterResolution {

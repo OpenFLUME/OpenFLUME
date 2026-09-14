@@ -9,6 +9,9 @@
  *   transient/adaptiveStepping.ts  runAdaptiveTimeStepping — step-doubling
  *                                  error control with dt adaptation and
  *                                  schedule-event alignment
+ *   transient/runSetup.ts          prepareTransientRun — the t = 0 protocol
+ *                                  both steppers share (context, controllers,
+ *                                  initial state + latches, logic, results)
  *   transient/resultRecorder.ts    Trajectory-array accumulation shared by
  *                                  both steppers, and the partial-result
  *                                  slicer used by onProgress/abort/logic-stop
@@ -19,11 +22,12 @@
  *   transient/stateUtils.ts        cloneState
  *
  * Both steppers solve ONE state per call via solveStateStep (see
- * ./solver/step.ts); this file only owns resolving parameters, dispatching
- * on settings.timeStepping, and validating endTime/dt up front.
+ * ./solver/step.ts) with the options solver/stepControls.ts derives from
+ * `settings`; this file only owns resolving parameters, dispatching on
+ * settings.timeStepping, and validating endTime/dt up front.
  */
 import type { NetworkConfig, TransientResult } from "./schema";
-import { resolveNetworkParameters } from "./paramBindings";
+import { resolveNetworkParametersOrThrow } from "./paramBindings";
 import { createHistoryRecorders } from "./transient/historyRecorders";
 import { runFixedTimeStepping } from "./transient/fixedStepping";
 import { runAdaptiveTimeStepping } from "./transient/adaptiveStepping";
@@ -70,13 +74,7 @@ export function solveTransient(
   // Defense in depth (validateNetwork already resolves bindings): solve the
   // immutable parameter-resolved clone (core/paramBindings.ts) — formulas
   // are evaluated once here, never inside a transient step.
-  const resolution = resolveNetworkParameters(inputConfig);
-  if (!resolution.ok) {
-    throw new Error(
-      `solveTransient: invalid parameter bindings:\n${resolution.errors.map((e) => `  - ${e}`).join("\n")}`,
-    );
-  }
-  const config = resolution.config;
+  const config = resolveNetworkParametersOrThrow(inputConfig, "solveTransient");
   const isAdaptive = config.settings.timeStepping === "adaptive";
   const endTime = config.settings.endTime;
   if (endTime === undefined || endTime <= 0) {

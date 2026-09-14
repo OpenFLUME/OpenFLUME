@@ -8,7 +8,8 @@
  * recorder so both modes publish the same set.
  */
 import type { NetworkConfig, SteadyResult } from "../schema";
-import { resolveNetworkParameters } from "../paramBindings";
+import { resolveNetworkParametersOrThrow } from "../paramBindings";
+import { steadyStepControls } from "./stepControls";
 import { createLogicRuntime, logicResultFields } from "../logicRuntime";
 import { FALLBACK_H_FLOOR } from "../correlations";
 import {
@@ -57,16 +58,9 @@ export function solveSteady(
   // any formula-bound fields with their static numbers and solve the
   // immutable resolved clone, so bindings can never feed back into the
   // Newton/Jacobian state.
-  const resolution = resolveNetworkParameters(inputConfig);
-  if (!resolution.ok) {
-    throw new Error(
-      `solveSteady: invalid parameter bindings:\n${resolution.errors.map((e) => `  - ${e}`).join("\n")}`,
-    );
-  }
-  const config = resolution.config;
+  const config = resolveNetworkParametersOrThrow(inputConfig, "solveSteady");
   const ctx = buildSolverContext(config);
   const state = createInitialState(ctx, config);
-  const relax = config.settings.relaxation ?? 1.0;
 
   // User-logic runtime (registers + LogicRule lifecycle, core/logicRuntime.ts).
   // Undefined unless the network configures registers/logic — the solve is
@@ -102,14 +96,9 @@ export function solveSteady(
       : options?.shouldAbort;
 
   const stepOptions = {
-    tol: config.settings.tolerance,
-    maxIterations: config.settings.maxIterations,
-    relaxation: relax,
+    ...steadyStepControls(config.settings),
     onProgress: wrappedProgress,
     shouldAbort: wrappedAbort,
-    steadySolver: config.settings.steadySolver ?? "ptc",
-    globalization: config.settings.globalization ?? "trustRegion",
-    jacobian: config.settings.jacobian ?? "hybrid",
   };
 
   let res = solveStateStep(ctx, state, stepOptions);

@@ -6,7 +6,7 @@
  * resolution happens on the solver hot path.
  */
 import type { NetworkConfig, ResolvedNetworkConfig } from "../schema";
-import { resolveNetworkParameters } from "../paramBindings";
+import { resolveNetworkParametersOrThrow } from "../paramBindings";
 import { createFluidModel, IdealGasMixture } from "../fluids";
 import type { FluidModel } from "../fluids";
 import { RealFluid } from "../fluids/realFluid";
@@ -44,13 +44,10 @@ import type {
  * hit the identity fast path.
  */
 export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
-  const resolution = resolveNetworkParameters(inputConfig);
-  if (!resolution.ok) {
-    throw new Error(
-      `buildSolverContext: invalid parameter bindings:\n${resolution.errors.map((e) => `  - ${e}`).join("\n")}`,
-    );
-  }
-  const config = resolution.config;
+  const config = resolveNetworkParametersOrThrow(
+    inputConfig,
+    "buildSolverContext",
+  );
   const fluid = createFluidModel(
     config.fluid.model,
     config.fluid.preset,
