@@ -127,9 +127,12 @@ export async function startRun(): Promise<void> {
           return;
         }
         // Worker error after execution began: expose the partial error
-        // diary alongside the error state (no RunRecord).
+        // diary alongside the error state (no RunRecord). CoolProp failures
+        // live on their own channel so they never clobber network
+        // validation errors.
         store.setResultDiary(fin.diary);
-        store.setValidationErrors([msg]);
+        if (msg.startsWith("CoolProp init failed")) store.setFluidError(msg);
+        else store.setValidationErrors([msg]);
         store.setLiveResult(null);
       },
     });

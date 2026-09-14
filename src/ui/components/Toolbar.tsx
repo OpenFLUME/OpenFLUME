@@ -9,12 +9,7 @@ import {
   RUNS_FILE_SUFFIX,
 } from "../runsFile";
 import { exampleGroups } from "../examples";
-import {
-  validateNetwork,
-  initRealFluids,
-  realFluidsReady,
-  networkUsesRealFluid,
-} from "../../core";
+import { validateNetwork, networkUsesRealFluid } from "../../core";
 import { PRESETS, activeUnitPreset } from "../units";
 import { formatSig } from "../format";
 import { startRun, cancelRun } from "../runController";
@@ -63,9 +58,6 @@ export default function Toolbar() {
   const canRedo = useStore((s) => s.future.length > 0);
 
   const fileRef = useRef<HTMLInputElement>(null);
-  const [coolpropStatus, setCoolpropStatus] = React.useState<string | null>(
-    null,
-  );
   const [confirm, setConfirm] = React.useState<ConfirmRequest | null>(null);
   const pendingFileRef = useRef<File | null>(null);
   const importRuns = useStore((s) => s.importRuns);
@@ -74,55 +66,15 @@ export default function Toolbar() {
   const usesRealFluid = networkUsesRealFluid(config);
   const hasRuns = useStore((s) => s.runHistory.length > 0);
 
+  // CoolProp is initialised inside the solver worker, on demand, when a run
+  // starts (the worker reports it as the `loadingFluids` run status shown by
+  // the health pill). The main thread never loads the 6.5 MB sidecar: it
+  // has no use for the properties and a second instance would only cost
+  // memory and a duplicated chunk. A CoolProp failure belongs to the
+  // real-fluid model that caused it; switching to an analytic-EOS model
+  // clears it, otherwise that model looks as though it failed to load.
   React.useEffect(() => {
-    let active = true;
-    let clearTimer: (() => void) | null = null;
-
-    if (!usesRealFluid) {
-      setCoolpropStatus(null);
-      // A CoolProp failure belongs to the previous real-fluid model.
-      // Leaving it up after switching to an analytic-EOS example (e.g. the
-      // transient thruster) looks like that example itself failed to load.
-      setFluidError(null);
-      return;
-    }
-
-    if (realFluidsReady()) {
-      if (active) {
-        setFluidError(null);
-        setCoolpropStatus("CoolProp ready");
-      }
-      const t = setTimeout(() => {
-        if (active) setCoolpropStatus(null);
-      }, 2000);
-      clearTimer = () => clearTimeout(t);
-    } else {
-      if (active) setCoolpropStatus("Loading fluid properties…");
-      initRealFluids()
-        .then(() => {
-          if (active) {
-            setFluidError(null);
-            setCoolpropStatus("CoolProp ready");
-            const t = setTimeout(() => {
-              if (active) setCoolpropStatus(null);
-            }, 2000);
-            clearTimer = () => clearTimeout(t);
-          }
-        })
-        .catch((err) => {
-          if (active) {
-            setCoolpropStatus(null);
-            // CoolProp failures live on their own channel — never clobber
-            // network validation errors.
-            setFluidError(`CoolProp init failed: ${err}`);
-          }
-        });
-    }
-
-    return () => {
-      active = false;
-      if (clearTimer) clearTimer();
-    };
+    if (!usesRealFluid) setFluidError(null);
   }, [usesRealFluid, setFluidError]);
 
   const handleSave = async () => {
@@ -467,14 +419,6 @@ export default function Toolbar() {
         )}
       </div>
       <div className="toolbar__group toolbar__group--status">
-        {coolpropStatus && (
-          <span
-            data-testid="toolbar-coolprop-status"
-            className="pill pill--info pill--plain"
-          >
-            {coolpropStatus}
-          </span>
-        )}
         {fluidError && (
           <span
             data-testid="toolbar-fluid-error"
@@ -784,7 +728,11 @@ function HealthPill({
     label = `${issueCount} issue${issueCount === 1 ? "" : "s"} to fix`;
     variant = "pill pill--danger";
     title = `${issueCount} validation issue${issueCount === 1 ? "" : "s"} — click to review`;
-  } else if (runStatus === "running" || runStatus === "loadingFluids") {
+  } else if (runStatus === "loadingFluids") {
+    label = "Loading fluid properties…";
+    variant = "pill pill--info";
+    title = "The solver worker is initialising CoolProp";
+  } else if (runStatus === "running") {
     label = "Solving…";
     variant = "pill pill--info";
     title = "Solver is running";

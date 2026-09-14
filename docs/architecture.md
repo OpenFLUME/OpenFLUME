@@ -205,7 +205,14 @@ Implementation details worth knowing before changing this path:
   and `vite preview` because Vite serves the co-located `.wasm` beside the
   worker chunk. Initialization is gated by the `networkUsesRealFluid`
   predicate and happens once per worker rather than once per substance, so a
-  network that never touches a real fluid never pays for the sidecar.
+  network that never touches a real fluid never pays for the sidecar. The
+  worker is the ONLY context that loads CoolProp: the main thread has no use
+  for the properties, and the health pill's "Loading fluid properties…" state
+  is driven by the worker's `coolpropLoading` message, not by a second
+  instance.
+- Protocol. `src/ui/workerProtocol.ts` holds the `MainToWorkerMessage` /
+  `WorkerToMainMessage` unions both sides compile against; the client narrows
+  received data through `parseWorkerToMainMessage` before acting on it.
 - Embedded components. The whole config is structured-cloned to the worker,
   including any `componentLibrary` source. Validation only syntax-checks that
   source; referenced definitions actually execute when the worker builds

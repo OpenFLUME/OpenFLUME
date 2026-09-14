@@ -50,6 +50,14 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   previously produced copies that silently kept pointing at the _originals_;
   the expressions are now rewritten through the duplicate's id map.
 
+### Changed
+
+- CoolProp is now loaded only inside the solver worker. The toolbar used to
+  initialise a second instance on the main thread to show a "CoolProp ready"
+  pill, costing a duplicate 6.5 MB WASM fetch and a duplicated chunk; the
+  health pill now reports "Loading fluid properties…" from the worker's own
+  status while a run initialises.
+
 ### Fixed
 
 - Transient steps of incompressible / ideal-gas / compressible-liquid networks

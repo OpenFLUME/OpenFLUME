@@ -1039,19 +1039,9 @@ test.describe("OpenFLUME E2E", () => {
       page.locator('[data-testid="configuration-view"]'),
     ).not.toBeVisible();
 
-    // Observe loading state resolves (generous timeout for WASM fetch)
-    await expect(
-      page.locator('[data-testid="toolbar-coolprop-status"]'),
-    ).toBeVisible({ timeout: 30000 });
-    await page.waitForFunction(
-      () => {
-        const el = document.querySelector(
-          '[data-testid="toolbar-coolprop-status"]',
-        );
-        return !el || el.textContent === "CoolProp ready";
-      },
-      { timeout: 30000 },
-    );
+    // CoolProp initialises inside the solver worker when the run starts (the
+    // health pill reports "Loading fluid properties…" meanwhile); nothing to
+    // wait for on the main thread.
 
     // Load the realFluid example (model was modified above, so confirm the replace)
     await page
@@ -1750,20 +1740,8 @@ test.describe("OpenFLUME E2E", () => {
       .selectOption("Cryogenic line cooldown");
     await page.waitForTimeout(300);
 
-    // Wait for CoolProp WASM to initialise (realFluid Hydrogen)
-    await expect(
-      page.locator('[data-testid="toolbar-coolprop-status"]'),
-    ).toBeVisible({ timeout: 30000 });
-    await page.waitForFunction(
-      () => {
-        const el = document.querySelector(
-          '[data-testid="toolbar-coolprop-status"]',
-        );
-        return !el || el.textContent === "CoolProp ready";
-      },
-      { timeout: 30000 },
-    );
-
+    // CoolProp WASM initialises in the worker on Run (generous status
+    // timeout below covers the fetch).
     await page.locator('[data-testid="toolbar-run"]').click();
     await expect(page.locator('[data-testid="toolbar-status"]')).toBeVisible({
       timeout: 90000,
