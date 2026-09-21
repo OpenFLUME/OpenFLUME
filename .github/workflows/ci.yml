@@ -77,7 +77,7 @@ jobs:
       - name: Resolve Playwright version
         id: pw
         run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v4
+      - uses: actions/cache@v6
         id: pw-cache
         with:
           path: ~/.cache/ms-playwright
@@ -86,7 +86,7 @@ jobs:
         run: npx playwright install chromium
       - run: npx playwright install-deps chromium
       # Test the artefact `check` built rather than building four more.
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
