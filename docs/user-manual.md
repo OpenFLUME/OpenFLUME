@@ -1473,8 +1473,8 @@ $\Delta P/P\to 0$, so the incompressible Bernoulli inversion
 $$\Delta P = \frac{\dot m |\dot m|}{2\rho\left(C_d A\right)^2}$$
 
 is recovered automatically. When $r$ falls below the critical ratio
-$r_*=(2/(\kappa+1))^{\kappa/(\kappa-1)}$ the same formula is evaluated at
-$r_*$ and mass flow no longer depends on further back-pressure drop
+$r__=(2/(\kappa+1))^{\kappa/(\kappa-1)}$ the same formula is evaluated at
+$r__$ and mass flow no longer depends on further back-pressure drop
 (choked). Legacy models authored as `orificeCompressible` load as this
 component.
 

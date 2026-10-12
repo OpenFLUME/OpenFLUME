@@ -136,7 +136,6 @@ function bisection(
     if (Math.abs(hi - lo) < tol || Math.abs(fmid) < tol) return mid;
     if (flo * fmid <= 0) {
       hi = mid;
-      fhi = fmid;
     } else {
       lo = mid;
       flo = fmid;

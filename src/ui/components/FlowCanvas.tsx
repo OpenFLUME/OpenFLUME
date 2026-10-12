@@ -3328,7 +3328,7 @@ function LegendRangeSlider({
     (edge: "min" | "max") => (e: React.KeyboardEvent<HTMLDivElement>) => {
       const span = Math.max(hi - lo, 1e-9);
       const step = span * 0.02;
-      let delta = 0;
+      let delta: number;
       if (e.key === "ArrowRight" || e.key === "ArrowUp") delta = step;
       else if (e.key === "ArrowLeft" || e.key === "ArrowDown") delta = -step;
       else return;

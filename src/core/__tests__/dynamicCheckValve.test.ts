@@ -54,7 +54,7 @@ describe("DynamicCheckValve.advanceState — spring-mass-damper ODE", () => {
     const pFrom = 200000;
     const pTo = pFrom - dP;
     const checkpoints = [0.005, 0.01, 0.015, 0.02, 0.03, 0.05];
-    let t = 0;
+    let t: number;
     let ci = 0;
     const steps = Math.round(checkpoints[checkpoints.length - 1] / dt);
     for (let i = 1; i <= steps; i++) {

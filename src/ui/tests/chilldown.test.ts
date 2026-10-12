@@ -253,59 +253,55 @@ describe("Chilldown validation (GFSSP Fig.14, single-phase)", () => {
   });
 
   describeSlow("3. Table 6 trend (3 full solves, slow)", () => {
-    it(
-      "chilldown time decreases with driving pressure",
-      async () => {
-        const outlet = 0.5e6;
-        const dps = [1.0e6, 2.0e6, 4.0e6];
-        const results: { time150: number; avgMdot: number }[] = [];
+    it("chilldown time decreases with driving pressure", async () => {
+      const outlet = 0.5e6;
+      const dps = [1.0e6, 2.0e6, 4.0e6];
+      const results: { time150: number; avgMdot: number }[] = [];
 
-        for (const dp of dps) {
-          // Yield between long synchronous solves to keep vitest's worker RPC alive.
-          await new Promise((r) => setImmediate(r));
-          const cfg = buildConfig({
-            ...baseOptions,
-            inletPressure: outlet + dp,
-            timeStepping: "fixed",
-            endTime: 200,
-            dt: 2,
-          });
-          const res = await withTimeout(() => solveTransient(cfg), 30000);
-          expect(res.converged).toBe(true);
-          assertNoNaN(res);
-          const sid = stations[stations.length - 1];
-          const time150 = chilldownTime(
-            res.solidNodes![sid].temperature,
-            res.times,
-            150,
-          )!;
-          const avgMdot =
-            res.branches["pipe0"].mdot.reduce((a, b) => a + b, 0) /
-            res.branches["pipe0"].mdot.length;
-          results.push({ time150, avgMdot });
-        }
+      for (const dp of dps) {
+        // Yield between long synchronous solves to keep vitest's worker RPC alive.
+        await new Promise((r) => setImmediate(r));
+        const cfg = buildConfig({
+          ...baseOptions,
+          inletPressure: outlet + dp,
+          timeStepping: "fixed",
+          endTime: 200,
+          dt: 2,
+        });
+        const res = await withTimeout(() => solveTransient(cfg), 30000);
+        expect(res.converged).toBe(true);
+        assertNoNaN(res);
+        const sid = stations[stations.length - 1];
+        const time150 = chilldownTime(
+          res.solidNodes![sid].temperature,
+          res.times,
+          150,
+        )!;
+        const avgMdot =
+          res.branches["pipe0"].mdot.reduce((a, b) => a + b, 0) /
+          res.branches["pipe0"].mdot.length;
+        results.push({ time150, avgMdot });
+      }
 
-        console.log(
-          "Pressure trend:",
-          results
-            .map(
-              (r, i) =>
-                `ΔP=${(dps[i] / 1e6).toFixed(2)} MPa -> t150=${r.time150.toFixed(1)}s mdot=${r.avgMdot.toFixed(4)}kg/s`,
-            )
-            .join(" | "),
-        );
+      console.log(
+        "Pressure trend:",
+        results
+          .map(
+            (r, i) =>
+              `ΔP=${(dps[i] / 1e6).toFixed(2)} MPa -> t150=${r.time150.toFixed(1)}s mdot=${r.avgMdot.toFixed(4)}kg/s`,
+          )
+          .join(" | "),
+      );
 
-        // Strictly decreasing chilldown time
-        for (let i = 0; i < results.length - 1; i++) {
-          expect(results[i + 1].time150).toBeLessThan(results[i].time150);
-        }
-        // Increasing mass flow
-        for (let i = 0; i < results.length - 1; i++) {
-          expect(results[i + 1].avgMdot).toBeGreaterThan(results[i].avgMdot);
-        }
-      },
-      { timeout: 120000 },
-    );
+      // Strictly decreasing chilldown time
+      for (let i = 0; i < results.length - 1; i++) {
+        expect(results[i + 1].time150).toBeLessThan(results[i].time150);
+      }
+      // Increasing mass flow
+      for (let i = 0; i < results.length - 1; i++) {
+        expect(results[i + 1].avgMdot).toBeGreaterThan(results[i].avgMdot);
+      }
+    }, 120000);
   });
 
   it("4. Energy conservation within 8%", () => {

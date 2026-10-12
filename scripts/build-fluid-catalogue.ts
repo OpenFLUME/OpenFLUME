@@ -331,9 +331,9 @@ async function main(): Promise<void> {
     { cas: string; pure: boolean; aliases: string[] }
   >();
   for (const name of names) {
-    let cas = "";
-    let pure = true;
-    let aliases: string[] = [];
+    let cas: string;
+    let pure: boolean;
+    let aliases: string[];
     try {
       cas = cp.get_fluid_param_string(name, "CAS");
     } catch {
