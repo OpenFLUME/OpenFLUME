@@ -1014,6 +1014,7 @@ export function sampleExpressionProperty(
     // Unreachable after validateExpressionSpecShape; kept as defense.
     throw new Error(
       `${owner}: ${property} expression failed to parse: ${e instanceof ExpressionError ? e.message : String(e)}`,
+      { cause: e },
     );
   }
   const f = (T: number): number => {
@@ -1023,6 +1024,7 @@ export function sampleExpressionProperty(
     } catch (e) {
       throw new Error(
         `${owner}: ${property} expression failed to evaluate at T=${T} K: ${e instanceof ExpressionError ? e.message : String(e)}`,
+        { cause: e },
       );
     }
     if (!Number.isFinite(v) || v <= 0) {

@@ -36,7 +36,7 @@ export class ReliefValve implements BranchComponent {
   ): number {
     const CdA_full = this.cd * this.area;
 
-    let frac = 0;
+    let frac: number;
     if (pFrom !== undefined && pTo !== undefined) {
       const dP = pFrom - pTo;
       frac = smoothstep(this.crackPressure, this.fullOpenPressure, dP);

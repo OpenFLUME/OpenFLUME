@@ -69,6 +69,7 @@ export function applyBoundaryConditions(
             throw new Error(
               `applyBoundaryConditions: real-fluid update failed for boundary node "${node.id}" ` +
                 `at t=${t} (P=${P}, T=${T}): ${msg}`,
+              { cause: e },
             );
           }
           state.nodeP.set(node.id, P);

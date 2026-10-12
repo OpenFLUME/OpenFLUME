@@ -389,7 +389,7 @@ function updateSegregatedRealFluidNode(
     const rhoPrev = prevState ? prevState.nodeRho.get(nodeId)! : rhoCurr;
     const mPrev = rhoPrev * V_total;
 
-    let uPrev = 0;
+    let uPrev: number;
     if (prevState) {
       const Pprev = prevState.nodeP.get(nodeId)!;
       const hPrevVal = prevState.nodeH!.get(nodeId)!;
@@ -471,7 +471,6 @@ function updateSegregatedRealFluidNode(
           }
           if (FMid * FLow <= 0) {
             hHigh = hMid;
-            FHigh = FMid;
           } else {
             hLow = hMid;
             FLow = FMid;
@@ -634,7 +633,7 @@ function updateLegacyNode(
     let V = V_total;
     const gc = node.gasCushion;
     let mCurr = rhoCurr * V;
-    let mPrev = rhoCurr * V;
+    let mPrev: number;
     if (gc && prevState) {
       const P0 = node.pressure ?? Pcurr;
       const n = gc.polytropicIndex;
@@ -1328,9 +1327,9 @@ function solveStateStepAttemptInner(
    *  shift — that differs per retry and is applied in scaleAndSolve. */
   let Jscaled: number[][] = [];
   /** Trial published by whichever globalization accepted a step. */
-  let trialNorm = 1e99;
-  let Xtrial: number[] = [];
-  let stepAccepted = false;
+  let trialNorm: number;
+  let Xtrial: number[];
+  let stepAccepted: boolean;
   /** Residual at the accepted trial point.  The trial evaluation already
    *  computed R(Xtrial) and X then BECOMES Xtrial, so this is the next
    *  iteration's base residual; recomputing it would spend a full residual

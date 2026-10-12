@@ -43,6 +43,7 @@ function parseParams(
     } catch (error) {
       throw new Error(
         `Parameters must be valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
       );
     }
   }

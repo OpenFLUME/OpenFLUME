@@ -1138,6 +1138,7 @@ export class RealFluid implements FluidModel {
     } catch (e) {
       throw new Error(
         `Failed to invert enthalpy for ${this.fluidName} at P=${P.toExponential(3)} Pa, h=${h.toFixed(2)} J/kg: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
       );
     }
   }
@@ -1155,6 +1156,7 @@ export class RealFluid implements FluidModel {
     } catch (e) {
       throw new Error(
         `Failed to invert internal energy for ${this.fluidName} at P=${P.toExponential(3)} Pa, u=${u.toFixed(2)} J/kg: ${e instanceof Error ? e.message : String(e)}`,
+        { cause: e },
       );
     }
   }
@@ -2146,7 +2148,7 @@ export class RealFluid implements FluidModel {
 
     // Bisection
     let hMid = 0;
-    let uMid = 0;
+    let uMid: number;
     for (let i = 0; i < 80; i++) {
       hMid = (hLow + hHigh) / 2;
       uMid = this.internalEnergyPH(P, hMid);
@@ -2158,7 +2160,6 @@ export class RealFluid implements FluidModel {
         uHigh = uMid;
       } else {
         hLow = hMid;
-        uLow = uMid;
       }
     }
     return hMid;

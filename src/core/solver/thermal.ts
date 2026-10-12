@@ -191,8 +191,8 @@ function assembleThermalSubsystem(
     const fromSolid = solidIndex.has(cond.from);
     const toSolid = solidIndex.has(cond.to);
 
-    let dQdTfrom = 0;
-    let dQdTto = 0;
+    let dQdTfrom: number;
+    let dQdTto: number;
     if (cond.type.kind === "radiation") {
       const coef =
         4 *

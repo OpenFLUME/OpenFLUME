@@ -23,7 +23,7 @@
  *      junction + 42-station transonic system keeps a stiff enough basin
  *      that an arbitrarily uninformed start is not a supported contract.
  */
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import type { NetworkConfig } from "../../core";
 import { decodeAndValidateNetwork } from "../../core";
 import { solveSteady } from "../../core";
@@ -37,6 +37,9 @@ import {
 import { constant } from "../../core/dual";
 import { thrusterCombustor } from "../thrusterCombustor";
 
+// The LOX/RP-1 solves take ~40s on their own, so the 30s suite default flakes
+// under parallel load. Give this file headroom instead of a per-test timeout.
+vi.setConfig({ testTimeout: 120_000 });
 /* ==========================================================================
  * 1. Thermochemistry model
  * ========================================================================== */
