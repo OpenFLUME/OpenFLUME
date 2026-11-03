@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "openflume"
 # Kept equal to ../package.json "version" — tests/test_packaging.py enforces it.
-version = "0.3.0"
+version = "0.3.1"
 description = "Python API for the OpenFLUME thermal-fluid network solver (steady and transient, real fluids via CoolProp)."
 readme = "README.md"
 license = "MIT"

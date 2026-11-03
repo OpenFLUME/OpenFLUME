@@ -9,6 +9,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-03
+
 ### Added
 
 - `openflume` Python package (`python/`, `pip install openflume`). It provides load/validate/solve for `.fn` and JSON models, steady and transient results with numpy/pandas conversion, fluid properties and CEA combustion lookups, the built-in examples, and an `openflume` CLI. It runs the unmodified core in a bundled Node.js runtime (`npm run build:python`). The wheel is tested on Linux, macOS, and Windows in CI and published to PyPI from release tags with trusted publishing. See [docs/python.md](docs/python.md).
@@ -725,7 +727,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.0...v0.2.1
