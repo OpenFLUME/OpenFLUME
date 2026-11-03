@@ -120,14 +120,6 @@ The project is built so that you do not have to take any of it on trust:
 
 Check it rather than trust it. If you find a case where OpenFLUME disagrees with a reference you trust, please [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) — a well-documented disagreement, with its reference and tolerance, is the single most useful contribution this project can receive.
 
-## Sponsorship
-
-OpenFLUME is a personal project created by the founder of **[bymorning.ai](https://bymorning.ai)** with assistance from the company's agent harness. bymorning.ai builds a self-hosted AI gateway for aerospace and defense engineering teams working under ITAR, CUI, and export-controlled programs.
-
-OpenFLUME is MIT licensed and will stay that way. There is no paid tier, no hosted edition, and no commercial derivative. It exists as an open demonstration that AI-accelerated engineering can produce work that is auditable, and it is offered on the assumption that you will audit it.
-
-Nothing in this repository is export controlled. See [SECURITY.md](SECURITY.md).
-
 ## Limitations
 
 The main scope limitations are:
