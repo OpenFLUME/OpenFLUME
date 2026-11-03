@@ -9,6 +9,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-03
+
 ### Added
 
 - **Microfluidic networks.** New `rectChannel` branch: a rectangular
@@ -719,7 +721,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.1.0...v0.2.0
