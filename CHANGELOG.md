@@ -29,6 +29,23 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
   example **Capillary circuit (stop + trigger valve)**. See user manual
   §4.3.19 and §7.14.
 - Display units µm, µm², mL, µL, nL, mL/min, µL/min and nL/min.
+- **Microfluidics validation report** (`docs/validation/microfluidics-report.md`,
+  `scripts/microfluidics-validation-report.ts`) and a scientific-tier suite
+  (`src/validation/__tests__/microfluidics.test.ts`) rebuilding six published
+  microfluidic networks from their open-access papers (Vasilakis 2019,
+  Tan & Takeuchi 2007, Guermonprez 2015, Reis 2021, Olanrewaju 2016,
+  Lee 2012).
+
+### Fixed
+
+- **Microfluidic compliance transients no longer freeze.** The Newton
+  stopping test compared an absolute `tolerance` with a residual whose mass
+  rows are in kg/s; at microfluidic flows (~1e-8 kg/s) every mass imbalance
+  already passed, so storage-driven steps (gas cushions) were accepted at
+  their warm start. Below 1e-3 kg/s the mass-flow rows are now weighted by
+  the network's flow scale; at or above it the solver is unchanged bit for
+  bit. A bubble-damped syringe network now matches its exact ODE to 1e-3 at
+  both tol 1e-9 and the UI default 1e-6 (previously 1.2 % and 37 % error).
 
 ### Changed
 

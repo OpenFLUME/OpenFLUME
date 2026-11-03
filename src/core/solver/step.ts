@@ -43,6 +43,7 @@ import {
 import { solveDense, norm2, dot, matVec, matVecTrans } from "./linalg";
 import { RealFluid, clampToValidPH, getFluidLimits } from "../fluids/realFluid";
 import { IdealGas } from "../fluids";
+import { FlowSource, CavitatingVenturi } from "../components";
 import { integrateBDF1 } from "../stiffOde";
 import { makeChemistryRHS } from "../chemistry";
 import { getSolverDiagnostics } from "../diagnostics";
@@ -84,6 +85,28 @@ const CERTIFY_SCALED_BAR_FACTOR = 1e3;
 const SETTLE_FACTOR_TWO_PHASE = 1e6;
 const SETTLE_FACTOR_REAL = 1e7;
 const SETTLE_FACTOR_ANALYTIC = 1e3;
+/**
+ * Flow-scaled mass rows.  `tol` bounds a residual vector that mixes mass rows
+ * [kg/s] with momentum [Pa] and energy rows, so as an absolute bar it judges
+ * a mass imbalance against ~1 kg/s.  In a network whose flows are tiny
+ * (microfluidics: 1e-14…1e-8 kg/s) every mass imbalance is already below it:
+ * a storage-driven transient (gas cushion, compliance) then "converges" at
+ * the warm start with zero Newton iterations and freezes.  Below
+ * MASS_ROW_REF_FLOW the mass rows are therefore weighted by
+ * MASS_ROW_REF_FLOW / F (F = largest |ṁ| of the warm start, weight capped at
+ * MASS_ROW_WEIGHT_MAX) in both the stopping test and the line-search merit,
+ * so a mass imbalance is judged relative to the flows actually present.
+ * At or above MASS_ROW_REF_FLOW the weight is exactly 1 and every code path
+ * is the legacy one, bit for bit.
+ */
+const MASS_ROW_REF_FLOW = 1e-3;
+const MASS_ROW_WEIGHT_MAX = 1e9;
+/** Floating-point guard for the weighted bar: once the RAW norm meets `tol`,
+ *  at most this many further iterations are spent trying to meet the
+ *  weighted bar before the step is accepted on the raw (legacy) criterion —
+ *  e.g. a network at rest whose mass rows sit at round-off of large storage
+ *  terms.  A laminar network meets the weighted bar in one iteration. */
+const MASS_ROW_REFINE_ITERS = 3;
 /** cp-magnitude [J·kg⁻¹·K⁻¹] mapping a ΔT bar onto the Δh bar, which is what
  *  lets one fluidTol judge both energy deltas of a mixed-EOS network. */
 const T_TO_H_SCALE = 1e4;
@@ -1138,6 +1161,49 @@ function solveStateStepAttemptInner(
   const X = new Array(nVar).fill(0);
   for (const id of internalIds) X[dof.pressureCol(id)!] = state.nodeP.get(id)!;
   for (let j = 0; j < nBranch; j++) X[dof.mdotCol(j)] = state.mdots[j];
+
+  // Flow-scaled mass rows (see MASS_ROW_REF_FLOW): weight fixed for the whole
+  // step from the warm-start flows, so every norm compared within the step
+  // uses the same merit function.
+  let flowScale = 0;
+  for (let j = 0; j < nBranch; j++)
+    flowScale = Math.max(flowScale, Math.abs(X[dof.mdotCol(j)]));
+  const massRowWeight =
+    flowScale >= MASS_ROW_REF_FLOW
+      ? 1
+      : Math.min(
+          MASS_ROW_WEIGHT_MAX,
+          MASS_ROW_REF_FLOW /
+            Math.max(flowScale, MASS_ROW_REF_FLOW / MASS_ROW_WEIGHT_MAX),
+        );
+  // Rows whose residual is a mass flow [kg/s]: every nodal mass balance,
+  // plus the branch rows that impose ṁ directly (flow sources, cavitating
+  // venturis) rather than a pressure balance.
+  const rowWeight: number[] | undefined =
+    massRowWeight === 1
+      ? undefined
+      : Array.from({ length: nVar }, (_, i) =>
+          dof.kindOf(i) === "P" ? massRowWeight : 1,
+        );
+  if (rowWeight) {
+    for (let j = 0; j < nBranch; j++) {
+      const c = ctx.branches[j].component;
+      if (c instanceof FlowSource || c instanceof CavitatingVenturi)
+        rowWeight[dof.mdotCol(j)] = massRowWeight;
+    }
+  }
+  /** Residual norm used for stopping and step acceptance: ‖R‖₂ with the
+   *  mass-flow rows weighted (plain norm2 when the weight is 1). */
+  const meritNorm = (r: number[]): number => {
+    if (!rowWeight) return norm2(r);
+    let acc = 0;
+    for (let i = 0; i < r.length; i++) {
+      const v = r[i] * rowWeight[i];
+      acc += v * v;
+    }
+    return Math.sqrt(acc);
+  };
+
   if (useCoupledH) {
     for (const id of dof.energyNodes) {
       const f = ctx.fluidAssignment.node(id);
@@ -1478,7 +1544,7 @@ function solveStateStepAttemptInner(
           threw: true,
         };
       }
-      const tn = norm2(Rtrial);
+      const tn = meritNorm(Rtrial);
       return { trialNorm: tn, Xtrial: Xt, reduced: tn < resNorm, Rtrial };
     } else {
       let alpha = 1.0;
@@ -1527,7 +1593,7 @@ function solveStateStepAttemptInner(
           alpha *= 0.5;
           continue;
         }
-        const tn = norm2(Rtrial);
+        const tn = meritNorm(Rtrial);
         if (tn < bestTrialNorm) {
           bestTrialNorm = tn;
           bestXtrial = [...Xt];
@@ -1571,7 +1637,7 @@ function solveStateStepAttemptInner(
       // residual at Xt, hence `threw`.
       return { trialNorm: 1e99, Xtrial: Xt, Rtrial: R, threw: true };
     }
-    return { trialNorm: norm2(Rtrial), Xtrial: Xt, Rtrial };
+    return { trialNorm: meritNorm(Rtrial), Xtrial: Xt, Rtrial };
   }
 
   // Trust-region dogleg trial (scaled space): given the Newton step dY
@@ -1669,6 +1735,17 @@ function solveStateStepAttemptInner(
     // scaled bar exists.
     let bestResNorm = 1e99;
     let bestX = [...X];
+    /** Raw ‖R‖₂ at bestX, and the iteration at which it first met `tol`
+     *  (flow-scaled mass rows only — see MASS_ROW_REFINE_ITERS). */
+    let bestRawNorm = 1e99;
+    let rawMetIter = -1;
+    let acceptedOnRawNorm = false;
+    const acceptOnRawNorm = (iter: number): void => {
+      acceptedOnRawNorm = true;
+      finalResidual = bestRawNorm;
+      totalIter = iter;
+      for (let k = 0; k < X.length; k++) X[k] = bestX[k];
+    };
     let consecutiveNoProgress = 0;
     /** Best residual norm at the END of each inner iteration, indexed by
      *  iteration — the reference for the sliding-window grind test below. */
@@ -1689,10 +1766,11 @@ function solveStateStepAttemptInner(
           break;
         }
       }
-      resNorm = norm2(R);
+      resNorm = meritNorm(R);
       if (resNorm < bestResNorm) {
         bestResNorm = resNorm;
         bestX = [...X];
+        bestRawNorm = massRowWeight === 1 ? resNorm : norm2(R);
       }
       if (bestResNorm < tol) {
         // inner loop converged
@@ -1700,6 +1778,13 @@ function solveStateStepAttemptInner(
         totalIter = iter;
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
+      }
+      if (massRowWeight !== 1 && bestRawNorm < tol) {
+        if (rawMetIter < 0) rawMetIter = iter;
+        else if (iter - rawMetIter >= MASS_ROW_REFINE_ITERS) {
+          acceptOnRawNorm(iter);
+          break;
+        }
       }
       const useHybrid = (options.jacobian ?? "hybrid") === "hybrid";
       const J = useHybrid ? hybridJacobian(X, R) : numericalJacobian(X, R);
@@ -1854,6 +1939,8 @@ function solveStateStepAttemptInner(
             (bestResNorm - trialNorm) / Math.max(bestResNorm, 1e-300);
           bestResNorm = trialNorm;
           bestX = [...X];
+          if (massRowWeight !== 1)
+            bestRawNorm = pendingR !== undefined ? norm2(pendingR) : 1e99;
           if (relImprove > INNER_REL_IMPROVE_BAR) {
             consecutiveNoProgress = 0;
           } else {
@@ -1878,6 +1965,9 @@ function solveStateStepAttemptInner(
         }
       }
       if (!stepAccepted) {
+        // No step reduces the weighted merit: with flow-scaled mass rows
+        // that is round-off once the raw norm meets tol — accept as before.
+        if (massRowWeight !== 1 && bestRawNorm < tol) acceptOnRawNorm(iter);
         break;
       }
       // The line search may have driven bestResNorm below tol on the final
@@ -1924,7 +2014,7 @@ function solveStateStepAttemptInner(
     if (bestResNorm < 1e99) {
       for (let k = 0; k < X.length; k++) X[k] = bestX[k];
     }
-    returnResidual = bestResNorm;
+    returnResidual = acceptedOnRawNorm ? bestRawNorm : bestResNorm;
     // Row-floor-scaled residual norm of the inner loop's best point, for the
     // transient convergence flag below.  Computed FRESH at the
     // restored bestX because bestResNorm can also improve via the
@@ -1946,7 +2036,7 @@ function solveStateStepAttemptInner(
         lastInnerBestResScaled = 1e99;
       }
     } else {
-      lastInnerBestResScaled = bestResNorm;
+      lastInnerBestResScaled = returnResidual;
     }
     if (!checkAfterCoupling) {
       if (

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Gravity siphon, 10 bores: flow vs head ratio</text>
+<line x1="117.42857142857144" y1="46" x2="117.42857142857144" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="117.42857142857144" y="390" text-anchor="middle" font-size="11">0.2</text>
+<line x1="283.1428571428571" y1="46" x2="283.1428571428571" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="283.1428571428571" y="390" text-anchor="middle" font-size="11">0.4</text>
+<line x1="448.85714285714295" y1="46" x2="448.85714285714295" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="448.85714285714295" y="390" text-anchor="middle" font-size="11">0.6</text>
+<line x1="614.5714285714287" y1="46" x2="614.5714285714287" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="614.5714285714287" y="390" text-anchor="middle" font-size="11">0.8</text>
+<line x1="76" y1="317.10134953693387" x2="656" y2="317.10134953693387" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="321.10134953693387" text-anchor="end" font-size="11">1</text>
+<line x1="76" y1="246.37713073570768" x2="656" y2="246.37713073570768" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="250.37713073570768" text-anchor="end" font-size="11">2</text>
+<line x1="76" y1="175.65291193448147" x2="656" y2="175.65291193448147" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="179.65291193448147" text-anchor="end" font-size="11">3</text>
+<line x1="76" y1="104.92869313325531" x2="656" y2="104.92869313325531" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="108.92869313325531" text-anchor="end" font-size="11">4</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">H / L</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">flow rate [µL/s]</text>
+<path d="M76.0,343.8 L200.3,299.7 L324.6,255.7 L448.9,211.6 L573.1,167.6 L656.0,138.2" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<path d="M76.0,330.6 L200.3,273.3 L324.6,216.1 L448.9,158.9 L573.1,101.6 L656.0,63.5" fill="none" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="4 4"/>
+<path d="M76.0,354.5 L200.3,321.2 L324.6,288.0 L448.9,254.7 L573.1,221.4 L656.0,199.2" fill="none" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="4 4"/>
+<rect x="520.0285714285714" y="127.69665408970897" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<polygon points="425.18367346938777,207.61502133509458 428.58367346938775,211.0150213350946 425.18367346938777,214.4150213350946 421.7836734693878,211.0150213350946" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="84" y="54" width="268" height="100" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="92" y1="64" x2="114" y2="64" stroke="#1f5fa8" stroke-width="1.8"/>
+<text x="120" y="68" font-size="11">OpenFLUME, D_h = 204 µm</text>
+<line x1="92" y1="82" x2="114" y2="82" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="4 4"/>
+<text x="120" y="86" font-size="11">D_h + 13.8 µm (stated SD)</text>
+<line x1="92" y1="100" x2="114" y2="100" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="4 4"/>
+<text x="120" y="104" font-size="11">D_h − 13.8 µm (stated SD)</text>
+<rect x="99.6" y="114.6" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="120" y="122" font-size="11">measured 3.63 ± 0.07 µL/s</text>
+<polygon points="103,132.6 106.4,136 103,139.4 99.6,136" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<text x="120" y="140" font-size="11">reported ≈2.5 µL/s (Fig. 2 devices)</text>
+</svg>

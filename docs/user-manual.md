@@ -1874,8 +1874,19 @@ under constant inflow against the analytical polytropic law. From
 4. **Linear solve** — dense Gaussian elimination.
 5. **Update** — $\mathbf{x}_{n+1} = \mathbf{x}_n + \omega\mathbf{J}^{-1}\mathbf{R}$.
 6. **Zero-flow linearization** — for $|\dot m| < 10^{-7}$ the branch relation is
-   linearized about the threshold to keep the Jacobian non-singular.
-7. **Convergence** — declared when $\mathbf{R}_\infty <$ `tolerance`.
+   linearized about the threshold to keep the Jacobian non-singular. Components
+   that are already smooth at zero flow (`rectChannel`, `capillaryChannel`)
+   are evaluated exactly instead.
+7. **Convergence** — declared when the residual norm is below `tolerance`.
+   The residual mixes mass rows [kg/s] with momentum rows [Pa], so when the
+   largest warm-start flow $F$ is below $10^{-3}$ kg/s the mass-flow rows
+   (nodal balances and imposed-flow branches) are weighted by
+   $10^{-3}/F$ (at most $10^9$) in both the stopping test and the line-search
+   merit, so mass imbalances are judged relative to the flows present. Without
+   this, a microfluidic compliance transient met an absolute `tolerance` at its
+   warm start and froze. At or above $10^{-3}$ kg/s the weight is 1 and nothing
+   changes; if round-off keeps the weighted bar out of reach, the step is
+   accepted on the unweighted norm after at most three further iterations.
 8. **Globalization and PTC** — for real-fluid problems the default inner-loop
    strategy is a **trust-region dogleg** in scaled variable space, computing the
    Newton step, the Cauchy point, and their dogleg intersection, and accepting on
@@ -3438,3 +3449,4 @@ the active one first. Runs are filed under the variant that produced them.
 | [`Transient tank validation`](validation/tank-transient-report.md)                       | Lumped tank gas dynamics: blowdown, equalization, fill heating                                                 |
 | [`Thermal network validation`](validation/thermal-network-report.md)                     | Composite wall, radiation–convection equilibrium, lumped cooldown, heated pipe, ε–NTU HEX                      |
 | [`Rigid-column fluid-transient validation`](validation/fluid-transient-report.md)        | Lumped inertia and gas cushion vs rigid-column surge theory                                                    |
+| [`Microfluidics validation`](validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures vs exact solutions; six published microfluidic networks                |

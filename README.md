@@ -92,16 +92,17 @@ Verification evidence is split into three deliberately distinct classes, and eve
 2. **Code-to-code benchmarking** — agreement with GFSSP or SINDA/FLUINT, which inherits the other code's assumptions.
 3. **Validation against experiment** — comparison to digitized published test data.
 
-Six validation reports are regenerated from live solves, not transcribed:
+Seven validation reports are regenerated from live solves, not transcribed:
 
-| Report                                                                           | Contents                                                                                    |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point  |
-| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                    |
-| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers        |
-| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                          |
-| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                        |
-| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack |
+| Report                                                                           | Contents                                                                                               |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point             |
+| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                               |
+| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers                   |
+| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                     |
+| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                   |
+| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack            |
+| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers |
 
 Experimental validation uses digitized data from NBS Report 9264 cryogenic chilldown, Hord's cavitation series, and NASA tank-pressurization tests, with per-corpus trust levels stated explicitly — calibration-grade runs are separated from diagnostic-only runs that may not be quoted as agreement. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 
