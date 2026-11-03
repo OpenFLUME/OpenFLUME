@@ -75,7 +75,7 @@ def test_mode_override():
 def test_text_and_json_round_trip(tmp_path):
     net = of.example("Three-pipe junction")
     fn = net.save(tmp_path / "model.fn")
-    assert fn.read_text().startswith("// Fluid Network config v2")
+    assert fn.read_text(encoding="utf-8").startswith("// Fluid Network config v2")
     js = net.save(tmp_path / "model.json")
     a = of.load(fn).solve()
     b = of.load(js).solve()

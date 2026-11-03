@@ -40,8 +40,8 @@ def test_versions_in_sync_with_package_json():
     package_json = REPO_ROOT / "package.json"
     if not package_json.is_file():
         pytest.skip("not running from a source checkout")
-    npm_version = json.loads(package_json.read_text())["version"]
-    match = re.search(r'^version = "([^"]+)"', (PYTHON_ROOT / "pyproject.toml").read_text(), re.M)
+    npm_version = json.loads(package_json.read_text(encoding="utf-8"))["version"]
+    match = re.search(r'^version = "([^"]+)"', (PYTHON_ROOT / "pyproject.toml").read_text(encoding="utf-8"), re.M)
     assert match, "pyproject.toml must declare a static version"
     py_version = match.group(1)
     assert py_version == npm_version, "bump python/pyproject.toml together with package.json"
@@ -92,7 +92,7 @@ def test_cli(tmp_path, capsys):
     assert main(["validate", str(model)]) == 0
     out = tmp_path / "result.json"
     assert main(["solve", str(model), "-o", str(out), "-q"]) == 0
-    data = json.loads(out.read_text())
+    data = json.loads(out.read_text(encoding="utf-8"))
     assert data["converged"] is True
     assert main(["info"]) == 0
     assert "openflume" in capsys.readouterr().out
