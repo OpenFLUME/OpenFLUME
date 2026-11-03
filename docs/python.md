@@ -218,13 +218,13 @@ commit together with the other version strings.
 Pushing the tag `vX.Y.Z` runs `.github/workflows/python-publish.yml`. It checks
 that the versions agree, runs the full build and test matrix, and then
 publishes to PyPI with trusted publishing (OIDC, no stored token). Running the
-workflow manually publishes to TestPyPI instead, as a rehearsal.
+workflow manually is a dry run: it runs the checks and the build/test matrix
+but uploads nothing.
 
 One-time setup before the first release:
 
 1. On PyPI, add a pending trusted publisher: project `openflume`, owner
    `OpenFLUME`, repository `OpenFLUME`, workflow `python-publish.yml`,
-   environment `pypi`. Do the same on TestPyPI with environment `testpypi`.
-2. In the GitHub repository settings, create the environments `pypi` and
-   `testpypi`. Adding required reviewers to `pypi` gates every upload on a
-   manual approval.
+   environment `pypi`.
+2. In the GitHub repository settings, create the environment `pypi`. Adding
+   required reviewers gates every upload on a manual approval.

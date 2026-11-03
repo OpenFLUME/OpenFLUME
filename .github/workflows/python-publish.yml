@@ -4,13 +4,13 @@ name: Publish Python package
 # when a release tag vX.Y.Z is pushed. The tag must equal both
 # package.json "version" and python/pyproject.toml "version".
 #
-# Manual runs (workflow_dispatch) publish to TestPyPI instead, to rehearse a
-# release. One-time setup — see docs/python.md "Releasing":
-#   * PyPI / TestPyPI: add a trusted publisher for repository
-#     OpenFLUME/OpenFLUME, workflow python-publish.yml, environment
-#     `pypi` / `testpypi`.
-#   * GitHub: create environments `pypi` and `testpypi` (optionally with
-#     required reviewers).
+# Manual runs (workflow_dispatch) are a dry run: they run the version check
+# and the full build/test matrix but upload nothing.
+#
+# One-time setup — see docs/python.md "Releasing":
+#   * PyPI: add a trusted publisher for repository OpenFLUME/OpenFLUME,
+#     workflow python-publish.yml, environment `pypi`.
+#   * GitHub: the `pypi` environment (optionally with required reviewers).
 
 on:
   push:
@@ -60,24 +60,3 @@ jobs:
           name: python-dist
           path: dist/
       - uses: pypa/gh-action-pypi-publish@v1.14.3
-
-  publish-testpypi:
-    if: github.event_name == 'workflow_dispatch'
-    needs: package
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment:
-      name: testpypi
-      url: https://test.pypi.org/project/openflume/
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: python-dist
-          path: dist/
-      - uses: pypa/gh-action-pypi-publish@v1.14.3
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          # A rehearsal may re-run for the same version.
-          skip-existing: true
