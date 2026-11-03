@@ -181,6 +181,29 @@ export const BRANCH_COMPONENTS: BranchComponentDef[] = [
     }),
   },
   {
+    id: "rectChannel",
+    label: "Rectangular Channel",
+    category: "common",
+    defaults: () => ({
+      type: "rectChannel",
+      width: 100e-6,
+      height: 50e-6,
+      length: 0.01,
+    }),
+  },
+  {
+    id: "capillaryChannel",
+    label: "Capillary Channel",
+    category: "advanced",
+    defaults: () => ({
+      type: "capillaryChannel",
+      width: 100e-6,
+      height: 50e-6,
+      length: 0.01,
+      contactAngle: 30,
+    }),
+  },
+  {
     id: "customResistance",
     label: "Custom Resistance",
     category: "custom",

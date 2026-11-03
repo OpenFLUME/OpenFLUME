@@ -21,18 +21,19 @@ It is a lumped-parameter code. With `momentumFlux` and `kineticEnergy` enabled, 
 
 ## Capabilities
 
-| Area                        | Summary                                                                                                                                                                                                                                                  |
-| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Solvers**                 | Newton–Raphson steady-state solver with convergence aids for difficult cases. Backward-Euler transient solver with fixed or adaptive time steps.                                                                                                         |
-| **Components**              | 17 branch types: `areaChange`, `bend`, `cavitatingVenturi`, `checkValve`, `customResistance`, `dpTable`, `dynamicCheckValve`, `flowSource`, `heatedPipe`, `orifice`, `pipe`, `pump`, `regulator`, `reliefValve`, `resistance`, `userComponent`, `valve`. |
-| **Fluids**                  | Incompressible, ideal gas, compressible liquid, and real fluid via CoolProp with a generated 124-fluid HEOS catalogue.                                                                                                                                   |
-| **Conjugate heat transfer** | Coupled fluid–solid thermal modeling with conduction, convection, and radiation, plus a sourced catalogue of temperature-dependent material properties.                                                                                                  |
-| **Compressible flow**       | Opt-in quasi-1-D compressible flow for every fluid model, with stagnation-enthalpy transport and per-branch Mach-number calculations.                                                                                                                    |
-| **Two-phase**               | Transient homogeneous-equilibrium model (HEM) for real fluids, with Miropolskii film boiling for conjugate heat transfer.                                                                                                                                |
-| **Reacting flows**          | Transient multi-species flow with node-level Arrhenius kinetics and CEA-coupled combustion junctions.                                                                                                                                                    |
-| **Transient momentum**      | Optional fluid inertia `(L/A)·dṁ/dt` on pipe branches and trapped-gas cushions `P·V_gⁿ = const` on internal nodes.                                                                                                                                       |
-| **Workflow**                | Visual network editing with subnetworks and notes, selection repeat and pipe splitting for line discretization, parameter sweeps, named variants, convergence diagnostics, provenance-tracked run history, `.fn` text files, and 13 built-in examples.   |
-| **Extensibility**           | Custom pressure-drop tables, resistance models, embedded user components, stateful lifecycle registers, stop conditions, and transient PID control.                                                                                                      |
+| Area                        | Summary                                                                                                                                                                                                                                                                                     |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Solvers**                 | Newton–Raphson steady-state solver with convergence aids for difficult cases. Backward-Euler transient solver with fixed or adaptive time steps.                                                                                                                                            |
+| **Components**              | 19 branch types: `areaChange`, `bend`, `capillaryChannel`, `cavitatingVenturi`, `checkValve`, `customResistance`, `dpTable`, `dynamicCheckValve`, `flowSource`, `heatedPipe`, `orifice`, `pipe`, `pump`, `rectChannel`, `regulator`, `reliefValve`, `resistance`, `userComponent`, `valve`. |
+| **Fluids**                  | Incompressible, ideal gas, compressible liquid, and real fluid via CoolProp with a generated 124-fluid HEOS catalogue.                                                                                                                                                                      |
+| **Conjugate heat transfer** | Coupled fluid–solid thermal modeling with conduction, convection, and radiation, plus a sourced catalogue of temperature-dependent material properties.                                                                                                                                     |
+| **Compressible flow**       | Opt-in quasi-1-D compressible flow for every fluid model, with stagnation-enthalpy transport and per-branch Mach-number calculations.                                                                                                                                                       |
+| **Two-phase**               | Transient homogeneous-equilibrium model (HEM) for real fluids, with Miropolskii film boiling for conjugate heat transfer.                                                                                                                                                                   |
+| **Reacting flows**          | Transient multi-species flow with node-level Arrhenius kinetics and CEA-coupled combustion junctions.                                                                                                                                                                                       |
+| **Microfluidics**           | Rectangular microchannels with the exact laminar duct law, and capillary channels: Washburn filling with displaced-gas resistance, capillary pumps, stop/burst and trigger valves, and air-trap detection, with an event log.                                                               |
+| **Transient momentum**      | Optional fluid inertia `(L/A)·dṁ/dt` on pipe branches and trapped-gas cushions `P·V_gⁿ = const` on internal nodes.                                                                                                                                                                          |
+| **Workflow**                | Visual network editing with subnetworks and notes, selection repeat and pipe splitting for line discretization, parameter sweeps, named variants, convergence diagnostics, provenance-tracked run history, `.fn` text files, and 14 built-in examples.                                      |
+| **Extensibility**           | Custom pressure-drop tables, resistance models, embedded user components, stateful lifecycle registers, stop conditions, and transient PID control.                                                                                                                                         |
 
 ## Quick Start
 
@@ -85,7 +86,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full test tiers and the pull-requ
 
 ## Documentation
 
-The **[user manual](docs/user-manual.md)** provides the complete reference for network definitions, units and sign conventions, data structures and fields, component equations, solution methods, the interface, thirteen worked examples, and verification results.
+The **[user manual](docs/user-manual.md)** provides the complete reference for network definitions, units and sign conventions, data structures and fields, component equations, solution methods, the interface, fourteen worked examples, and verification results.
 
 | Document                                             | Covers                                                                            |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
@@ -109,16 +110,17 @@ Verification evidence is split into three deliberately distinct classes, and eve
 2. **Code-to-code benchmarking** — agreement with GFSSP or SINDA/FLUINT, which inherits the other code's assumptions.
 3. **Validation against experiment** — comparison to digitized published test data.
 
-Six validation reports are regenerated from live solves, not transcribed:
+Seven validation reports are regenerated from live solves, not transcribed:
 
-| Report                                                                           | Contents                                                                                    |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
-| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point  |
-| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                    |
-| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers        |
-| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                          |
-| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                        |
-| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack |
+| Report                                                                           | Contents                                                                                               |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point             |
+| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                               |
+| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers                   |
+| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                     |
+| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                   |
+| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack            |
+| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers |
 
 Experimental validation uses digitized data from NBS Report 9264 cryogenic chilldown, Hord's cavitation series, and NASA tank-pressurization tests, with per-corpus trust levels stated explicitly — calibration-grade runs are separated from diagnostic-only runs that may not be quoted as agreement. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 
@@ -176,7 +178,7 @@ Project policies: [Code of Conduct](CODE_OF_CONDUCT.md) · [Security](SECURITY.m
 
 If this software contributes to your research, please cite it. See [CITATION.cff](CITATION.cff) for current metadata, or use:
 
-> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.2.2). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
+> Rising, J. (2026). OpenFLUME: Open FLUid Model Environment (v0.3.0). Zenodo. [https://doi.org/10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608)
 
 ## License
 

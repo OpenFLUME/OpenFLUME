@@ -23,10 +23,17 @@ import {
 
 type FluidNode = NetworkConfig["nodes"][number];
 type Branch = NetworkConfig["branches"][number];
-type PipeLike = Extract<Branch["component"], { type: "pipe" | "heatedPipe" }>;
 type ResolvedPhysicalPosition = { x?: number; y?: number; z?: number };
 
 const PIPE_TYPES = new Set(["pipe", "heatedPipe"]);
+/** Branch types whose unset `elevationChange` is derived from node z.  A
+ *  superset of PIPE_TYPES: microfluidic channels carry hydrostatic head but
+ *  do not join the pipe-path graph used for convection stations. */
+const ELEVATION_TYPES = new Set([
+  ...PIPE_TYPES,
+  "rectChannel",
+  "capillaryChannel",
+]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -241,7 +248,7 @@ function elevationFromPositions(
   branch: Branch,
   nodeOf: Map<string, FluidNode>,
 ): number | undefined {
-  if (!PIPE_TYPES.has(branch.component.type)) return undefined;
+  if (!ELEVATION_TYPES.has(branch.component.type)) return undefined;
   const fromZ = finiteNumber(physicalPosition(nodeOf.get(branch.from))?.z);
   const toZ = finiteNumber(physicalPosition(nodeOf.get(branch.to))?.z);
   if (fromZ === undefined || toZ === undefined) return undefined;
@@ -269,7 +276,7 @@ export function withDerivedGeometry(config: NetworkConfig): NetworkConfig {
 
   const elevByBranch = new Map<string, number>();
   for (const branch of config.branches) {
-    if (!PIPE_TYPES.has(branch.component.type)) continue;
+    if (!ELEVATION_TYPES.has(branch.component.type)) continue;
     const current: unknown = (branch.component as { elevationChange?: unknown })
       .elevationChange;
     if (isExpression(current) || finiteNumber(current) !== undefined) continue;
@@ -307,7 +314,7 @@ export function withDerivedGeometry(config: NetworkConfig): NetworkConfig {
   for (const branch of next.branches) {
     const elev = elevByBranch.get(branch.id);
     if (elev === undefined) continue;
-    (branch.component as PipeLike).elevationChange = elev;
+    (branch.component as { elevationChange?: number }).elevationChange = elev;
   }
   for (const conductor of next.conductors ?? []) {
     if (conductor.type.kind !== "convection" || !conductor.type.correlation)

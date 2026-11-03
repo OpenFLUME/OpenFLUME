@@ -212,6 +212,34 @@ const COMPONENT_FIELDS: {
     area: { quantity: "area", bounds: POSITIVE },
     // component: library-name string; params: dynamic user params — excluded.
   },
+  rectChannel: {
+    width: { quantity: "length", bounds: POSITIVE },
+    height: { quantity: "length", bounds: POSITIVE },
+    length: { quantity: "length", bounds: POSITIVE },
+    roughness: { quantity: "length", bounds: NONNEGATIVE },
+    elevationChange: { quantity: "length" },
+  },
+  capillaryChannel: {
+    width: { quantity: "length", bounds: POSITIVE },
+    height: { quantity: "length", bounds: POSITIVE },
+    length: { quantity: "length", bounds: POSITIVE },
+    elevationChange: { quantity: "length" },
+    // Contact angles are stored in degrees, like bend.angle.
+    contactAngle: { quantity: "angle", bounds: { min: 0, max: 180 } },
+    contactAngleTop: { quantity: "angle", bounds: { min: 0, max: 180 } },
+    contactAngleBottom: { quantity: "angle", bounds: { min: 0, max: 180 } },
+    contactAngleSides: { quantity: "angle", bounds: { min: 0, max: 180 } },
+    // No surface-tension QuantityKind — raw SI (cf. dynamicCheckValve).
+    surfaceTension: {
+      quantity: "dimensionless",
+      unit: "N/m",
+      bounds: NONNEGATIVE,
+    },
+    capillaryPressure: { quantity: "pressure" },
+    gasViscosity: { quantity: "viscosity", bounds: POSITIVE },
+    initialFill: { quantity: "dimensionless", bounds: { min: 0, max: 1 } },
+    // initialFillFrom: enum; stopValve: object — excluded.
+  },
 };
 
 /** Sweepable direct scalar fields per conductor kind (correlation

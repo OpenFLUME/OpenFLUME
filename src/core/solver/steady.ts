@@ -248,6 +248,7 @@ export function solveSteady(
     nodes: resultNodes,
     branches: resultBranches,
     solidNodes: resultSolidNodes,
+    ...(ctx.capillary ? { capillary: ctx.capillary.report() } : {}),
     conductors: resultConductors,
     aborted: res.aborted,
     ptcDeltaTau: res.ptcDeltaTau,

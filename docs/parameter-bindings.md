@@ -76,7 +76,10 @@ Fluid-node `pressure`/`temperature`/`volume`/`heatInput`; solid-node
 `fullOpenPressure`/`area`/`cd`; `cavitatingVenturi` `throatArea`/`cd`/
 `recoveryFactor`; `areaChange` `areaIn`/`areaOut`; `flowSource` `massFlow`;
 `regulator` `setPressure`/`maxCdA`; `customResistance` `area`/`diameter`;
-`userComponent` `area`; `resistance` `k`/`area`; conductor `area` (all kinds),
+`userComponent` `area`; `resistance` `k`/`area`; `rectChannel` `width`/
+`height`/`length`/`roughness`/`elevationChange`; `capillaryChannel` `width`/
+`height`/`length`/`elevationChange`/`contactAngle` (+ `Top`/`Bottom`/`Sides`)/
+`surfaceTension`/`capillaryPressure`/`gasViscosity`/`initialFill`; conductor `area` (all kinds),
 conduction `length`, convection `h`, radiation `emissivity`/`viewFactor`, and
 numeric convection-correlation fields (`diameter`, `flowArea`, `axialPosition`,
 `inletLiquidReynolds`, `segmentLength`, `frontEnergyFactor`,

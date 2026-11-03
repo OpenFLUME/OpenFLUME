@@ -7,13 +7,24 @@
  * Never called during the Newton solve itself, so pressureDrop/
  * pressureDropDual stay pure at every trial iterate (see the purity note on
  * BranchComponent.advanceState).
+ *
+ * The capillary network (core/capillary.ts) is network-level state with the
+ * same lifecycle: its channels' fill states and the node wetness advance
+ * here, after the per-branch components, and are part of every snapshot.
  */
 import type { SolverContext, StepState } from "../solver";
+import type { CapillaryNetworkSnapshot } from "../capillary";
 
+/**
+ * Advance every stateful component by one accepted step of size `dt`
+ * ending at time `t` (`t` stamps capillary events; it defaults to NaN for
+ * callers without a time axis).
+ */
 export function advanceStatefulComponents(
   ctx: SolverContext,
   state: StepState,
   dt: number,
+  t = Number.NaN,
 ): void {
   for (let j = 0; j < ctx.branches.length; j++) {
     const b = ctx.branches[j];
@@ -22,10 +33,15 @@ export function advanceStatefulComponents(
     const pTo = state.nodeP.get(b.to)!;
     b.component.advanceState(dt, state.mdots[j], pFrom, pTo);
   }
+  ctx.capillary?.advance(ctx, state, dt, t);
 }
 
-/** Opaque per-branch snapshots (undefined for stateless branches). */
-export type StatefulComponentSnapshot = Array<unknown | undefined>;
+/** Opaque per-branch snapshots (undefined for stateless branches) plus the
+ *  capillary-network state. */
+export interface StatefulComponentSnapshot {
+  branches: Array<unknown | undefined>;
+  capillary?: CapillaryNetworkSnapshot;
+}
 
 /**
  * Snapshot every stateful component so a candidate trajectory can be rolled
@@ -36,9 +52,12 @@ export type StatefulComponentSnapshot = Array<unknown | undefined>;
 export function snapshotStatefulComponents(
   ctx: SolverContext,
 ): StatefulComponentSnapshot {
-  return ctx.branches.map((b) =>
-    b.component.advanceState ? b.component.snapshotState?.() : undefined,
-  );
+  return {
+    branches: ctx.branches.map((b) =>
+      b.component.advanceState ? b.component.snapshotState?.() : undefined,
+    ),
+    capillary: ctx.capillary?.snapshot(),
+  };
 }
 
 export function restoreStatefulComponents(
@@ -46,9 +65,11 @@ export function restoreStatefulComponents(
   snapshot: StatefulComponentSnapshot,
 ): void {
   ctx.branches.forEach((b, j) => {
-    if (b.component.advanceState && snapshot[j] !== undefined)
-      b.component.restoreState?.(snapshot[j]);
+    if (b.component.advanceState && snapshot.branches[j] !== undefined)
+      b.component.restoreState?.(snapshot.branches[j]);
   });
+  if (ctx.capillary && snapshot.capillary)
+    ctx.capillary.restore(snapshot.capillary);
 }
 
 /** Concatenated O(1) dynamic state of every stateful component, for the
@@ -59,5 +80,6 @@ export function statefulComponentState(ctx: SolverContext): number[] {
     const values = b.component.dynamicState?.();
     if (values) out.push(...values);
   }
+  if (ctx.capillary) out.push(...ctx.capillary.dynamicState());
   return out;
 }

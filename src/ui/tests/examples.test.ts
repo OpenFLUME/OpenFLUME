@@ -348,6 +348,29 @@ describe("examples library: validation, convergence, and physics", () => {
           // All shipped transient examples must meet residual tolerance.
           expect(res.converged).toBe(true);
 
+          if (name === "Capillary circuit (stop + trigger valve)") {
+            const cap = res.capillary!;
+            const ev = cap.events;
+            const at = (kind: string, branch: string, node: string) =>
+              ev.findIndex(
+                (e) =>
+                  e.kind === kind && e.branch === branch && e.node === node,
+              );
+            // A pins at its stop valve, B later wets J and triggers it.
+            expect(at("pinned", "A", "J")).toBeGreaterThanOrEqual(0);
+            const wetJ = at("nodeWetted", "B2", "J");
+            expect(wetJ).toBeGreaterThan(at("pinned", "A", "J"));
+            expect(ev[at("triggered", "A", "J")].time).toBe(ev[wetJ].time);
+            expect(at("burst", "A", "J")).toBe(-1);
+            expect(ev.some((e) => e.kind === "airTrapped")).toBe(false);
+            for (const id of ["A", "B1", "B2", "out"])
+              expect(cap.branches[id].status.at(-1)).toBe("full");
+            // The capillary pump keeps wicking.
+            const pumpFill = cap.branches.pump.fill;
+            expect(pumpFill.at(-1)!).toBeGreaterThan(0);
+            expect(pumpFill.at(-1)!).toBeLessThan(1);
+          }
+
           if (name === "Tank blowdown") {
             const tankP = res.nodes["tank"].pressure;
             // Pressure monotonically decreases (allow tiny wiggle)

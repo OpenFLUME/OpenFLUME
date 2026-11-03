@@ -71,7 +71,7 @@ Everything is SI: Pa, K, kg/s, m, m², J/kg, s.
 | Call                                                             | Purpose                                                                                                       |
 | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `of.load(path)`                                                  | Load `.fn` text (what the web app saves) or `.json`                                                           |
-| `of.example(name)`, `of.examples()`                              | The 13 built-in examples                                                                                      |
+| `of.example(name)`, `of.examples()`                              | The built-in examples (14)                                                                                    |
 | `Network.from_dict(d)`, `.from_json(s)`, `.from_text(s)`         | Construct from a `NetworkConfig` dict, JSON, or `.fn` text                                                    |
 | `net.config`                                                     | The live `NetworkConfig` dict (schema v2, `src/core/schema.ts`). Edit it freely; it is re-sent on every call. |
 | `net.node(id)`, `net.branch(id)`, `net.settings`                 | Live sub-dicts of `config`                                                                                    |

@@ -11,6 +11,7 @@ import { createFluidModel, IdealGasMixture } from "../fluids";
 import type { FluidModel } from "../fluids";
 import { RealFluid } from "../fluids/realFluid";
 import { buildBranchComponents } from "../componentFactory";
+import { CapillaryNetwork } from "../capillary";
 import { createFluidAssignment } from "../fluidAssignment";
 import type { FluidAssignmentMaps } from "../fluidAssignment";
 import {
@@ -416,6 +417,11 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
     darrHartwig,
     ttWf,
     fluidFront,
+    capillary: config.branches.some(
+      (b) => b.component.type === "capillaryChannel",
+    )
+      ? new CapillaryNetwork(config, branches)
+      : undefined,
     customExpressions,
     boundaryPressureOverride: new Map(),
     boundaryTemperatureOverride: new Map(),
@@ -515,7 +521,10 @@ export function createInitialState(
       }
     }
   }
-  const mdots = config.branches.map((b) => b.initialMdot ?? 0.1);
+  const mdots = config.branches.map(
+    (b, j) =>
+      b.initialMdot ?? ctx.branches[j]?.component.defaultInitialMdot ?? 0.1,
+  );
   const solidT = new Map<string, number>();
   for (const sNode of config.solidNodes ?? []) {
     solidT.set(sNode.id, sNode.temperature);

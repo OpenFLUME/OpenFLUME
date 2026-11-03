@@ -163,6 +163,30 @@ function paths(kind: string): React.ReactNode {
       );
     case "customResistance":
       return <path d="M1 9 H4 L6 5 L8 13 L10 5 L12 13 L14 9 H17" />;
+    case "rectChannel":
+      // Rectangular duct cross-section on the run.
+      return (
+        <>
+          <line x1="1" y1="9" x2="5" y2="9" />
+          <rect x="5" y="5.5" width="8" height="7" />
+          <line x1="13" y1="9" x2="17" y2="9" />
+        </>
+      );
+    case "capillaryChannel":
+      // Channel walls with a concave (wetting) meniscus: liquid behind it.
+      return (
+        <>
+          <line x1="1" y1="5" x2="17" y2="5" />
+          <line x1="1" y1="13" x2="17" y2="13" />
+          <path d="M11 5 Q7.5 9 11 13" />
+          <path
+            d="M1 5 H11 Q7.5 9 11 13 H1 Z"
+            fill="currentColor"
+            fillOpacity="0.25"
+            stroke="none"
+          />
+        </>
+      );
     case "userComponent":
       return (
         <>
@@ -237,6 +261,8 @@ export function hasPidSymbol(kind: string): boolean {
     case "heatedPipe":
     case "dpTable":
     case "customResistance":
+    case "rectChannel":
+    case "capillaryChannel":
     case "userComponent":
     case "conduction":
     case "convection":

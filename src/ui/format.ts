@@ -97,9 +97,9 @@ export interface ScaleChoice {
  */
 const AUTO_SCALE_FAMILY: Partial<Record<QuantityKind, UnitId[]>> = {
   pressure: ["Pa", "kPa", "MPa"],
-  length: ["m", "mm", "cm"],
-  area: ["m²", "cm²", "mm²"],
-  volume: ["m³", "L"],
+  length: ["m", "mm", "cm", "µm"],
+  area: ["m²", "cm²", "mm²", "µm²"],
+  volume: ["m³", "L", "mL", "µL", "nL"],
   massFlow: ["kg/s", "g/s"],
   density: ["kg/m³", "g/cm³"],
   power: ["W", "kW"],

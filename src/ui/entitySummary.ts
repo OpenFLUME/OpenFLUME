@@ -166,6 +166,17 @@ function branchParameterRows(
     case "userComponent":
       pushPlain(rows, "Component", component.component);
       break;
+    case "rectChannel":
+    case "capillaryChannel":
+      push(rows, "Width", component.width, "length", prefs);
+      push(rows, "Height", component.height, "length", prefs);
+      push(rows, "Length", component.length, "length", prefs);
+      if (type === "capillaryChannel") {
+        pushPlain(rows, "Contact angle", component.contactAngle, "°");
+        if (component.stopValve)
+          rows.push({ label: "Stop valve", value: "yes" });
+      }
+      break;
   }
   return rows;
 }
