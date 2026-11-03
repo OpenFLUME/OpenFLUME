@@ -77,7 +77,8 @@ export type NodeChannelField =
   | "speedOfSound"
   | "gasVolume"
   | "quality"
-  | "fluidFront";
+  | "fluidFront"
+  | "capillaryWet";
 
 /**
  * Branch fields.  All of the flow quantities exist in both modes; which ones
@@ -93,7 +94,8 @@ export type BranchChannelField =
   | "massFlux"
   | "dynamicPressure"
   | "reynolds"
-  | "mach";
+  | "mach"
+  | "capillaryFill";
 
 export type SolidNodeChannelField = "temperature";
 
@@ -217,6 +219,12 @@ const NODE_FIELD_META: Record<NodeChannelField, FieldMeta> = {
     availability: "transient",
     signed: false,
   },
+  capillaryWet: {
+    label: "Wetted (0/1)",
+    quantity: "dimensionless",
+    availability: "both",
+    signed: false,
+  },
 };
 
 const BRANCH_FIELD_META: Record<BranchChannelField, FieldMeta> = {
@@ -264,6 +272,12 @@ const BRANCH_FIELD_META: Record<BranchChannelField, FieldMeta> = {
   },
   mach: {
     label: "Mach",
+    quantity: "dimensionless",
+    availability: "both",
+    signed: false,
+  },
+  capillaryFill: {
+    label: "Liquid fill",
     quantity: "dimensionless",
     availability: "both",
     signed: false,
@@ -525,6 +539,19 @@ function sourceValue(
       return asRecord(asRecord(t.fluidFront)?.[id])?.fraction;
     if (entity === "conductor" && field === "fWet")
       return asRecord(asRecord(t.ttWf)?.[id])?.fWet;
+  }
+  // Capillary side table (TransientResult/SteadyResult.capillary): fill per
+  // capillary channel, wetness per node it touches (booleans as 0/1).
+  if (field === "capillaryFill" || field === "capillaryWet") {
+    const cap = asRecord((result as SteadyResult).capillary);
+    if (field === "capillaryFill")
+      return entity === "branch"
+        ? asRecord(asRecord(cap?.branches)?.[id])?.fill
+        : undefined;
+    if (entity !== "node") return undefined;
+    const wet = asRecord(asRecord(cap?.nodes)?.[id])?.wet;
+    if (Array.isArray(wet)) return wet.map((w) => (w ? 1 : 0));
+    return typeof wet === "boolean" ? (wet ? 1 : 0) : undefined;
   }
   const table =
     entity === "node"

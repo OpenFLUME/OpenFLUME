@@ -75,6 +75,14 @@ export {
   HeatedPipe,
   DpTable,
   CustomResistance,
+  RectChannel,
+  rectShapeFactor,
+  rectHydraulicDiameter,
+  rectPoiseuilleNumber,
+  rectLaminarResistance,
+  CapillaryChannel,
+  rectCapillaryPressure,
+  rectBurstPressure,
   UserDefinedComponent,
   interpolateSchedule,
   darcyFrictionFactor,
@@ -107,7 +115,13 @@ export type {
   JunctionSummary,
   JunctionSummaryHistory,
   VariantSpec,
+  CapillaryChannelStatus,
+  CapillaryEvent,
+  CapillaryEventKind,
+  CapillarySnapshot,
+  CapillaryHistory,
 } from "./schema";
+export { initialNodeWetness } from "./capillary";
 export {
   DEFAULT_GRAVITY,
   STANDARD_GRAVITY_MAGNITUDE,

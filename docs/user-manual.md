@@ -711,6 +711,7 @@ validation runs, and validation runs before every solve.
 | `gasCushion`          | object                  | m³, — | no                           | Trapped gas; transient liquid networks only            |
 | `massFractions`       | map                     | —     | no                           | Species composition                                    |
 | `fluidFrontInlet`     | number on [0,1]         | —     | no                           | Boundary only; cryogenic front inlet                   |
+| `initiallyWet`        | boolean                 | —     | no                           | Capillary networks: liquid present at $t=0$ (§4.3.19)  |
 
 **A boundary node requires** `pressure`, and either `temperature` or `quality`
 but not both. `quality` is accepted only when that node's fluid model is
@@ -734,10 +735,11 @@ Every branch carries `id`, an optional `label`, `from`, `to`, and a `component`
 object whose `type` selects the momentum relation. Both endpoints must be fluid
 nodes, must resolve to the same named fluid, and must differ from each other.
 
-The seventeen component types are `pipe`, `orifice`,
+The nineteen component types are `pipe`, `orifice`,
 `cavitatingVenturi`, `resistance`, `valve`, `checkValve`, `dynamicCheckValve`,
 `reliefValve`, `pump`, `bend`, `areaChange`, `flowSource`, `regulator`,
-`heatedPipe`, `dpTable`, `customResistance`, and `userComponent`. Their
+`heatedPipe`, `dpTable`, `customResistance`, `rectChannel`,
+`capillaryChannel`, and `userComponent`. Their
 parameters, constraints, interface labels, and governing equations are
 tabulated in Appendix A and derived in section 4.3.
 
@@ -1636,6 +1638,126 @@ persistent state, or dual-number derivative support, so these branches always
 take finite-difference Jacobian entries. See
 [`docs/usercode.md`](usercode.md).
 
+### 4.3.18 Rectangular Channel
+
+`rectChannel` is a straight channel of rectangular cross-section, width $w$
+and height $h$ — the standard geometry of soft-lithography (PDMS), etched-glass
+and milled microfluidic chips. Fully developed laminar flow uses the exact
+Fourier-series solution of the rectangular-duct Poisson problem (White,
+_Viscous Fluid Flow_; Bruus, _Theoretical Microfluidics_ eq. 3.56), summed to
+machine precision:
+
+$$R_\text{hyd} = \frac{\Delta P}{Q} = \frac{12\mu L}{a^3 b\,F}, \qquad F = 1 - \frac{192\,a}{\pi^5 b}\sum_{n\ \text{odd}}\frac{\tanh(n\pi b/2a)}{n^5}$$
+
+with $a = \min(w,h)$, $b = \max(w,h)$. Equivalently the Darcy Poiseuille
+number is $f\,Re_{D_h} = 24 D_h^2/(a^2F)$ on the hydraulic diameter
+$D_h = 2wh/(w+h)$: 56.91 for a square, 96 for parallel plates (Shah & London,
+Table 41, reproduced to 0.02 %). A circular `pipe` given $D_h$ mis-predicts
+the flow of a 2:1 channel by about 30 %.
+
+Below $Re_{D_h} = 2300$ the law is evaluated directly as
+$\Delta P = R_\text{hyd}Q$ (linear, exact as $Re \to 0$). Above it, $f$ blends
+smoothly to Swamee–Jain on $D_h$ exactly like `pipe` (§4.3.1), with the duct's
+own $f\,Re$ in the laminar limb. `roughness` (default 0) only matters there.
+`elevationChange` adds $\rho g\Delta z$. Reported velocity is $Q/(wh)$ and the
+Reynolds number uses $D_h$. Entrance effects are neglected
+($L_e \approx 0.06\,Re\,D_h$ is a vanishing fraction of a microchannel).
+
+Microchannel flows (nL/min to µL/min) sit far below the residual wrappers'
+$10^{-7}$ kg/s zero-flow linearisation threshold, so `rectChannel` and
+`capillaryChannel` opt out of it (`exactNearZeroFlow`), and both start Newton
+from $\dot m = 10^{-9}$ kg/s instead of the network default 0.1 kg/s.
+
+### 4.3.19 Capillary Channel
+
+`capillaryChannel` is a rectangular channel that can be partly filled with
+liquid, the rest being gas. It is the building block for capillary-driven
+("capillaric") circuits: capillary filling, capillary pumps, stop (burst)
+valves, trigger valves, and air-trap detection. The network fluid must be
+`incompressible` — it is the liquid. Gas is treated as incompressible and
+leaves through **dry** nodes, so one volumetric flow $Q = \dot m/\rho$ runs
+through every branch, liquid or gas: wherever liquid advances, the same volume
+of gas is pushed ahead of it.
+
+**Momentum relation.** With liquid occupying length $s$ from the end it
+entered by ($\sigma = +1$ for `from`, $-1$ for `to`):
+
+$$P_\text{from} - P_\text{to} = R_\ell(s)\,Q + R_g(L-s)\,Q - \sigma P_\text{cap} + \rho g\,\Delta z\,\frac{s}{L}$$
+
+$R_\ell$ is the `rectChannel` law with the network viscosity, $R_g$ the laminar
+law with `gasViscosity` (default $1.81\times10^{-5}$ Pa·s). The Young–Laplace
+capillary pressure of the meniscus, positive when it wicks liquid in, is
+
+$$P_\text{cap} = \gamma\left[\frac{\cos\theta_\text{top} + \cos\theta_\text{bottom}}{h} + \frac{2\cos\theta_\text{sides}}{w}\right]$$
+
+from `surfaceTension` $\gamma$ (default 0.072 N/m) and the advancing contact
+angles in degrees (`contactAngle` for every wall, optionally overridden per
+wall — e.g. a hydrophilic glass floor under a hydrophobic PDMS roof).
+`capillaryPressure` overrides the value for wicks that are not plain
+rectangles (pillar-array capillary pumps, paper).
+
+**Fill state.** Each channel is `dry`, `filling`, `full`, `pinnedInlet`,
+`pinnedOutlet`, or `trapped`. Pinned and trapped channels are closed: their
+resistance is $10^6$ times the full-liquid value. Each node touched by a
+capillary channel is wet or dry; set `initiallyWet` on loaded inlet
+reservoirs. By default a node is dry when every branch at it is a
+`capillaryChannel`. Only capillary channels may touch dry nodes.
+
+The fill state is frozen during each Newton solve and advanced once per
+accepted transient step (with snapshot and rollback for adaptive candidates):
+
+- A **filling** meniscus integrates $A\,ds/dt = q(s)$ across the step (RK4
+  sub-steps) against the Thevenin equivalent of the rest of the network seen
+  from the channel's nodes — the driving-point conductance $G_\text{th}$ of the
+  network linearised at the solved state:
+
+  $$q(s) = \frac{q_0\,[1 + G_\text{th}R(s_0)] - G_\text{th}\,k\,(s-s_0)}{1 + G_\text{th}R(s)}, \qquad R(s) = R_\ell(s) + R_g(L-s), \quad k = \frac{\rho g\Delta z}{L}$$
+
+  Fixed-pressure reservoirs ($G_\text{th}\to\infty$) give the Washburn law
+  exactly, including its stiff start; a syringe pump ($G_\text{th}=0$) gives
+  $q = q_0$ exactly; a channel behind any linear network is exact in its own
+  resistance change. Only the coupling between several fronts moving at once
+  is first order in $\Delta t$.
+
+- A front that reaches $s = 0$ pins at the entrance (`pinnedInlet`); it
+  reopens when $P_\text{wet} - P_\text{dry} + P_\text{cap} > 0$. A dry channel
+  reached by liquid starts `pinnedInlet` when $P_\text{cap} \le 0$ (a
+  hydrophobic entrance).
+- A front that reaches $s = L$ wets the exit node — unless a `stopValve`
+  guards that end, in which case it pins (`pinnedOutlet`) and **bursts** when
+  $P_\text{wet} - P_\text{dry} - \rho g\Delta z \ge \Delta P_\text{burst}$. For
+  sidewalls opening out at angle $\beta$ (`expansionAngle`, default 90°) while
+  the roof and floor continue (Cho et al., _J. Colloid Interface Sci._ 306,
+  2007):
+
+  $$\Delta P_\text{burst} = -\gamma\left[\frac{\cos\theta_\text{top}+\cos\theta_\text{bottom}}{h} + \frac{2\cos\theta^*}{w}\right], \qquad \theta^* = \min(\theta_\text{sides}+\beta,\ 180°)$$
+
+  Validation rejects a valve whose burst pressure is not positive (strongly
+  wetting roof and floor defeat a planar expansion); `burstPressure`
+  overrides the formula.
+
+- When a node is wetted, every capillary channel at it reacts: a dry channel
+  starts filling from it (or is `trapped` if its other end is already wet); a
+  `pinnedOutlet` valve whose exit it is opens (a **trigger valve**,
+  `triggered`); a channel whose meniscus was still advancing toward it is
+  `trapped` — its gas can no longer escape (`airTrapped`).
+
+Event times are interpolated inside the step. Steady solves use the initial
+state, giving the instantaneous flow at that fill.
+
+**Results.** `TransientResult.capillary` holds per-step `fill` (liquid
+fraction), `status` and `fillEnd` for each channel, per-step `wet` for each
+node it touches, and the time-ordered `events` log (`nodeWetted`, `pinned`,
+`released`, `burst`, `triggered`, `airTrapped`). `SteadyResult.capillary` is
+the same snapshot at one instant.
+
+**Limitations.** Gas is incompressible and vented: a dead-end channel does not
+fill, and a trapped bubble blocks its channel rather than compressing. Contact
+angles are advancing and static (no hysteresis, no dynamic-angle correction).
+Liquid wets one end of a channel at a time; isolated droplets, plugs, and
+bubbles carried through the network are not tracked. Liquid inertia is
+neglected.
+
 ## 4.4 Convection Correlations
 
 The mass flux presented to a correlation follows the GFSSP convention in which
@@ -1733,7 +1855,8 @@ under constant inflow against the analytical polytropic law. From
 3. **Jacobian** — by default **hybrid**. Where every contributing code path is
    authored in TypeScript — the analytic EOS models and components with dual
    implementations (`pipe`, `orifice`, `resistance`, `valve`, `bend`,
-   `areaChange`, `checkValve`, `dynamicCheckValve`) — derivatives are exact,
+   `areaChange`, `checkValve`, `dynamicCheckValve`, `rectChannel`,
+   `capillaryChannel`) — derivatives are exact,
    computed by forward-mode dual numbers in a single residual evaluation per
    column. Note that `dynamicCheckValve`'s ODE state (`position`) is frozen for
    the whole Newton solve, so its `pressureDropDual` is exact with respect to
@@ -2024,7 +2147,7 @@ are unsaved changes. **New**, **Save**, and **Load** handle `.fn` files;
 hold — including a half-finished model the solver would still reject (no
 boundary node yet, a transient without volumes), whose remaining issues then
 show in the health pill. Only files that are not a network at all, or whose
-element references dangle, are refused. **Examples ▾** lists the thirteen shipped
+element references dangle, are refused. **Examples ▾** lists the fourteen shipped
 models in four groups. **Units ▾** selects the display preset — **SI**, **Metric
 engineering**, or **US customary** — and shows a disabled **Custom** entry when
 preferences match no preset. **Commands** (or `Cmd`/`Ctrl`+`K`) opens the
@@ -2951,7 +3074,33 @@ NTU ≈ 29 per node, beyond what the segregated solid-fluid coupling can solve. 
 module header of [`src/ui/lh2StorageTank.ts`](../src/ui/lh2StorageTank.ts) gives
 the full accounting. Read that before treating this example as a template.
 
-## 7.14 Additional Configurations
+## 7.14 Capillary Circuit (Stop + Trigger Valve)
+
+_Applications · transient · incompressible water, capillary channels_
+
+**Problem.** A capillary-driven ("capillaric") circuit with no pump: a sample
+wicks from a loaded inlet into a short channel A and a longer delay channel B
+that rejoin at a junction J, then through an outlet channel into a capillary
+pump that vents to atmosphere.
+
+**Model.** Five nodes and five `capillaryChannel` branches (§4.3.19), all
+100 µm × 50 µm except the pump. Channel A has 80° walls and a stop valve where
+it opens into J; B has 30° walls and twice A's length. The pump is a 1 mm-wide
+region represented by a 4 kPa `capillaryPressure` override. Only `inlet` is
+`initiallyWet`.
+
+**Check.** The event log shows A's meniscus pinning at J (its Cho burst
+pressure is about 0.9 kPa and nothing supplies it), B wetting J about 45 ms
+later, and A being `triggered` at that same instant without bursting. The
+merged liquid then wets the pump inlet and the pump keeps wicking. All four
+circuit channels end `full`, with no `airTrapped` event.
+
+**Caveat.** At the very start A briefly pins at its own entrance: B's faster
+front pushes air into J, and that gas back-pressure exceeds A's weak capillary
+pull for one step. This is real behaviour of a vented gas network, not an
+artefact.
+
+## 7.15 Additional Configurations
 
 Further networks are exported from the source tree but deliberately kept out of
 the menu, because they exist to be asserted on rather than explored: additional
@@ -3120,6 +3269,8 @@ Interface labels are grouped **Common**, **Advanced**, and **Custom** in the
 | `heatedPipe`        | Heated Pipe         | pipe fields plus `ua`, `wallTemperature`, `boilingModel?`                                            | §4.3.15  | $UA \ge 0$                                                     |
 | `dpTable`           | Pressure Drop Table | `points`, `extrapolate?`                                                                             | §4.3.16  | ≥2 points, $\dot m$ increasing                                 |
 | `customResistance`  | Custom Resistance   | `k` or `{kTable}`, `area`, `diameter?`                                                               | §4.3.5   | `kTable` requires `diameter`                                   |
+| `rectChannel`       | Rectangular Channel | `width`, `height`, `length`, `roughness?`, `elevationChange?`                                        | §4.3.18  | dimensions positive                                            |
+| `capillaryChannel`  | Capillary Channel   | rect fields, `contactAngle` (+ per-wall), `surfaceTension?`, `stopValve?`, `initialFill?`, …         | §4.3.19  | incompressible fluid; angles on [0,180]                        |
 | `userComponent`     | Local Component     | `component`, `params?`, `area?`                                                                      | §4.3.17  | must exist in the library                                      |
 
 # Appendix B — Conductor Quick Reference

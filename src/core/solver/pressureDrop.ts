@@ -7,6 +7,8 @@
  *   2. a zero-flow linearisation — below ZERO_FLOW_THRESHOLD the friction
  *      part of dP is replaced by a straight line through the origin, so
  *      d(dP)/dṁ stays finite and the Jacobian is well-conditioned at ṁ ≈ 0.
+ *      Components flagged `exactNearZeroFlow` (already smooth at ṁ = 0,
+ *      possibly with an intercept, e.g. a capillary pressure) skip it.
  *
  * `componentPressureDropDual` is the dual-number mirror used by the hybrid
  * (analytic) Jacobian; it must stay term-for-term identical to the scalar
@@ -34,6 +36,8 @@ export function componentPressureDrop(
   pFrom?: number,
   pTo?: number,
 ): number {
+  if (comp.exactNearZeroFlow)
+    return comp.pressureDrop(mdot, rho, mu, t, T, fluid, pFrom, pTo);
   const absM = Math.abs(mdot);
   const elevDP =
     (comp.elevationChange ?? 0) === 0
@@ -71,6 +75,8 @@ export function componentPressureDropDual(
     throw new Error(
       `Component ${comp.constructor.name} does not support dual evaluation`,
     );
+  if (comp.exactNearZeroFlow)
+    return comp.pressureDropDual(mdot, rho, mu, t, T, fluid, pFrom, pTo);
   const absM = abs(mdot);
   const elevConst = STANDARD_GRAVITY * (comp.elevationChange ?? 0);
   const elevDP =

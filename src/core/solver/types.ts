@@ -235,6 +235,14 @@ export interface SolverContext {
    */
   fluidFront?: FluidFrontSharedState;
   /**
+   * Capillary-network state (node wetting + meniscus integration;
+   * core/capillary.ts).  Present ONLY when the network has capillaryChannel
+   * branches.  Read-only inside Newton (the channels' pressure drops are
+   * pure functions of the frozen fill state); advanced only at step
+   * acceptance via transient/statefulComponents.ts.
+   */
+  capillary?: import("../capillary").CapillaryNetwork;
+  /**
    * Controller actuation overrides (core/controllerRuntime.ts), keyed by
    * node id.  Boundary pressure/temperature overrides are applied by
    * applyBoundaryConditions (transient.ts) AFTER the base schedules, so a

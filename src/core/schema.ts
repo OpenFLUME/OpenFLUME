@@ -788,6 +788,14 @@ export interface NetworkConfig {
      * the internal upwind node's a.  See docs/fluid-front-transport.md.
      */
     fluidFrontInlet?: number;
+    /**
+     * Initial wetness for capillary networks (nodes touched by a
+     * capillaryChannel): true = liquid present at t = 0 (a loaded inlet
+     * reservoir), false = gas (a dry junction or an air vent).  Default:
+     * dry when every branch at the node is a capillaryChannel, wet
+     * otherwise.  Ignored for nodes without capillary channels.
+     */
+    initiallyWet?: boolean;
   }>;
   solidNodes?: SolidNode[];
   conductors?: Conductor[];
@@ -981,6 +989,69 @@ export interface NetworkConfig {
           area: NumberOrExpression;
           diameter?: NumberOrExpression;
         }
+      /**
+       * Straight rectangular channel (microfluidic chips): exact laminar
+       * duct resistance for any aspect ratio, smooth blend to Swamee–Jain
+       * on the hydraulic diameter above Re 2300.  See RectChannel.
+       */
+      | {
+          type: "rectChannel";
+          /** Channel width [m] (in-plane). */
+          width: NumberOrExpression;
+          /** Channel height (etch / mould depth) [m]. */
+          height: NumberOrExpression;
+          length: NumberOrExpression;
+          /** Absolute wall roughness [m] (turbulent regime only). Default 0. */
+          roughness?: number;
+          elevationChange?: number;
+        }
+      /**
+       * Rectangular channel that fills with liquid by capillarity or
+       * pressure, with gas displaced ahead of the meniscus through dry
+       * nodes.  Requires an incompressible network fluid (the liquid).
+       * Fill state evolves in transient solves; steady solves use the
+       * initial state.  See CapillaryChannel and core/capillary.ts.
+       */
+      | {
+          type: "capillaryChannel";
+          width: NumberOrExpression;
+          height: NumberOrExpression;
+          length: NumberOrExpression;
+          elevationChange?: number;
+          /** Advancing contact angle [deg], all walls, in [0, 180]. */
+          contactAngle: number;
+          /** Per-wall overrides [deg] (e.g. glass floor, PDMS roof). */
+          contactAngleTop?: number;
+          contactAngleBottom?: number;
+          /** Both sidewalls (the walls `width` apart). */
+          contactAngleSides?: number;
+          /** Liquid–gas surface tension [N/m]. Default 0.072 (water). */
+          surfaceTension?: number;
+          /** Capillary pressure override [Pa] (positive wicks liquid in) for
+           *  non-rectangular wicks such as pillar-array capillary pumps. */
+          capillaryPressure?: number;
+          /** Gas dynamic viscosity [Pa·s]. Default 1.81e-5 (air). */
+          gasViscosity?: number;
+          /** Initial liquid fraction of the channel length, [0, 1].
+           *  Default 0 (dry). */
+          initialFill?: number;
+          /** End the initial liquid column touches. Default "from". */
+          initialFillFrom?: "from" | "to";
+          /**
+           * Capillary stop (burst) valve where this channel opens out into a
+           * wider space at node `end` (default "to"): a meniscus arriving
+           * there is held until the liquid-side pressure exceeds the burst
+           * pressure, or until liquid reaches that node from elsewhere
+           * (trigger valve).  The burst pressure follows from the geometry
+           * (Cho et al. 2007; sidewalls expand by `expansionAngle` deg,
+           * default 90) unless `burstPressure` [Pa] is given.
+           */
+          stopValve?: {
+            end?: "from" | "to";
+            expansionAngle?: number;
+            burstPressure?: number;
+          };
+        }
       /** User-code component referencing componentLibrary[component]. */
       | {
           type: "userComponent";
@@ -1079,6 +1150,64 @@ export interface JunctionSummaryHistory {
   clampedOf: boolean[];
 }
 
+/** Fill state of one capillaryChannel (see CapillaryChannel). */
+export type CapillaryChannelStatus =
+  "dry" | "filling" | "full" | "pinnedInlet" | "pinnedOutlet" | "trapped";
+
+export type CapillaryEventKind =
+  /** Liquid reached a dry node (`branch` delivered it). */
+  | "nodeWetted"
+  /** A meniscus stopped: at a stop valve (node = valve exit) or at a
+   *  hydrophobic / drained entrance (node = entrance). */
+  | "pinned"
+  /** A pinned meniscus started moving again without bursting. */
+  | "released"
+  /** A stop valve burst (node = valve exit, now wetted). */
+  | "burst"
+  /** A stop valve opened because liquid reached its exit from elsewhere. */
+  | "triggered"
+  /** Gas was enclosed in `branch` when `node` wetted; the channel blocks. */
+  | "airTrapped";
+
+export interface CapillaryEvent {
+  time: number;
+  kind: CapillaryEventKind;
+  branch: string;
+  node: string;
+}
+
+/** Capillary state at one instant (steady result / transient t = 0). */
+export interface CapillarySnapshot {
+  branches: Record<
+    string,
+    {
+      /** Liquid volume fraction of the channel, [0, 1]. */
+      fill: number;
+      status: CapillaryChannelStatus;
+      /** End the liquid entered from; null while dry. */
+      fillEnd: "from" | "to" | null;
+    }
+  >;
+  /** Wetness of every node touched by a capillary channel. */
+  nodes: Record<string, { wet: boolean }>;
+  events: CapillaryEvent[];
+}
+
+/** Capillary trajectories, one entry per recorded time (aligned with
+ *  TransientResult.times). */
+export interface CapillaryHistory {
+  branches: Record<
+    string,
+    {
+      fill: number[];
+      status: CapillaryChannelStatus[];
+      fillEnd: Array<"from" | "to" | null>;
+    }
+  >;
+  nodes: Record<string, { wet: boolean[] }>;
+  events: CapillaryEvent[];
+}
+
 export interface SteadyResult {
   converged: boolean;
   iterations: number;
@@ -1117,6 +1246,9 @@ export interface SteadyResult {
     }
   >;
   solidNodes?: Record<string, { temperature: number }>;
+  /** Capillary-channel state (present only when the network has
+   *  capillaryChannel branches).  Steady solves hold the initial state. */
+  capillary?: CapillarySnapshot;
   conductors?: Record<
     string,
     {
@@ -1271,6 +1403,9 @@ export interface TransientResult {
    * FluidFrontNodeHistory and docs/fluid-front-transport.md.
    */
   fluidFront?: Record<string, FluidFrontNodeHistory>;
+  /** Capillary fill / wetting trajectories and the event log — present
+   *  only when the network has capillaryChannel branches. */
+  capillary?: CapillaryHistory;
   aborted?: boolean;
   /**
    * User-logic termination flag (core/logicRuntime.ts): present and true

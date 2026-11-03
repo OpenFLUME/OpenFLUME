@@ -9,6 +9,37 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Microfluidic networks.** New `rectChannel` branch: a rectangular
+  microchannel with the exact laminar duct resistance for any aspect ratio
+  (Fourier series summed to machine precision; reproduces Shah & London f·Re
+  to 0.02 %), blending to Swamee–Jain on the hydraulic diameter above Re 2300.
+  Reported Reynolds numbers use D_h. See user manual §4.3.18.
+- **Capillary-driven flow.** New `capillaryChannel` branch and node
+  `initiallyWet`: partly filled rectangular channels with Young–Laplace
+  capillary pressure (per-wall contact angles), displaced-gas resistance,
+  hydrostatics, stop (burst) valves using the Cho et al. (2007) burst
+  pressure, trigger valves, hydrophobic-entrance pinning and air-trap
+  detection. Meniscus motion is integrated against a Thevenin equivalent of
+  the surrounding network, exact for reservoir-driven (Washburn) and
+  syringe-driven filling. `TransientResult.capillary` /
+  `SteadyResult.capillary` record fill, status, node wetness and an event
+  log; Results plots gain **Liquid fill** and **Wetted (0/1)** channels. New
+  example **Capillary circuit (stop + trigger valve)**. See user manual
+  §4.3.19 and §7.14.
+- Display units µm, µm², mL, µL, nL, mL/min, µL/min and nL/min.
+
+### Changed
+
+- Length, area and volume auto-scaling now include µm / µm² / mL / µL / nL,
+  so a 0.2 mm dimension displays as 200 µm.
+- `BranchComponent` gains optional `hydraulicDiameter`, `defaultInitialMdot`
+  and `exactNearZeroFlow`; components that set `exactNearZeroFlow` skip the
+  residual wrappers' 1e-7 kg/s zero-flow secant, which would otherwise erase
+  any constant pressure offset at microfluidic flow rates. Existing
+  components are unchanged.
+
 ## [0.2.2] - 2026-09-14
 
 ### Added

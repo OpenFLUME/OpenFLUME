@@ -35,7 +35,9 @@ function swameeJain(
 }
 
 /** Darcy friction factor, C0- and C1-continuous across the entire Re range.
- *    Re < RE_LAMINAR:  f = 64/Re (Hagen–Poiseuille, exact — do not alter the 64)
+ *    Re < RE_LAMINAR:  f = Po/Re (Po = 64: Hagen–Poiseuille, exact — do not
+ *                      alter the default; non-circular ducts pass their own
+ *                      Poiseuille number f·Re, e.g. RectChannel)
  *    Re ≥ RE_TURBULENT: Swamee–Jain
  *    between: smoothstep blend of 64/Re and Swamee–Jain, BOTH evaluated at the
  *    actual Re.  The smoothstep weight has zero slope at both endpoints, so the
@@ -48,16 +50,17 @@ export function darcyFrictionFactor(
   Re: number,
   epsOverD: number,
   sj: SwameeJainClosureParams = DEFAULT_CLOSURE_PARAMS.swameeJain,
+  po = 64,
 ): number {
   // Re = NaN arises at mdot = 0 with a zero-viscosity fluid (0/0; see the
   // mu ≡ 0 note on the dual twin below): return the same fully-rough
   // constant the dual path uses — the caller multiplies by zero flow anyway,
   // and a NaN here poisoned the whole momentum row.
   if (!Number.isFinite(Re)) return swameeJain(Infinity, epsOverD, sj);
-  if (Re < RE_LAMINAR) return 64 / Math.max(Re, 1e-6);
+  if (Re < RE_LAMINAR) return po / Math.max(Re, 1e-6);
   const fturb = swameeJain(Re, epsOverD, sj);
   if (Re >= RE_TURBULENT) return fturb;
-  const flam = 64 / Re;
+  const flam = po / Re;
   const s = smoothstep(RE_LAMINAR, RE_TURBULENT, Re);
   return flam * (1 - s) + fturb * s;
 }
@@ -70,6 +73,7 @@ export function darcyFrictionFactorDual(
   Re: Dual,
   epsOverD: number,
   sj: SwameeJainClosureParams = DEFAULT_CLOSURE_PARAMS.swameeJain,
+  po = 64,
 ): Dual {
   // Re = ±∞ arises when the viscosity model returns exactly 0 (NitrousOxide's
   // HEOS backend ships no viscosity model — safeViscosity pins mu ≡ 0): the
@@ -81,7 +85,7 @@ export function darcyFrictionFactorDual(
   if (!Number.isFinite(Re.v))
     return constant(swameeJain(Infinity, epsOverD, sj));
   if (Re.v < RE_LAMINAR) {
-    return div(constant(64), max(Re, constant(1e-6)));
+    return div(constant(po), max(Re, constant(1e-6)));
   }
   const rhs = add(
     constant(epsOverD / sj.roughnessDivisor),
@@ -98,6 +102,6 @@ export function darcyFrictionFactorDual(
     constant(RE_TURBULENT - RE_LAMINAR),
   );
   const s = mul(sqr(t), sub(constant(3), mul(constant(2), t)));
-  const flam = div(constant(64), Re);
+  const flam = div(constant(po), Re);
   return add(mul(flam, sub(constant(1), s)), mul(fturb, s));
 }

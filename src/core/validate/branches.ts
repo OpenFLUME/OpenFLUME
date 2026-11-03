@@ -9,6 +9,7 @@ import type { TopologyModel } from "../topology";
 import { isFluidNode } from "../topology";
 import { resolveFluidSpec, resolvedFluidName } from "../fluidAssignment";
 import { junctionInletBranchNodes } from "./junctions";
+import { capillaryChannelParamErrors } from "./capillary";
 
 export interface BranchValidationResult {
   errors: string[];
@@ -357,6 +358,32 @@ export function validateBranches(
       if (comp.diameter !== undefined && !(comp.diameter > 0)) {
         errors.push(
           `Custom resistance ${branch.id} diameter must be positive if provided`,
+        );
+      }
+    } else if (comp.type === "rectChannel") {
+      for (const f of ["width", "height", "length"] as const) {
+        if (!(Number.isFinite(comp[f]) && comp[f] > 0))
+          errors.push(`Rect channel ${branch.id} ${f} must be positive`);
+      }
+      if (
+        comp.roughness !== undefined &&
+        !(Number.isFinite(comp.roughness) && comp.roughness >= 0)
+      )
+        errors.push(
+          `Rect channel ${branch.id} roughness must be a non-negative finite number`,
+        );
+      if (
+        comp.elevationChange !== undefined &&
+        !Number.isFinite(comp.elevationChange)
+      )
+        errors.push(
+          `Rect channel ${branch.id} elevationChange must be a finite number`,
+        );
+    } else if (comp.type === "capillaryChannel") {
+      errors.push(...capillaryChannelParamErrors(branch.id, comp));
+      if (branchFluidModel !== "incompressible") {
+        errors.push(
+          `Capillary channel ${branch.id} requires an incompressible network fluid (the liquid); got ${branchFluidModel}`,
         );
       }
     } else if (comp.type === "userComponent") {

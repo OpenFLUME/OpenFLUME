@@ -73,6 +73,24 @@ const ROUGHNESS: FieldMeta = {
   quantityKind: "length",
   step: 1e-6,
 };
+const WIDTH: FieldMeta = {
+  key: "width",
+  label: "Width",
+  quantityKind: "length",
+  step: 1e-6,
+};
+const HEIGHT: FieldMeta = {
+  key: "height",
+  label: "Height (depth)",
+  quantityKind: "length",
+  step: 1e-6,
+};
+const MICRO_LENGTH: FieldMeta = {
+  key: "length",
+  label: "Length",
+  quantityKind: "length",
+  step: 1e-4,
+};
 const ELEVATION: FieldMeta = {
   key: "elevationChange",
   label: "Elevation Change",
@@ -191,6 +209,21 @@ const COMPONENT_FIELDS: Record<string, FieldMeta[]> = {
   dpTable: [],
   customResistance: [AREA, DIAMETER],
   userComponent: [AREA],
+  rectChannel: [WIDTH, HEIGHT, MICRO_LENGTH, ROUGHNESS, ELEVATION],
+  capillaryChannel: [
+    WIDTH,
+    HEIGHT,
+    MICRO_LENGTH,
+    ELEVATION,
+    { key: "contactAngle", label: "Contact angle", unitNote: "deg", step: 1 },
+    {
+      key: "surfaceTension",
+      label: "Surface tension",
+      unitNote: "N/m",
+      step: 0.001,
+    },
+    { key: "initialFill", label: "Initial fill", unitNote: "0–1", step: 0.1 },
+  ],
 };
 
 /** Convection's h belongs to its heat-transfer model (ConvectionModelEditor);

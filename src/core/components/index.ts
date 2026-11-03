@@ -39,6 +39,11 @@
  *   flowSource.ts             FlowSource — imposed mass flow (schedule or
  *                            controller override).
  *   dpTable.ts                DpTable — tabulated ΔP(mdot) characteristic.
+ *   rectChannel.ts            RectChannel — rectangular microchannel, exact
+ *                            laminar duct resistance (any aspect ratio).
+ *   capillaryChannel.ts       CapillaryChannel — partly filled rectangular
+ *                            channel (meniscus, capillary pressure, stop
+ *                            valve); state owned by core/capillary.ts.
  *   userDefinedComponent.ts   UserDefinedComponent — sandboxed user-code
  *                            component (usercode/sandbox.ts).
  *
@@ -55,6 +60,18 @@ export {
 } from "./frictionFactor";
 
 export { Pipe } from "./pipe";
+export {
+  RectChannel,
+  rectShapeFactor,
+  rectHydraulicDiameter,
+  rectPoiseuilleNumber,
+  rectLaminarResistance,
+} from "./rectChannel";
+export {
+  CapillaryChannel,
+  rectCapillaryPressure,
+  rectBurstPressure,
+} from "./capillaryChannel";
 export { HeatedPipe } from "./heatedPipe";
 export {
   Orifice,

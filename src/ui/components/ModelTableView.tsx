@@ -409,6 +409,10 @@ function branchSummary(
       return `ṁ ${formatWithUnit(c.massFlow, "massFlow", prefs, 3)}`;
     case "regulator":
       return `P_set ${formatWithUnit(c.setPressure, "pressure", prefs, 3)}`;
+    case "rectChannel":
+      return `${fmtBindable(c.width, "length", prefs)} × ${fmtBindable(c.height, "length", prefs)} · L ${fmtBindable(c.length, "length", prefs)}`;
+    case "capillaryChannel":
+      return `${fmtBindable(c.width, "length", prefs)} × ${fmtBindable(c.height, "length", prefs)} · L ${fmtBindable(c.length, "length", prefs)} · θ ${formatSig(c.contactAngle, 3)}°${c.stopValve ? " · stop valve" : ""}`;
     default:
       return "";
   }
