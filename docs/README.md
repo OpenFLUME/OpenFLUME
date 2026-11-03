@@ -5,6 +5,7 @@ contributors.
 
 - [User's manual](user-manual.md) is the complete reference: network definitions, units and sign conventions, data structure, governing equations and component relations, solution methods, the interface, the fourteen shipped example problems, and the verification record. Its interface screenshots (`figures/user-manual/`) are captured from the built application; regenerate them after a UI change with `npm run build && npx tsx scripts/capture-manual-figures.ts`.
 - [Architecture](architecture.md) describes module boundaries, public/internal APIs, configuration lifecycle, and test tiers.
+- [Python package](python.md) documents the pip-installable `openflume` API (models, solves, results, fluid properties, CLI), how it runs the bundled core, parallel sweeps, the trust model, and the release process.
 - [User extensibility](usercode.md) covers user-defined components, registers, logic, expressions, PID controllers, and the trust model.
 - [Parameter bindings](parameter-bindings.md) explains formula-bound geometry fields, convection heat-transfer models, and solid property models.
 - [Testing tiers](testing-slow.md) details fast, all-files, and opt-in slow scientific validation commands.

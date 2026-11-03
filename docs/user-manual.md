@@ -2037,6 +2037,11 @@ Everything else — validation, all analytic EOS models, both solvers, and the
 
 ## 5.5 Using the Core as a Library
 
+From Python, `pip install openflume` provides the same core with no
+JavaScript toolchain. The equivalent of the steady snippet below is
+`openflume.load("network.json").solve()`. See [Python package](python.md).
+The rest of this section covers TypeScript use.
+
 The supported export surface is [`src/core/index.ts`](../src/core/index.ts). The
 package is not yet published to npm, so import from the source tree as the tools
 under [`scripts/`](../scripts/) do. The snippets below are written that way and

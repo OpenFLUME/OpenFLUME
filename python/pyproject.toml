@@ -1,0 +1,94 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "openflume"
+# Kept equal to ../package.json "version" — tests/test_packaging.py enforces it.
+version = "0.3.0"
+description = "Python API for the OpenFLUME thermal-fluid network solver (steady and transient, real fluids via CoolProp)."
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "OpenFLUME contributors" }]
+keywords = [
+  "fluid network",
+  "thermal-fluid",
+  "solver",
+  "aerospace",
+  "propulsion",
+  "cryogenics",
+  "CoolProp",
+  "GFSSP",
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering :: Physics",
+  "Typing :: Typed",
+]
+dependencies = [
+  # Supplies a Node.js runtime as a regular wheel, so `pip install openflume`
+  # needs nothing else on the machine. OPENFLUME_NODE overrides it.
+  "nodejs-wheel-binaries>=22.13",
+]
+
+[project.optional-dependencies]
+numpy = ["numpy>=1.24"]
+pandas = ["pandas>=2.0"]
+test = ["pytest>=8"]
+
+[project.scripts]
+openflume = "openflume.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/OpenFLUME/OpenFLUME"
+Documentation = "https://github.com/OpenFLUME/OpenFLUME/blob/main/docs/python.md"
+Issues = "https://github.com/OpenFLUME/OpenFLUME/issues"
+Changelog = "https://github.com/OpenFLUME/OpenFLUME/blob/main/CHANGELOG.md"
+
+# The bundled JS core (src/openflume/_js/) is a gitignored build artifact
+# produced by `npm run build:python` at the repository root; `artifacts`
+# re-includes it despite .gitignore, and hatch_build.py refuses to build a
+# package without it.
+[tool.hatch.build.hooks.custom]
+path = "hatch_build.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/openflume"]
+artifacts = ["src/openflume/_js/*"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/openflume",
+  "tests",
+  "hatch_build.py",
+  "README.md",
+  "LICENSE",
+]
+artifacts = ["src/openflume/_js/*", "LICENSE"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+  "RUF001", "RUF002", "RUF003", # ρ, μ, ² etc. in docstrings are intentional
+  "RUF022",                     # __all__ is grouped by topic, not sorted
+]

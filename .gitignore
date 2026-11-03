@@ -94,3 +94,13 @@ validation/data/digitized/chilldown/*/fast_extract/**/cache.npz
 validation/data/digitized/chilldown/*/fast_extract/**/.preprocess_time.json
 validation/data/digitized/chilldown/*/fast_extract/**/diagnostics.png
 validation/data/digitized/chilldown/*/fast_extract/**/overlay.png
+
+# Python package (python/): bundled JS core + license copy are build
+# artifacts of `npm run build:python`; wheels/sdists of `python -m build`.
+python/src/openflume/_js/
+python/LICENSE
+python/dist/
+python/build/
+.venv/
+*.egg-info/
+.pytest_cache/

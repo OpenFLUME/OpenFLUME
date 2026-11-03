@@ -13,3 +13,8 @@ public/*.svg
 src/core/fluids/generated/
 src/core/combustion/generated/
 src/validation/generated/
+# Python package build output (npm run build:python, python -m build).
+python/src/openflume/_js/
+python/dist/
+python/.venv*/
+python/.pytest_cache/
