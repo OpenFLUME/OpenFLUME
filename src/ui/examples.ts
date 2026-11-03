@@ -1,6 +1,7 @@
 import { NetworkConfig } from "./types";
 import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
+import { hydrogelLeaf } from "./hydrogelLeaf";
 import { thrusterCombustor } from "./thrusterCombustor";
 import { thrusterCombustorTransient } from "./thrusterCombustorTransient";
 import { CANVAS_GRID_SIZE } from "./canvasGeometry";
@@ -4810,6 +4811,12 @@ function configureShippedExamples(): void {
     285,
   );
   placeNoteBelow(
+    hydrogelLeaf,
+    "overview",
+    "Reference: Koo & Velev 2017, Biomicrofluidics 11:024104 (a hydrogel 'artificial leaf').\nTwo source channels and three drain channels sit interdigitated in agarose gel. They are not connected: water crosses from source to drain by Darcy flow through the gel slabs between them (k = 5.4e-16 m²), plus leakage at each channel tip.\nPress Run: about 4.9 µL/min enters at 7 kPa. Per unit depth that is 1.6e-7 m²/s, against 1.5e-7 from the paper's COMSOL model; the gel slabs alone give 1.3e-7, and the tips carry 23 % of the flow.\nThe user manual (§7.15) compares 2.5, 2.75 and 2.95 cm channels with the paper: tip leakage grows as the tips approach the opposite header.",
+    320,
+  );
+  placeNoteBelow(
     capillaryCircuit,
     "overview",
     "A water sample wicks from the inlet into two microchannels; no pump pushes it.\nThe short path A ends in a stop valve at the junction and waits there.\nThe longer delay path B arrives later: the liquid meeting A's meniscus opens the valve (a trigger valve).\nThe stream then wicks into the capillary pump while air leaves through the vent.\nPress Run, then plot each channel's Liquid fill in Results: A stops at J, B arrives, and A releases at that instant.",
@@ -4836,6 +4843,7 @@ export const exampleGroups: Record<string, string[]> = {
     "LOX/RP-1 thruster (combustor)",
     "LOX/RP-1 thruster (transient startup)",
     "Capillary circuit (stop + trigger valve)",
+    "Hydrogel leaf (interdigitated microchannels in agarose)",
   ],
   Benchmarks: [
     "Water-water counterflow heat exchanger",
@@ -5206,4 +5214,5 @@ export const examples: Record<string, NetworkConfig> = {
   "Cryogenic line cooldown": sindaFluintCryoLineCooldown,
   "LH2 tank no-vent fill": lh2StorageTankNoVentFill,
   "Capillary circuit (stop + trigger valve)": capillaryCircuit,
+  "Hydrogel leaf (interdigitated microchannels in agarose)": hydrogelLeaf,
 };

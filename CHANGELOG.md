@@ -9,6 +9,15 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- New example **Hydrogel leaf (interdigitated microchannels in agarose)**,
+  after Koo & Velev, _Biomicrofluidics_ 11:024104 (2017): source and drain
+  microchannels coupled only through Darcy flow in the gel. Per unit depth
+  it lands 3–11 % above the paper's COMSOL inflow at 2.5, 2.75 and
+  2.95 cm channel lengths, and the 1-D gel slabs alone fall below it. See
+  user manual §7.15.
+
 ## [0.3.0] - 2026-11-03
 
 ### Added

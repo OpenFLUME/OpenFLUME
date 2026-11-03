@@ -2158,7 +2158,7 @@ are unsaved changes. **New**, **Save**, and **Load** handle `.fn` files;
 hold — including a half-finished model the solver would still reject (no
 boundary node yet, a transient without volumes), whose remaining issues then
 show in the health pill. Only files that are not a network at all, or whose
-element references dangle, are refused. **Examples ▾** lists the fourteen shipped
+element references dangle, are refused. **Examples ▾** lists the fifteen shipped
 models in four groups. **Units ▾** selects the display preset — **SI**, **Metric
 engineering**, or **US customary** — and shows a disabled **Custom** entry when
 preferences match no preset. **Commands** (or `Cmd`/`Ctrl`+`K`) opens the
@@ -3111,7 +3111,58 @@ front pushes air into J, and that gas back-pressure exceeds A's weak capillary
 pull for one step. This is real behaviour of a vented gas network, not an
 artefact.
 
-## 7.15 Additional Configurations
+## 7.15 Hydrogel Leaf (Interdigitated Microchannels in Agarose)
+
+_Applications · steady · incompressible water, microchannels in a porous gel_
+
+**Problem.** Koo & Velev (_Biomicrofluidics_ 11:024104, 2017) embed
+interdigitated microchannels in 2 wt % agarose as a hydrogel "artificial
+leaf". Two source channels hang from an inlet header and three drain channels
+rise from an outlet header 3 cm away. The channels never connect; water crosses
+from source to drain by Darcy flow through the gel. The paper solves Brinkman
+flow and dye transport in 2-D with COMSOL at a 7 kPa inlet pressure.
+
+**Model.** 32 nodes and 55 branches, built by `src/ui/hydrogelLeaf.ts`.
+Channels, headers and tubes are 500 × 500 µm `rectChannel`s. Each channel's
+overlap with its neighbours is split into five segments, and every
+source–drain pair of segments is joined by a gel slab: a `dpTable` with a
+linear law $\Delta P = R\,Q$, $R = \mu g/(k\,\Delta y\,H)$, with the paper's
+$k = 5.4\times10^{-16}$ m², gap $g = 0.3$ cm, segment length $\Delta y$ and gel
+thickness $H$. Five tip branches carry the leakage from each channel end
+across the remaining gap to the opposite header. They use the cylinder–wall
+shape factor $2\pi k/(\mu\,\mathrm{arccosh}(d/r))$ with $r = w/2$, an
+approximation of the 2-D field near the tip. Three choices are not stated in
+the paper:
+
+- the comb geometry (overlap $2L - 3$ cm, tip gap $3 - L$ cm), read from its
+  Scheme 1;
+- a gel thickness equal to the ~500 µm channel height;
+- the header dimensions (negligible: the channels take under 0.1 % of the
+  pressure drop).
+
+**Check.** The shipped 2.75 cm design admits 4.93 µL/min, 23 % of it through
+the tips. The paper's Table I gives the COMSOL inflow per unit depth as
+$F_\text{in}/c_\text{in}$, which is independent of $H$:
+
+| L [cm] | overlap [cm] | tip gap [cm] | COMSOL [m²/s] | gel slabs only | slabs + tips    | Q at H = 500 µm [µL/min] |
+| ------ | ------------ | ------------ | ------------- | -------------- | --------------- | ------------------------ |
+| 2.50   | 2.0          | 0.50         | 1.20e-7       | 1.01e-7 (84 %) | 1.33e-7 (110 %) | 3.98                     |
+| 2.75   | 2.5          | 0.25         | 1.50e-7       | 1.26e-7 (84 %) | 1.64e-7 (110 %) | 4.93                     |
+| 2.95   | 2.9          | 0.05         | 2.08e-7       | 1.46e-7 (70 %) | 2.13e-7 (103 %) | 6.40                     |
+
+The 1-D slabs ignore all 2-D spreading and fall below COMSOL at every length.
+With the tip estimate added, it lies 3–11 % above. The
+tips also reproduce the paper's finding that inflow jumps by 39 % from 2.75 to
+2.95 cm as the channel ends approach the collector: the slabs alone give
+16 %, slabs plus tips 30 %. The tests are in `src/ui/tests/hydrogelLeaf.test.ts`.
+
+**Caveat.** Only the flow is modelled. The paper's subject, dye coverage and
+infusion efficiency, needs solute transport in a liquid and in the gel, which
+OpenFLUME does not have. Its 1.5 cm design has no overlap and cannot be built
+with this layout. The measured ~8 µL/min at 7 kPa is for the branched design,
+whose secondary-channel geometry is not given, so it is not compared.
+
+## 7.16 Additional Configurations
 
 Further networks are exported from the source tree but deliberately kept out of
 the menu, because they exist to be asserted on rather than explored: additional

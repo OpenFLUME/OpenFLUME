@@ -132,6 +132,25 @@ describe("examples library: validation, convergence, and physics", () => {
           const res = solveSteady(config);
           expect(res.converged).toBe(true);
 
+          if (
+            name === "Hydrogel leaf (interdigitated microchannels in agarose)"
+          ) {
+            // Mass conservation: what enters leaves; every gel slab carries
+            // flow from a source channel to a drain channel.
+            const qIn = res.branches["feed"].mdot;
+            expect(qIn).toBeGreaterThan(0);
+            expect(
+              Math.abs(res.branches["drain"].mdot - qIn) / qIn,
+            ).toBeLessThan(1e-9);
+            for (const [id, b] of Object.entries(res.branches))
+              if (id.startsWith("gel_") || id.startsWith("tip_"))
+                expect(b.mdot).toBeGreaterThan(0);
+            // Channels are open conduits next to the gel: < 0.1 % of the drop.
+            expect(res.nodes["s0_4"].pressure - 101325).toBeGreaterThan(
+              0.999 * 7000,
+            );
+          }
+
           if (name === "Three-pipe junction") {
             // Positive flow from high-pressure inlet to lower-pressure outlets
             expect(res.branches["b1"].mdot).toBeGreaterThan(0);

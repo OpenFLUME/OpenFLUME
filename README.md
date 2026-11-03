@@ -32,7 +32,7 @@ It is a lumped-parameter code. With `momentumFlux` and `kineticEnergy` enabled, 
 | **Reacting flows**          | Transient multi-species flow with node-level Arrhenius kinetics and CEA-coupled combustion junctions.                                                                                                                                                                                       |
 | **Microfluidics**           | Rectangular microchannels with the exact laminar duct law, and capillary channels: Washburn filling with displaced-gas resistance, capillary pumps, stop/burst and trigger valves, and air-trap detection, with an event log.                                                               |
 | **Transient momentum**      | Optional fluid inertia `(L/A)·dṁ/dt` on pipe branches and trapped-gas cushions `P·V_gⁿ = const` on internal nodes.                                                                                                                                                                          |
-| **Workflow**                | Visual network editing with subnetworks and notes, selection repeat and pipe splitting for line discretization, parameter sweeps, named variants, convergence diagnostics, provenance-tracked run history, `.fn` text files, and 14 built-in examples.                                      |
+| **Workflow**                | Visual network editing with subnetworks and notes, selection repeat and pipe splitting for line discretization, parameter sweeps, named variants, convergence diagnostics, provenance-tracked run history, `.fn` text files, and 15 built-in examples.                                      |
 | **Extensibility**           | Custom pressure-drop tables, resistance models, embedded user components, stateful lifecycle registers, stop conditions, and transient PID control.                                                                                                                                         |
 
 ## Quick Start
@@ -69,7 +69,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full test tiers and the pull-requ
 
 ## Documentation
 
-The **[user manual](docs/user-manual.md)** provides the complete reference for network definitions, units and sign conventions, data structures and fields, component equations, solution methods, the interface, fourteen worked examples, and verification results.
+The **[user manual](docs/user-manual.md)** provides the complete reference for network definitions, units and sign conventions, data structures and fields, component equations, solution methods, the interface, fifteen worked examples, and verification results.
 
 | Document                                             | Covers                                                                            |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------- |
