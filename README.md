@@ -55,6 +55,23 @@ The [user's manual](docs/user-manual.md) walks through this in detail, and OpenF
 
 > **Note:** the package is not yet published to npm, so library imports resolve from the source tree (`../src/core`) rather than a package specifier.
 
+### From Python
+
+The core is also available as a Python package that bundles its own Node.js runtime, so no JavaScript tooling is needed:
+
+```bash
+pip install openflume
+```
+
+```python
+import openflume as of
+
+result = of.load("feed_system.fn").solve()   # a model saved from the web app
+print(result.converged, result.node("tank")["pressure"])
+```
+
+See [Python package](docs/python.md) for the API, parallel sweeps, and the trust model.
+
 ### Running tests
 
 ```bash
@@ -75,6 +92,7 @@ The **[user manual](docs/user-manual.md)** provides the complete reference for n
 | [User's manual](docs/user-manual.md)                 | Everything. Start here.                                                           |
 | [Architecture](docs/architecture.md)                 | System structure, worker-based solving, testing strategy, and simulation variants |
 | [Combustion](docs/combustion.md)                     | CEA-coupled reacting junctions and species transport                              |
+| [Python package](docs/python.md)                     | `pip install openflume`: Python API, CLI, sweeps, numpy/pandas output             |
 | [User code](docs/usercode.md)                        | Embedded components, registers, logic, controllers                                |
 | [Parameter bindings](docs/parameter-bindings.md)     | Formula-bound fields and convection correlations                                  |
 | [Fluid catalogue](docs/fluid-catalogue.md)           | The 124-fluid HEOS catalogue                                                      |

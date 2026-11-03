@@ -5,6 +5,12 @@
 OpenFLUME is currently a private npm application. `private: true` is intentional; no npm package export or
 `.npmignore` policy is needed until a supported distribution is designed.
 
+The core is distributed to Python users as the `openflume` package
+(`python/`, [python.md](python.md)). That package does not reimplement the solver:
+`python/bridge/server.ts` is a stdio transport boundary around the core barrel,
+like `src/ui/solverWorker.ts`, and it is bundled with `coolprop.wasm` into the
+wheel. It must not contain solver physics either.
+
 The product is a browser editor and solver with an optional local companion
 server. Research validation material informs numerical confidence but is not a
 runtime dependency or a promise that every research configuration is a

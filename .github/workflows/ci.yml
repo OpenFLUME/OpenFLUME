@@ -59,6 +59,11 @@ jobs:
         env:
           RUN_SLOW: ${{ github.event_name == 'pull_request' && '0' || '1' }}
 
+  # The pip-installable `openflume` package: bundle the core, build the
+  # wheel/sdist, and test the installed wheel on Linux/macOS/Windows.
+  python:
+    uses: ./.github/workflows/python-package.yml
+
   e2e-full:
     runs-on: ubuntu-latest
     timeout-minutes: 30

@@ -36,6 +36,15 @@ npx playwright install --with-deps chromium
 
 See [Architecture](docs/architecture.md#test-tiers) for more information.
 
+For changes to the Python package (`python/`), the bridge (`python/bridge/`), or
+the core API it calls, rebuild the bundle and run the Python tests. See
+[Python package](docs/python.md#development) for the one-time setup.
+
+```bash
+npm run build:python
+cd python && pytest && ruff check . && ruff format --check .
+```
+
 ## Change expectations
 
 - **Focused:** Keep changes narrow in scope. Do not alter existing behavior unless it is the explicit goal of the change.
