@@ -49,6 +49,21 @@ export const BINDABLE_COMPONENT_FIELDS: Readonly<
   dpTable: [],
   customResistance: ["area", "diameter"],
   userComponent: ["area"],
+  rectChannel: ["width", "height", "length", "roughness", "elevationChange"],
+  capillaryChannel: [
+    "width",
+    "height",
+    "length",
+    "elevationChange",
+    "contactAngle",
+    "contactAngleTop",
+    "contactAngleBottom",
+    "contactAngleSides",
+    "surfaceTension",
+    "capillaryPressure",
+    "gasViscosity",
+    "initialFill",
+  ],
 };
 
 export const BINDABLE_CONDUCTOR_FIELDS: Readonly<

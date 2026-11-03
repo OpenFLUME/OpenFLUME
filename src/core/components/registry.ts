@@ -36,6 +36,8 @@ import { HeatedPipe } from "./heatedPipe";
 import { DpTable } from "./dpTable";
 import { CustomResistance } from "./customResistance";
 import { UserDefinedComponent } from "./userDefinedComponent";
+import { RectChannel } from "./rectChannel";
+import { CapillaryChannel } from "./capillaryChannel";
 
 /** The `component` field of a branch AFTER formula resolution: every
  *  NumberOrExpression is a plain number. */
@@ -143,6 +145,24 @@ export const COMPONENT_REGISTRY: ComponentRegistry = {
   },
   customResistance: {
     construct: (c) => new CustomResistance(c.k, c.area, c.diameter),
+  },
+  rectChannel: {
+    construct: (c, env) =>
+      new RectChannel(
+        c.width,
+        c.height,
+        c.length,
+        c.roughness ?? 0,
+        c.elevationChange ?? 0,
+        env.closureParams.swameeJain,
+      ),
+  },
+  capillaryChannel: {
+    construct: (c, env) =>
+      new CapillaryChannel({
+        ...c,
+        frictionParams: env.closureParams.swameeJain,
+      }),
   },
   userComponent: {
     construct: (c, env) =>

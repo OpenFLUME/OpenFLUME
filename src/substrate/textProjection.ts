@@ -227,6 +227,8 @@ const COMPONENT_TYPE_NAMES: Record<ComponentTypeName, true> = {
   heatedPipe: true,
   dpTable: true,
   customResistance: true,
+  rectChannel: true,
+  capillaryChannel: true,
   userComponent: true,
 };
 const COMPONENT_TYPES: ReadonlySet<string> = new Set(

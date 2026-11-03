@@ -171,7 +171,8 @@ describe("stateful components are transactional across candidates", () => {
     } as unknown as StepState;
 
     const before = snapshotStatefulComponents(ctx);
-    expect(before[1]).toBeUndefined();
+    expect(before.branches[1]).toBeUndefined();
+    expect(before.capillary).toBeUndefined();
     advanceStatefulComponents(ctx, state, 0.01);
     expect(statefulComponentState(ctx)).toEqual([v.position]);
     expect(v.position).toBeGreaterThan(0);

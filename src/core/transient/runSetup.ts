@@ -83,6 +83,7 @@ export function prepareTransientRun(
   applyBoundaryConditions(ctx, config, state, 0);
   history.recordTtWf(updateConductorLatches(ctx, state));
   history.recordFluidFront(updateFluidFrontStates(ctx, state));
+  history.recordCapillary(ctx.capillary, 0);
 
   // User-logic runtime (registers + LogicRule lifecycle — see
   // core/logicRuntime.ts).  Undefined unless the network configures
@@ -90,8 +91,12 @@ export function prepareTransientRun(
   const logic = createLogicRuntime(config);
 
   const acc = initTransientResults(ctx, config, state);
-  const partial = (stepIndex: number, converged: boolean, aborted?: boolean) =>
-    buildPartialTransientResult(
+  const partial = (
+    stepIndex: number,
+    converged: boolean,
+    aborted?: boolean,
+  ): TransientResult => {
+    const result = buildPartialTransientResult(
       stepIndex,
       acc.times,
       acc.nodeResults,
@@ -104,6 +109,9 @@ export function prepareTransientRun(
       converged,
       aborted,
     );
+    const capillary = history.capillaryResultField(stepIndex);
+    return capillary ? { ...result, capillary } : result;
+  };
 
   return {
     ctx,

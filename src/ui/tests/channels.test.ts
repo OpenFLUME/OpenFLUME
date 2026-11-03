@@ -1043,3 +1043,46 @@ describe("selectionForChannel / primaryChannelForSelection", () => {
     expect(primary.channel.field).toBe("temperature"); // first remaining n2 channel
   });
 });
+
+describe("capillary channels", () => {
+  it("lists and resolves liquid fill and node wetness from the capillary side table", async () => {
+    const { capillaryCircuit } = await import("../examples");
+    const { solveTransient, solveSteady } = await import("../../core");
+    const short = {
+      ...capillaryCircuit,
+      settings: { ...capillaryCircuit.settings, endTime: 0.12 },
+    };
+    const res = solveTransient(short);
+    const keys = listChannels(short, res).map(
+      (d) => `${d.channel.entity}:${d.channel.id}:${d.channel.field}`,
+    );
+    expect(keys).toContain("branch:A:capillaryFill");
+    expect(keys).toContain("node:J:capillaryWet");
+    const fill = resolveChannel(res, {
+      entity: "branch",
+      id: "B2",
+      field: "capillaryFill",
+    });
+    expect(fill?.kind).toBe("series");
+    const wet = resolveChannel(res, {
+      entity: "node",
+      id: "J",
+      field: "capillaryWet",
+    });
+    if (wet?.kind !== "series") throw new Error("expected a series");
+    expect(wet.values[0]).toBe(0);
+    expect(wet.values.at(-1)).toBe(1);
+
+    const steady = solveSteady({
+      ...capillaryCircuit,
+      settings: { ...capillaryCircuit.settings, mode: "steady" },
+    });
+    expect(
+      resolveChannel(steady, {
+        entity: "node",
+        id: "inlet",
+        field: "capillaryWet",
+      }),
+    ).toEqual({ kind: "scalar", value: 1 });
+  });
+});

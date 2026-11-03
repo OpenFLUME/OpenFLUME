@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">20-branch ladder manifold: branch-flow distribution</text>
+<line x1="198.10526315789474" y1="46" x2="198.10526315789474" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="198.10526315789474" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="350.7368421052631" y1="46" x2="350.7368421052631" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="350.7368421052631" y="390" text-anchor="middle" font-size="11">10</text>
+<line x1="503.36842105263156" y1="46" x2="503.36842105263156" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="503.36842105263156" y="390" text-anchor="middle" font-size="11">15</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">20</text>
+<line x1="76" y1="354.6635704266014" x2="656" y2="354.6635704266014" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="358.6635704266014" text-anchor="end" font-size="11">0.0</text>
+<line x1="76" y1="256.3192454276711" x2="656" y2="256.3192454276711" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="260.3192454276711" text-anchor="end" font-size="11">0.1</text>
+<line x1="76" y1="157.97492042874083" x2="656" y2="157.97492042874083" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="161.97492042874083" text-anchor="end" font-size="11">0.2</text>
+<line x1="76" y1="59.63059542981051" x2="656" y2="59.63059542981051" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="63.63059542981051" text-anchor="end" font-size="11">0.3</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">branch index</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">fraction of total flow</text>
+<circle cx="76" cy="63.4642857142868" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="106.52631578947368" cy="235.9134983570969" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="137.05263157894737" cy="306.23764902013295" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="167.57894736842104" cy="334.9155072736066" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="198.10526315789474" cy="346.6100312155053" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="228.6315789473684" cy="351.3785114358616" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="259.1578947368421" cy="353.3218409241823" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="289.6842105263158" cy="354.111283040423" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="320.2105263157895" cy="354.4257580045503" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="350.7368421052631" cy="354.53571428571365" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="381.2631578947368" cy="354.53571428571365" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="411.7894736842105" cy="354.4257580045503" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="442.31578947368416" cy="354.11128304042313" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="472.8421052631579" cy="353.32184092418277" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="503.36842105263156" cy="351.3785114358623" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="533.8947368421052" cy="346.6100312155062" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="564.421052631579" cy="334.9155072736075" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="594.9473684210526" cy="306.2376490201339" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="625.4736842105262" cy="235.91349835709775" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<circle cx="656" cy="63.46428571428817" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<path d="M76.0,63.5 L106.5,235.9 L137.1,306.2 L167.6,334.9 L198.1,346.6 L228.6,351.4 L259.2,353.3 L289.7,354.1 L320.2,354.4 L350.7,354.5 L381.3,354.5 L411.8,354.4 L442.3,354.1 L472.8,353.3 L503.4,351.4 L533.9,346.6 L564.4,334.9 L594.9,306.2 L625.5,235.9 L656.0,63.5" fill="none" stroke="#c0392b" stroke-width="1.8"/>
+<rect x="72.6" y="225.81792424870244" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="103.12631578947368" y="257.31765842694307" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="133.65263157894736" y="280.738044173213" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="164.17894736842103" y="298.09323466169155" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="194.70526315789473" y="310.8757762743879" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="225.2315789473684" y="320.18496758999385" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="255.75789473684208" y="326.82139906165156" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="286.2842105263158" y="331.35580379592363" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="316.8105263157895" y="334.1781405999574" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="347.33684210526314" y="335.5311304388997" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="377.86315789473684" y="335.53113043889965" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="408.38947368421054" y="334.1781405999573" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="438.9157894736842" y="331.3558037959235" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="469.44210526315794" y="326.82139906165145" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="499.9684210526316" y="320.18496758999373" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="530.4947368421052" y="310.8757762743877" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="561.021052631579" y="298.09323466169127" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="591.5473684210526" y="280.73804417321264" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="622.0736842105263" y="257.31765842694256" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<rect x="652.6" y="225.81792424870167" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,229.2 L106.5,260.7 L137.1,284.1 L167.6,301.5 L198.1,314.3 L228.6,323.6 L259.2,330.2 L289.7,334.8 L320.2,337.6 L350.7,338.9 L381.3,338.9 L411.8,337.6 L442.3,334.8 L472.8,330.2 L503.4,323.6 L533.9,314.3 L564.4,301.5 L594.9,284.1 L625.5,260.7 L656.0,229.2" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<polygon points="76,290.77649396387903 72.6,297.576493963879 79.4,297.576493963879" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="106.52631578947368,294.4851110812536 103.12631578947368,301.28511108125355 109.92631578947369,301.28511108125355" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="137.05263157894737,297.7054334482582 133.65263157894736,304.50543344825815 140.45263157894738,304.50543344825815" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="167.57894736842104,300.46515583724903 164.17894736842103,307.265155837249 170.97894736842105,307.265155837249" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="198.10526315789474,302.78801186077146 194.70526315789473,309.5880118607714 201.50526315789475,309.5880118607714" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="228.6315789473684,304.69397808062774 225.2315789473684,311.4939780806277 232.03157894736842,311.4939780806277" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="259.1578947368421,306.19944580630863 255.75789473684208,312.9994458063086 262.55789473684206,312.9994458063086" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="289.6842105263158,307.317362060255 286.2842105263158,314.11736206025495 293.08421052631576,314.11736206025495" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="320.2105263157895,308.05734092225083 316.8105263157895,314.8573409222508 323.61052631578946,314.8573409222508" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="350.7368421052631,308.4257462105092 347.33684210526314,315.22574621050916 354.1368421052631,315.22574621050916" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="381.2631578947368,308.4257462105092 377.86315789473684,315.22574621050916 384.6631578947368,315.22574621050916" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="411.7894736842105,308.05734092225083 408.38947368421054,314.8573409222508 415.1894736842105,314.8573409222508" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="442.31578947368416,307.317362060255 438.9157894736842,314.11736206025495 445.71578947368414,314.11736206025495" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="472.8421052631579,306.19944580630863 469.44210526315794,312.9994458063086 476.2421052631579,312.9994458063086" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="503.36842105263156,304.6939780806277 499.9684210526316,311.49397808062764 506.76842105263154,311.49397808062764" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="533.8947368421052,302.78801186077146 530.4947368421052,309.5880118607714 537.2947368421052,309.5880118607714" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="564.421052631579,300.46515583724903 561.021052631579,307.265155837249 567.8210526315789,307.265155837249" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="594.9473684210526,297.7054334482582 591.5473684210526,304.50543344825815 598.3473684210526,304.50543344825815" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="625.4736842105262,294.4851110812536 622.0736842105263,301.28511108125355 628.8736842105262,301.28511108125355" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,290.776493963879 652.6,297.57649396387893 659.4,297.57649396387893" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<path d="M76.0,294.2 L106.5,297.9 L137.1,301.1 L167.6,303.9 L198.1,306.2 L228.6,308.1 L259.2,309.6 L289.7,310.7 L320.2,311.5 L350.7,311.8 L381.3,311.8 L411.8,311.5 L442.3,310.7 L472.8,309.6 L503.4,308.1 L533.9,306.2 L564.4,303.9 L594.9,301.1 L625.5,297.9 L656.0,294.2" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<rect x="84" y="54" width="242.4" height="118" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<circle cx="103" cy="64" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="120" y="68" font-size="11">OpenFLUME R/Rb = 0.43</text>
+<line x1="92" y1="82" x2="114" y2="82" stroke="#c0392b" stroke-width="1.8"/>
+<text x="120" y="86" font-size="11">exact nodal solve R/Rb = 0.43</text>
+<rect x="99.6" y="96.6" width="6.8" height="6.8" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="120" y="104" font-size="11">OpenFLUME R/Rb = 0.043</text>
+<line x1="92" y1="118" x2="114" y2="118" stroke="#1f5fa8" stroke-width="1.8"/>
+<text x="120" y="122" font-size="11">exact nodal solve R/Rb = 0.043</text>
+<polygon points="103,132.6 99.6,139.4 106.4,139.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<text x="120" y="140" font-size="11">OpenFLUME R/Rb = 0.0043</text>
+<line x1="92" y1="154" x2="114" y2="154" stroke="#1e8449" stroke-width="1.8"/>
+<text x="120" y="158" font-size="11">exact nodal solve R/Rb = 0.0043</text>
+</svg>

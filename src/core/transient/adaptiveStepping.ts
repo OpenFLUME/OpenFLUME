@@ -230,7 +230,7 @@ export function runAdaptiveTimeStepping(
         continue;
       }
       const s1 = c1.s;
-      advanceStatefulComponents(ctx, s1, dt);
+      advanceStatefulComponents(ctx, s1, dt, t + dt);
       const components1 = statefulComponentState(ctx);
       rollbackComponents();
 
@@ -242,7 +242,7 @@ export function runAdaptiveTimeStepping(
         continue;
       }
       const sMid = cMid.s;
-      advanceStatefulComponents(ctx, sMid, dt / 2);
+      advanceStatefulComponents(ctx, sMid, dt / 2, t + dt / 2);
 
       const c2 = candidate(sMid, dt / 2, t + dt);
       if (!c2) {
@@ -250,7 +250,7 @@ export function runAdaptiveTimeStepping(
         continue;
       }
       const s2 = c2.s;
-      advanceStatefulComponents(ctx, s2, dt / 2);
+      advanceStatefulComponents(ctx, s2, dt / 2, t + dt);
       const components2 = statefulComponentState(ctx);
       const res2 = { iterations: c2.iterations, residual: c2.residual };
 
@@ -377,6 +377,7 @@ export function runAdaptiveTimeStepping(
     // were solved from the mid state with dt/2 (the reported branch dP
     // subtracts the fluid-inertia term against exactly that pair).
     recordTransientStep(ctx, config, acc, t, state, acceptedMid, dt / 2);
+    history.recordCapillary(ctx.capillary, t);
 
     // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE)
     // were advanced along the accepted two-half-step trajectory inside the
@@ -451,6 +452,7 @@ export function runAdaptiveTimeStepping(
     junctions: acc.junctionResults,
     ttWf: history.ttWfResultField(),
     fluidFront: history.fluidFrontResultField(),
+    capillary: history.capillaryResultField(),
     stats: stats(),
     ...run.runtimeFields(),
   };

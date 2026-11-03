@@ -9,6 +9,54 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- **Microfluidic networks.** New `rectChannel` branch: a rectangular
+  microchannel with the exact laminar duct resistance for any aspect ratio
+  (Fourier series summed to machine precision; reproduces Shah & London f·Re
+  to 0.02 %), blending to Swamee–Jain on the hydraulic diameter above Re 2300.
+  Reported Reynolds numbers use D_h. See user manual §4.3.18.
+- **Capillary-driven flow.** New `capillaryChannel` branch and node
+  `initiallyWet`: partly filled rectangular channels with Young–Laplace
+  capillary pressure (per-wall contact angles), displaced-gas resistance,
+  hydrostatics, stop (burst) valves using the Cho et al. (2007) burst
+  pressure, trigger valves, hydrophobic-entrance pinning and air-trap
+  detection. Meniscus motion is integrated against a Thevenin equivalent of
+  the surrounding network, exact for reservoir-driven (Washburn) and
+  syringe-driven filling. `TransientResult.capillary` /
+  `SteadyResult.capillary` record fill, status, node wetness and an event
+  log; Results plots gain **Liquid fill** and **Wetted (0/1)** channels. New
+  example **Capillary circuit (stop + trigger valve)**. See user manual
+  §4.3.19 and §7.14.
+- Display units µm, µm², mL, µL, nL, mL/min, µL/min and nL/min.
+- **Microfluidics validation report** (`docs/validation/microfluidics-report.md`,
+  `scripts/microfluidics-validation-report.ts`) and a scientific-tier suite
+  (`src/validation/__tests__/microfluidics.test.ts`) rebuilding six published
+  microfluidic networks from their open-access papers (Vasilakis 2019,
+  Tan & Takeuchi 2007, Guermonprez 2015, Reis 2021, Olanrewaju 2016,
+  Lee 2012).
+
+### Fixed
+
+- **Microfluidic compliance transients no longer freeze.** The Newton
+  stopping test compared an absolute `tolerance` with a residual whose mass
+  rows are in kg/s; at microfluidic flows (~1e-8 kg/s) every mass imbalance
+  already passed, so storage-driven steps (gas cushions) were accepted at
+  their warm start. Below 1e-3 kg/s the mass-flow rows are now weighted by
+  the network's flow scale; at or above it the solver is unchanged bit for
+  bit. A bubble-damped syringe network now matches its exact ODE to 1e-3 at
+  both tol 1e-9 and the UI default 1e-6 (previously 1.2 % and 37 % error).
+
+### Changed
+
+- Length, area and volume auto-scaling now include µm / µm² / mL / µL / nL,
+  so a 0.2 mm dimension displays as 200 µm.
+- `BranchComponent` gains optional `hydraulicDiameter`, `defaultInitialMdot`
+  and `exactNearZeroFlow`; components that set `exactNearZeroFlow` skip the
+  residual wrappers' 1e-7 kg/s zero-flow secant, which would otherwise erase
+  any constant pressure offset at microfluidic flow rates. Existing
+  components are unchanged.
+
 ## [0.2.2] - 2026-09-14
 
 ### Added

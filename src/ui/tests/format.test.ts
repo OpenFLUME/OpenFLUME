@@ -83,7 +83,10 @@ describe("resolveScale", () => {
     const s = resolveScale([0.02, 0.05], "length");
     expect(s.unitId).toBe("cm"); // 2–5 cm: largest prefix keeping max in [1, 1000)
     expect(s.convert(0.02)).toBeCloseTo(2, 9);
-    expect(resolveScale([0.0002], "length").unitId).toBe("mm");
+    expect(resolveScale([0.002], "length").unitId).toBe("mm");
+    // Microchannel scale: 200 µm, not 0.2 mm.
+    expect(resolveScale([0.0002], "length").unitId).toBe("µm");
+    expect(resolveScale([50e-6, 100e-6], "length").unitId).toBe("µm");
     expect(resolveScale([3, 5], "length").unitId).toBe("m");
   });
 

@@ -38,6 +38,7 @@ import {
   Regulator,
   Orifice,
   CavitatingVenturi,
+  CapillaryChannel,
 } from "../components";
 import { orificeKappa } from "../components/orifice";
 import type { FluidModel } from "../fluids";
@@ -260,9 +261,8 @@ export function branchDerivedProperties(
   const charLen =
     b.component instanceof Pipe
       ? b.component.diameter
-      : b.component.area
-        ? Math.sqrt((4 * A) / Math.PI)
-        : 1;
+      : (b.component.hydraulicDiameter ??
+        (b.component.area ? Math.sqrt((4 * A) / Math.PI) : 1));
   const Re = (rho * Math.abs(v) * charLen) / mu;
 
   // An Orifice branch whose fluid supplies an isentropic exponent (γ or
@@ -285,7 +285,11 @@ export function branchDerivedProperties(
     b.component instanceof FlowSource ||
     orificeUsesY ||
     b.component instanceof CavitatingVenturi ||
-    b.component instanceof Regulator
+    b.component instanceof Regulator ||
+    // State-dependent closure (fill / pinned status): at convergence the
+    // momentum row IS P_from − P_to, and that stays exact even after the
+    // capillary state has advanced past the solved step.
+    b.component instanceof CapillaryChannel
   ) {
     const pFrom = state.nodeP.get(b.from)!;
     const pTo = state.nodeP.get(b.to)!;

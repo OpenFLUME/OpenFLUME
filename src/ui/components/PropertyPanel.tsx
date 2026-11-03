@@ -22,7 +22,15 @@ import { convertToSI, convertFromSI } from "../units";
 import { formatWithUnit, formatSig, siNumber } from "../format";
 import { resolveSnapshot } from "../colorData";
 import { isTransientResult } from "../runHistory";
-import { CustomResistance } from "../../core";
+import {
+  CustomResistance,
+  initialNodeWetness,
+  rectBurstPressure,
+  rectCapillaryPressure,
+  rectHydraulicDiameter,
+  rectLaminarResistance,
+  rectPoiseuilleNumber,
+} from "../../core";
 import { BRANCH_COMPONENTS, migrateComponent } from "../componentRegistry";
 import {
   compatibleConductorKinds,
@@ -1652,6 +1660,7 @@ export default function PropertyPanel() {
             )}
           </>
         )}
+        <NodeWetnessField node={node} config={config} />
         {speciesNames.length > 0 && (
           <MassFractionsField
             names={speciesNames}
@@ -2042,7 +2051,7 @@ export default function PropertyPanel() {
       />
       <div className="field__hint">
         {branch.initialMdot === undefined
-          ? "Auto (0.1 kg/s). A warm start only — it never constrains the converged solution."
+          ? `Auto (${comp.type === "rectChannel" || comp.type === "capillaryChannel" ? "1e-9" : "0.1"} kg/s). A warm start only — it never constrains the converged solution.`
           : "Warm start only. Near-choked networks may need a guess close to the expected flow to keep Newton on the subsonic branch."}
       </div>
       <FieldSelect
@@ -2689,6 +2698,20 @@ export default function PropertyPanel() {
           )}
         </>
       )}
+      {comp.type === "rectChannel" && (
+        <RectChannelFields
+          branchId={branch.id}
+          comp={comp}
+          updateComp={updateComp}
+        />
+      )}
+      {comp.type === "capillaryChannel" && (
+        <CapillaryChannelFields
+          branchId={branch.id}
+          comp={comp}
+          updateComp={updateComp}
+        />
+      )}
       {comp.type === "userComponent" && (
         <>
           <FieldSelect
@@ -2796,5 +2819,374 @@ export default function PropertyPanel() {
       )}
       <SelectionResults selection={selection} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Microfluidic channels                                               */
+/* ------------------------------------------------------------------ */
+
+type RectChannelComp = Extract<
+  BranchConfig["component"],
+  { type: "rectChannel" }
+>;
+type CapillaryChannelComp = Extract<
+  BranchConfig["component"],
+  { type: "capillaryChannel" }
+>;
+
+const literal = (v: NumberOrExpression | undefined): number | undefined =>
+  typeof v === "number" && Number.isFinite(v) ? v : undefined;
+
+function ChannelGeometryFields({
+  branchId,
+  comp,
+  updateComp,
+}: {
+  branchId: string;
+  comp: RectChannelComp | CapillaryChannelComp;
+  updateComp: (patch: Record<string, unknown>) => void;
+}) {
+  return (
+    <>
+      <FormulaUnitInput
+        label="Width"
+        quantityKind="length"
+        value={comp.width}
+        step={1e-6}
+        path={`branch '${branchId}'.width`}
+        dataTestId="channel-width"
+        onChange={(v) => updateComp({ width: v })}
+      />
+      <FormulaUnitInput
+        label="Height (depth)"
+        quantityKind="length"
+        value={comp.height}
+        step={1e-6}
+        path={`branch '${branchId}'.height`}
+        dataTestId="channel-height"
+        onChange={(v) => updateComp({ height: v })}
+      />
+      <FormulaUnitInput
+        label="Length"
+        quantityKind="length"
+        value={comp.length}
+        step={1e-4}
+        path={`branch '${branchId}'.length`}
+        dataTestId="channel-length"
+        onChange={(v) => updateComp({ length: v })}
+      />
+      <FormulaUnitInput
+        label="Elevation Change"
+        quantityKind="length"
+        value={comp.elevationChange}
+        step={1e-3}
+        requirePositive={false}
+        path={`branch '${branchId}'.elevationChange`}
+        onChange={(v) => updateComp({ elevationChange: v })}
+      />
+    </>
+  );
+}
+
+function RectChannelFields({
+  branchId,
+  comp,
+  updateComp,
+}: {
+  branchId: string;
+  comp: RectChannelComp;
+  updateComp: (patch: Record<string, unknown>) => void;
+}) {
+  const unitPrefs = useStore((s) => s.unitPreferences);
+  const w = literal(comp.width);
+  const h = literal(comp.height);
+  const L = literal(comp.length);
+  const ok = w !== undefined && h !== undefined && w > 0 && h > 0;
+  return (
+    <>
+      <ChannelGeometryFields
+        branchId={branchId}
+        comp={comp}
+        updateComp={updateComp}
+      />
+      <FormulaUnitInput
+        label="Roughness"
+        quantityKind="length"
+        value={comp.roughness}
+        step={1e-7}
+        requirePositive={false}
+        path={`branch '${branchId}'.roughness`}
+        onChange={(v) => updateComp({ roughness: v })}
+      />
+      {ok && (
+        <div className="field__hint" data-testid="rect-channel-derived">
+          D_h ={" "}
+          {formatWithUnit(rectHydraulicDiameter(w, h), "length", unitPrefs)} ·
+          f·Re = {formatSig(rectPoiseuilleNumber(w, h), 4)}
+          {L !== undefined && L > 0 && (
+            <>
+              {" "}
+              · laminar R (water, 1 mPa·s) ={" "}
+              {formatSig(rectLaminarResistance(w, h, L, 1e-3), 3)} Pa·s/m³
+            </>
+          )}
+          . Exact rectangular-duct law below Re 2300.
+        </div>
+      )}
+    </>
+  );
+}
+
+function CapillaryChannelFields({
+  branchId,
+  comp,
+  updateComp,
+}: {
+  branchId: string;
+  comp: CapillaryChannelComp;
+  updateComp: (patch: Record<string, unknown>) => void;
+}) {
+  const unitPrefs = useStore((s) => s.unitPreferences);
+  const w = literal(comp.width);
+  const h = literal(comp.height);
+  const gamma = literal(comp.surfaceTension) ?? 0.072;
+  const th = literal(comp.contactAngle);
+  const tTop = literal(comp.contactAngleTop) ?? th;
+  const tBottom = literal(comp.contactAngleBottom) ?? th;
+  const tSides = literal(comp.contactAngleSides) ?? th;
+  const geometric =
+    w !== undefined &&
+    h !== undefined &&
+    tTop !== undefined &&
+    tBottom !== undefined &&
+    tSides !== undefined
+      ? rectCapillaryPressure(w, h, gamma, tTop, tBottom, tSides)
+      : undefined;
+  const pCap = literal(comp.capillaryPressure) ?? geometric;
+  const sv = comp.stopValve;
+  const burst =
+    sv === undefined
+      ? undefined
+      : (sv.burstPressure ??
+        (geometric !== undefined
+          ? rectBurstPressure(
+              w!,
+              h!,
+              gamma,
+              tTop!,
+              tBottom!,
+              tSides!,
+              sv.expansionAngle ?? 90,
+            )
+          : undefined));
+  const updateStop = (patch: Record<string, unknown>) => {
+    const next: Record<string, unknown> = { ...(sv ?? {}), ...patch };
+    for (const k of Object.keys(next))
+      if (next[k] === undefined) delete next[k];
+    updateComp({ stopValve: next });
+  };
+  return (
+    <>
+      <ChannelGeometryFields
+        branchId={branchId}
+        comp={comp}
+        updateComp={updateComp}
+      />
+      <FormulaUnitInput
+        label="Contact angle"
+        unitNote="deg"
+        value={comp.contactAngle}
+        step={1}
+        requirePositive={false}
+        path={`branch '${branchId}'.contactAngle`}
+        dataTestId="capillary-contact-angle"
+        onChange={(v) => updateComp({ contactAngle: v })}
+      />
+      <FormulaUnitInput
+        label="Contact angle, top wall"
+        unitNote="deg (blank = all walls)"
+        value={comp.contactAngleTop}
+        step={1}
+        requirePositive={false}
+        path={`branch '${branchId}'.contactAngleTop`}
+        onChange={(v) => updateComp({ contactAngleTop: v })}
+      />
+      <FormulaUnitInput
+        label="Contact angle, bottom wall"
+        unitNote="deg (blank = all walls)"
+        value={comp.contactAngleBottom}
+        step={1}
+        requirePositive={false}
+        path={`branch '${branchId}'.contactAngleBottom`}
+        onChange={(v) => updateComp({ contactAngleBottom: v })}
+      />
+      <FormulaUnitInput
+        label="Contact angle, sidewalls"
+        unitNote="deg (blank = all walls)"
+        value={comp.contactAngleSides}
+        step={1}
+        requirePositive={false}
+        path={`branch '${branchId}'.contactAngleSides`}
+        onChange={(v) => updateComp({ contactAngleSides: v })}
+      />
+      <FormulaUnitInput
+        label="Surface tension"
+        unitNote="N/m (blank = 0.072)"
+        value={comp.surfaceTension}
+        step={0.001}
+        path={`branch '${branchId}'.surfaceTension`}
+        onChange={(v) => updateComp({ surfaceTension: v })}
+      />
+      <FormulaUnitInput
+        label="Capillary pressure override"
+        quantityKind="pressure"
+        value={comp.capillaryPressure}
+        step={10}
+        requirePositive={false}
+        path={`branch '${branchId}'.capillaryPressure`}
+        onChange={(v) => updateComp({ capillaryPressure: v })}
+      />
+      <FormulaUnitInput
+        label="Gas viscosity"
+        quantityKind="viscosity"
+        value={comp.gasViscosity}
+        step={1e-6}
+        path={`branch '${branchId}'.gasViscosity`}
+        onChange={(v) => updateComp({ gasViscosity: v })}
+      />
+      <FormulaUnitInput
+        label="Initial fill"
+        unitNote="0–1"
+        value={comp.initialFill}
+        step={0.1}
+        requirePositive={false}
+        path={`branch '${branchId}'.initialFill`}
+        dataTestId="capillary-initial-fill"
+        onChange={(v) => updateComp({ initialFill: v })}
+      />
+      <FieldSelect
+        label="Initial liquid enters from"
+        value={comp.initialFillFrom ?? "from"}
+        onChange={(v) =>
+          updateComp({ initialFillFrom: v === "from" ? undefined : v })
+        }
+      >
+        <option value="from">from node</option>
+        <option value="to">to node</option>
+      </FieldSelect>
+      <FieldSelect
+        label="Stop (burst) valve"
+        dataTestId="capillary-stop-valve"
+        value={sv === undefined ? "none" : (sv.end ?? "to")}
+        onChange={(v) =>
+          v === "none"
+            ? updateComp({ stopValve: undefined })
+            : updateStop({ end: v === "to" ? undefined : v })
+        }
+      >
+        <option value="none">none</option>
+        <option value="to">at the to node</option>
+        <option value="from">at the from node</option>
+      </FieldSelect>
+      {sv !== undefined && (
+        <>
+          <UnitInput
+            label="Sidewall expansion angle"
+            quantityKind="angle"
+            value={convertToSI("angle", sv.expansionAngle ?? 90, "deg")}
+            step={1}
+            onChange={(v) =>
+              updateStop({
+                expansionAngle:
+                  v === undefined
+                    ? undefined
+                    : convertFromSI("angle", v, "deg"),
+              })
+            }
+          />
+          <UnitInput
+            label="Burst pressure override"
+            quantityKind="pressure"
+            value={sv.burstPressure}
+            step={10}
+            onChange={(v) => updateStop({ burstPressure: v })}
+          />
+        </>
+      )}
+      {pCap !== undefined && (
+        <div className="field__hint" data-testid="capillary-derived">
+          Capillary pressure {formatWithUnit(pCap, "pressure", unitPrefs)}
+          {pCap > 0
+            ? " (wicks liquid in)"
+            : " (resists entry — needs that much applied pressure)"}
+          {burst !== undefined && (
+            <>
+              {"; "}
+              {burst > 0
+                ? `stop valve bursts at ${formatWithUnit(burst, "pressure", unitPrefs)}`
+                : "stop valve cannot hold a meniscus with these walls"}
+            </>
+          )}
+          . Fill state evolves in transient runs; the to-side must be able to
+          vent gas through dry nodes.
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Initial wetness of a node touched by a capillary channel. */
+function NodeWetnessField({
+  node,
+  config,
+}: {
+  node: NodeConfig;
+  config: NetworkConfig;
+}) {
+  const updateNode = useStore((s) => s.updateNode);
+  const touchesCapillary = config.branches.some(
+    (b) =>
+      b.component.type === "capillaryChannel" &&
+      (b.from === node.id || b.to === node.id),
+  );
+  if (!touchesCapillary) return null;
+  // What "auto" resolves to for THIS node, ignoring its own override.
+  const auto =
+    initialNodeWetness({
+      nodes: config.nodes.map((n) =>
+        n.id === node.id
+          ? { id: n.id }
+          : { id: n.id, initiallyWet: n.initiallyWet },
+      ),
+      branches: config.branches,
+    }).get(node.id) ?? true;
+  const value =
+    node.initiallyWet === undefined
+      ? "auto"
+      : node.initiallyWet
+        ? "wet"
+        : "dry";
+  return (
+    <>
+      <FieldSelect
+        label="Initially"
+        dataTestId="node-initially-wet"
+        value={value}
+        onChange={(v) =>
+          updateNode(node.id, {
+            initiallyWet: v === "auto" ? undefined : v === "wet",
+          })
+        }
+      >
+        <option value="auto">auto ({auto ? "wet" : "dry"})</option>
+        <option value="wet">wet (liquid present)</option>
+        <option value="dry">dry (gas / vent)</option>
+      </FieldSelect>
+      <div className="field__hint">
+        Capillary networks: mark loaded inlet reservoirs wet; junctions and
+        vents start dry. Liquid wets dry nodes as fronts arrive.
+      </div>
+    </>
   );
 }

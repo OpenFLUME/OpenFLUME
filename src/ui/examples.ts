@@ -2670,6 +2670,145 @@ export const sanityOrificeHandCalc: NetworkConfig = {
 };
 
 /**
+ * Capillaric circuit (capillaryChannel, docs/user-manual.md §4.3.19): a
+ * sample wicks from a loaded inlet into two paths.  The short path A ends in
+ * a stop valve (sidewalls open out at the trigger junction J; its 80° walls
+ * give a positive Cho et al. burst pressure) and pins there.  The longer,
+ * more wettable delay path B reaches J later; liquid arriving at J merges
+ * with A's pinned meniscus and opens the valve (a trigger valve).  The
+ * stream then wicks through the outlet channel into a capillary pump — a
+ * wide pillar-array region represented by its 4 kPa capillary pressure —
+ * with the displaced air leaving through the vent.
+ */
+const capillaryCircuitChannel = (
+  width: number,
+  length: number,
+  extra: Partial<
+    Extract<
+      NetworkConfig["branches"][number]["component"],
+      { type: "capillaryChannel" }
+    >
+  > = {},
+): NetworkConfig["branches"][number]["component"] => ({
+  type: "capillaryChannel",
+  width,
+  height: 50e-6,
+  length,
+  contactAngle: 30,
+  ...extra,
+});
+
+export const capillaryCircuit: NetworkConfig = {
+  meta: { name: "Capillary circuit (stop + trigger valve)", version: 2 },
+  settings: {
+    mode: "transient",
+    tolerance: 1e-9,
+    maxIterations: 200,
+    dt: 5e-4,
+    endTime: 0.6,
+  },
+  fluid: { model: "incompressible", preset: "water" },
+  nodes: [
+    {
+      id: "inlet",
+      type: "boundary",
+      x: 0,
+      y: 100,
+      position: metres(0),
+      pressure: 101325,
+      temperature: 295,
+      initiallyWet: true,
+      label: "Sample inlet",
+    },
+    {
+      id: "bend",
+      type: "internal",
+      x: 200,
+      y: 240,
+      position: metres(1.5e-3, -4.75e-3),
+      pressure: 101325,
+      temperature: 295,
+      volume: 1e-12,
+      label: "Delay bend",
+    },
+    {
+      id: "J",
+      type: "internal",
+      x: 400,
+      y: 100,
+      position: metres(3e-3),
+      pressure: 101325,
+      temperature: 295,
+      volume: 1e-12,
+      label: "Trigger junction",
+    },
+    {
+      id: "pumpIn",
+      type: "internal",
+      x: 600,
+      y: 100,
+      position: metres(8e-3),
+      pressure: 101325,
+      temperature: 295,
+      volume: 1e-12,
+      label: "Pump inlet",
+    },
+    {
+      id: "vent",
+      type: "boundary",
+      x: 800,
+      y: 100,
+      position: metres(28e-3),
+      pressure: 101325,
+      temperature: 295,
+      label: "Vent",
+    },
+  ],
+  branches: [
+    {
+      id: "A",
+      from: "inlet",
+      to: "J",
+      label: "Stop-valve channel",
+      component: capillaryCircuitChannel(100e-6, 3e-3, {
+        contactAngle: 80,
+        stopValve: { end: "to" },
+      }),
+    },
+    {
+      id: "B1",
+      from: "inlet",
+      to: "bend",
+      label: "Delay channel 1",
+      component: capillaryCircuitChannel(100e-6, 5e-3),
+    },
+    {
+      id: "B2",
+      from: "bend",
+      to: "J",
+      label: "Delay channel 2",
+      component: capillaryCircuitChannel(100e-6, 5e-3),
+    },
+    {
+      id: "out",
+      from: "J",
+      to: "pumpIn",
+      label: "Outlet channel",
+      component: capillaryCircuitChannel(100e-6, 5e-3),
+    },
+    {
+      id: "pump",
+      from: "pumpIn",
+      to: "vent",
+      label: "Capillary pump",
+      component: capillaryCircuitChannel(1000e-6, 20e-3, {
+        capillaryPressure: 4000,
+      }),
+    },
+  ],
+};
+
+/**
  * Hand-calc: two equal water streams, 1.000 kg/s at 300 K and 1.000 kg/s at 400 K, mix adiabatically.
  * With equal cp: T_mix = (1·300 + 1·400) / (1+1) = 350.00 K exactly.
  */
@@ -4671,6 +4810,12 @@ function configureShippedExamples(): void {
     285,
   );
   placeNoteBelow(
+    capillaryCircuit,
+    "overview",
+    "A water sample wicks from the inlet into two microchannels; no pump pushes it.\nThe short path A ends in a stop valve at the junction and waits there.\nThe longer delay path B arrives later: the liquid meeting A's meniscus opens the valve (a trigger valve).\nThe stream then wicks into the capillary pump while air leaves through the vent.\nPress Run, then plot each channel's Liquid fill in Results: A stops at J, B arrives, and A releases at that instant.",
+    300,
+  );
+  placeNoteBelow(
     extensionAdvancedExample,
     "overview",
     "A cold nitrogen tank receives 400 W of heat.\nWhen pressure gets too high, the vent opens. When it gets low enough, the vent closes.\nThe open/close band is 5 psi wide around ~3.2 bar.\nLogic rules set ventOpen. A controller drives the valve fully open (1) or closed (0).\nRegisters count vent events and track peak pressure.",
@@ -4690,6 +4835,7 @@ export const exampleGroups: Record<string, string[]> = {
     "Spacecraft radiator panel (ammonia loop heat pipe)",
     "LOX/RP-1 thruster (combustor)",
     "LOX/RP-1 thruster (transient startup)",
+    "Capillary circuit (stop + trigger valve)",
   ],
   Benchmarks: [
     "Water-water counterflow heat exchanger",
@@ -5059,4 +5205,5 @@ export const examples: Record<string, NetworkConfig> = {
   "Extension: Cryo tank vent control (transient)": extensionAdvancedExample,
   "Cryogenic line cooldown": sindaFluintCryoLineCooldown,
   "LH2 tank no-vent fill": lh2StorageTankNoVentFill,
+  "Capillary circuit (stop + trigger valve)": capillaryCircuit,
 };

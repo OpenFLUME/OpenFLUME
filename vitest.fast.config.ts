@@ -29,6 +29,7 @@ const scientificAndSlowFiles = [
   "src/ui/tests/nureth.test.ts",
   "src/ui/tests/examples.test.ts",
   "src/ui/tests/sanity-examples.test.ts",
+  "src/validation/__tests__/microfluidics.test.ts",
 ];
 
 export default defineConfig({

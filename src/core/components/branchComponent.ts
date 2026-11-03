@@ -26,6 +26,23 @@ export interface BranchComponent {
     pTo?: number,
   ): Dual;
   area?: number;
+  /** Hydraulic diameter 4A/P [m] for non-circular sections — the Reynolds
+   *  length scale in reported results.  Undefined = the circle-equivalent
+   *  diameter of `area`. */
+  hydraulicDiameter?: number;
+  /** Initial ṁ guess [kg/s] used when the branch sets no `initialMdot`.
+   *  Undefined = the network-wide default (0.1 kg/s), which is many orders
+   *  of magnitude too large for a microchannel. */
+  defaultInitialMdot?: number;
+  /**
+   * True when pressureDrop is smooth with a finite slope at ṁ = 0 and may
+   * carry a non-zero intercept (laminar duct laws, a capillary pressure).
+   * The residual wrappers (solver/pressureDrop.ts) then evaluate it
+   * exactly at every flow instead of substituting the zero-flow secant
+   * below ZERO_FLOW_THRESHOLD — a fixed 1e-7 kg/s that sits ABOVE most
+   * microfluidic flows and would erase any intercept.
+   */
+  exactNearZeroFlow?: boolean;
   /** Outlet flow area for tapered components (quasi-1-D area change along
    *  the branch, e.g. Pipe with diameterOut).  Undefined = constant area.
    *  Read by the momentum-flux and kinetic-energy terms so acceleration

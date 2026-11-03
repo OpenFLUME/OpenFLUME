@@ -108,7 +108,7 @@ export function runFixedTimeStepping(
       // Branch-owned stateful dynamics (e.g. DynamicCheckValve poppet ODE):
       // advance from the ACCEPTED step state — effects take hold on the
       // NEXT step's Newton solve, same lagged-coupling discipline as PIDs.
-      advanceStatefulComponents(ctx, state, dt);
+      advanceStatefulComponents(ctx, state, dt, t);
 
       // Controller lifecycle: execute PIDs against the ACCEPTED step state
       // with the accepted dt — outputs take effect on the NEXT step.
@@ -132,6 +132,9 @@ export function runFixedTimeStepping(
         residual: res.residual,
       });
     }
+    // Capillary state after this step (advanced above only when the step
+    // converged), one record per step so it stays aligned with `times`.
+    history.recordCapillary(ctx.capillary, t);
     if (logic?.userTerminated) {
       logic.fire("solveEnd", buildLogicScope(ctx, state), {
         t,
@@ -182,6 +185,7 @@ export function runFixedTimeStepping(
     junctions: acc.junctionResults,
     ttWf: history.ttWfResultField(),
     fluidFront: history.fluidFrontResultField(),
+    capillary: history.capillaryResultField(),
     stepResiduals,
     stepResidualsScaled,
     ...run.runtimeFields(),

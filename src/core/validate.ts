@@ -33,6 +33,7 @@ import { validateNodes } from "./validate/nodes";
 import { validateSolidNodes } from "./validate/solidNodes";
 import { validateSpecies } from "./validate/species";
 import { validateTransientSettings } from "./validate/transientSettings";
+import { validateCapillaryNetwork } from "./validate/capillary";
 import { validateBranches } from "./validate/branches";
 import { validateConductors } from "./validate/conductors";
 import { validateRegistersAndLogic } from "./validate/logic";
@@ -117,6 +118,7 @@ function validateResolvedNetwork(config: ResolvedNetworkConfig): string[] {
     topology,
   );
   errors.push(...branchErrors);
+  errors.push(...validateCapillaryNetwork(config));
 
   errors.push(...validateConductors(config, topology));
 
