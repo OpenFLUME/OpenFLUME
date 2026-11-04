@@ -1,6 +1,6 @@
 ---
 title: Introducing OpenFLUME
-description: An open-source, browser-based thermo-fluid network solver in the GFSSP and SINDA/FLUINT family. What v0.3.1 does, how it is verified, and its limits.
+description: An open-source thermo-fluid network solver that runs in your browser, why I wanted one for over a decade, and how to check whether it's right.
 date: 2026-11-10
 author: John Rising
 ---
@@ -9,99 +9,76 @@ author: John Rising
 
 _John Rising · 2026-11-10_
 
-OpenFLUME (Open FLUid Model Environment) is a finite-volume thermo-fluid network solver that runs entirely in your browser. You draw nodes and branches (pipes, orifices, valves, pumps, heated walls, capillary channels) and it solves the coupled mass, momentum, and energy equations, steady or transient. If you have used NASA's GFSSP or C&R's SINDA/FLUINT, the model will feel familiar: those codes inspired it, and much of the verification record is built on their published cases.
+Over ten years ago at Virgin Galactic, I needed to model a fluid network, and I ended up writing my own basic solver to do it.
 
-It is MIT-licensed, at version 0.3.1, and alpha software.
+That's not unusual. It's what most people in this field end up doing. The established tools for this kind of problem are NASA's GFSSP and C&R's SINDA/FLUINT, and both are good codes with a lot of heritage. But you have to request or license them and install them, and neither lets you read the implementation behind a result. So organization after organization, and project after project, writes its own application-specific network code, validates it a little, and maintains it forever.
 
-**[Open the app](https://openflume.github.io/OpenFLUME/)**: no install, no account.
+I've wanted an open one ever since. Today it exists.
 
-## What it is
+**[OpenFLUME](https://openflume.github.io/OpenFLUME/)** (Open FLUid Model Environment) is a finite-volume thermo-fluid network solver that runs entirely in your browser. It's MIT-licensed, it's at version 0.3.1, and it's alpha software.
 
-OpenFLUME is a lumped-parameter network code. Nodes carry pressure, enthalpy, and, in transients, stored mass and energy. Each branch carries a mass flow and supplies one momentum relation. Steady problems are solved by Newton–Raphson; transients use backward Euler with fixed or adaptive steps. Solids attach through conduction, convection, and radiation conductors, so you can model conjugate heat transfer such as a line chilling down, a heated pipe radiating to space, or a regeneratively cooled chamber wall.
+## The solver I kept not finishing
 
-The main capabilities, all documented in the [user manual](../user-manual.md):
+I knew, more-or-less, how I wanted to build and test it. Nodes that store mass and energy, branches that carry flow, solid walls that conduct and radiate, real-fluid properties, steady and transient solves. And a verification record that a stranger could rerun and believe.
 
-- **19 branch component types**, from `pipe` and `orifice` through `cavitatingVenturi`, `dynamicCheckValve`, `regulator`, `rectChannel`, and `capillaryChannel`.
-- **Four fluid models:** incompressible, ideal gas, thermally expandable liquid, and real fluids through CoolProp compiled to WebAssembly, with a generated 124-fluid HEOS catalogue.
-- **Opt-in quasi-1-D compressible flow** (`momentumFlux` plus `kineticEnergy`), giving Fanno and Rayleigh choking and converging–diverging nozzles.
-- **Transient two-phase flow** for real fluids with a homogeneous-equilibrium model (HEM), and Miropolskii film boiling for conjugate heat transfer.
-- **Reacting flows:** node-level Arrhenius kinetics and CEA-coupled combustion junctions for LOX/RP-1 and LOX/CH₄.
-- **Workflow tools:** subnetworks, Repeat and Split for discretizing lines, parameter sweeps, named variants, provenance-tracked run history, and a plain-text `.fn` file format that diffs cleanly.
+I would chip away at a rough draft every few years, but the amount of effort was simply too much for one person. The solver is maybe half the work. The other half is the evidence that it's right, and that half never got done.
 
-## Running in the browser
+This year, with a lot of AI help, it finally did. I'll write separately about what that was like, because it deserves more than a paragraph.
 
-I wanted a tool an engineer could open on a locked-down corporate laptop without an IT ticket, a license request, or a cloud-service review. The solver runs in a Web Worker in your browser tab, and CoolProp ships with the app instead of being fetched at run time. The app is static files; your network is never uploaded.
+## No install, and your model never leaves your machine
 
-Running locally keeps model data on your machine; it doesn't by itself settle export-control questions, which remain yours to judge. The [contributing guide](../../CONTRIBUTING.md) covers the other direction: contributions must not include export-controlled material.
+I wanted something an engineer could open on a locked-down corporate laptop without an IT ticket, a license request, or a cloud-service review.
 
-The **Share** button copies a link with the whole model compressed into the URL fragment (`#model=…`). Browsers never send the fragment to a server, so the link carries the model itself rather than pointing to an upload. Opening a shared link goes through the same validation and embedded-code trust prompt as opening a file.
+So the whole thing is static files. The solver runs in a Web Worker in your browser tab, and real-fluid properties come from CoolProp compiled to WebAssembly and shipped with the app. Your network is never uploaded anywhere. (Running locally keeps model data on your machine. It doesn't by itself settle export-control questions, which remain yours to judge.)
 
-## What is in v0.3.1
+Sharing works the same way. The **Share** button copies a link with the whole model compressed into the URL fragment, which browsers never send to a server. The link _is_ the model. Paste it into a forum answer, a bug report, or a course page, and whoever clicks it is running your network a few seconds later.
 
-Recent releases, from the [changelog](../../CHANGELOG.md):
+## What it does
 
-- **0.3.1:** a `pip install openflume` Python package. It runs the unmodified TypeScript core in a bundled Node.js runtime, so results match the library exactly. See [Python package](../python.md).
-- **0.3.0:** microfluidic networks. `rectChannel` uses the exact laminar duct law for any aspect ratio. `capillaryChannel` handles Washburn filling with displaced-gas resistance, capillary pumps, stop (burst) and trigger valves, and air-trap detection. A new microfluidics validation report rebuilds six published networks from their papers.
-- **0.2.2:** transient reacting junctions (with a LOX/RP-1 transient startup example), and Repeat and Split, which turn discretizing a line into one operation.
+If you've used GFSSP or SINDA/FLUINT, it'll feel familiar. You draw nodes and branches and it solves the coupled mass, momentum, and energy equations, with Newton–Raphson for steady problems and backward Euler for transients. The [user manual](../user-manual.md) has everything, but the short version is this.
 
-There are 14 built-in examples, each with a direct link. A few:
+- 19 branch types, from pipes and orifices to cavitating venturis, regulators, dynamic check valves, and capillary channels
+- Real fluids from a 124-fluid CoolProp catalog, plus ideal gas and incompressible models
+- Conjugate heat transfer through conduction, convection, and radiation
+- Transient two-phase flow (homogeneous equilibrium) with film boiling for chilldown
+- Opt-in compressible duct flow, with Fanno and Rayleigh choking and nozzles
+- CEA-coupled combustion junctions
+- Custom components, schedules, logic rules, and PID controllers, so you can model a system the way it's actually operated
+- `pip install openflume` to drive the same solver from Python
 
-- [Sanity: orifice hand-calc](https://openflume.github.io/OpenFLUME/#example=sanity-orifice-hand-calc): converges to a closed-form answer, 0.8485 kg/s, that you can check by hand.
-- [Tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown): an ideal-gas tank venting through an orifice, with time-history plots.
-- [Cryogenic line cooldown](https://openflume.github.io/OpenFLUME/#example=cryogenic-line-cooldown): saturated liquid hydrogen chilling a 61 m copper line, with temperature-dependent copper properties and film boiling.
-- [LOX/RP-1 thruster (combustor)](https://openflume.github.io/OpenFLUME/#example=lox-rp-1-thruster-combustor): a CEA reacting junction, choked nozzle, and regenerative jacket.
-- [Capillary circuit (stop + trigger valve)](https://openflume.github.io/OpenFLUME/#example=capillary-circuit-stop-plus-trigger-valve): a pumpless microfluidic circuit with an event log.
+The fastest way to get a feel for it is to open an example. [Tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown) is a gas tank venting through an orifice. [Cryogenic line cooldown](https://openflume.github.io/OpenFLUME/#example=cryogenic-line-cooldown) chills a 61 m copper line with liquid hydrogen. [LOX/RP-1 thruster (combustor)](https://openflume.github.io/OpenFLUME/#example=lox-rp-1-thruster-combustor) couples a feed system, a combustion chamber, and a regeneratively cooled nozzle. All 14 are in the [examples gallery](../examples.md).
 
-## How the verification is organized
+## Don't trust it. Check it.
 
-Every verification case belongs to one of three classes, kept separate ([user manual §8.1](../user-manual.md#_8-1-approach)):
+A solver nobody can check is just a plot generator. So the part of OpenFLUME I care most about is the verification record.
 
-1. **Analytic verification:** comparison against a closed-form or independently integrated solution. A discrepancy is a code defect.
-2. **Code-to-code benchmarking:** agreement with published GFSSP or SINDA/FLUINT results. This supports the implementation but inherits the other code's assumptions.
-3. **Validation against experiment:** comparison against digitized published test data. A disagreement could come from the model, the correlation, the discretization, or the experiment.
+Every case is labeled as one of three kinds of evidence ([§8.1](../user-manual.md#_8-1-approach)). Analytic verification compares against a closed form, and a disagreement means OpenFLUME is wrong. Code-to-code benchmarking compares against published GFSSP or SINDA/FLUINT results, which helps but inherits their assumptions. Validation against experiment compares against measured data, which is the one that tells you about real hardware.
 
-Seven validation reports cover incompressible hydraulics, compressible flow, thermal networks, fluid transients, tank transients, combustion, and microfluidics. A script under `scripts/` regenerates each from live solves of the current solver. Some results:
+The validation reports are written by scripts that run the current solver, so nobody can type a better number into them. A few results.
 
-- The [compressible-flow report](../validation/compressible-report.md) recreates the NASA GFSSP TFAWS-2007 verification paper case for case. On default solver settings, all five cases land within the paper's own ~5 % agreement band.
-- The [microfluidics report](../validation/microfluidics-report.md) reproduces a serial diluter's COMSOL inlet pressure (85.1 Pa against 85.2 Pa) and matches Shah & London's rectangular-duct constant to 0.002 %.
-- The experimental chilldown corpus comes from NBS Report 9264. Four saturated runs are calibration-grade; seven subcooled runs are diagnostic only and are not quoted as agreement ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
+- The [compressible-flow report](../validation/compressible-report.md) recreates NASA's GFSSP TFAWS-2007 verification study case for case, and all five cases land within that paper's own agreement band.
+- The [microfluidics report](../validation/microfluidics-report.md) rebuilds six published microfluidic networks from their papers.
+- Cryogenic chilldown is compared against the measured traces in NBS Report 9264 ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
-Correlations without validation are marked as such in a status table ([§8.5](../user-manual.md#_8-5-correlation-status)). CI runs the full scientific suite on every push to `main` and weekly.
+That last one is also the weakest part of the record. Most of the evidence is analytic. The experimental side is narrow, and chilldown agreement is an engineering band, not a precision prediction.
 
-I wrote OpenFLUME alone with heavy AI assistance, as the README's "How This Was Built" section states, so I'd ask you to judge it by this record and the reports behind it.
+## What it can't do
 
-## Limitations
+Read these before you use a result in a decision. The full list is [§1.7](../user-manual.md#_1-7-scope-boundaries).
 
-Read these before using a result to support a decision. The authoritative list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries).
+- No shock capture, so no over-expanded nozzles and no thrust
+- No acoustic waves, so no water hammer
+- Cavitation only in the cavitating-venturi closure
+- Turbomachinery is a pump curve
+- Two-phase flow is homogeneous equilibrium only
+- User components run trusted JavaScript, not sandboxed code
 
-- **No shock capture.** With no Rankine–Hugoniot jump, there are no over-expanded nozzles, no shock position, and no thrust.
-- **No acoustic wave propagation.** Lumped fluid inertia captures bulk surge, but there is no method-of-characteristics water hammer.
-- **Cavitation is modeled only at the cavitating-venturi closure.** There is no general inception check on pumps, valves, or low-pressure nodes.
-- **Turbomachinery is a pump curve.** There are no compressor or turbine maps and no shaft-work term.
-- **No general junction mixing.** Outside a declared CEA reacting junction, unlike fluids may not meet at a node.
-- **Two-phase is HEM only.** It under-predicts pressure drop at high void fraction; Lockhart–Martinelli multipliers are not yet implemented.
-- **User code is trusted, not sandboxed.** Embedded components run through `new Function`, so treat model files that contain code like source code.
-- **Steady closed ideal-gas loops need a pressure anchor.** Add a small leak to a boundary, or run in transient mode.
+## Try it, and tell me where it's wrong
 
-## How to try it
+Open [Sanity: orifice hand-calc](https://openflume.github.io/OpenFLUME/#example=sanity-orifice-hand-calc) and click **Run**. The orifice should match the hand calculation of 0.8485 kg/s to within 0.5 %. Then open [Tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown), run it, and plot the tank pressure. That's the whole onboarding. The [getting-started guide](../guides/getting-started.md) goes further.
 
-1. Open the [app](https://openflume.github.io/OpenFLUME/).
-2. Open **Examples ▾** in the toolbar and choose **Sanity: orifice hand-calc**, or use [this direct link](https://openflume.github.io/OpenFLUME/#example=sanity-orifice-hand-calc).
-3. Click **Run**. The status pill should read **Converged**. Select the orifice branch; its solved mass flow should match the hand calculation of 0.8485 kg/s to within 0.5 %.
-4. Then open [Tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown), click **Run**, open the **Results** tab, and plot **Node pressure**.
+The most useful thing you can send me is a well-documented disagreement. A case where OpenFLUME disagrees with a reference you trust, with the reference, the tolerance you expected, and the units. [Open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose). The next most useful is a published validation case that exercises something the current reports don't ([CONTRIBUTING.md](../../CONTRIBUTING.md)).
 
-From Python:
+I wrote my first version of this ten years ago because nothing open existed. I'd like the next engineer in that position to just click a link.
 
-```bash
-pip install openflume
-```
-
-To run from source, clone the [repository](https://github.com/OpenFLUME/OpenFLUME) and run `npm install && npm run dev` (requires Node.js 22).
-
-## How to help
-
-The most useful contribution is a **well-documented disagreement**: a case where OpenFLUME disagrees with a reference you trust, with the reference, the tolerance you expected, and the units. Please [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose).
-
-Next most useful is a **validation case** from a lawfully published source, either a benchmark problem or digitized test data with clear provenance, that exercises a part of the solver the current reports don't cover. Read [CONTRIBUTING.md](../../CONTRIBUTING.md) first: numerical claims must state their reference, tolerance, and units, and tolerances may not be loosened without a physical or numerical justification.
-
-If OpenFLUME contributes to your work, the citation is in the README and on Zenodo: [10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608).
+If OpenFLUME helps your work, the citation is on Zenodo at [10.5281/zenodo.22051608](https://doi.org/10.5281/zenodo.22051608).
