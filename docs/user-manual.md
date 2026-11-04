@@ -57,11 +57,12 @@ Four equation-of-state classes are supported: constant-density incompressible
 liquid, ideal gas with user-settable gas constants, thermal-expansion liquids (for
 buoyancy-driven circulation), and real fluid through a CoolProp WebAssembly
 sidecar.
-Seventeen branch component
+Nineteen branch component
 types model momentum sources and sinks: pipe, orifice, cavitating venturi,
 generic resistance, valve, check valve, dynamic check valve, relief valve, pump,
 bend, area change, flow source, pressure regulator, heated pipe, tabulated
-pressure drop, Reynolds-dependent custom resistance, and user-authored components.
+pressure drop, Reynolds-dependent custom resistance, rectangular channel,
+capillary channel, and user-authored components.
 Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a temperature-dependent material catalogue and five
@@ -72,7 +73,7 @@ transient ideal-gas chemistry.
 
 The steady-state solver uses a coupled Newton–Raphson method to simultaneously resolve mass and momentum residuals. In challenging convergence scenarios, it leverages an analytic Jacobian (computed via forward-mode automatic differentiation), trust-region dogleg globalization, and pseudo-transient continuation. Transient simulations use a fully implicit backward-Euler scheme, supporting both fixed and variable time steps. Advanced optional capabilities include lumped fluid inertia, trapped-gas cushions, multi-species advection with stiff Arrhenius kinetics, declarative logic registers, transient PID control, and built-in parameter sweeps.
 
-Thirteen example problems ship with the program, spanning hand-checkable sanity
+Fourteen example problems ship with the program, spanning hand-checkable sanity
 cases, engineering applications, and published benchmarks.
 
 ---
@@ -2768,7 +2769,7 @@ problem rather than a model defect.
 
 # 7. Example Problems
 
-Thirteen models ship with the program, reachable from **Examples ▾**. They are
+Fourteen models ship with the program, reachable from **Examples ▾**. They are
 grouped by intent: _Verify-by-inspection_ cases whose answers can be checked by
 hand, _Applications_ showing engineering use, _Benchmarks_ reproducing published
 results, and _Extensibility_ cases exercising logic, registers, and controllers.

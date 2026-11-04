@@ -5178,7 +5178,7 @@ export const nitrousOxideCavitatingVenturiSteady: NetworkConfig = {
 };
 
 /**
- * The shipped example library — these 13 entries populate the UI
+ * The shipped example library — these 14 entries populate the UI
  * **Examples ▾** dropdown (see `exampleGroups`) and are the configs
  * covered by the examples-library round-trip/physics tests.
  *
