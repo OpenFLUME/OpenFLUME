@@ -7,15 +7,15 @@ description: Choked adiabatic blowdown of an air tank through an orifice — clo
 
 A rigid tank of air vents to atmosphere through a small orifice. Students
 derive the closed-form pressure and temperature history for choked adiabatic
-blowdown, compare it with the shipped **Tank blowdown** example, measure how
-the error depends on the time step, and then make the tank isothermal to see
-how much of the answer depends on the energy equation.
+blowdown, compare it with the shipped **Tank blowdown** example, measure the
+error against time step, and then make the tank isothermal to see how much
+the answer depends on the energy equation.
 
-The lab builds on case 1 of the
-[tank transient validation report](../validation/tank-transient-report.md),
-which uses the same orifice and tank volume at a higher starting pressure.
-The [tank blowdown tutorial](../guides/tank-blowdown.md) is a gentler
-walk-through of the same example.
+Case 1 of the
+[tank transient validation report](../validation/tank-transient-report.md)
+uses the same orifice and tank volume at a higher starting pressure. The
+[tank blowdown tutorial](../guides/tank-blowdown.md) is a gentler walk-through
+of the same example.
 
 ## Learning objectives
 
@@ -55,11 +55,10 @@ About 45 minutes of pre-lab work and 1.5 hours in the lab.
 
 The fluid is the ideal-gas `air` preset: `R = 287 J/(kg·K)`, `γ = 1.4`,
 `cp = 1005 J/(kg·K)` (`src/core/fluids/index.ts`). The solver uses
-`cv = cp − R = 718 J/(kg·K)` in the energy equation, so `cp/cv = 1.3997`
-rather than exactly 1.4. The resulting difference is about 0.01 %, which
-matters only in the time-step study.
+`cv = cp − R = 718 J/(kg·K)` in the energy equation, so `cp/cv = 1.3997`.
+The resulting difference of about 0.01 % shows up only in the time-step study.
 
-**Balances.** The tank stores mass and internal energy, and the outflow carries
+**Balances.** The tank stores mass and internal energy; the outflow carries
 enthalpy (user manual §4.1.3; report "Tank ODEs"):
 
 ```
@@ -72,8 +71,8 @@ Eliminating time gives `T/T₀ = (m/m₀)^(γ−1)` and `P/P₀ = (m/m₀)^γ` f
 adiabatic blowdown, whatever the orifice law.
 
 **Choked orifice.** The gas `orifice` chokes when `P_b/P` falls below the
-critical ratio `r* = (2/(γ+1))^(γ/(γ−1)) = 0.5283` (manual §4.3.2). Below that
-ratio the mass flow no longer depends on the back pressure:
+critical ratio `r* = (2/(γ+1))^(γ/(γ−1)) = 0.5283` (manual §4.3.2), and the
+mass flow then no longer depends on the back pressure:
 
 ```
 ṁ = Cd A P sqrt(γ/(R T)) (2/(γ+1))^((γ+1)/(2(γ−1)))
@@ -94,7 +93,7 @@ The solution holds only while the orifice stays choked.
 balance becomes linear in `P`, and `P/P₀ = exp(−t/τ)` with the same `τ`.
 
 **Time integration.** OpenFLUME integrates transients with backward (implicit)
-Euler (manual §4.6.2). Its error is first order: halving `dt` should halve the
+Euler (manual §4.6.2), which is first order: halving `dt` should halve the
 deviation from the exact solution.
 
 ## Pre-lab hand calculation
@@ -150,9 +149,9 @@ Set **Units ▾** to **SI**.
 
 ### Part C: Isothermal tank
 
-The user manual (§3.6) describes how to make a gas tank close to isothermal:
-tie it to a fixed-temperature reservoir with a convection conductor whose
-`hA` is much larger than 10⁴ W/K.
+To make a gas tank nearly isothermal, tie it to a fixed-temperature reservoir
+with a convection conductor whose `hA` is much larger than 10⁴ W/K (user
+manual §3.6).
 
 1. On the **Model** tab, place an **Ambient node** from the left rail
    (_Thermal nodes_). Set its **Temperature** to 300 K.

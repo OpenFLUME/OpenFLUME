@@ -5,12 +5,11 @@ description: Darcy–Weisbach, branching and parallel pipes, a Hardy-Cross loop 
 
 # Lab 1: Pipe networks
 
-Students solve four steady incompressible pipe problems by hand: a branching
-junction, a set of parallel pipes, a multi-loop network, and a pumped
-distribution system. They then run each problem in OpenFLUME and explain any
-difference between the two results. The problems are the shipped
-**Three-pipe junction** and **Water distribution network** examples, plus two
-cases from the
+Students solve four steady incompressible pipe problems by hand (a branching
+junction, parallel pipes, a multi-loop network, and a pumped distribution
+system), then run each in OpenFLUME and explain any difference. Two are the
+shipped **Three-pipe junction** and **Water distribution network** examples;
+the other two come from the
 [incompressible hydraulics validation report](../validation/incompressible-hydraulics-report.md).
 
 ## Learning objectives
@@ -32,8 +31,8 @@ By the end of the lab, students should be able to:
 - Fluid mechanics through internal flow: Darcy–Weisbach, the Moody chart,
   and continuity.
 - A spreadsheet or a short script for the iterative parts (Parts A and C).
-- No earlier OpenFLUME experience. The [Getting started](../guides/getting-started.md)
-  page is useful but not required.
+- No OpenFLUME experience. The [Getting started](../guides/getting-started.md)
+  page helps but is optional.
 
 ## Time
 
@@ -54,20 +53,20 @@ V  = ṁ / (ρ A),   A = π D² / 4,   Re = ρ V D / μ
 ```
 
 `Δz` is the pipe's **Elevation Change**, positive when the `to` end is higher
-(manual §1.4). There are no entrance or fitting losses unless you add them as
-separate components.
+(manual §1.4). Entrance and fitting losses must be added as separate
+components.
 
 **Friction factor.** The code (`src/core/components/frictionFactor.ts`) uses
-`f = 64/Re` below `Re = 2300`, the Swamee–Jain explicit approximation of
-Colebrook at and above `Re = 4000`,
+`f = 64/Re` below `Re = 2300`, the Swamee–Jain approximation of Colebrook at
+and above `Re = 4000`,
 
 ```
 f = 0.25 / [ log10( ε/(3.7 D) + 5.74 / Re^0.9 ) ]²
 ```
 
 and a smooth blend between the two. All flows in this lab are well above
-`Re = 4000`, so Swamee–Jain is the only law you need. A pipe can also be set
-to a **Constant f**, which then applies at every Reynolds number.
+`Re = 4000`, so only Swamee–Jain applies. A pipe set to **Constant f** uses
+that value at every Reynolds number.
 
 **Valves and resistances.** A `valve` with area `A`, discharge coefficient
 `Cd`, and position `p` obeys `ΔP = ṁ|ṁ| / (2ρ (Cd A p)²)` (manual §4.3.6). A
@@ -79,10 +78,9 @@ volumetric flow `Q = ṁ/ρ` against rise (manual §4.3.10). The operating point
 where the pump rise equals the system's demand.
 
 **Networks.** Every internal node conserves mass, and every branch relates its
-two end pressures to its flow. Going around any closed loop, the signed
-pressure drops sum to zero. A path between two fixed-pressure boundaries
-behaves like a loop whose drops sum to the boundary pressure difference
-(a _pseudo-loop_).
+end pressures to its flow. Around any closed loop the signed pressure drops
+sum to zero. A path between two fixed-pressure boundaries is a _pseudo-loop_
+whose drops sum to the boundary pressure difference.
 
 **Hardy-Cross.** Start from any set of flows that satisfies continuity. For each
 loop, compute a flow correction and add it, with sign, to every branch in the
@@ -94,13 +92,13 @@ loop:
 
 `s_j = +1` when branch `j` is drawn in the loop's direction of travel and `−1`
 otherwise, and `H` is the imposed pressure difference (zero for a closed loop,
-`P_HP − P_LP` for a pseudo-loop). Because each correction is added around a
-closed path, continuity is never violated. Here `Q` is mass flow in kg/s and
-`R` is in Pa/(kg/s)².
+`P_HP − P_LP` for a pseudo-loop). Each correction is added around a closed
+path, so continuity always holds. Here `Q` is mass flow in kg/s and `R` is in
+Pa/(kg/s)².
 
-OpenFLUME does not use Hardy-Cross. It solves the nodal mass balances and branch
-momentum equations together with Newton–Raphson (manual §4.6.1). Both methods
-have the same converged solution, which is why the comparison is meaningful.
+OpenFLUME solves the nodal mass balances and branch momentum equations
+together with Newton–Raphson (manual §4.6.1). It converges to the same
+solution as Hardy-Cross, so the two can be compared directly.
 
 ## Pre-lab hand calculation
 
@@ -163,8 +161,8 @@ _Figure 1. Multi-loop network (validation report, case 4)._
 
 1. Compute `R = K / (2ρA²)` for each branch.
 2. Count the unknowns. There are 12 branch flows and 6 internal nodes, so
-   you need 12 − 6 = 6 loop equations: 5 closed loops (12 branches − 8 nodes
-   - 1. and 1 pseudo-loop from HP to LP. Use these:
+   you need 12 − 6 = 6 loop equations: 5 closed loops
+   (12 branches − 8 nodes + 1) and 1 pseudo-loop from HP to LP. Use these:
 
    | Loop | Path                             | Branches with sign   |
    | ---- | -------------------------------- | -------------------- |
@@ -349,8 +347,8 @@ branch "b12": "N4" -> "N6" resistance data: {"k":2,"area":0.001}
 ## Extensions
 
 - **Friction-factor sensitivity.** In Part A, set every pipe to **Constant f**
-  = 0.02 and rerun. How much does the junction pressure move? This shows how
-  much the Swamee–Jain correction matters for this problem.
+  = 0.02 and rerun. How much does the junction pressure move? The shift is the
+  effect of the Swamee–Jain correction.
 - **Elevation.** In Part D, raise **Leg1 pipe**'s **Elevation Change** from 3 m
   to 6 m and predict the change in Leg1 flow before running. The user manual
   (§7.4) states that raising a leg must reduce its flow. Check this.

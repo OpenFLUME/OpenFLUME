@@ -7,19 +7,17 @@ description: How GFSSP and SINDA/FLUINT concepts map onto OpenFLUME, what is the
 
 OpenFLUME solves the same class of problem as NASA's GFSSP and C&R
 Technologies' SINDA/FLUINT: networks of control volumes joined by flow
-elements, thermally coupled to lumped solid structure. If you have built
-models in either code, most of what you know carries over. This page maps the
-concepts, then lists the differences and gaps you should know about before
-you rely on a result.
+elements, thermally coupled to lumped solid structure. Most of what you know
+from either code carries over; the differences and gaps are listed below.
 
-Some facts on this page are about the other codes rather than OpenFLUME. They
-are limited to their general, widely documented vocabulary. The OpenFLUME side
-of every mapping is grounded in the [user's manual](../user-manual.md).
+Descriptions of the other codes use only their general, widely documented
+vocabulary. The OpenFLUME side of each mapping follows the
+[user's manual](../user-manual.md).
 
 ::: warning No input-deck import
-OpenFLUME cannot read GFSSP or SINDA/FLUINT input files. To bring a model
-across, you rebuild it, either in the editor or programmatically (see
-[Rebuilding a model](#rebuilding-a-model) below).
+OpenFLUME cannot read GFSSP or SINDA/FLUINT input files. Rebuild the model in
+the editor or programmatically (see [Rebuilding a model](#rebuilding-a-model)
+below).
 :::
 
 ## Concept mapping: GFSSP
@@ -65,103 +63,99 @@ across, you rebuild it, either in the editor or programmatically (see
 ## What is the same
 
 - **Staggered node/branch formulation.** Mass and energy are conserved at
-  nodes, and momentum is solved on branches (manual §1.2). Junctions with any
+  nodes and momentum is solved on branches (manual §1.2), so junctions with any
   number of branches need no special handling.
-- **You choose the spatial resolution.** One branch has one flow rate. To
-  resolve a gradient along a line, you discretize it yourself. **Repeat…**
-  and **Split…** (§3.13) build such chains.
-- **Implicit solution.** Steady state uses coupled Newton–Raphson, with
+- **You choose the spatial resolution.** One branch has one flow rate; to
+  resolve a gradient along a line, discretize it yourself. **Repeat…** and
+  **Split…** (§3.13) build such chains.
+- **Implicit solution.** Steady state uses coupled Newton–Raphson with
   pseudo-transient continuation and trust-region globalization for hard cases.
   Transients use fully implicit backward Euler with fixed or adaptive steps
   (§4.6).
-- **Some GFSSP conventions are followed on purpose.** The mass flux passed to
-  convection correlations uses the GFSSP convention (§4.4). The default
-  momentum-flux faces are "GFSSP-style" limited-upwind (§4.1.2). Miropolskii
-  film boiling is the correlation "as used by GFSSP for chilldown" (§8.5).
+- **Some GFSSP conventions are followed deliberately.** The mass flux passed
+  to convection correlations uses the GFSSP convention (§4.4), the default
+  momentum-flux faces are "GFSSP-style" limited-upwind (§4.1.2), and
+  Miropolskii film boiling is the correlation "as used by GFSSP for chilldown"
+  (§8.5).
 
 ## What is different
 
-- **It runs in a browser, locally.** The solver runs in a Web Worker. Nothing
+- **It runs locally in a browser.** The solver runs in a Web Worker, nothing
   is uploaded, and there is no license server. The same core runs in Node.js
   and from Python (`pip install openflume`; [python.md](../python.md)).
 - **SI only in storage.** Models, `.fn` files, and the scripting API are SI
   with no unit metadata. The **Units ▾** presets (SI, Metric engineering, US
-  customary) change only what the property fields display and accept (§1.3).
-  Values typed into the sweep workspace and Model Text are always SI.
+  customary) affect only what property fields display and accept (§1.3); the
+  sweep workspace and Model Text always take SI.
 - **Text model files.** `.fn` is a line-oriented, lossless text projection of
-  the model (Appendix C), so models can be diffed and kept in version
-  control. **Share** puts the whole model in a link
+  the model (Appendix C) that can be diffed and kept in version control.
+  **Share** puts the whole model in a link
   ([Sharing models](sharing.md)).
-- **Real fluids from CoolProp.** There are 124 HEOS fluids
-  ([fluid-catalogue.md](../fluid-catalogue.md)), alongside incompressible,
+- **Real fluids from CoolProp.** 124 HEOS fluids
+  ([fluid-catalogue.md](../fluid-catalogue.md)) sit alongside incompressible,
   ideal-gas, and thermal-expansion liquid models. Different equation-of-state
-  classes can coexist in one network when they are coupled only through a
-  wall.
-- **Provenance.** Every run hashes the model that produced it. Results become
-  **stale** as soon as the model changes (§8.7).
+  classes can coexist in one network when coupled only through a wall.
+- **Provenance.** Every run hashes the model that produced it, and results
+  become **stale** as soon as the model changes (§8.7).
 - **Exploration tools.** Single-parameter sweeps (§6.9), named simulation
-  variants stored in the model file (§6.12), and run overlays on one plot
-  (§6.8).
-- **Open source (MIT).** You can read and change the closures. Correlation
+  variants in the model file (§6.12), and run overlays (§6.8).
+- **Open source (MIT).** You can read and change the closures; correlation
   constants are exposed in **Setup → Physics → Closure calibration**.
 
 ## What is missing
 
 These are listed in manual §1.7 or follow from the validation rules. Check
-them against your model before you start rebuilding.
+them against your model before rebuilding.
 
 - **No shock capture.** Quasi-1-D compressible duct flow (Fanno and Rayleigh
-  choking, seeded converging–diverging nozzles) is available as an opt-in, but
-  there is no Rankine–Hugoniot jump and no way to compute thrust.
-- **No acoustic wave propagation.** Lumped inertia captures bulk surge.
-  Water-hammer wave timing and reflections cannot be modeled.
-- **Two-phase flow is HEM only.** There is no slip, no flow-regime map, and no
-  Lockhart–Martinelli multiplier. Pressure drop at high void fraction is
+  choking, seeded converging–diverging nozzles) is available as an opt-in, with
+  no Rankine–Hugoniot jump and no way to compute thrust.
+- **No acoustic wave propagation.** Lumped inertia captures bulk surge, but
+  water-hammer wave timing and reflections cannot be modeled.
+- **Two-phase flow is HEM only.** No slip, flow-regime map, or
+  Lockhart–Martinelli multiplier; pressure drop at high void fraction is
   under-predicted.
 - **Cavitation is checked only at `cavitatingVenturi`.**
-- **Turbomachinery is a pump curve.** There are no compressor or turbine maps
-  and no shaft-work term in the energy equation.
+- **Turbomachinery is a pump curve.** No compressor or turbine maps and no
+  shaft-work term in the energy equation.
 - **No general mixing of unlike fluids** outside a declared CEA reacting
-  junction. Species transport exists, but only for transient ideal-gas
-  networks (§3.9).
-- **No zero-volume nodes in transient runs** (fluid or solid). See the
+  junction. Species transport exists only for transient ideal-gas networks
+  (§3.9).
+- **No zero-volume nodes in transient runs** (fluid or solid); see the
   junction and arithmetic-node rows above.
 - **No twinned tanks or moveable ties.** They can be emulated with logic, as
-  in the LH₂ fill example, but this is effort, and the coupling it produces is
-  explicit (lagged one step).
+  in the LH₂ fill example, at some effort and with explicit coupling (lagged
+  one step).
 - **Solid–fluid coupling at very high NTU per node.** The LH₂ example's
   module header ([`src/ui/lh2StorageTank.ts`](../../src/ui/lh2StorageTank.ts))
-  documents a case where heat-exchanger ducts at NTU ≈ 29 per node could not
-  be solved by the segregated solid–fluid coupling. That is why the
-  vapor-cooled shield and internal heat exchanger in that example are not
-  resolved as flow paths.
+  documents heat-exchanger ducts at NTU ≈ 29 per node that the segregated
+  solid–fluid coupling could not solve, which is why that example's
+  vapor-cooled shield and internal heat exchanger are not resolved as flow
+  paths.
 - **Steady closed ideal-gas loops** need a pressure anchor (a boundary node)
   or a transient run.
 - **No input-deck import** from either code.
 
 OpenFLUME is alpha software (0.3.1) by a single author, built with heavy AI
-assistance. Every validation report is regenerated from live solves so that
-you can check the claims rather than trust them.
+assistance. Every validation report is regenerated from live solves.
 
 ## Rebuilding a model
 
 1. **Inventory.** List every lump or node, every path or branch, every thermal
-   node, and every conductor or tie. Note where your original model relies on
-   a feature from the "missing" list above.
-2. **Choose the fluid model** for each continuum in **Setup → Fluids**. Use a
-   CoolProp name where the original used a property library. Use
-   incompressible or ideal-gas models where the original used constant
-   properties.
-3. **Translate each flow element by its ΔP(ṁ) relation**, not by its name. The
-   governing equation for every component is in manual §4.3. If nothing fits,
+   node, and every conductor or tie. Note where the original relies on a
+   feature from the "missing" list above.
+2. **Choose the fluid model** for each continuum in **Setup → Fluids**: a
+   CoolProp name where the original used a property library, incompressible or
+   ideal-gas where it used constant properties.
+3. **Translate each flow element by its ΔP(ṁ) relation**, not its name. Manual
+   §4.3 gives the governing equation for every component. If nothing fits,
    use `dpTable` (tabulated ΔP versus ṁ) or `customResistance` (K versus Re).
-4. **Convert to SI** and check the sign conventions: branch direction,
-   `elevationChange = z_to − z_from`, and heat added to a node is positive
-   (§1.4).
-5. **Build it.** Small models are quickest in the editor (manual §6.4; the
-   [feed-system tutorial](feed-system.md) is a worked example). For large or
-   repetitive models, generate the configuration in a script. The schema is
-   plain JSON (manual §3.0). For example, from Python:
+4. **Convert to SI** and check sign conventions: branch direction,
+   `elevationChange = z_to − z_from`, and positive heat added to a node (§1.4).
+5. **Build it.** Small models are quickest in the editor (manual §6.4; see the
+   [feed-system tutorial](feed-system.md)). For large or repetitive models,
+   generate the configuration in a script; the schema is plain JSON (manual
+   §3.0). From Python, for example:
 
    ```python
    import openflume as of
@@ -192,15 +186,14 @@ you can check the claims rather than trust them.
    net.save("line.fn")            # open in the web app with Load
    ```
 
-6. **Verify before comparing.** First run a sub-case with a known answer,
-   such as one branch against its hand calculation. Then compare the full
-   model with the original code's output. Expect differences where the
-   closures differ: friction correlation, convection correlation, or property
-   source.
+6. **Verify before comparing.** Run a sub-case with a known answer, such as
+   one branch against its hand calculation, before comparing the full model
+   with the original code. Expect differences where the closures differ
+   (friction or convection correlation, property source).
 
 ## Code-to-code benchmarks
 
-These published cases have already been rebuilt and compared. Each is a useful
+These published cases have been rebuilt and compared, and each serves as a
 template for the matching kind of model:
 
 | Case                                                                   | Reference                                                                     | Where                                                                                                                                                                 |
@@ -213,9 +206,9 @@ template for the matching kind of model:
 | LH₂ no-vent tank fill                                                  | SINDA/FLUINT Sample Problem F (`TVS`)                                         | Example **LH2 tank no-vent fill**; manual §7.13                                                                                                                       |
 | Cryogenic line chilldown                                               | NBS Report 9264 (experiment); GFSSP predictions; SINDA/FLUINT validation case | Example **Cryogenic line cooldown**; manual §7.11, §8.4; [chilldown tutorial](cryogenic-chilldown.md)                                                                 |
 
-Manual §8.3 lists the tolerances for each case. For example, the GFSSP
-Example 5 outlet temperatures are reproduced to 0.44 K (hot) and 0.19 K
-(cold), and the SINDA/FLUINT Sample F fill fraction, pressure, vapor
-temperature, and vent flow agree within about 1 % at 15 minutes. Remember
-that agreement with another code supports the implementation but inherits
-that code's assumptions (§8.1).
+Manual §8.3 lists each case's tolerances. The GFSSP Example 5 outlet
+temperatures are reproduced to 0.44 K (hot) and 0.19 K (cold), and the
+SINDA/FLUINT Sample F fill fraction, pressure, vapor
+temperature, and vent flow agree within about 1 % at 15 minutes. Agreement
+with another code supports the implementation but inherits that code's
+assumptions (§8.1).

@@ -1,29 +1,27 @@
 ---
 title: Open-source alternative to NASA GFSSP
-description: How OpenFLUME relates to NASA GFSSP — shared node/branch formulation, GFSSP benchmarks reproduced, when to use which, and honest limitations.
+description: How OpenFLUME relates to NASA GFSSP — shared node/branch formulation, GFSSP benchmarks reproduced, when to use which, and limitations.
 ---
 
 # OpenFLUME: an open-source alternative to NASA GFSSP
 
-If you searched for a "GFSSP alternative", you probably need a
-GFSSP-style network solver and either cannot get GFSSP, cannot install it, or
-want something you can read, script, and share. This page explains how
-OpenFLUME relates to GFSSP, which GFSSP results it reproduces, and when you
-should still use GFSSP.
+OpenFLUME is a GFSSP-style network solver you can open in a browser, read,
+script, and share. It reproduces several published GFSSP results; for work
+that needs GFSSP's features or heritage, GFSSP remains the right tool.
 
 OpenFLUME is not affiliated with or endorsed by NASA. It is Alpha software
-(version 0.3.1) and has none of GFSSP's program heritage.
+(version 0.3.1) with none of GFSSP's program heritage.
 
 ## About GFSSP
 
 The Generalized Fluid System Simulation Program (GFSSP) is a general-purpose
 fluid network code developed at NASA Marshall Space Flight Center. It is
-distributed through NASA's software release process, so eligibility and terms
-are set by NASA. Check the NASA software catalog for the current version and
+distributed through NASA's software release process, which sets eligibility
+and terms; check the NASA software catalog for the current version and
 availability. GFSSP models a system as nodes and branches and solves coupled
 mass, momentum, and energy conservation with conjugate heat transfer. NASA
-has used it across propulsion feed systems, pressurization, cryogenic
-transfer-line chilldown, and thermal management. Its formulation and
+has used it for propulsion feed systems, pressurization, cryogenic
+transfer-line chilldown, and thermal management, and its formulation and
 verification are documented in NASA technical memoranda and conference papers.
 OpenFLUME's user manual cites the Version 6.0 TM (NASA/TM-2013-217492) and the
 TFAWS-2007 compressible-flow paper (NTRS 20070036728) among others
@@ -31,18 +29,15 @@ TFAWS-2007 compressible-flow paper (NTRS 20070036728) among others
 
 ## How OpenFLUME follows the GFSSP formulation
 
-OpenFLUME solves the same class of problem with the same basic structure:
-
 - **Node/branch finite volume.** Nodes are control volumes that store mass
-  and energy. Branches carry one mass-flow unknown each, governed by a
+  and energy. Each branch carries one mass-flow unknown, governed by a
   momentum relation between the endpoint pressures
   ([§1.2](../user-manual.md#_1-2-network-flow-analysis)). Volume and flow are
   staggered, as in GFSSP.
 - **Simultaneous Newton–Raphson solution** of mass and momentum, with nodal
-  enthalpy added to the coupled system for real fluids and for
-  compressible duct flow. The solver source notes that solving the
-  conservation equations simultaneously, as GFSSP does, is what keeps the
-  system stable near choking
+  enthalpy added to the coupled system for real fluids and compressible duct
+  flow. As the solver source notes, solving the conservation equations
+  simultaneously, as GFSSP does, keeps the system stable near choking
   ([§4.6.1](../user-manual.md#_4-6-1-steady-state)).
 - **Upwinded enthalpy** in the energy equation, with internal-energy storage
   in transients ([§4.1.3](../user-manual.md#_4-1-3-fluid-energy)).
@@ -52,14 +47,14 @@ OpenFLUME solves the same class of problem with the same basic structure:
   donor-cell momentum advection with a limited face density
   ([§4.1.2](../user-manual.md#_4-1-2-branch-momentum)).
 - **Lumped fluid inertia and trapped-gas cushions** for rigid-column surge,
-  which is the mechanism behind GFSSP's entrapped-air example.
+  the mechanism behind GFSSP's entrapped-air example.
 - **Miropolskii film boiling** for chilldown, the correlation GFSSP uses
   ([§8.5](../user-manual.md#_8-5-correlation-status)).
 
-OpenFLUME is not a port. It does not read GFSSP input files, and its closure
-details, solver globalization (trust-region dogleg, pseudo-transient
-continuation), and component set differ. Expect GFSSP-class answers on the
-benchmark cases below, not identical ones.
+OpenFLUME does not read GFSSP input files, and its closure details, solver
+globalization (trust-region dogleg, pseudo-transient continuation), and
+component set differ. Expect GFSSP-class answers on the benchmark cases below,
+not identical ones.
 
 ## GFSSP results reproduced
 
@@ -79,10 +74,10 @@ compressible-flow ODE, cross-checked against Fanno and Rayleigh closed forms.
 | 4 — Nozzle, friction (65 clustered)        | 0.38 %                    | 0.6 %                      | 0.03 %             |
 | 5 — Nozzle, friction + heat (65 clustered) | 0.36 %                    | 0.6 %                      | 0.01 %             |
 
-The report notes that the original study gives 1.7–5 % for GFSSP's own
-first-order upwind discretization. As in that study, the last station before
-a choked exit is excluded from the profile statistics. The error is largest
-at the choking cell. Shock capture remains out of scope.
+The original study gives 1.7–5 % for GFSSP's own first-order upwind
+discretization. As in that study, the last station before a choked exit is
+excluded from the profile statistics; the error is largest at the choking
+cell. Shock capture remains out of scope.
 
 ![Mach number along the converging–diverging nozzle for the friction-only and friction-plus-heat cases against the RK4 reference](../validation/figures/compressible/fig14-nozzle-mach.svg)
 
@@ -92,9 +87,8 @@ _Mach number along the TFAWS-2007 nozzle, from the
 ### GFSSP example problems
 
 `src/ui/tests/gfssp-benchmarks.test.ts` gates three conjugate cases built in
-`src/ui/examples.ts`. The entrapped-air case is gated separately in
-`src/ui/tests/leeMartin.test.ts`. The tolerances quoted are the test
-tolerances (manual
+`src/ui/examples.ts`; `src/ui/tests/leeMartin.test.ts` gates the entrapped-air
+case. Tolerances are the test tolerances (manual
 [§8.3](../user-manual.md#_8-3-code-to-code-benchmarks)):
 
 | Benchmark                                        | Source                                     | What is checked                                                                                                                                                                  |
@@ -104,8 +98,8 @@ tolerances (manual
 | GFSSP Example 5, water-water counterflow HX      | GFSSP v5 manual                            | Hot outlet 295.67 ± 1.0 K; cold outlet 290.94 ± 0.5 K; duty ≈ 25.6 kW within 3 %; outlets move toward the published values as segments go 4 → 8 → 12                             |
 | Lee & Martin entrapped air (GFSSP Figure 10)     | GFSSP manual; independent RK4 rigid column | First peak within 15 %; trace within 8 % of RK4 at a refined step                                                                                                                |
 
-At the shipped twelve-pass discretization, the user manual reports Example 5
-outlets within 0.44 K (hot) and 0.19 K (cold) of the published GFSSP values
+At the shipped twelve-pass discretization, Example 5 outlets are within
+0.44 K (hot) and 0.19 K (cold) of the published GFSSP values
 ([§7.9](../user-manual.md#_7-9-water-water-counterflow-heat-exchanger)).
 
 ### NBS cryogenic chilldown
@@ -115,8 +109,8 @@ The chilldown dataset (`src/validation/nbsChilldown.ts`) takes NBS Report
 which tabulates both measured and GFSSP-predicted chilldown times.
 OpenFLUME's CI baseline is loose: chilldown time within a factor of 1.6 of
 experiment, with mean absolute error under 25 % over the four-case slow
-suite ([§8.4](../user-manual.md#_8-4-validation-against-experiment)). Do not
-read this as GFSSP-equivalent chilldown accuracy.
+suite ([§8.4](../user-manual.md#_8-4-validation-against-experiment)). That is
+well short of GFSSP-equivalent chilldown accuracy.
 
 ## When to use which
 
@@ -140,16 +134,16 @@ read this as GFSSP-equivalent chilldown accuracy.
   to a server);
 - you want an independent cross-check of a GFSSP result.
 
-A sensible pattern for important work is to use OpenFLUME for early sizing
-and as an independent second solver, and the qualified tool your program
-requires for results of record.
+For important work, use OpenFLUME for early sizing and as an independent
+second solver, and the qualified tool your program requires for results of
+record.
 
 ## Migrating a model
 
 [Coming from GFSSP](../guides/from-gfssp.md) maps GFSSP concepts to
-OpenFLUME's interface and file format. In brief, OpenFLUME models are SI
-throughout. The positive mass-flow direction is the declared `from → to`
-direction, and every network needs at least one boundary node
+OpenFLUME's interface and file format. In brief: OpenFLUME models are SI
+throughout, positive mass flow follows the declared `from → to` direction,
+and every network needs at least one boundary node
 ([§1.4](../user-manual.md#_1-4-sign-conventions)).
 
 ## Limitations relative to GFSSP
@@ -169,7 +163,7 @@ From [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries):
 - **Steady closed ideal-gas loops** need a pressure anchor.
 - **Alpha, single author, heavy AI assistance, no flight or program
   qualification.** Check results against the
-  [verification record](../validation/index.md), not the author's word.
+  [verification record](../validation/index.md).
 
 ## Example links
 

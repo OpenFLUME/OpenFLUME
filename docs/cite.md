@@ -7,8 +7,8 @@ description: BibTeX and APA citations for OpenFLUME (DOI 10.5281/zenodo.22051608
 
 If OpenFLUME contributes to your research, teaching material, or a
 published analysis, please cite the software. The canonical metadata is in
-[`CITATION.cff`](../CITATION.cff). GitHub's "Cite this repository" button
-reads that file.
+[`CITATION.cff`](../CITATION.cff), which GitHub's "Cite this repository"
+button reads.
 
 ## Software citation
 
@@ -32,16 +32,15 @@ reads that file.
 }
 ```
 
-`@software` is supported by biblatex. If you use classic BibTeX with a style
-that lacks it, change the entry type to `@misc` and keep the same fields.
+biblatex supports `@software`. With a classic BibTeX style that lacks it,
+change the entry type to `@misc` and keep the fields.
 
 ## Citing a specific version
 
-Results depend on the solver version, so cite the version you used. The
-citation above is for version 0.3.1. Zenodo archives each release, and the
-[Zenodo record](https://doi.org/10.5281/zenodo.22051608) lists the available
-versions and their DOIs. Use the DOI and version number of the release you
-actually ran. For reproducible work, also record:
+Results depend on the solver version, so cite the version you ran. The
+citation above is for 0.3.1. Zenodo archives each release, and the
+[Zenodo record](https://doi.org/10.5281/zenodo.22051608) lists the versions
+and their DOIs. For reproducible work, also record:
 
 - the release tag or commit hash (`git rev-parse HEAD`), or the `openflume`
   Python package version;
@@ -50,25 +49,21 @@ actually ran. For reproducible work, also record:
   ([§8.7 Result Provenance](user-manual.md#_8-7-result-provenance)). Quote the
   hash alongside the result.
 
-When you use a share link to publish a model, remember that the link encodes
-the model, not the solver version. State the version separately.
+A share link encodes the model but not the solver version, so state the
+version separately when you publish one.
 
 ## Paper in preparation
 
-A paper describing OpenFLUME's formulation and verification is in
-preparation, intended for the Journal of Open Source Software (JOSS) and
-arXiv. When it is available, its citation will be added here and to
-`CITATION.cff`. Until then, cite the software DOI above.
+A paper on OpenFLUME's formulation and verification is in preparation for
+the Journal of Open Source Software (JOSS) and arXiv. Its citation will be
+added here and to `CITATION.cff`; until then, cite the software DOI above.
 
 ## Citing the libraries OpenFLUME builds on
 
-If your work relies on these features, please also cite the underlying
-sources.
-
 ### CoolProp (real-fluid properties)
 
-Any model using the real-fluid equation of state (the CoolProp catalogue)
-depends on CoolProp:
+Cite CoolProp for any model that uses the real-fluid equation of state (the
+CoolProp catalogue):
 
 > Bell, I. H., Wronski, J., Quoilin, S., & Lemort, V. (2014). Pure and pseudo-pure fluid thermophysical property evaluation and the open-source thermophysical property library CoolProp. _Industrial & Engineering Chemistry Research_, 53(6), 2498–2508. https://doi.org/10.1021/ie4033999
 
@@ -111,6 +106,6 @@ reacting junctions or the LOX/RP-1 and LOX/CH₄ tables, cite:
 
 If you quote a benchmark comparison or rely on a specific correlation (for
 example the GFSSP TFAWS-2007 compressible-flow study, NBS Report 9264, or
-Darr–Hartwig chilldown), cite the original source as well. The user manual's
-Appendix E and each [validation report](validation/index.md) list their
+Darr–Hartwig chilldown), also cite the original source. User manual
+Appendix E and each [validation report](validation/index.md) list the
 references.

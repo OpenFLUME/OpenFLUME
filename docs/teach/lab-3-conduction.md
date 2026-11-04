@@ -5,12 +5,12 @@ description: Build solid nodes and conductors in OpenFLUME — composite wall, r
 
 # Lab 3: Conduction and thermal networks
 
-OpenFLUME has a thermal network that runs alongside the fluid network. It is
-made of solid nodes (lumped masses), ambient nodes (fixed-temperature
-reservoirs), and conductors of three kinds: conduction, convection, and
-radiation. In this lab students build four small thermal models, predict each
-one by hand, and then check the energy balance of the shipped conjugate
-example, **Heated pipe with radiating wall (conjugate HT)**.
+OpenFLUME's thermal network runs alongside the fluid network. It consists of
+solid nodes (lumped masses), ambient nodes (fixed-temperature reservoirs), and
+conduction, convection, and radiation conductors. Students build three small
+thermal models, predict each by hand, and then check the energy
+balance of the shipped conjugate example, **Heated pipe with radiating wall
+(conjugate HT)**.
 
 Parts A to C reproduce cases 1 to 3 of the
 [thermal network validation report](../validation/thermal-network-report.md).
@@ -57,12 +57,12 @@ About 45 minutes of pre-lab work and 2 hours in the lab.
 heat rate is positive from its `from` end to its `to` end, and a **Heat Input**
 is positive into the node (manual §1.4).
 
-**Every model needs a fluid network.** A model must have at least one fluid
-node, one boundary node, and one branch (manual §3.1). Convection also needs a
-fluid node at one end. For the pure-conduction problems below, use the same
-arrangement as the validation report: two fluid boundary nodes at the required
-fluid temperatures, joined by a **Flow Source** branch with zero mass flow.
-These nodes act as fixed-temperature fluid reservoirs.
+**Every model needs a fluid network:** at least one fluid node, one boundary
+node, and one branch (manual §3.1). Convection also needs a fluid node at one
+end. For the pure-conduction problems below, follow the validation report:
+two fluid boundary nodes at the required temperatures, joined by a
+**Flow Source** branch with zero mass flow, act as fixed-temperature fluid
+reservoirs.
 
 **Series resistances.** In steady state the same `Q` passes through every
 element of a chain:
@@ -89,8 +89,8 @@ this with `T_(n+1) − T∞ = (T_n − T∞) / (1 + Δt/τ)`, so after `n` steps
 T_n = T∞ + (T₀ − T∞) (1 + Δt/τ)^(−n)
 ```
 
-The solver applies this formula exactly, so your hand result should match it
-to round-off.
+The solver applies this formula exactly, so your hand result should match to
+round-off.
 
 ## Pre-lab hand calculation
 
@@ -148,10 +148,10 @@ to the other wall (`k = 50`, `A = 0.05 m²`, `L = 0.1 m`).
 ## Procedure in OpenFLUME
 
 Set **Units ▾** to **SI**. The left rail places **Boundary node**, **Solid
-node**, and **Ambient node**. Connections are made by dragging from one node's
-handle to another and choosing from **Connect with**. Conductors are listed
-under **Thermal ties**. The canvas rejects illegal connections with a red
-banner. For example, convection must have exactly one fluid end (manual §6.4).
+node**, and **Ambient node**. To connect nodes, drag from one node's handle to
+another and choose from **Connect with**; conductors are under **Thermal
+ties**. The canvas rejects illegal connections with a red banner (for example,
+convection must have exactly one fluid end; manual §6.4).
 
 ### Part A: Composite wall
 

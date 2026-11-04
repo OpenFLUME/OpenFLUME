@@ -5,10 +5,9 @@ description: How OpenFLUME relates to SINDA/FLUINT as an open-source thermal and
 
 # OpenFLUME: an open-source alternative to SINDA/FLUINT
 
-If you are looking for a "SINDA/FLUINT alternative" or an "open-source
-thermal network solver", this page explains where OpenFLUME overlaps with
-SINDA/FLUINT, which SINDA/FLUINT sample results it reproduces, and where it
-clearly falls short.
+OpenFLUME is an open-source thermal and fluid network solver that overlaps
+with SINDA/FLUINT, reproduces some of its sample results, and falls short of
+it in several specific areas listed below.
 
 OpenFLUME is not affiliated with C&R Technologies. It is Alpha software
 (version 0.3.1).
@@ -17,17 +16,16 @@ OpenFLUME is not affiliated with C&R Technologies. It is Alpha software
 
 SINDA/FLUINT is a commercial thermal and fluid network analyzer developed and
 sold by C&R Technologies. SINDA is the lumped-parameter thermal network
-solver (conduction, convection, radiation between thermal nodes). FLUINT is
-the fluid network solver (lumps, paths, tanks, junctions, and two-phase flow)
-coupled to it. Its lineage goes back to NASA-era thermal analyzer codes, and
+solver (conduction, convection, radiation between thermal nodes); FLUINT is
+the coupled fluid network solver (lumps, paths, tanks, junctions, and
+two-phase flow). Its lineage goes back to NASA-era thermal analyzer codes, and
 it has a long record in spacecraft and aerospace thermal-control and
 cryogenic analysis. C&R also sells Thermal Desktop, a CAD-based front end.
-Licensing, current features, and support are set by C&R, so check the vendor
-for details.
+Check C&R for licensing, current features, and support.
 
 ## Where the two overlap
 
-OpenFLUME carries two coupled networks, much as SINDA/FLUINT does:
+Like SINDA/FLUINT, OpenFLUME carries two coupled networks:
 
 | Concept                      | SINDA/FLUINT (general)                    | OpenFLUME                                                                                                                                                                                         |
 | ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -60,48 +58,45 @@ header of `src/ui/lh2StorageTank.ts` and manual
 | Liquid temperature | 38.99 R       | 38.098 R      |
 | TVS flow           | 0.0518 lbm/hr | 0.0522 lbm/hr |
 
-`src/ui/tests/lh2StorageTank.test.ts` gates these values. It also checks that
+`src/ui/tests/lh2StorageTank.test.ts` gates these values, and also checks that
 the tank volume constraint holds to 1e-9 and that tank pressure rises toward
-the source rather than collapsing.
+the source instead of collapsing.
 
-This is not a like-for-like run of FLUINT physics. FLUINT's twinned tanks and
-moveable ties have no direct equivalent in OpenFLUME's schema, so the example
-**emulates** them with registers, logic rules, and register controllers. The
-module header lists what is emulated and what departs from the deck.
-CoolProp parahydrogen replaces the deck's fluid description, the fill source
-is 14.0 K rather than the deck's 20 R, and the deck's steady TVS-sizing case
-is not reproduced.
+FLUINT's twinned tanks and moveable ties have no direct equivalent in
+OpenFLUME's schema, so the example **emulates** them with registers, logic
+rules, and register controllers. The module header lists what is emulated and
+what departs from the deck: CoolProp parahydrogen replaces the deck's fluid
+description, the fill source is 14.0 K instead of the deck's 20 R, and the
+deck's steady TVS-sizing case is not reproduced.
 
-The most important caveat for thermal analysts concerns the vapor-cooled
-shield and internal heat exchanger. They are carried as solid thermal mass
-but are **not resolved as flow paths**. Their ducts run at NTU ≈ 29 per node.
-OpenFLUME couples solid temperatures to the fluid with a segregated loop,
-and at that NTU the loop does not converge. The source calls this a hard
-limitation of the solver. Strongly coupled, high-NTU wall–fluid problems are a
-known weak point.
+The vapor-cooled shield and internal heat exchanger are carried as solid
+thermal mass but are **not resolved as flow paths**. Their ducts run at
+NTU ≈ 29 per node, and at that NTU OpenFLUME's segregated solid–fluid coupling
+loop does not converge. The source calls this a hard limitation of the solver:
+strongly coupled, high-NTU wall–fluid problems are a known weak point.
 
 ### Cryogenic line cooldown (NBS Report 9264)
 
 The [cryogenic line cooldown](https://openflume.github.io/OpenFLUME/#example=cryogenic-line-cooldown)
 example is the C&R Technologies validation case drawn from NBS Report 9264,
 Figure 2. Saturated LH₂ at 75 psia enters a 61 m copper line, initially at
-300 K. The line is modeled as twenty axial segments with temperature-dependent
-copper specific heat and Miropolskii film boiling
+300 K, modeled as twenty axial segments with temperature-dependent copper
+specific heat and Miropolskii film boiling
 ([§7.11](../user-manual.md#_7-11-cryogenic-line-cooldown)). Agreement with
-experiment is modest. The CI baseline holds chilldown time within a factor
+experiment is modest: the CI baseline holds chilldown time within a factor
 of 1.6 of experiment, with mean absolute error under 25 % across the slow
 suite. Only saturated runs are trusted; subcooled runs are diagnostic only
 ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
 ### Thermal network verification
 
-The [thermal-network report](../validation/thermal-network-report.md) gives
-analytic verification of the solid-node system and its coupling to fluids.
-The composite wall matches to 6.9e-14 % and radiation equilibrium to
-1.2e-14 %. Lumped cooldown is within 0.18 % of the temperature span at
+The [thermal-network report](../validation/thermal-network-report.md)
+verifies the solid-node system and its fluid coupling against analytic
+solutions. The composite wall matches to 6.9e-14 % and radiation equilibrium
+to 1.2e-14 %. Lumped cooldown is within 0.18 % of the temperature span at
 dt = τ/100, with first-order time convergence (error ratio 4.01 for a 4×
 step refinement). A 20-segment counterflow heat exchanger has effectiveness
-within 2.62 % and outlets within 1.730 K of ε–NTU, with the remaining error
+within 2.62 % and outlets within 1.730 K of ε–NTU; the remaining error is
 shown to be segmentation error.
 
 ![Radiation–convection equilibrium temperature of a heated solid node against the analytic solution](../validation/figures/thermal/fig04-radiation-convection-equilibrium.svg)
@@ -134,7 +129,7 @@ _Radiation–convection equilibrium, from the
   to open a model from a link with nothing to install;
 - you want an independent cross-check of a result from another tool.
 
-## Limitations to keep in mind
+## Limitations
 
 From [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries), plus
 the thermal-specific points above:

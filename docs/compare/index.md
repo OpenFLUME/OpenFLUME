@@ -1,42 +1,40 @@
 ---
 title: How OpenFLUME compares
-description: An honest comparison of OpenFLUME with NASA GFSSP, SINDA/FLUINT, and commercial 1-D system tools, including where OpenFLUME is weaker.
+description: OpenFLUME compared with NASA GFSSP, SINDA/FLUINT, and commercial 1-D system tools, including where OpenFLUME is weaker.
 ---
 
 # How OpenFLUME compares to other 1-D thermo-fluid network tools
 
-OpenFLUME belongs to an established class of tools: finite-volume
-node-and-branch network solvers for pressure, flow, and temperature in pipe
-systems, with lumped solid thermal networks attached. The best-known members
-of the class are NASA's GFSSP and C&R Technologies' SINDA/FLUINT. A set of
-commercial 1-D system-simulation packages also overlaps with it.
+OpenFLUME is a finite-volume node-and-branch network solver for pressure,
+flow, and temperature in pipe systems, with lumped solid thermal networks
+attached. The best-known tools in this class are NASA's GFSSP and C&R
+Technologies' SINDA/FLUINT; several commercial 1-D system-simulation packages
+overlap with it.
 
-This page sets out where OpenFLUME stands among them. OpenFLUME is **Alpha
-software (version 0.3.1)**. The other tools have years or decades of
-production use behind them, and OpenFLUME does not. Its case rests on
-access, transparency, and auditability, not on maturity.
+OpenFLUME is **Alpha software (version 0.3.1)**. The other tools have years or
+decades of production use behind them. OpenFLUME's case rests on access,
+transparency, and auditability.
 
 ## What OpenFLUME is
 
 - A finite-volume network solver: nodes store mass and energy, and branches
   carry mass flow governed by a momentum relation. The steady solver is
-  Newton–Raphson. The transient solver is backward Euler with fixed or
+  Newton–Raphson; the transient solver is backward Euler with fixed or
   adaptive time steps.
-- Real-fluid properties come from CoolProp compiled to WebAssembly. Ideal-gas,
-  incompressible, and thermal-expansion-liquid models are also available.
-- It runs entirely in the browser. The solver runs in a Web Worker, and no
-  model data is sent to a server. The same core is available from Python
-  (`pip install openflume`, see [Python package](../python.md)).
-- MIT licensed. The source, the tests, and the scripts that generate the
-  [verification reports](../validation/index.md) are all public.
+- Real-fluid properties from CoolProp compiled to WebAssembly, plus ideal-gas,
+  incompressible, and thermal-expansion-liquid models.
+- Runs entirely in the browser, in a Web Worker; no model data is sent to a
+  server. The same core is available from Python (`pip install openflume`, see
+  [Python package](../python.md)).
+- MIT licensed. The source, tests, and the scripts that generate the
+  [verification reports](../validation/index.md) are public.
 
 ## Comparison matrix
 
-Entries for third-party tools are general and publicly known. Licensing
-terms, prices, versions, and detailed capabilities change over time, so check
-the vendor or distributor for anything that matters to your decision. "Check
-vendor" means we have not verified the point, not that the capability is
-missing.
+Entries for third-party tools are general and publicly known. Licensing,
+prices, versions, and capabilities change, so check the vendor or distributor
+for anything that affects your decision. "Check vendor" means the point is
+unverified here, not that the capability is missing.
 
 |                                   | OpenFLUME                                                                  | NASA GFSSP                                                                   | SINDA/FLUINT                                                   | Commercial 1-D system tools (Flowmaster, AFT Fathom/Arrow, GT-SUITE, EcosimPro, Simscape Fluids, Modelica-based tools) |
 | --------------------------------- | -------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -58,8 +56,7 @@ missing.
 
 ## Where OpenFLUME is weaker
 
-Read this section before choosing OpenFLUME for work that matters. The full
-list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries).
+The full list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries).
 
 - **Alpha.** Version 0.3.1. Interfaces and file formats may change. Results
   have no program, flight, or certification heritage.
@@ -67,41 +64,37 @@ list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries).
   choking, converging–diverging nozzles) is supported. Normal shocks,
   over-expanded or separated nozzles, and supersonic-to-subsonic transitions
   are not. Thrust is not computed.
-- **No acoustic wave propagation.** Lumped fluid inertia captures bulk surge.
-  There is no method-of-characteristics water hammer, so wave timing and
+- **No acoustic wave propagation.** Lumped fluid inertia captures bulk surge,
+  but without method-of-characteristics water hammer, wave timing and
   reflections cannot be simulated.
-- **Two-phase is HEM only.** No separated-flow (Lockhart–Martinelli)
-  pressure-drop multipliers yet, so high-void-fraction pressure drop is
-  under-predicted.
-- **Cavitation only at the cavitating-venturi closure**, with no general
-  inception check.
+- **Two-phase is HEM only.** Without separated-flow (Lockhart–Martinelli)
+  multipliers, high-void-fraction pressure drop is under-predicted.
+- **Cavitation only at the cavitating-venturi closure**; no general inception
+  check.
 - **Turbomachinery is a pump curve.** No compressor or turbine maps, and no
   shaft-work heating.
 - **No general junction mixing** of unlike fluids, except at CEA reacting
   junctions.
-- **Smaller component library** than mature tools: 19 branch types, plus
-  user code.
+- **Smaller component library**: 19 branch types, plus user code.
 - **User code is trusted, not sandboxed.**
 - **Steady closed ideal-gas loops** need a pressure anchor.
 - **Cryogenic chilldown** is validated only to a factor-of-1.6 regression band
   on chilldown time ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
-- **One author, heavy AI assistance, no commercial support.** That is the
-  reason the verification evidence is published in full.
+- **One author, heavy AI assistance, no commercial support.**
 
 ## Where OpenFLUME is stronger
 
 - **Nothing to install.** Open the
   [app](https://openflume.github.io/OpenFLUME/) and run a built-in example. No
   account and no license server.
-- **Local-first.** The solver runs in your browser. Models and results stay on
-  your machine, and share links keep the model in the URL fragment, which
-  browsers do not send to servers.
+- **Local-first.** Models and results stay on your machine. Share links keep
+  the model in the URL fragment, which browsers do not send to servers.
 - **Open source and auditable (MIT).** Every equation, closure, and tolerance
-  is in a public repository. Where the user manual makes a claim, you can
-  find the code that implements it.
+  is in a public repository, so each claim in the user manual can be traced to
+  the code that implements it.
 - **Generated verification reports.** Seven reports are written by scripts
-  from live solves, and the gate tests run in CI on every pull request and
-  weekly with the slow suite ([overview](../validation/index.md)).
+  from live solves. The gate tests run in CI on every pull request, and weekly
+  with the slow suite ([overview](../validation/index.md)).
 - **Scriptable.** `pip install openflume` drives the same core from Python
   for sweeps, optimizers, notebooks, and CI checks on models.
 - **Plain-text models.** `.fn` files diff cleanly in version control.

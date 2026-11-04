@@ -8,8 +8,8 @@ description: Fanno friction choking — choking length from the tables, a quasi-
 Students compute the choking length of an adiabatic constant-area duct from
 the Fanno tables, build the same duct in OpenFLUME as a chain of pipe segments,
 and switch on the two settings that turn a network solver into a quasi-1-D
-compressible solver. They then measure how the answer converges with the
-number of segments, and push the model past the conditions it can represent.
+compressible solver. They then measure convergence with segment count and
+push the model past the conditions it can represent.
 
 The duct is case 1 of the
 [compressible-flow validation report](../validation/compressible-report.md),
@@ -28,9 +28,9 @@ By the end of the lab, students should be able to:
    flow, and turn both on in OpenFLUME.
 3. Discretize a duct into segments, measure the grid convergence of the mass
    flow, and explain where the error comes from.
-4. Recognize what a lumped network solver does when it is asked for something
-   beyond choking. It has no shock capture and no representation of the
-   expansion outside a choked exit.
+4. Recognize what a lumped network solver, with no shock capture and no
+   representation of the expansion outside a choked exit, does when pushed
+   beyond choking.
 
 ## Prerequisites
 
@@ -46,9 +46,9 @@ About 45 minutes of pre-lab work and 1.5 hours in the lab.
 ## Theory
 
 **Fanno flow** is steady, adiabatic flow with wall friction in a duct of
-constant area. The stagnation temperature `T₀` is constant along the duct.
-Friction drives a subsonic flow toward `M = 1`. The duct length that brings
-an inlet Mach number `M` exactly to `M = 1` at the exit is `L*`. With the
+constant area. The stagnation temperature `T₀` is constant along the duct, and
+friction drives a subsonic flow toward `M = 1`. `L*` is the duct length that
+brings an inlet Mach number `M` exactly to `M = 1` at the exit. With the
 **Darcy** friction factor `f`:
 
 ```
@@ -60,11 +60,11 @@ T/T*   = (γ+1) / (2 + (γ−1) M²)
 Many textbook tables are written with the Fanning factor and list
 `4 f_F L*/D`, which is the same number as `f L*/D` with Darcy `f`.
 
-**What a network solver normally leaves out.** By default, an OpenFLUME branch
-relates `ΔP` to `ṁ` through friction alone, and the energy equation carries
-static enthalpy `h`. That is correct at low Mach number. For compressible duct
-flow, two opt-in settings close the quasi-1-D equations (user manual §4.1.2,
-§4.1.4, and §3.11):
+**Compressible settings.** By default, an OpenFLUME branch relates `ΔP` to
+`ṁ` through friction alone, and the energy equation carries static enthalpy
+`h`, which is correct at low Mach number. For compressible duct flow, two
+opt-in settings close the quasi-1-D equations (user manual §4.1.2, §4.1.4, and
+§3.11):
 
 - **Momentum flux** (`settings.momentumFlux`) adds the pressure needed to
   accelerate the gas as its density falls:
@@ -76,15 +76,15 @@ flow, two opt-in settings close the quasi-1-D equations (user manual §4.1.2,
 Both are checkboxes in the **Setup** tab, **Physics** section, under
 _Compressible formulation_ (manual §6.6). Together they let a chain of `pipe`
 branches with a constant friction factor reproduce Fanno flow. A third
-control, **Momentum-flux scheme**, chooses how the acceleration term is
+control, **Momentum-flux scheme**, sets how the acceleration term is
 evaluated. The default, **Limited upwind**, converges from cold starts but is
-first order at the choking cell. In the validation report, the choked mass
-flow under the default scheme is 2–3.5 % from the analytic value on 21-node
-clustered grids. **Central** is more accurate when it converges to the
-physical root, but it needs a good starting guess.
+first order at the choking cell; in the validation report its choked mass
+flow is 2–3.5 % from the analytic value on 21-node clustered grids.
+**Central** is more accurate when it converges to the physical root, but needs
+a good starting guess.
 
 **Limits.** There is no shock capture (manual §1.7). A boundary node imposes a
-static pressure at the duct exit, whatever the flow there.
+static pressure at the duct exit regardless of the flow there.
 
 ## The problem
 
