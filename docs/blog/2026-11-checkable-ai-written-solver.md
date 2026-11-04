@@ -19,9 +19,13 @@ I don't use AI for writing because I don't care. Ironically, it's because I do. 
 
 ## Code is functional. Writing to you is personal.
 
+For a long time I told myself, and anyone who asked, that it doesn't matter how something was made, it matters how good it is. I believed it. At the same time I was developing a violent disgust reflex for AI-generated text. The moment a post or a message started sounding like a chatbot, I closed it, and I judged the person who sent it. That made no sense if quality was all that mattered, so one of the two had to give.
+
+What gave was the idea that all writing is the same kind of thing.
+
 Some writing is functional. Its value is in what it says, and nobody cares who typed it. A table of fluid properties, a proof, a diff. If it's correct, it's correct, and if a model produced it, fine. When two people are working on the same document or the same pull request, every edit is in service of making the thing better, and AI is one more tool in the pile. There the only fair question is whether the result is good.
 
-Other writing is personal. Its value comes from the fact that a particular person thought it, felt it, and is sharing that very real experience with you. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it is a small betrayal. You asked for connection and they shooed you away like a pest.
+Other writing is personal. Its value comes from the fact that a particular person thought it, felt it, and is sharing that very real experience with you. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it is a betrayal. You asked for connection and they shooed you away like a pest.
 
 The more personal the exchange, the more AI in it cheapens it.
 
