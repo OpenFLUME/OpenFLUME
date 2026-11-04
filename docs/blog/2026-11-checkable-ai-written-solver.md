@@ -39,7 +39,7 @@ I couldn't have done it as well without AI. I would have let AI do it all, if it
 
 ## What AI made possible
 
-The part of a solver that takes the most effort isn't the solver. It's the evidence that the solver is right. Every closure needs a case it can be checked against, every case needs a reference, and every reference needs someone to dig it out of a NASA report, set it up, and decide what agreement means.
+A large share of the effort in a solver goes into the evidence that it's right. Every closure needs a case it can be checked against, every case needs a reference, and someone has to dig that reference out of a NASA report or a paper, set it up, and decide what agreement means.
 
 That's where AI changed what one person could do. OpenFLUME has generated validation reports across incompressible hydraulics, compressible duct flow, conjugate heat transfer, fluid and tank transients, combustion, and microfluidics, plus thousands of tests that run on every pull request. It rebuilds six published microfluidic networks from their papers and compares cryogenic chilldown against the measured traces in NBS Report 9264. On my own, I'd have covered a fraction of those disciplines and checked against far less real data.
 
@@ -55,20 +55,20 @@ They also struggled to see that a result was wrong. A physics solver has to do m
 
 ## What the checks caught
 
-Almost every serious defect in the [CHANGELOG](../../CHANGELOG.md) was something reporting success when it hadn't succeeded.
+Many of the most serious defects in the [CHANGELOG](../../CHANGELOG.md) were something reporting success when it hadn't succeeded.
 
 - **Microfluidic transients froze and called it convergence** (0.3.0). The stopping test compared an absolute tolerance against mass residuals in kg/s, and at flows around 1e-8 kg/s every imbalance already passed. A rebuilt published case, a bubble-damped syringe network checked against its exact ODE, showed 37 % error at the default tolerance. After the fix it was under 1e-3 ([microfluidics report](../validation/microfluidics-report.md), case B6).
 - **Transient steps were certified as converged unconditionally** (0.2.2), which hid a real failure in the **Entrapped-air line** example.
 - **A fabricated property state could reach an accepted result** (0.2.2). A last-resort fallback that existed only to dodge a WebAssembly crash could flow straight into results.
 - **A Fanno duct reported "Converged" on a nonphysical answer** this month, with Mach jumping from 0.70 to 1.40 halfway down a constant-area pipe while the second-law audit stayed silent. The fix ships in the next release.
 
-None of these crashed. All of them produced plausible numbers. Most of the fixes had the same shape, replacing a silent fallback with a loud failure.
+None of these crashed. All of them produced plausible numbers. Several of the fixes had the same shape, replacing a silent fallback with a loud failure.
 
 The record has limits too. Most of it is analytic verification, and the experimental side is narrow. On saturated liquid-nitrogen chilldown, OpenFLUME's mean absolute error is 12.8 % against 8.8 % for GFSSP's published predictions, so GFSSP is better there ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
 ## Where that leaves me
 
-AI made it cheap to build a huge surface area and to check it against far more than I could have on my own. It didn't know what to build or when the answer was wrong. Those were mine.
+AI made it cheap to build a huge surface area and to check it against far more than I could have on my own. It still needed me to decide what to build, to take things out, and to notice when an answer was wrong.
 
 If you find a case where OpenFLUME disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the reference and the tolerance.
 
