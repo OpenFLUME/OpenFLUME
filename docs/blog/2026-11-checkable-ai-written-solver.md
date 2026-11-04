@@ -1,6 +1,6 @@
 ---
 title: Building OpenFLUME with AI
-description: I couldn't have built OpenFLUME as well without AI, and I wouldn't have let AI build it alone. What it was good at, where it needed me, and what the checks caught.
+description: I couldn't have built OpenFLUME as well without AI, and AI couldn't have built it without me. What it was good at, where it needed me, and what the checks caught.
 date: 2026-11-24
 author: John Rising
 # Publish after John's own edit pass: the personal-writing section and note 2 say he rewrote it.
@@ -35,7 +35,7 @@ A thermo-fluid solver is about as functional as artifacts get. Nobody running a 
 
 I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on. With AI, I built it in about ten weeks.[¹](#notes)
 
-I couldn't have done it as well without AI. I also wouldn't have let AI do it all.
+I couldn't have done it as well without AI. I would have let AI do it all, if it could. It couldn't.
 
 ## What AI made possible
 
