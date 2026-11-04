@@ -33,7 +33,7 @@ A thermo-fluid solver is about as functional as artifacts get. Nobody running a 
 
 A blog post is different. If you're reading this, you want to know what _I_ think about building an engineering tool this way, so I rewrote this post until it said what I think.[²](#notes)
 
-Code has one big advantage over prose here. It can be checked by something other than a reader's patience. The catch is that "it can be checked by tests" only helps if the tests exist and are good. For a physics code that's a much bigger ask than it sounds.
+Code has one big advantage over prose here. Whether it is true and useful can be measured. Unlike most functional code, though, a physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right.
 
 ## Network codes fail by looking fine
 
