@@ -2868,36 +2868,51 @@ in practice.
 _Applications · steady · incompressible water, conjugate_
 
 **Problem.** Water flows through a pipe whose wall is resolved as solid thermal
-mass, convecting to the fluid, conducting axially between wall segments, and
-radiating to a 300 K ambient.
+mass. Each of two wall segments carries a 5 kW heat source, convects to the
+water inside it, conducts axially to the other segment, and radiates to a
+300 K ambient.
 
-**Model.** Four fluid nodes, three solid wall nodes, three branches, and five
-conductors spanning all three mechanisms.
+**Model.** Four fluid nodes (two boundaries, two internal), two solid wall
+nodes and one ambient node, three branches (two pipes and an outlet orifice),
+and five conductors spanning all three mechanisms: two convection, one
+conduction, and two radiation.
 
-**Check.** The global energy balance closes: heat radiated to ambient equals heat
-convected into the water plus any wall source. Wall temperatures fall
-monotonically along the flow direction. This is the smallest model that exercises
-conduction, convection, and radiation together, and it is the recommended
-template for a first conjugate model.
+**Check.** The global energy balance closes: the 10 kW of wall heat leaves as
+about 9.2 kW convected into the water and about 0.8 kW radiated to ambient.
+The water warms along the flow (300 K to about 302.6 K), so the downstream
+wall runs slightly hotter than the upstream one (about 400.0 K against
+399.4 K) and a small conduction flow, about 15 W, passes from Wall 2 back to
+Wall 1. This is the smallest model that exercises conduction, convection, and
+radiation together, and it is the recommended template for a first conjugate
+model.
 
 ## 7.6 Spacecraft Radiator Panel (Ammonia Loop Heat Pipe)
 
 _Applications · steady · real-fluid ammonia, conjugate_
 
-**Problem.** An ammonia loop heat pipe rejects 400 W of avionics heat through a
+**Problem.** An ammonia loop heat pipe rejects 350 W of avionics heat through a
 four-pass flat radiator panel to deep space.
 
-**Model.** Twenty fluid nodes, twenty-three solid nodes, twenty branches, and
-sixty conductors. Capillary pumping in the wicked evaporator is represented as a
-fixed pump curve. The face sheet carries genuine two-dimensional in-plane
-conduction, and the panel is laid out in the x–y plane so the 3-D view is
-meaningful.
+**Model.** Twenty fluid nodes (the compensation chamber as a saturated-liquid
+boundary at 306 K, nineteen internal), twenty-three solid nodes (twenty-two
+walls and fins plus the deep-space sink), twenty branches, and sixty
+conductors (thirteen convection, twenty-six conduction, twenty-one
+radiation). The wicked evaporator is a `flowSource` that passes the liquid the
+heat load can boil, ṁ = 1.02·Q/h_fg ≈ 0.315 g/s, rather than a pump curve: a
+loop heat pipe's circulation is evaporation-limited, and the wick then raises
+whatever capillary head the loop needs (about 68 Pa here). The face sheet
+carries genuine two-dimensional in-plane conduction, and the panel is laid
+out in the x–y plane so the 3-D view is meaningful.
 
-**Check.** Radiated heat matches the 400 W input at steady state. The
+**Check.** The panel radiates about 360 W at steady state: the 350 W boiled in
+the evaporator plus about 10 W that the compensation-chamber boundary adds by
+re-saturating the subcooled returning liquid. The vapor leaves the evaporator
+at quality about 0.98, condenses at a nearly constant 306 K along the first
+passes, and the last strip subcools the liquid by about 6.6 K. The
 two-dimensional conduction network spreads heat between passes, so face-sheet
-temperature varies in both directions — visible immediately with **Color by** set
-to **Temperature**. This example also demonstrates using **View options** to hide
-the sixty conductors while working on the flow path.
+temperature varies in both directions — visible immediately with **Color by**
+set to **Temperature**. This example also demonstrates using **View options**
+to hide the sixty conductors while working on the flow path.
 
 ## 7.7 LOX/RP-1 Thruster (Combustor)
 
