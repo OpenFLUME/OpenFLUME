@@ -1445,12 +1445,17 @@ Darcy–Weisbach friction plus hydrostatic head:
 $$\Delta P = f\frac{L}{D}\frac{\rho v |v|}{2} + \rho g\Delta z$$
 
 with the friction factor $f = 64/\mathrm{Re}$ for $\mathrm{Re} < 2300$, the
-Swamee–Jain explicit approximation for turbulent flow,
+Swamee–Jain explicit approximation for $\mathrm{Re} \ge 4000$,
 
 $$f = 0.25 \Big/ \left[\log_{10}\left(\frac{\varepsilon}{3.7 D} + \frac{5.74}{\mathrm{Re}^{0.9}}\right)\right]^{2},$$
 
-and a linear blend between the laminar and turbulent values for
-$2000 \le \mathrm{Re} < 4000$. Optional lumped inertia is described in
+and, for $2300 \le \mathrm{Re} < 4000$, a cubic smoothstep blend of the two
+evaluated at the actual Reynolds number,
+
+$$f = (1-s)\frac{64}{\mathrm{Re}} + s\,f_\text{SJ}(\mathrm{Re}), \qquad s = t^2(3-2t), \quad t = \frac{\mathrm{Re}-2300}{4000-2300},$$
+
+whose weight has zero slope at both ends, so $f$ and $df/d\mathrm{Re}$ are
+continuous across the transition. Optional lumped inertia is described in
 section 4.5.1.
 
 An optional constant `frictionFactor` overrides the correlations with a
@@ -1773,9 +1778,11 @@ $$G = \frac{\dot m_\text{node}}{A_\text{flow}}, \qquad \dot m_\text{node} = \fra
 
 $$\mathrm{Nu} = 0.023\mathrm{Re}^{0.8}\mathrm{Pr}^{0.4}, \qquad h_c = \frac{\mathrm{Nu}k}{D}$$
 
-The heating exponent 0.4 is used uniformly. Below $\mathrm{Re} = 2300$ the
-laminar limit $\mathrm{Nu} = 3.66$ applies, with a smooth blend between
-$\mathrm{Re} = 2000$ and $4000$.
+The heating exponent 0.4 is used uniformly. Below $\mathrm{Re} = 2000$ the
+laminar limit $\mathrm{Nu} = 3.66$ applies, and between $\mathrm{Re} = 2000$
+and $4000$ the Nusselt number is blended linearly between the laminar and
+turbulent values. (The convection transition band differs from the friction
+band of section 4.3.1.)
 
 **Miropolskii** (dispersed-flow film boiling):
 
