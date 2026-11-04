@@ -35,11 +35,11 @@ the signature of liquid that stays metastable below its vapor pressure; an
 equilibrium model under-predicts there too. For dense supercritical inlets
 the expansibility closure, with κ frozen at the inlet state, over-predicts
 by a median +30 % (up to +57 %), where an
-isentropic homogeneous-equilibrium (HEM) calculation is within
-+2.9 % median. Through the sharp-edged orifice, the
+isentropic homogeneous-equilibrium (HEM) calculation has a median ratio of
+1.029. Through the sharp-edged orifice, the
 `orifice` closure with the textbook C_d = 0.61 at the measured back
 pressure is within −6.1 % to +1.3 % for subcooled
-inlets. In Hord's venturi the cavity at the throat sits 6–55 %
+inlets. In Hord's venturi the cavity leading edge sits 6–55 %
 below P_v(T0) because evaporation cools it, so for a choked venturi at
 these conditions the closure would under-predict the flow by
 10–41 %.
