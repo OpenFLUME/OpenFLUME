@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Saturated LN₂: chilldown time against axial segments</text>
+<line x1="140.44444444444446" y1="46" x2="140.44444444444446" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="140.44444444444446" y="390" text-anchor="middle" font-size="11">4</text>
+<line x1="269.3333333333333" y1="46" x2="269.3333333333333" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="269.3333333333333" y="390" text-anchor="middle" font-size="11">6</text>
+<line x1="398.22222222222223" y1="46" x2="398.22222222222223" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="398.22222222222223" y="390" text-anchor="middle" font-size="11">8</text>
+<line x1="527.1111111111111" y1="46" x2="527.1111111111111" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="527.1111111111111" y="390" text-anchor="middle" font-size="11">10</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">12</text>
+<line x1="76" y1="296.7692307692308" x2="656" y2="296.7692307692308" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="300.7692307692308" text-anchor="end" font-size="11">150</text>
+<line x1="76" y1="171.3846153846154" x2="656" y2="171.3846153846154" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="175.3846153846154" text-anchor="end" font-size="11">200</text>
+<line x1="76" y1="46" x2="656" y2="46" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="50" text-anchor="end" font-size="11">250</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Pipe segments N</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Station-4 chilldown time [s]</text>
+<path d="M76.0,205.4 L140.4,209.7 L269.3,206.4 L398.2,210.0 L656.0,182.4" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<circle cx="76" cy="205.35178126613812" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="140.44444444444446" cy="209.73706955766667" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="269.3333333333333" cy="206.40744021987626" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="398.22222222222223" cy="210.04666905671027" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="182.4041409210731" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,259.2 L656.0,259.2" fill="none" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="6 4"/>
+<path d="M76.0,270.7 L140.4,280.8 L269.3,289.0 L398.2,277.3 L656.0,267.5" fill="none" stroke="#c0392b" stroke-width="1.8"/>
+<rect x="72.6" y="267.28273898078646" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="137.04444444444445" y="277.4206465628336" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="265.93333333333334" y="285.6378818871926" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="394.82222222222225" y="273.91752392985666" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="652.6" y="264.13073552561275" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<path d="M76.0,296.8 L656.0,296.8" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="6 4"/>
+<path d="M76.0,286.3 L140.4,313.9 L269.3,322.7 L398.2,322.4 L656.0,323.0" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="76,282.9151634514752 72.6,289.7151634514752 79.4,289.7151634514752" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="140.44444444444446,310.52786169455845 137.04444444444445,317.3278616945584 143.84444444444446,317.3278616945584" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="269.3333333333333,319.30485966658875 265.93333333333334,326.1048596665887 272.7333333333333,326.1048596665887" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="398.22222222222223,318.96707385709135 394.82222222222225,325.7670738570913 401.6222222222222,325.7670738570913" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,319.64092240783674 652.6,326.4409224078367 659.4,326.4409224078367" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<path d="M76.0,346.9 L656.0,346.9" fill="none" stroke="#1e8449" stroke-width="1.8" stroke-dasharray="6 4"/>
+<rect x="463" y="54" width="185" height="118" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="471" y1="64" x2="493" y2="64" stroke="#1f5fa8" stroke-width="1.8"/>
+<circle cx="482" cy="64" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="499" y="68" font-size="11">OpenFLUME, 61.74 psia</text>
+<line x1="471" y1="82" x2="493" y2="82" stroke="#1f5fa8" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="499" y="86" font-size="11">Experiment, 61.74 psia</text>
+<line x1="471" y1="100" x2="493" y2="100" stroke="#c0392b" stroke-width="1.8"/>
+<rect x="478.6" y="96.6" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="499" y="104" font-size="11">OpenFLUME, 74.97 psia</text>
+<line x1="471" y1="118" x2="493" y2="118" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="499" y="122" font-size="11">Experiment, 74.97 psia</text>
+<line x1="471" y1="136" x2="493" y2="136" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="482,132.6 478.6,139.4 485.4,139.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<text x="499" y="140" font-size="11">OpenFLUME, 86.73 psia</text>
+<line x1="471" y1="154" x2="493" y2="154" stroke="#1e8449" stroke-width="1.8" stroke-dasharray="6 4"/>
+<text x="499" y="158" font-size="11">Experiment, 86.73 psia</text>
+</svg>

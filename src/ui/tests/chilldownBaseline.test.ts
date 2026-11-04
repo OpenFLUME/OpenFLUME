@@ -46,6 +46,11 @@ import {
   type ChilldownMetricInput,
 } from "../../validation/chilldownMetric";
 import { interpolateTraceToStation } from "../../validation/stationInterp";
+import { NBS_TRUSTED_SATURATED_TRACE_RUNS } from "../../validation/nbsTraceCorpus";
+import {
+  compareRunTraces,
+  solveSpecForRun,
+} from "../../validation/traceBaseline";
 
 // Hang-guard timeout per case (not a physics gate): the retry
 // cascade runs Newton retries on the subcooled case's hard
@@ -313,3 +318,46 @@ describeSlow(
     });
   },
 );
+
+/**
+ * Pre-registered trace baseline (src/validation/traceBaseline.ts): the four
+ * trusted saturated NBS-9264 runs solved with TRACE_BASELINE_SOLVE_PLAN, as
+ * rendered by scripts/chilldown-validation-report.ts.  Model-error values
+ * are reported, not pinned (see traceBaseline.test.ts); this gate pins that
+ * the solves the report quotes converge and produce a comparable trace at
+ * every station.
+ */
+describeSlow("NBS 9264 trusted trace runs — pre-registered solves", () => {
+  it("all four trusted runs converge and overlap the digitized record at every station", async () => {
+    await initRealFluids();
+    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+      const spec = solveSpecForRun(run.runId);
+      const cfg = buildChilldownTwoPhase({
+        segments: spec.segments,
+        length: NBS_CHILLDOWN_RIG.lengthM,
+        drivingPressure: run.drivingPressure.pa,
+        outletPressure: 101325,
+        fluidName: spec.fluidName,
+        outletWallCoupling: "upwind",
+        dt: spec.dtS,
+        endTime: spec.endTimeS,
+        timeStepping: "fixed",
+      });
+      await new Promise((r) => setImmediate(r));
+      const res = solveTransient(cfg);
+      expect(res.converged).toBe(true);
+      assertNoNaN(res);
+      const cmp = compareRunTraces(run, {
+        timesS: res.times,
+        wallXM: cfg.solidNodes!.map((s) => physicalPosition(s)?.x ?? s.x),
+        wallTracesK: cfg.solidNodes!.map(
+          (s) => res.solidNodes![s.id].temperature,
+        ),
+      });
+      for (const s of cmp.stations) {
+        expect(s.metrics.nSamples).toBeGreaterThan(0);
+        expect(Number.isFinite(s.metrics.rmseK)).toBe(true);
+      }
+    }
+  }, 600000);
+});
