@@ -17,17 +17,21 @@ Who talks like that? Nobody. Those are the model's notes to itself about staying
 
 Meanwhile, the solver those documents describe was written with an enormous amount of AI help, by me, alone, in about ten weeks.[¹](#notes) Six releases between the first commit on August 20 and v0.3.1 on November 3. Nineteen branch component types, real fluids, two-phase flow, conjugate heat transfer, combustion junctions, microfluidics.
 
-So I am, at the same time, someone who builds with AI every single day and someone who closes the tab the moment a blog post starts sounding like Claude. Charity Majors wrote about having [exactly this contradiction](https://charity.wtf/p/confessions-of-an-unrepentant-slop), and reading it was a little eerie. Her resolution is the one I landed on too.
+So I am, at the same time, someone who builds with AI every single day and someone who closes the tab the moment a blog post starts sounding like Claude. For a while that felt like hypocrisy. It isn't, once you ask what a given piece of writing is for.
 
 ## Code is functional. Writing to you is personal.
 
-Charity splits communication into two kinds. Some of it is functional, where the value is in the idea and nobody cares who typed it. Some of it is personal, where the value is that a specific human thought it. Her line about code is the one that stuck with me. Lines of code "are indifferent to their origin, and can be validated by harnesses and tests."
+Some writing is functional. Its value is in what it says, and nobody cares who typed it. A table of fluid properties, a proof, a diff. If it's correct, it's correct, and if a model produced it, fine. When two people are working on the same document or the same pull request, every edit is in service of making the thing better, and AI is one more tool in the pile. There the only fair question is whether the result is good.
+
+Other writing is personal. Its value comes from the fact that a particular person thought it. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it feels like a small betrayal. You asked for a person and got a vending machine.
+
+That's my hair trigger, too. I don't much mind AI-written marketing in my inbox. I mind a lot when someone writes to me personally, asks for my time or my opinion, and couldn't be bothered to write the message themselves. The more personal the exchange, the more AI in it cheapens it, unless both people agreed to it.
 
 A thermo-fluid solver is about as functional as artifacts get. Nobody running a tank blowdown cares whether I or a model wrote the backward-Euler step. They care whether the pressure history is right.
 
 A blog post is different. If you're reading this, you want to know what _I_ think about building an engineering tool this way, so I rewrote this post until it said what I think.[²](#notes)
 
-The catch is that "it can be validated by tests" only helps if the tests exist and are good. For a physics code that's a much bigger ask than it sounds.
+Code has one big advantage over prose here. It can be checked by something other than a reader's patience. The catch is that "it can be checked by tests" only helps if the tests exist and are good. For a physics code that's a much bigger ask than it sounds.
 
 ## Network codes fail by looking fine
 
@@ -35,7 +39,7 @@ When a web app is broken, it usually tells you. A network solver usually doesn't
 
 And this is exactly the failure that AI-generated code is best at producing. Plausible, complete-looking, returns a number, says "done."
 
-Charity has a [second piece](https://charity.wtf/p/ai-enthusiasts-are-in-a-race-against) about enthusiasts racing against time and skeptics racing against entropy. Both sides are right. The speed is real. One person building a GFSSP-class solver in ten weeks was not possible a few years ago. The entropy is real too. Every one of those ten weeks produced code I didn't type, and every line of it could be wrong in a way that still looks fine. Her move is to stop arguing about it and ask an engineering question instead. What would it take?
+People who are excited about AI and people who are wary of it are usually both right. The excited ones are racing against time, and the wary ones are racing against entropy. The speed is real. One person building a GFSSP-class solver in ten weeks was not possible a few years ago. The entropy is real too. Every one of those ten weeks produced code I didn't type, and every line of it could be wrong in a way that still looks fine. Arguing about which side wins gets nowhere. The useful move is to turn it into an engineering question. What would it take?
 
 For me the question was this. **What would it take for someone else to trust a solver that one person built with a lot of AI help?**
 
@@ -73,7 +77,7 @@ None of these crashed. All of them produced a number that looked plausible. Seve
 
 ## Tell the whole story
 
-Charity's first piece of advice to enthusiasts is to tell the whole story, the wins and what they cost. So here are the costs.
+If you're going to talk up what AI let you build, you owe people the costs in the same breath. So here they are.
 
 Most of the record is analytic verification. The experimental side is narrow. On saturated liquid-nitrogen chilldown from NBS Report 9264, OpenFLUME's chilldown time has a mean absolute error of 12.8 %. GFSSP's published predictions for the same runs come in at 8.8 %. GFSSP is better there. The subcooled runs are worse still, so the code marks them diagnostic-only and they can't be quoted as agreement at all. The validator throws if anyone tries to drop that flag ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
