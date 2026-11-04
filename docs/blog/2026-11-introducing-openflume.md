@@ -11,7 +11,9 @@ _John Rising · 2026-11-10_
 
 Over ten years ago at Virgin Galactic, I needed to model a fluid network, and I ended up writing my own basic solver to do it.
 
-That's not unusual. It's what most people in this field end up doing. The established tools for this kind of problem are NASA's GFSSP and C&R's SINDA/FLUINT, and both are good codes with a lot of heritage. But you have to request or license them and install them, and neither lets you read the implementation behind a result. So organization after organization, and project after project, writes its own application-specific network code, validates it a little, and maintains it forever.
+Later, at Relativity Space, we needed one again. So I hired the engineer who had written the same kind of solver for SpaceX, and he wrote one for us. Eight years later, he's still maintaining it.
+
+That's not unusual. It's what most teams in this field end up doing. The established tools for this kind of problem are NASA's GFSSP and C&R's SINDA/FLUINT, and both are good codes with a lot of heritage. But you have to request or license them and install them, and neither lets you read the implementation behind a result. So organization after organization, and project after project, writes its own application-specific network code, validates it a little, and maintains it for years.
 
 I've wanted an open one ever since. Today it exists.
 
