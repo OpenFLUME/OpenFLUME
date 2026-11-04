@@ -25,7 +25,7 @@ I knew, more-or-less, how I wanted to build and test it. That was never the hard
 
 The hard part was the sheer amount of it. Nodes that store mass and energy and branches that carry flow are the easy part. Real-fluid properties, solid walls that conduct and radiate, transients that don't fall over, and then a verification record a stranger could actually rerun and believe? That's years. I would chip away at a rough draft every so often, get a little further, and run out of steam again.
 
-This year, with a lot of AI help, I finally got to the end of it. That deserves its own post, so I'll leave it there for now.
+This year, with a lot of AI help, I finally got it far enough that I think it's better than GFSSP or SINDA/FLUINT for a lot of cases. How the AI helped, and where it didn't, gets its own post.
 
 ## No install, and your model stays on your machine
 
