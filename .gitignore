@@ -104,3 +104,7 @@ python/build/
 .venv/
 *.egg-info/
 .pytest_cache/
+
+# Docs-site (VitePress) caches
+site/.vitepress/cache/
+site/.vitepress/.temp/

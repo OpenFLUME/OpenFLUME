@@ -1,0 +1,14 @@
+{
+  "name": "openflume-site",
+  "private": true,
+  "type": "module",
+  "description": "Documentation and project website for OpenFLUME, built with VitePress from ../docs.",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.4"
+  }
+}
