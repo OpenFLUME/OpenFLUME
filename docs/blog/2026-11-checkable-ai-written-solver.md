@@ -33,17 +33,11 @@ A thermo-fluid solver is about as functional as artifacts get. Nobody running a 
 
 A blog post is different. If you're reading this, you want to know what _I_ think about building an engineering tool this way, so I rewrote this post until it said what I think.[²](#notes)
 
-Code has one big advantage over prose here. Whether it is true and useful can be measured. Unlike most functional code, though, a physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right.
+Code has one big advantage over prose here. Whether it is true and useful can be measured. Unlike most functional code, though, a physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason still produces a smooth, reasonable-looking plot. That is exactly the failure AI is best at producing.
 
-## Network codes fail by looking fine
+## The speed and the entropy are both real
 
-When a web app is broken, it usually tells you. A network solver usually doesn't. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason all still produce a smooth, reasonable-looking plot. You'd use it. You'd put it in a design review.
-
-And this is exactly the failure that AI-generated code is best at producing. Plausible, complete-looking, returns a number, says "done."
-
-People who are excited about AI and people who are wary of it are usually both right. The excited ones are racing against time, and the wary ones are racing against entropy. The speed is real. One person building a GFSSP-class solver in ten weeks was not possible a few years ago. The entropy is real too. Every one of those ten weeks produced code I didn't type, and every line of it could be wrong in a way that still looks fine. Arguing about which side wins gets nowhere. The useful move is to turn it into an engineering question. What would it take?
-
-For me the question was this. **What would it take for someone else to trust a solver that one person built with a lot of AI help?**
+People who are excited about AI are racing against time, and people who are wary of it are racing against entropy. Both are right. Ten weeks did what years of chipping away at a rough draft couldn't. But every line from those ten weeks could be wrong in a way that still looks fine. So the question that matters is an engineering one. **What would it take for someone else to trust a solver that one person built with a lot of AI help?**
 
 ## What it took
 
