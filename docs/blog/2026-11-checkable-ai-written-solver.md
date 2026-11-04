@@ -3,8 +3,6 @@ title: Building OpenFLUME with AI
 description: I couldn't have built OpenFLUME as well without AI, and AI couldn't have built it without me. What it was good at, where it needed me, and what the checks caught.
 date: 2026-11-24
 author: John Rising
-# Publish after John's own edit pass: the personal-writing section and note 2 say he rewrote it.
-draft: true
 ---
 
 # Building OpenFLUME with AI
