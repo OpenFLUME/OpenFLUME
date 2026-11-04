@@ -1,6 +1,6 @@
 ---
 title: Building OpenFLUME with AI
-description: I couldn't have built OpenFLUME as well without AI, and AI couldn't have built it without me. What it was good at, where it needed me, and what the checks caught.
+description: I couldn't have done it as well without AI. I would have let AI do it all, if it could. It couldn't.
 date: 2026-11-24
 author: John Rising
 ---
