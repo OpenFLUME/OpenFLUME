@@ -2860,12 +2860,12 @@ _Applications · steady · incompressible water, conjugate_
 mass, convecting to the fluid, conducting axially between wall segments, and
 radiating to a 300 K ambient.
 
-**Model.** Four fluid nodes, three solid wall nodes, three branches, and five
-conductors spanning all three mechanisms.
+**Model.** Four fluid nodes, two solid wall nodes plus an ambient reservoir,
+three branches, and five conductors spanning all three mechanisms.
 
 **Check.** The global energy balance closes: heat radiated to ambient equals heat
-convected into the water plus any wall source. Wall temperatures fall
-monotonically along the flow direction. This is the smallest model that exercises
+convected into the water plus any wall source. Wall 2 runs slightly hotter than
+Wall 1. This is the smallest model that exercises
 conduction, convection, and radiation together, and it is the recommended
 template for a first conjugate model.
 
@@ -2873,16 +2873,16 @@ template for a first conjugate model.
 
 _Applications · steady · real-fluid ammonia, conjugate_
 
-**Problem.** An ammonia loop heat pipe rejects 400 W of avionics heat through a
+**Problem.** An ammonia loop heat pipe rejects 350 W of avionics heat through a
 four-pass flat radiator panel to deep space.
 
 **Model.** Twenty fluid nodes, twenty-three solid nodes, twenty branches, and
 sixty conductors. Capillary pumping in the wicked evaporator is represented as a
-fixed pump curve. The face sheet carries genuine two-dimensional in-plane
-conduction, and the panel is laid out in the x–y plane so the 3-D view is
-meaningful.
+flow source; there is no mechanical pump. The face sheet carries genuine
+two-dimensional in-plane conduction, and the panel is laid out in the x–y plane
+so the 3-D view is meaningful.
 
-**Check.** Radiated heat matches the 400 W input at steady state. The
+**Check.** Radiated heat matches the 350 W input at steady state. The
 two-dimensional conduction network spreads heat between passes, so face-sheet
 temperature varies in both directions — visible immediately with **Color by** set
 to **Temperature**. This example also demonstrates using **View options** to hide
