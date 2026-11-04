@@ -1244,8 +1244,12 @@ when its density carries the Mach coupling) evaluate the term:
   when it converges to the physical root, which requires a warm start on
   the physical branch; the second-law audit
   (`settings.transonicAdmissibility`, on by default) checks every converged
-  ideal-gas branch against the entropy condition, re-seeds and re-solves on
-  a violation, and reports unresolved violations in `SteadyResult.warnings`.
+  ideal-gas branch against the entropy condition and, because a jump in a
+  constant-area duct can satisfy that condition, also rejects any
+  subsonic-to-supersonic crossing that does not touch a strict area
+  minimum (unless the downwind node is cooled or the passage widens
+  there). It re-seeds and re-solves on a violation, and reports unresolved
+  violations in `SteadyResult.warnings`.
 
 See [combustion.md](combustion.md) and the derivations in
 `core/solver/kernel.ts` and `core/solver/admissibility.ts`.

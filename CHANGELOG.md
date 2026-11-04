@@ -15,6 +15,10 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 - Documentation website at https://openflume.github.io/, built with VitePress (`site/`) from `docs/` and published by the `OpenFLUME/openflume.github.io` repository. It adds getting-started and tutorial guides, an examples gallery, notes for GFSSP and SINDA/FLUINT users, comparison pages, a verification overview, teaching labs, a blog, and a citation page. CI builds the site on every pull request to catch dead links.
 - OpenGraph/Twitter card metadata, `SoftwareApplication` structured data, and a social preview image (`public/og-image.png`, rendered by `scripts/brand/render-og-image.ts`) for the app. The docs site also publishes an `llms.txt`.
 
+### Fixed
+
+- Steady central-scheme (`momentumFluxScheme: "central"`) solves of constant-area compressible ducts could report "converged" on an expansion-shock root with no warning. A uniform 20-segment Fanno duct started cold at relaxation 0.5 jumped from M 0.70 to M 1.40 mid-duct and left the last internal node at 122 kPa, M 1.25. The second-law audit treated every node of a constant-area duct as an area minimum, which put the whole duct in the relaxed near-sonic tolerance, and a jump that includes the branch's friction can raise entropy. The audit now requires a strict area minimum and also rejects subsonic-to-supersonic crossings away from one (unless the downwind node is cooled or the passage widens there). Re-seeded re-solves are capped at 12 instead of 2, so a jump can be walked out of a long duct; the same duct now reaches the physical root (mass flow within 0.05 % of the Fanno value) at every relaxation tested.
+
 ## [0.3.1] - 2026-11-03
 
 ### Added

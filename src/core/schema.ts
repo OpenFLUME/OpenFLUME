@@ -675,6 +675,11 @@ export interface NetworkConfig {
      * Δs = cp·ln(T_dwn/T_don) − R·ln(P_dwn/P_don) must not fall below the
      * heat-extraction allowance (Q̇_in<0 at the downwind node permits
      * Δs ≥ Q̇/(ṁ·T)); adiabatic frictional flow can only generate entropy.
+     * In constant-area ducts the jump's entropy defect can be smaller than
+     * the tolerance (or, with the branch's own friction, positive), so a
+     * branch whose donor endpoint is subsonic and downwind endpoint
+     * supersonic is also flagged unless it touches a strict area minimum,
+     * the downwind node is cooled, or the passage widens there.
      * A violating branch marks an inadmissible root: the solver re-seeds
      * the downwind node onto the donor's (subsonic) state and re-solves,
      * selecting the physical root of the SAME unmodified equations — the

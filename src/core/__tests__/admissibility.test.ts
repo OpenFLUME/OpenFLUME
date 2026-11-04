@@ -157,3 +157,63 @@ describe("auditSecondLaw", () => {
     expect(state.nodeT.get("M")).toBe(240);
   });
 });
+
+describe("auditSecondLaw: subsonic → supersonic crossings", () => {
+  // M at 0.2 bar, 300 K: Δs = −R·ln(0.1) > 0 across b1, so the entropy
+  // test passes, but A is subsonic (M ≈ 0.12) and M is supersonic
+  // (M ≈ 1.24) in the same constant-area passage.
+  const crossing = () => makeState(2e4, 300);
+
+  it("flags the crossing in a constant-area chain even though Δs > 0", () => {
+    const ctx = buildSolverContext(config);
+    const violations = auditSecondLaw(ctx, crossing());
+    expect(violations).toHaveLength(1);
+    const v = violations[0];
+    expect(v.kind).toBe("sonicCrossing");
+    expect(v.deltaS).toBeGreaterThan(0);
+    expect(v.machDonor).toBeLessThan(1);
+    expect(v.machDownwind).toBeGreaterThan(1);
+    expect(v.defect).toBeCloseTo(
+      R_AIR * Math.log(v.machDownwind / v.machDonor),
+      9,
+    );
+    expect(violationScore(violations)).toBeCloseTo(v.defect, 9);
+  });
+
+  it("allows the crossing at a strict area minimum (a throat)", () => {
+    // Converging pipe into M, diverging pipe out of it: M is a throat.
+    const D1 = Math.sqrt((4 * 2e-3) / Math.PI);
+    const Dt = Math.sqrt((4 * 1e-3) / Math.PI);
+    const throat: NetworkConfig = {
+      ...config,
+      branches: [
+        {
+          id: "b1",
+          from: "A",
+          to: "M",
+          component: {
+            type: "pipe",
+            length: 0.1,
+            diameter: D1,
+            diameterOut: Dt,
+            roughness: 0,
+          },
+        },
+        {
+          id: "b2",
+          from: "M",
+          to: "B",
+          component: {
+            type: "pipe",
+            length: 0.1,
+            diameter: Dt,
+            diameterOut: D1,
+            roughness: 0,
+          },
+        },
+      ],
+    };
+    const ctx = buildSolverContext(throat);
+    expect(auditSecondLaw(ctx, crossing())).toEqual([]);
+  });
+});
