@@ -122,7 +122,7 @@ Seven validation reports are regenerated from live solves, not transcribed:
 | [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack            |
 | [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers |
 
-Experimental validation uses digitized data from NBS Report 9264 cryogenic chilldown, Hord's cavitation series, and NASA tank-pressurization tests, with per-corpus trust levels stated explicitly — calibration-grade runs are separated from diagnostic-only runs that may not be quoted as agreement. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
+Experimental validation currently uses digitized NBS Report 9264 cryogenic chilldown data, with per-corpus trust levels stated explicitly — calibration-grade runs are separated from diagnostic-only runs that may not be quoted as agreement. The digitized Hord cavitation series (`validation/data/digitized/choked_flow_cavitation/`) and NASA tank-pressurization tests (`validation/data/digitized/tank_pressurization/`) are archived for future validation; no test, script, or report compares against them yet. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 
 Continuous integration reruns the complete scientific validation suite weekly.
 
