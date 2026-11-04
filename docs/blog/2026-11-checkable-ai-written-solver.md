@@ -19,7 +19,7 @@ I don't use AI for writing because I don't care. Ironically, it's because I do. 
 
 ## Code is functional. Writing to you is personal.
 
-For a long time I told myself, and anyone who asked, that it doesn't matter how something was made, it matters how good it is. I believed it. At the same time I was developing a violent disgust reflex for AI-generated text. The moment a post or a message started sounding like a chatbot, I closed it, and I judged the person who sent it. That made no sense if quality was all that mattered, so one of the two had to give.
+For a long time I told myself, and anyone who asked, that it doesn't matter how something was made, it matters how good it is. I believed it. At the same time, AI-generated text had started to put me off in a way I couldn't shake. It wasn't anger so much as disappointment, the feeling of seeing mold on bread. One spot of chatbot phrasing in a post or a message and I threw the whole thing out, and thought a little less of the person who sent it. That made no sense if quality was all that mattered, so one of the two had to give.
 
 What gave was the idea that all writing is the same kind of thing.
 
