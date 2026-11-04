@@ -17,7 +17,7 @@ That's not unusual. It's what most teams in this field end up doing. The establi
 
 This is a solved problem that keeps getting solved again, privately, at great expense. It shouldn't be. So here's an open one.
 
-**[OpenFLUME](https://openflume.github.io/OpenFLUME/)** (Open FLUid Model Environment) is a finite-volume thermo-fluid network solver that runs entirely in your browser. It's MIT-licensed, it's at version 0.3.1, and it's alpha software.
+**[OpenFLUME](https://openflume.github.io/OpenFLUME/)** (Open FLUid Model Environment) is a finite-volume thermo-fluid network solver you can run in a web app in your browser or from Python with `pip install openflume`. It's MIT-licensed, it's at version 0.3.1, and it's alpha software.
 
 ## The solver I kept not finishing
 
