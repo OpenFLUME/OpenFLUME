@@ -72,7 +72,7 @@ transient ideal-gas chemistry.
 
 The steady-state solver uses a coupled Newton–Raphson method to simultaneously resolve mass and momentum residuals. In challenging convergence scenarios, it leverages an analytic Jacobian (computed via forward-mode automatic differentiation), trust-region dogleg globalization, and pseudo-transient continuation. Transient simulations use a fully implicit backward-Euler scheme, supporting both fixed and variable time steps. Advanced optional capabilities include lumped fluid inertia, trapped-gas cushions, multi-species advection with stiff Arrhenius kinetics, declarative logic registers, transient PID control, and built-in parameter sweeps.
 
-Thirteen example problems ship with the program, spanning hand-checkable sanity
+Fourteen example problems ship with the program, spanning hand-checkable sanity
 cases, engineering applications, and published benchmarks.
 
 ---
@@ -336,7 +336,7 @@ convective heat arriving from a wall is positive.
 | Equations of state      | Incompressible liquid, ideal gas, thermal-expansion liquid, real fluid (CoolProp, 124-fluid catalogue)                  |
 | Two-phase               | Transient homogeneous-equilibrium model for real fluids                                                                 |
 | Compressible duct flow  | Opt-in quasi-1-D (`momentumFlux` + `kineticEnergy`, any fluid model): Fanno/Rayleigh choking, seeded supersonic nozzles |
-| Branch components       | 17 types (Appendix A)                                                                                                   |
+| Branch components       | 19 types (Appendix A)                                                                                                   |
 | Conjugate heat transfer | Solid and ambient nodes; conduction, convection, radiation conductors                                                   |
 | Convection models       | Specified $h$ or expression, Dittus–Boelter, Miropolskii, Darr–Hartwig, TT-WF                                           |
 | Solid properties        | Constant, sourced material catalogue, table, equation, time table                                                       |
@@ -347,7 +347,7 @@ convective heat arriving from a wall is positive.
 | Multi-fluid             | Named isolated fluid continua, mixed EOS classes allowed (wall-coupled only)                                            |
 | Extensibility           | Tabulated $\Delta P$, $K(\mathrm{Re})$ resistances, user-authored JavaScript components                                 |
 | Exploration             | Session-only single-parameter sweeps up to 25 variants                                                                  |
-| Persistence             | `.fn` text save/load, browser autosave, 13 shipped examples                                                             |
+| Persistence             | `.fn` text save/load, browser autosave, 14 shipped examples                                                             |
 
 ## 1.6 Program Structure
 
@@ -2772,7 +2772,7 @@ problem rather than a model defect.
 
 # 7. Example Problems
 
-Thirteen models ship with the program, reachable from **Examples ▾**. They are
+Fourteen models ship with the program, reachable from **Examples ▾**. They are
 grouped by intent: _Verify-by-inspection_ cases whose answers can be checked by
 hand, _Applications_ showing engineering use, _Benchmarks_ reproducing published
 results, and _Extensibility_ cases exercising logic, registers, and controllers.
