@@ -17,7 +17,7 @@ Who talks like that? Nobody. Those are the model's notes to itself about staying
 
 I don't use AI for writing because I don't care. Ironically, it's because I do. What I write by my own hand often doesn't meet my lofty expectations and criteria, and self-censorship sometimes stops me from putting anything down at all. A model gets something down on canvas that I can edit. It also gives me permission. When neither I nor it can come up with something better, I can accept that a particular sentence or point is good enough.
 
-Meanwhile, the solver those documents describe was written with an enormous amount of AI help, by me, alone, in about ten weeks.[¹](#notes) Six releases between the first commit on August 20 and v0.3.1 on November 3. Nineteen branch component types, real fluids, two-phase flow, conjugate heat transfer, combustion junctions, microfluidics.
+Meanwhile, the solver those documents describe was written with an enormous amount of AI help, by me, alone, in about ten weeks.[¹](#notes) I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on.
 
 So I am, at the same time, someone who builds with AI every single day and someone who closes the tab the moment a blog post starts sounding like Claude. For a while that felt like hypocrisy. It isn't, once you ask what a given piece of writing is for.
 
