@@ -3,7 +3,7 @@ title: Building OpenFLUME with AI
 description: I couldn't have built OpenFLUME as well without AI, and I wouldn't have let AI build it alone. What it was good at, where it needed me, and what the checks caught.
 date: 2026-11-24
 author: John Rising
-# Publish after John's own edit pass: the closing section and note 2 say he rewrote it.
+# Publish after John's own edit pass: the personal-writing section and note 2 say he rewrote it.
 draft: true
 ---
 
@@ -17,7 +17,19 @@ Who talks like that? Nobody. Those are the model's notes to itself about staying
 
 I don't use AI for writing because I don't care. Ironically, it's because I do. What I write by my own hand often doesn't meet my lofty expectations and criteria, and self-censorship sometimes stops me from putting anything down at all. A model gets something down on canvas that I can edit. It also gives me permission. When neither I nor it can come up with something better, I can accept that a particular sentence or point is good enough.
 
-Building the solver went the same way. I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on. With AI, I built it in about ten weeks.[¹](#notes)
+## Code is functional. Writing to you is personal.
+
+Some writing is functional. Its value is in what it says, and nobody cares who typed it. A table of fluid properties, a proof, a diff. If it's correct, it's correct, and if a model produced it, fine. When two people are working on the same document or the same pull request, every edit is in service of making the thing better, and AI is one more tool in the pile. There the only fair question is whether the result is good.
+
+Other writing is personal. Its value comes from the fact that a particular person thought it, felt it, and is sharing that very real experience with you. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it is a small betrayal. You asked for connection and they shooed you away like a pest.
+
+The more personal the exchange, the more AI in it cheapens it.
+
+A thermo-fluid solver is about as functional as artifacts get. Nobody running a tank blowdown cares whether I or a model wrote the backward-Euler step. They care whether the pressure history is right. A blog post is different. If you're reading this, you want to know what _I_ think about building an engineering tool this way, so I rewrote this post until it said what I think.[²](#notes)
+
+## Why I built it with AI
+
+I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on. With AI, I built it in about ten weeks.[¹](#notes)
 
 I couldn't have done it as well without AI. I also wouldn't have let AI do it all.
 
@@ -53,8 +65,6 @@ The record has limits too. Most of it is analytic verification, and the experime
 ## Where that leaves me
 
 AI made it cheap to build a huge surface area and to check it against far more than I could have on my own. It didn't know what to build or when the answer was wrong. Those were mine.
-
-The more personal the writing, the less of it I hand over. A solver is functional, and its answer can be measured. A blog post is valuable because a particular person thought it, felt it, and is sharing that very real experience with you, so I went through every sentence of this one myself.[²](#notes)
 
 If you find a case where OpenFLUME disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the reference and the tolerance.
 
