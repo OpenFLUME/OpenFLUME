@@ -1,13 +1,13 @@
 ---
-title: I let AI write my solver. I won't let it write to you.
-description: OpenFLUME was built by one engineer and a lot of AI. Why that works for code that can be checked, and what checking it actually caught.
+title: I use AI because I care about the work
+description: Where AI belongs in engineering and writing, why personal writing is different, and what checking an AI-assisted solver actually caught.
 date: 2026-11-24
 author: John Rising
 # Publish after John's own edit pass: the closing section and note 2 say he rewrote it.
 draft: true
 ---
 
-# I let AI write my solver. I won't let it write to you.
+# I use AI because I care about the work
 
 _John Rising · 2026-11-24_
 
