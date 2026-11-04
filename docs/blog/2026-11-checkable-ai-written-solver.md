@@ -13,7 +13,7 @@ _John Rising · 2026-11-24_
 
 Earlier this month I was getting OpenFLUME ready to launch, and I had an AI agent help me draft the docs, the blog, and a preprint. It was fast. It was also full of sentences like "Here is my honest one-paragraph version" and "Convergence is reported rather than assumed."
 
-Who talks like that? Nobody. Those are the model's notes to itself about staying on task, and it handed them to me as prose. I spent a good chunk of the week deleting them.
+Who talks like that? Nobody. Those are the model's notes to itself about staying on task, and it handed them to me as prose. What made it maddening was that I had dictated what I wanted to say. It had my own words and my own phrasing right there to work from, and it wrote this instead. I spent a good chunk of the week deleting them.
 
 Meanwhile, the solver those documents describe was written with an enormous amount of AI help, by me, alone, in about ten weeks.[¹](#notes) Six releases between the first commit on August 20 and v0.3.1 on November 3. Nineteen branch component types, real fluids, two-phase flow, conjugate heat transfer, combustion junctions, microfluidics.
 
