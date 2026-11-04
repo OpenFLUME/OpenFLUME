@@ -31,7 +31,7 @@ This year, with a lot of AI help, I finally got it far enough that I think it's 
 
 I wanted something an engineer could open on a locked-down corporate laptop without filing a ticket with IT.
 
-So the web app is just static files. The solver runs locally, in your browser or in Python, and real-fluid properties come from CoolProp, compiled to WebAssembly and shipped with it. Nothing you build gets uploaded anywhere.[¹](#notes)
+So the web app is just static files. The solver runs locally via your browser or Python, and real-fluid properties come from CoolProp, compiled to WebAssembly and shipped with it. Nothing you build gets uploaded anywhere.[¹](#notes)
 
 Sharing works the same way, which I'm kind of delighted by. The **Share** button copies a link with your whole model compressed into the part of the URL after the `#`, and browsers never send that part to a server. The link is the model. Drop it in a forum answer or a bug report and whoever clicks it is running your network a few seconds later.
 
