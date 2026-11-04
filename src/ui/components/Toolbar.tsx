@@ -1,7 +1,19 @@
 import React, { useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useStore } from "../store";
-import { downloadModelText, parseModelFile, cloneConfig } from "../utils";
+import {
+  downloadModelText,
+  parseModelFile,
+  cloneConfig,
+  serializeModelFile,
+} from "../utils";
+import {
+  appBaseUrl,
+  buildModelShareUrl,
+  decodeModelPayload,
+  parseShareFragment,
+  SHARE_URL_SOFT_LIMIT,
+} from "../shareLink";
 import {
   downloadRunsFile,
   isRunsFileText,
@@ -109,12 +121,11 @@ export default function Toolbar() {
     }
   };
 
-  const loadFile = useCallback(
-    async (file: File) => {
+  const loadModelText = useCallback(
+    async (text: string, sourceLabel: string) => {
       try {
         // A results sidecar attaches to the model already open rather than
         // replacing it — the two files are loaded through one control.
-        const text = await file.text();
         if (isRunsFileText(text)) {
           try {
             const parsed = parseRunsFile(text);
@@ -166,7 +177,7 @@ export default function Toolbar() {
           .join(", ");
         setConfirm({
           title: "Trust embedded component code?",
-          message: `This file contains component code that can execute during a solve: ${details}. Only load code from a source you trust.`,
+          message: `This ${sourceLabel} contains component code that can execute during a solve: ${details}. Only load code from a source you trust.`,
           acceptLabel: "Trust and load",
           onAccept: () => {
             rememberComponentSourceTrust(
@@ -176,7 +187,7 @@ export default function Toolbar() {
           },
         });
       } catch (err) {
-        setValidationErrors([`Failed to load file: ${err}`]);
+        setValidationErrors([`Failed to load ${sourceLabel}: ${err}`]);
       }
     },
     [
@@ -188,6 +199,119 @@ export default function Toolbar() {
       importRuns,
     ],
   );
+
+  const loadFile = useCallback(
+    async (file: File) => loadModelText(await file.text(), "file"),
+    [loadModelText],
+  );
+
+  // Shared links: `#example=<slug>` or `#model=<payload>` (see shareLink.ts).
+  // Handled once on startup. The fragment is cleared immediately so a reload
+  // or a later edit never re-applies it over the user's work. Opening a link
+  // over an autosaved model asks first, exactly like Load over unsaved work.
+  const shareHandledRef = useRef(false);
+  React.useEffect(() => {
+    if (shareHandledRef.current) return;
+    shareHandledRef.current = true;
+    const fragment = parseShareFragment(window.location.hash);
+    if (fragment.kind === "none") return;
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+    const hasExistingWork = useStore.getState().baseConfig.nodes.length > 0;
+    const confirmThen = (title: string, what: string, run: () => void) => {
+      if (!hasExistingWork) {
+        run();
+        return;
+      }
+      setConfirm({
+        title,
+        message: `Open ${what}? It replaces the network currently in this browser. Save first if you want to keep it.`,
+        acceptLabel: "Open",
+        onAccept: run,
+      });
+    };
+    if (fragment.kind === "example") {
+      const name = fragment.name;
+      if (!name) {
+        setValidationErrors([
+          `Shared link refers to an unknown example "${fragment.slug}".`,
+        ]);
+        return;
+      }
+      confirmThen("Open shared example", `the example "${name}"`, () =>
+        loadExample(name),
+      );
+      return;
+    }
+    void (async () => {
+      let text: string;
+      try {
+        text = await decodeModelPayload(fragment.payload);
+      } catch {
+        setValidationErrors([
+          "The shared link is damaged or incomplete (could not decode the model). Ask the sender to copy it again.",
+        ]);
+        return;
+      }
+      confirmThen("Open shared model", "the shared model", () => {
+        void loadModelText(text, "shared link");
+      });
+    })();
+  }, [loadExample, loadModelText, setValidationErrors]);
+
+  const [shareStatus, setShareStatus] = React.useState<
+    "idle" | "copied" | "failed"
+  >("idle");
+  const handleShare = async () => {
+    if (!beginPreparation("save")) return;
+    try {
+      const library = await refreshComponentLibrary();
+      const shared = cloneConfig(useStore.getState().baseConfig);
+      const unavailable = embedReferencedComponents(shared, library.components);
+      if (unavailable.length > 0) {
+        setValidationErrors(
+          unavailable.map(
+            (key) =>
+              `User component "${key}" is not embedded and is unavailable from the local component library.`,
+          ),
+        );
+        return;
+      }
+      const url = await buildModelShareUrl(
+        appBaseUrl(window.location),
+        serializeModelFile(shared),
+      );
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(url);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+      if (!copied) {
+        window.prompt("Copy this link to share the model:", url);
+      }
+      setShareStatus(copied ? "copied" : "idle");
+      window.setTimeout(() => setShareStatus("idle"), 2500);
+      if (url.length > SHARE_URL_SOFT_LIMIT) {
+        setConfirm({
+          title: "Long share link",
+          message: `The link is ${url.length.toLocaleString()} characters. It works in browsers, but some chat apps and forums truncate long links — for large models, share the saved .fn file instead.`,
+          acceptLabel: "OK",
+          onAccept: () => {},
+        });
+      }
+    } catch (err) {
+      setShareStatus("failed");
+      window.setTimeout(() => setShareStatus("idle"), 2500);
+      setValidationErrors([`Could not create share link: ${err}`]);
+    } finally {
+      endPreparation("save");
+    }
+  };
 
   const handleLoad = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -302,6 +426,18 @@ export default function Toolbar() {
         >
           <LoadIcon />
           <span className="btn__label">Load</span>
+        </button>
+        <button
+          data-testid="toolbar-share"
+          className="btn"
+          onClick={handleShare}
+          disabled={operationBusy}
+          title="Copy a link that opens this model. The model is encoded in the link itself — nothing is uploaded."
+        >
+          <ShareIcon />
+          <span className="btn__label">
+            {shareStatus === "copied" ? "Link copied" : "Share"}
+          </span>
         </button>
         <input
           data-testid="toolbar-load-input"
@@ -511,6 +647,15 @@ function SaveIcon() {
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" />
       <path d="M17 21v-8H7v8" />
       <path d="M7 3v5h8" />
+    </ToolbarIcon>
+  );
+}
+
+function ShareIcon() {
+  return (
+    <ToolbarIcon>
+      <path d="M10 13a5 5 0 0 0 7.07 0l3-3a5 5 0 0 0-7.07-7.07l-1.5 1.5" />
+      <path d="M14 11a5 5 0 0 0-7.07 0l-3 3a5 5 0 0 0 7.07 7.07l1.5-1.5" />
     </ToolbarIcon>
   );
 }
