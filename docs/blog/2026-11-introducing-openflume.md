@@ -15,7 +15,7 @@ Later, at Relativity Space, we needed one again. So I hired the engineer who had
 
 That's not unusual. It's what most teams in this field end up doing. The established tools for this kind of problem are NASA's GFSSP and C&R's SINDA/FLUINT, and both are good codes with a lot of heritage. But you have to request or license them and install them, and neither lets you read the implementation behind a result. And sooner or later you need to extend it anyway. The systems people actually work on are hard and complicated, and each one comes with its own special considerations and its own questions you need to ask. So organization after organization, and project after project, writes its own application-specific network code, validates it a little, and maintains it for years.
 
-I've wanted an open one ever since. Today it exists.
+This is a solved problem that keeps getting solved again, privately, at great expense. It shouldn't be. So here's an open one.
 
 **[OpenFLUME](https://openflume.github.io/OpenFLUME/)** (Open FLUid Model Environment) is a finite-volume thermo-fluid network solver that runs entirely in your browser. It's MIT-licensed, it's at version 0.3.1, and it's alpha software.
 
