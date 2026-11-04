@@ -44,6 +44,7 @@
     "test:e2e": "npm run build && playwright test",
     "test:e2e:smoke": "playwright test e2e/connection-orientation.spec.ts",
     "gen:trace-corpus": "tsx scripts/build-nbs-trace-corpus.ts",
+    "gen:experimental-data": "tsx scripts/build-experimental-data.ts",
     "gen:fluid-catalogue": "tsx scripts/build-fluid-catalogue.ts",
     "check:fluid-catalogue": "tsx scripts/build-fluid-catalogue.ts --check",
     "gen:cea-tables": "python3 scripts/build-cea-tables.py",
