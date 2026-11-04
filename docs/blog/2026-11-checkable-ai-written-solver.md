@@ -47,11 +47,11 @@ Each report is written by a script that runs the current solver, so a model can'
 
 ## What it needed me for
 
-The models were bad at judgment, and a solver is mostly judgment.
+The models still needed a lot of engineering judgment and course correction, mostly because they tended to overcomplicate things. Asked to fix a convergence problem or add a physical effect, they reached for more machinery, another fallback, another special case, instead of going back to first principles and asking what the conservation equations actually require. That kept happening even when I gave them good specifications, and even when I set up agents whose job was to catch the other agents overcomplicating things.
 
-They tended to overcomplicate. Asked to fix a convergence problem or add a physical effect, they reached for more machinery, another fallback, another special case, instead of going back to first principles and asking what the conservation equations actually require. Deciding which terms belong in the energy balance, what the right closure is, when a simpler formulation is the correct one, and what counts as agreement were all calls I had to make.
+LLMs are good at adding. They are bad at subtracting, even though subtracting is most of what good engineering is. Deciding which terms belong in the energy balance, what the right closure is, when the simpler formulation is the correct one, and what counts as agreement were all calls I had to make.
 
-They were also bad at seeing that a result was wrong. A physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason still produces a smooth, reasonable-looking plot. That is exactly the failure AI is best at producing.
+They also struggled to see that a result was wrong. A physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason still produces a smooth, reasonable-looking plot. That is exactly the failure AI is best at producing.
 
 ## What the checks caught
 
