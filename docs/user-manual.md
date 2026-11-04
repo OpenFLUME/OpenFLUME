@@ -1446,7 +1446,7 @@ Swamee–Jain explicit approximation for turbulent flow,
 $$f = 0.25 \Big/ \left[\log_{10}\left(\frac{\varepsilon}{3.7 D} + \frac{5.74}{\mathrm{Re}^{0.9}}\right)\right]^{2},$$
 
 and a linear blend between the laminar and turbulent values for
-$2000 \le \mathrm{Re} < 4000$. Optional lumped inertia is described in
+$2300 \le \mathrm{Re} < 4000$. Optional lumped inertia is described in
 section 4.5.1.
 
 An optional constant `frictionFactor` overrides the correlations with a
