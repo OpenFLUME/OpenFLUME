@@ -19,9 +19,9 @@ I don't use AI for writing because I don't care. Ironically, it's because I do. 
 
 ## Code is functional. Writing to you is personal.
 
-For a long time I told myself, and anyone who asked, that it doesn't matter how something was made, it matters how good it is. I believed it. At the same time, I judge AI slop harshly, even though I use AI every day. It's like finding mold on bread. One spot of chatbot phrasing in a post or a message and the whole thing goes in the trash, and so does a good part of my respect for the person who sent it. If they couldn't be bothered to write it, why should I spend my attention reading it? That made no sense if quality was all that mattered, so one of the two had to give.
+For a long time I told myself, and anyone who asked, that it doesn't matter how something was made, it matters how good it is. I believed it. At the same time, I judge AI slop harshly, even though I use AI every day. It's like finding mold on bread. One spot of chatbot phrasing in a post or a message and the whole thing goes in the trash, and so does a good part of my respect for the person who sent it. If they couldn't be bothered to write it, why should I spend my attention reading it? That makes no sense if quality is all that matters. So quality can't be all that matters.
 
-What gave was the idea that all writing is the same kind of thing.
+The difference is that not all writing is the same kind of thing.
 
 Some writing is functional. Its value is in what it says, and nobody cares who typed it. A table of fluid properties, a proof, a diff. If it's correct, it's correct, and if a model produced it, fine. When two people are working on the same document or the same pull request, every edit is in service of making the thing better, and AI is one more tool in the pile. There the only fair question is whether the result is good.
 
