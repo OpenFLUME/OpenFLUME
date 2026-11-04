@@ -27,7 +27,7 @@ Some writing is functional. Its value is in what it says, and nobody cares who t
 
 Other writing is personal. Its value comes from the fact that a particular person thought it, felt it, and is sharing that very real experience with you. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it is a small betrayal. You asked for connection and they shooed you away like a pest.
 
-That's my hair trigger, too. I don't much mind AI-written marketing in my inbox. I mind a lot when someone writes to me personally, asks for my time or my opinion, and couldn't be bothered to write the message themselves. The more personal the exchange, the more AI in it cheapens it, unless both people agreed to it.
+The more personal the exchange, the more AI in it cheapens it.
 
 A thermo-fluid solver is about as functional as artifacts get. Nobody running a tank blowdown cares whether I or a model wrote the backward-Euler step. They care whether the pressure history is right.
 
