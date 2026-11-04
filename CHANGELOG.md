@@ -9,6 +9,12 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+### Added
+
+- Shareable model links. The toolbar **Share** button copies a link that holds the whole model, deflate-compressed, in the URL fragment (`#model=…`). Browsers never send the fragment to a server, so the model is not uploaded anywhere. `#example=<slug>` opens a built-in example directly (for example `#example=tank-blowdown`). A link opens through the same parse, validation, and embedded-code trust checks as **Load**. If the browser already holds a model, you are asked before it is replaced. The fragment is cleared after use. See [docs/guides/sharing.md](docs/guides/sharing.md).
+- Documentation website at https://openflume.github.io/OpenFLUME/docs/, built with VitePress (`site/`) from `docs/` and deployed beside the app. It adds getting-started and tutorial guides, an examples gallery, notes for GFSSP and SINDA/FLUINT users, comparison pages, a verification overview, teaching labs, a blog, and a citation page. CI builds the site on every pull request to catch dead links.
+- OpenGraph/Twitter card metadata, `SoftwareApplication` structured data, and a social preview image (`public/og-image.png`, rendered by `scripts/brand/render-og-image.ts`) for the app. The docs site also publishes an `llms.txt`.
+
 ## [0.3.1] - 2026-11-03
 
 ### Added

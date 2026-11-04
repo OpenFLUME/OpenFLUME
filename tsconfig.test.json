@@ -15,6 +15,7 @@
     "src/**/*.d.ts",
     "scripts/__tests__/**/*",
     "scripts/capture-manual-figures.ts",
+    "scripts/brand/**/*.ts",
     "e2e/**/*"
   ],
   "exclude": ["node_modules", "dist"]

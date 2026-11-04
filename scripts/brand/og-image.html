@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html,
+      body {
+        margin: 0;
+        width: 1280px;
+        height: 640px;
+        overflow: hidden;
+      }
+      body {
+        font-family:
+          "Inter",
+          -apple-system,
+          "Segoe UI",
+          Helvetica,
+          Arial,
+          sans-serif;
+        background: linear-gradient(
+          135deg,
+          #0d2b40 0%,
+          #12405f 55%,
+          #197cb4 100%
+        );
+        color: #fff;
+        position: relative;
+      }
+      .left {
+        position: absolute;
+        left: 72px;
+        top: 76px;
+        width: 560px;
+      }
+      .logo {
+        width: 430px;
+        filter: brightness(0) invert(1);
+      }
+      h1 {
+        font-size: 44px;
+        line-height: 1.15;
+        margin: 40px 0 22px;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+      }
+      p {
+        font-size: 24px;
+        line-height: 1.4;
+        margin: 0;
+        color: #cfe6f5;
+      }
+      .pills {
+        margin-top: 34px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .pill {
+        font-size: 18px;
+        padding: 7px 14px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.13);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+      }
+      .shot {
+        position: absolute;
+        left: 680px;
+        top: 92px;
+        width: 720px;
+        border-radius: 12px;
+        box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .url {
+        position: absolute;
+        left: 72px;
+        bottom: 44px;
+        font-size: 20px;
+        color: #9ccbe8;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="left">
+      <img class="logo" src="../../public/logo.svg" alt="OpenFLUME" />
+      <h1>Thermo-fluid network analysis in your browser</h1>
+      <p>
+        A GFSSP / SINDA-FLUINT-class solver. No install, and your model never
+        leaves your machine.
+      </p>
+      <div class="pills">
+        <span class="pill">Steady + transient</span>
+        <span class="pill">Real fluids</span>
+        <span class="pill">Two-phase</span>
+        <span class="pill">Conjugate HT</span>
+        <span class="pill">MIT</span>
+      </div>
+    </div>
+    <img
+      class="shot"
+      src="../../docs/figures/user-manual/regen-cooling-canvas.png"
+      alt=""
+    />
+    <div class="url">openflume.github.io/OpenFLUME</div>
+  </body>
+</html>
