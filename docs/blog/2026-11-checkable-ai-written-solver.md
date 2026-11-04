@@ -1,13 +1,13 @@
 ---
-title: I use AI because I care about the work
-description: Where AI belongs in engineering and writing, why personal writing is different, and what checking an AI-assisted solver actually caught.
+title: Building OpenFLUME with AI
+description: I couldn't have built OpenFLUME as well without AI, and I wouldn't have let AI build it alone. What it was good at, where it needed me, and what the checks caught.
 date: 2026-11-24
 author: John Rising
 # Publish after John's own edit pass: the closing section and note 2 say he rewrote it.
 draft: true
 ---
 
-# I use AI because I care about the work
+# Building OpenFLUME with AI
 
 _John Rising · 2026-11-24_
 
@@ -17,77 +17,46 @@ Who talks like that? Nobody. Those are the model's notes to itself about staying
 
 I don't use AI for writing because I don't care. Ironically, it's because I do. What I write by my own hand often doesn't meet my lofty expectations and criteria, and self-censorship sometimes stops me from putting anything down at all. A model gets something down on canvas that I can edit. It also gives me permission. When neither I nor it can come up with something better, I can accept that a particular sentence or point is good enough.
 
-Meanwhile, the solver those documents describe was written with an enormous amount of AI help, by me, alone, in about ten weeks.[¹](#notes) I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on.
+Building the solver went the same way. I had actually wanted to build an open source solver like this for a long time, since I had to write my own basic one at Virgin Galactic over ten years ago. I knew, more-or-less, how I wanted to build and test it, and would chip away at a rough draft every few years, but the amount of effort was simply too much for me to make much progress on. With AI, I built it in about ten weeks.[¹](#notes)
 
-So I am, at the same time, someone who builds with AI every single day and someone who closes the tab the moment a blog post starts sounding like Claude. For a while that felt like hypocrisy. It isn't, once you ask what a given piece of writing is for.
+I couldn't have done it as well without AI. I also wouldn't have let AI do it all.
 
-## Code is functional. Writing to you is personal.
+## What AI made possible
 
-Some writing is functional. Its value is in what it says, and nobody cares who typed it. A table of fluid properties, a proof, a diff. If it's correct, it's correct, and if a model produced it, fine. When two people are working on the same document or the same pull request, every edit is in service of making the thing better, and AI is one more tool in the pile. There the only fair question is whether the result is good.
+The part of a solver that takes the most effort isn't the solver. It's the evidence that the solver is right. Every closure needs a case it can be checked against, every case needs a reference, and every reference needs someone to dig it out of a NASA report, set it up, and decide what agreement means.
 
-Other writing is personal. Its value comes from the fact that a particular person thought it, felt it, and is sharing that very real experience with you. Feedback from someone who knows your work lands differently than the same advice in a book, because it came from them. When you ask someone what they think and get back something that reads like it was pasted from a chatbot, it is a small betrayal. You asked for connection and they shooed you away like a pest.
+That's where AI changed what one person could do. OpenFLUME has generated validation reports across incompressible hydraulics, compressible duct flow, conjugate heat transfer, fluid and tank transients, combustion, and microfluidics, plus thousands of tests that run on every pull request. It rebuilds six published microfluidic networks from their papers and compares cryogenic chilldown against the measured traces in NBS Report 9264. On my own, I'd have covered a fraction of those disciplines and checked against far less real data.
 
-The more personal the exchange, the more AI in it cheapens it.
+Each report is written by a script that runs the current solver, so a model can't type "agrees within 1 %" into it. The script can only print what the solver returned. Every case is also labeled as analytic verification, comparison with another code, or comparison with experiment ([user manual §8.1](../user-manual.md#_8-1-approach)), because "agrees with GFSSP" and "agrees with measurements" are very different claims.
 
-A thermo-fluid solver is about as functional as artifacts get. Nobody running a tank blowdown cares whether I or a model wrote the backward-Euler step. They care whether the pressure history is right.
+## What it needed me for
 
-A blog post is different. If you're reading this, you want to know what _I_ think about building an engineering tool this way, so I rewrote this post until it said what I think.[²](#notes)
+The models were bad at judgment, and a solver is mostly judgment.
 
-Code has one big advantage over prose here. Whether it is true and useful can be measured. Unlike most functional code, though, a physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason still produces a smooth, reasonable-looking plot. That is exactly the failure AI is best at producing.
+They tended to overcomplicate. Asked to fix a convergence problem or add a physical effect, they reached for more machinery, another fallback, another special case, instead of going back to first principles and asking what the conservation equations actually require. Deciding which terms belong in the energy balance, what the right closure is, when a simpler formulation is the correct one, and what counts as agreement were all calls I had to make.
 
-## The speed and the entropy are both real
+They were also bad at seeing that a result was wrong. A physics solver has to do more than converge. Its answer has to be physically plausible, and AI is not yet as good as a person at looking at a plot and seeing that something is off even when the general trend is right. A wrong sign in an energy balance, a badly scaled residual, or a convergence check that passes for the wrong reason still produces a smooth, reasonable-looking plot. That is exactly the failure AI is best at producing.
 
-People who are excited about AI are racing against time, and people who are wary of it are racing against entropy. Both are right. Ten weeks did what years of chipping away at a rough draft couldn't. But every line from those ten weeks could be wrong in a way that still looks fine. So the question that matters is an engineering one. **What would it take for someone else to trust a solver that one person built with a lot of AI help?**
+## What the checks caught
 
-## What it took
+Almost every serious defect in the [CHANGELOG](../../CHANGELOG.md) was something reporting success when it hadn't succeeded.
 
-My answer was evidence that a reader can rerun, sorted by what it actually proves.
+- **Microfluidic transients froze and called it convergence** (0.3.0). The stopping test compared an absolute tolerance against mass residuals in kg/s, and at flows around 1e-8 kg/s every imbalance already passed. A rebuilt published case, a bubble-damped syringe network checked against its exact ODE, showed 37 % error at the default tolerance. After the fix it was under 1e-3 ([microfluidics report](../validation/microfluidics-report.md), case B6).
+- **Transient steps were certified as converged unconditionally** (0.2.2), which hid a real failure in the **Entrapped-air line** example.
+- **A fabricated property state could reach an accepted result** (0.2.2). A last-resort fallback that existed only to dodge a WebAssembly crash could flow straight into results.
+- **A Fanno duct reported "Converged" on a nonphysical answer** this month, with Mach jumping from 0.70 to 1.40 halfway down a constant-area pipe while the second-law audit stayed silent. The fix ships in the next release.
 
-Every verification case in OpenFLUME is labeled as one of three things ([user manual §8.1](../user-manual.md#_8-1-approach)).
+None of these crashed. All of them produced plausible numbers. Most of the fixes had the same shape, replacing a silent fallback with a loud failure.
 
-1. **Analytic verification.** Compared against a closed form or an independently integrated solution, like Hagen–Poiseuille, the Fanno relations, or an RK4 reference for a tank blowdown. If it disagrees, OpenFLUME is wrong.
-2. **Code-to-code benchmarking.** Compared against published GFSSP or SINDA/FLUINT results. Agreement helps, but it inherits the other code's assumptions, and two codes can be wrong together.
-3. **Validation against experiment.** Compared against digitized test data. A disagreement could come from the model, the correlation, the grid, or the experiment.
+The record has limits too. Most of it is analytic verification, and the experimental side is narrow. On saturated liquid-nitrogen chilldown, OpenFLUME's mean absolute error is 12.8 % against 8.8 % for GFSSP's published predictions, so GFSSP is better there ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
-"Agrees with GFSSP within 5 %" and "agrees with experiment within 5 %" are wildly different claims, and the easiest way to make a verification record look better than it is would be to blur them. So even the GFSSP compressible-flow recreation is filed under _analytic_ verification, because every number in it is graded against an RK4 reference and never against GFSSP output.
+## Where that leaves me
 
-The reports themselves are written by scripts. Each script in `scripts/` builds its cases, runs the current solver, and writes the tables and figures in `docs/validation/`. A model will happily write "agrees within 1 %." A script can only print what the solver returned. If the solver changes, the report changes, and the regression is sitting right there in the diff.
+AI made it cheap to build a huge surface area and to check it against far more than I could have on my own. It didn't know what to build or when the answer was wrong. Those were mine.
 
-Some of the checks you can do yourself in one click. The first example in the menu, [Sanity: orifice hand-calc](https://openflume.github.io/OpenFLUME/#example=sanity-orifice-hand-calc), is two boundaries and an orifice with the expected answer, 0.8485 kg/s, written on the canvas. Click **Run** and compare.
+The more personal the writing, the less of it I hand over. A solver is functional, and its answer can be measured. A blog post is valuable because a particular person thought it, felt it, and is sharing that very real experience with you, so I went through every sentence of this one myself.[²](#notes)
 
-Then there's CI. Every pull request runs the fast tests, every test file at reduced cost, the full browser suite in four shards, and the Python wheel on Linux, macOS, and Windows. The slow scientific suite (full chilldown baselines, venturi sweeps, two-phase staircases) runs on every push to `main` and every Monday. The demo site only deploys after a green run, so a broken solver can't reach the app you're using ([CONTRIBUTING.md](../../CONTRIBUTING.md), [testing tiers](../testing-slow.md)).
-
-## It caught real bugs, and they all looked like success
-
-This is the part that convinced me it wasn't ceremony. Go through the [CHANGELOG](../../CHANGELOG.md) and look at the serious defects. Almost every one of them is something reporting success when it hadn't succeeded.
-
-- **Microfluidic transients froze and called it convergence** (0.3.0). The Newton stopping test compared an absolute tolerance against mass residuals in kg/s. At microfluidic flows, around 1e-8 kg/s, every imbalance already passed, so steps were accepted at their starting guess. A rebuilt published case caught it, a bubble-damped syringe network from Lee et al. (2012), checked against its exact ODE. The error was 37 % at the default tolerance. After the fix it was under 1e-3 ([microfluidics report](../validation/microfluidics-report.md), case B6).
-- **Transient steps were certified as converged unconditionally** (0.2.2). For several fluid models, a step got labeled `converged` without checking whether Newton had actually met its residual bar. That hid a real failure in the **Entrapped-air line** example, where a starting guess behind a closed valve was being treated as an initial condition.
-- **A fabricated property state could reach an accepted result** (0.2.2). A last-resort fallback (`T = 300 K, ρ = 100 kg/m³`) that existed only to dodge a WebAssembly crash could flow straight through into results. Steady solves now report `converged: false` and count the fallbacks.
-- **A fabricated critical point was cached for the life of the process** (0.2.0). A failed CoolProp read stored `Pc = 1e7 Pa, Tc = 300 K` and quietly misrouted every phase-region decision after it. Now it throws.
-- **A failed chemistry sub-step was swallowed** (0.2.2), leaving the node at its pre-reaction state inside a step marked converged.
-
-And one from this month. While building a teaching lab, a 20-segment Fanno duct solved with the central momentum scheme reported "Converged" on a nonphysical answer, Mach 0.70 jumping to 1.40 halfway down a constant-area pipe. The second-law audit that's supposed to catch exactly that stayed silent, because it was treating every node of a constant-area duct as a throat and applying the loose near-sonic tolerance everywhere. The audit now catches it, every relaxation setting finds the physical root, and there's a regression test. The fix ships in the next release.
-
-None of these crashed. All of them produced a number that looked plausible. Several of the fixes took the same shape, ripping out a silent fallback and replacing it with a loud failure. That's the habit I'd recommend to anyone building with AI. Hunt down every place your code can say "fine" without checking.
-
-## Tell the whole story
-
-If you're going to talk up what AI let you build, you owe people the costs in the same breath. So here they are.
-
-Most of the record is analytic verification. The experimental side is narrow. On saturated liquid-nitrogen chilldown from NBS Report 9264, OpenFLUME's chilldown time has a mean absolute error of 12.8 %. GFSSP's published predictions for the same runs come in at 8.8 %. GFSSP is better there. The subcooled runs are worse still, so the code marks them diagnostic-only and they can't be quoted as agreement at all. The validator throws if anyone tries to drop that flag ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
-
-Correlations get the same treatment ([§8.5](../user-manual.md#_8-5-correlation-status)). TT-WF, a chilldown closure I designed, is labeled "Research status, not validated," and I mean it. Production solver code is also forbidden by lint from importing the validation data, because a solver tuned to the experiment it's checked against hasn't been checked by that experiment.
-
-## So, do I trust it?
-
-I trust it exactly as far as the evidence goes, and the evidence is all public. That's the deal I'd want from anyone else's solver, and it's the one I'm offering for mine.
-
-AI made it cheap to build a huge surface area. Nineteen components, a pile of report generators, thousands of tests. It did not make any of that correct. The checks did that, and the checks found bugs I would have shipped.
-
-The preprint drafts had all the bugs a solver has, just in prose. They looked finished and said things nobody would say. A solver gets a test suite to catch that. Writing only gets a person who cares, which is why I went through every sentence of this one myself.
-
-If you find a case where OpenFLUME disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the reference and the tolerance. Check it rather than trust it.
+If you find a case where OpenFLUME disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the reference and the tolerance.
 
 ## Notes
 
