@@ -7,13 +7,13 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![DOI](https://zenodo.org/badge/1341200353.svg)](https://doi.org/10.5281/zenodo.22051608)
 [![PyPI](https://img.shields.io/pypi/v/openflume.svg)](https://pypi.org/project/openflume/)
-[![Docs](https://img.shields.io/badge/docs-openflume.github.io-197cb4.svg)](https://openflume.github.io/OpenFLUME/docs/)
+[![Docs](https://img.shields.io/badge/docs-openflume.github.io-197cb4.svg)](https://openflume.github.io/)
 
 **OpenFLUME** (Open **FLU**id **M**odel **E**nvironment) is a finite-volume thermo-fluid network simulator that runs entirely in the browser. Inspired by NASA GFSSP and SINDA/FLUINT, it solves coupled mass, momentum, and energy equations on arbitrary pipe-and-node networks using a Newton–Raphson steady solver and a backward-Euler transient solver.
 
-**[Try it in your browser →](https://openflume.github.io/OpenFLUME/)** — no install, no account, nothing leaves your machine. · **[Documentation →](https://openflume.github.io/OpenFLUME/docs/)**
+**[Try it in your browser →](https://openflume.github.io/OpenFLUME/)** — no install, no account, nothing leaves your machine. · **[Documentation →](https://openflume.github.io/)**
 
-Open a working model with one click: [tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown) · [cryogenic line chilldown](https://openflume.github.io/OpenFLUME/#example=cryogenic-line-cooldown) · [LOX/RP-1 thruster startup](https://openflume.github.io/OpenFLUME/#example=lox-rp-1-thruster-transient-startup) · [spacecraft radiator loop](https://openflume.github.io/OpenFLUME/#example=spacecraft-radiator-panel-ammonia-loop-heat-pipe) · [all examples](https://openflume.github.io/OpenFLUME/docs/examples.html)
+Open a working model with one click: [tank blowdown](https://openflume.github.io/OpenFLUME/#example=tank-blowdown) · [cryogenic line chilldown](https://openflume.github.io/OpenFLUME/#example=cryogenic-line-cooldown) · [LOX/RP-1 thruster startup](https://openflume.github.io/OpenFLUME/#example=lox-rp-1-thruster-transient-startup) · [spacecraft radiator loop](https://openflume.github.io/OpenFLUME/#example=spacecraft-radiator-panel-ammonia-loop-heat-pipe) · [all examples](https://openflume.github.io/examples.html)
 
 ![OpenFLUME demo: open an example, run a tank blowdown, plot pressure, color the canvas by pressure](docs/figures/demo.gif)
 
@@ -92,7 +92,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full test tiers and the pull-requ
 
 ## Documentation
 
-The documentation is published at **[openflume.github.io/OpenFLUME/docs](https://openflume.github.io/OpenFLUME/docs/)**, with a [getting-started guide](https://openflume.github.io/OpenFLUME/docs/guides/getting-started.html), tutorials, an [examples gallery](https://openflume.github.io/OpenFLUME/docs/examples.html), [notes for GFSSP and SINDA/FLUINT users](https://openflume.github.io/OpenFLUME/docs/guides/from-gfssp.html), and [teaching labs](https://openflume.github.io/OpenFLUME/docs/teach/). The site is built from this repository's `docs/` folder (`cd site && npm ci && npm run dev`).
+The documentation is published at **[openflume.github.io](https://openflume.github.io/)**, with a [getting-started guide](https://openflume.github.io/guides/getting-started.html), tutorials, an [examples gallery](https://openflume.github.io/examples.html), [notes for GFSSP and SINDA/FLUINT users](https://openflume.github.io/guides/from-gfssp.html), and [teaching labs](https://openflume.github.io/teach/). The site is built from this repository's `docs/` folder (`cd site && npm ci && npm run dev`).
 
 The **[user manual](docs/user-manual.md)** provides the complete reference for network definitions, units and sign conventions, data structures and fields, component equations, solution methods, the interface, fourteen worked examples, and verification results.
 

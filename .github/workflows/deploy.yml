@@ -7,10 +7,6 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
-  # Daily rebuild of main so blog posts dated today go live on schedule
-  # (see site/.vitepress/blog.ts). main has already passed CI.
-  schedule:
-    - cron: "7 13 * * *"
   workflow_dispatch:
 
 permissions:
@@ -24,7 +20,6 @@ jobs:
   build:
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event_name == 'schedule' ||
       github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
@@ -35,20 +30,14 @@ jobs:
         with:
           node-version: 22.13.0
           cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            site/package-lock.json
       - run: npm ci
       - run: npm run build
         env:
           VITE_BASE_PATH: /OpenFLUME/
-      # Documentation site (VitePress, sources in docs/) → dist/docs, served
-      # at /OpenFLUME/docs/ beside the app. Must run after the app build,
-      # which empties dist/.
-      - run: npm ci
-        working-directory: site
-      - run: npm run build
-        working-directory: site
+      # The docs moved to https://openflume.github.io/ (built by the
+      # OpenFLUME/openflume.github.io repository). Keep the old
+      # /OpenFLUME/docs/ addresses working with redirect stubs.
+      - run: npx tsx scripts/build-docs-redirects.ts
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

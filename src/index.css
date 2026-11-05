@@ -203,6 +203,9 @@ input[type="number"] {
   cursor: pointer;
   white-space: nowrap;
 }
+a.btn {
+  text-decoration: none;
+}
 .btn:hover:not(:disabled) {
   background: var(--bg-3);
   border-color: var(--line-2);

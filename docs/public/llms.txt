@@ -12,24 +12,24 @@ Use it for preliminary design and analysis of propulsion feed systems, tank pres
 
 ## Docs
 
-- [Getting started](https://openflume.github.io/OpenFLUME/docs/guides/getting-started.html): first simulation in five minutes
-- [User's manual](https://openflume.github.io/OpenFLUME/docs/user-manual.html): governing equations, component relations, solution methods, interface, worked examples, verification
-- [Examples gallery](https://openflume.github.io/OpenFLUME/docs/examples.html): all built-in models with deep links
-- [Python package](https://openflume.github.io/OpenFLUME/docs/python.html): API, CLI, sweeps
-- [Coming from GFSSP or SINDA/FLUINT](https://openflume.github.io/OpenFLUME/docs/guides/from-gfssp.html)
+- [Getting started](https://openflume.github.io/guides/getting-started.html): first simulation in five minutes
+- [User's manual](https://openflume.github.io/user-manual.html): governing equations, component relations, solution methods, interface, worked examples, verification
+- [Examples gallery](https://openflume.github.io/examples.html): all built-in models with deep links
+- [Python package](https://openflume.github.io/python.html): API, CLI, sweeps
+- [Coming from GFSSP or SINDA/FLUINT](https://openflume.github.io/guides/from-gfssp.html)
 
 ## Verification
 
-- [Verification and validation overview](https://openflume.github.io/OpenFLUME/docs/validation/)
-- [Compressible flow: recreation of the NASA GFSSP TFAWS-2007 study](https://openflume.github.io/OpenFLUME/docs/validation/compressible-report.html)
-- [Incompressible hydraulics](https://openflume.github.io/OpenFLUME/docs/validation/incompressible-hydraulics-report.html)
-- [Thermal networks](https://openflume.github.io/OpenFLUME/docs/validation/thermal-network-report.html)
-- [Tank transients](https://openflume.github.io/OpenFLUME/docs/validation/tank-transient-report.html)
-- [Combustion](https://openflume.github.io/OpenFLUME/docs/validation/combustion-report.html)
-- [Microfluidics](https://openflume.github.io/OpenFLUME/docs/validation/microfluidics-report.html)
+- [Verification and validation overview](https://openflume.github.io/validation/)
+- [Compressible flow: recreation of the NASA GFSSP TFAWS-2007 study](https://openflume.github.io/validation/compressible-report.html)
+- [Incompressible hydraulics](https://openflume.github.io/validation/incompressible-hydraulics-report.html)
+- [Thermal networks](https://openflume.github.io/validation/thermal-network-report.html)
+- [Tank transients](https://openflume.github.io/validation/tank-transient-report.html)
+- [Combustion](https://openflume.github.io/validation/combustion-report.html)
+- [Microfluidics](https://openflume.github.io/validation/microfluidics-report.html)
 
 ## Optional
 
-- [Comparison with GFSSP, SINDA/FLUINT, and commercial 1-D tools](https://openflume.github.io/OpenFLUME/docs/compare/)
-- [Teaching labs](https://openflume.github.io/OpenFLUME/docs/teach/)
-- [Blog](https://openflume.github.io/OpenFLUME/docs/blog/)
+- [Comparison with GFSSP, SINDA/FLUINT, and commercial 1-D tools](https://openflume.github.io/compare/)
+- [Teaching labs](https://openflume.github.io/teach/)
+- [Blog](https://openflume.github.io/blog/)
