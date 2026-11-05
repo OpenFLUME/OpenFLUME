@@ -68,6 +68,20 @@ import {
 import { thresholdCrossingTime } from "../src/validation/stationInterp";
 import { C, lineChart, type Series } from "./lib/report-charts";
 
+/** Driving pressure of a trace run in psia: the Table-6 value of the same
+ * test where one exists, otherwise the corpus value converted from atm. */
+function tracePsia(run: {
+  conditionId?: string;
+  drivingPressure: { atm: number; pa: number };
+}): string {
+  const row = run.conditionId
+    ? NBS_CHILLDOWN_DATA.find((p) => p.id === run.conditionId)
+    : undefined;
+  return row
+    ? String(row.drivingPressure.psia)
+    : (run.drivingPressure.pa / 6894.757).toFixed(1);
+}
+
 type WallMaterial = "constant" | "ofhc-copper";
 const WALL: WallMaterial = "ofhc-copper";
 
@@ -693,7 +707,7 @@ traceSolves.forEach((ts, k) => {
     TRACE_FIG0 + k,
     `trace-${ts.runId.replace("nbs9264-", "")}`,
     lineChart({
-      title: `${run.figure}: ${run.inletCondition} ${run.fluid} at ${run.drivingPressure.atm} atm`,
+      title: `NBS 9264 ${run.figure}: ${run.inletCondition} ${run.fluid.replace("2", "₂")} at ${tracePsia(run)} psia`,
       xLabel: "Time t [s]",
       yLabel: "Wall temperature [K]",
       legend: "outside-right",

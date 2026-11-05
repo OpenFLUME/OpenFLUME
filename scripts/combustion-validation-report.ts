@@ -364,7 +364,7 @@ writeFig(
   lineChart({
     title: "LOX/RP-1 product isentropic exponent (CEA equilibrium)",
     xLabel: "Mixture ratio O/F",
-    yLabel: "gamma_s",
+    yLabel: "γs",
     series: gammaSeries,
     legend: "top-right",
   }),
@@ -887,7 +887,7 @@ function profileFig(
 ) {
   const series: Series[] = [
     {
-      label: "frozen-gamma isentropic (geometric A/At)",
+      label: "frozen γ isentropic (geometric A/At)",
       pts: isentropic.map((s) => [s.z, pickIsen(s)]),
       color: C.analytic,
       mode: "line",

@@ -249,8 +249,8 @@ writeFig(
   "nozzle-liquid-ratio",
   lineChart({
     title: "Nozzles, liquid inlets: predicted / measured mass flux",
-    xLabel: "Inlet saturation ratio P_v(T₀)/P₀",
-    yLabel: "G_model / G_measured",
+    xLabel: "Inlet saturation ratio Pv(T₀)/P₀",
+    yLabel: "G (model) / G (measured)",
     legend: "bottom-left",
     xRange: [0, 1],
     yRange: [0, 1.4],
@@ -272,14 +272,14 @@ writeFig(
         marker: "triangle",
       },
       {
-        label: "OpenFLUME cavitatingVenturi (choked, C_d = 1)",
+        label: "OpenFLUME cavitatingVenturi (choked, Cd = 1)",
         pts: liquidNoz.map((r): [number, number] => [pvOverP0(r), ratio(r)]),
         color: C.blue,
         mode: "markers",
         marker: "circle",
       },
       {
-        label: "P₀/P_v = 2 regime boundary",
+        label: "P₀/Pv = 2 regime boundary",
         pts: [
           [0.5, 0],
           [0.5, 1.4],
@@ -300,8 +300,8 @@ writeFig(
   "nozzle-supercritical-ratio",
   lineChart({
     title: "Nozzles, supercritical and gaseous inlets",
-    xLabel: "Reduced stagnation temperature T₀/T_c",
-    yLabel: "G_model / G_measured",
+    xLabel: "Reduced stagnation temperature T₀/Tc",
+    yLabel: "G (model) / G (measured)",
     legend: "top-right",
     yRange: [0.8, 1.8],
     series: [
@@ -315,7 +315,7 @@ writeFig(
         mode: "line",
       },
       {
-        label: "OpenFLUME orifice (κ = c²ρ/P, C_d = 1)",
+        label: "OpenFLUME orifice (κ = c²ρ/P, Cd = 1)",
         pts: hotNoz.map((r): [number, number] => [Tr(r), ratio(r)]),
         color: C.blue,
         mode: "markers",
@@ -393,9 +393,9 @@ writeFig(
   4,
   "orifice-ratio",
   lineChart({
-    title: "Sharp-edged orifice (C_d = 0.61): predicted / measured",
-    xLabel: "Inlet saturation ratio P_v(T₀)/P₀",
-    yLabel: "G_model / G_measured",
+    title: "Sharp-edged orifice (Cd = 0.61): predicted / measured",
+    xLabel: "Inlet saturation ratio Pv(T₀)/P₀",
+    yLabel: "G (model) / G (measured)",
     legend: "bottom-left",
     xRange: [0, 1],
     yRange: [0, 1.4],
@@ -410,21 +410,21 @@ writeFig(
         mode: "line",
       },
       {
-        label: "orifice at measured P_b",
+        label: "orifice at measured Pb",
         pts: oriAtPb.map((r): [number, number] => [pvOverP0(r), ratio(r)]),
         color: C.blue,
         mode: "markers",
         marker: "circle",
       },
       {
-        label: "cavitatingVenturi (choked at P_v)",
+        label: "cavitatingVenturi (choked at Pv)",
         pts: oriChoked.map((r): [number, number] => [pvOverP0(r), ratio(r)]),
         color: C.red,
         mode: "markers",
         marker: "square",
       },
       {
-        label: "HEM × C_d",
+        label: "HEM × Cd",
         pts: oriAtPb.map((r): [number, number] => [pvOverP0(r), hemRatio(r)]),
         color: C.orange,
         mode: "markers",
@@ -438,13 +438,13 @@ writeFig(
   5,
   "hord-cavity-pressure",
   lineChart({
-    title: "Hord LH₂ venturi: cavity pressure against P_v(T₀)",
+    title: "Hord LH₂ venturi: cavity pressure against Pv(T₀)",
     xLabel: "Inlet temperature T₀ [K]",
     yLabel: "Pressure [kPa]",
     legend: "top-left",
     series: [
       {
-        label: "P_v(T₀), OpenFLUME (closure throat pressure)",
+        label: "Pv(T₀), OpenFLUME (closure throat pressure)",
         pts: hord
           .map((r): [number, number] => [r.run.T0, r.pv / 1e3])
           .sort((a, b) => a[0] - b[0]),
@@ -452,14 +452,14 @@ writeFig(
         mode: "line",
       },
       {
-        label: "P_v(T₀), tabulated",
+        label: "Pv(T₀), tabulated",
         pts: hord.map((r): [number, number] => [r.run.T0, r.run.pvTab / 1e3]),
         color: C.ref,
         mode: "markers",
         marker: "diamond",
       },
       {
-        label: "measured leading-edge cavity pressure p_c",
+        label: "measured leading-edge cavity pressure pc",
         pts: hord.map((r): [number, number] => [r.run.T0, r.pC / 1e3]),
         color: C.blue,
         mode: "markers",

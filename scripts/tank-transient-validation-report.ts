@@ -436,7 +436,7 @@ function linePts(
 
 function fig1TankSchematic(): string {
   const W = 720;
-  const H = 300;
+  const H = 284;
   const tx = 110;
   const ty = 92;
   const tw = 150;
@@ -464,13 +464,12 @@ function fig1TankSchematic(): string {
 <text x="${tx}" y="${ty + th + 34}" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orifice (compressible) C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
 <text x="${tx}" y="${ty + th + 52}" font-size="12">Case 4 (charge): 5 bar / 300 K supply boundary → resistance (K = 10, A = 10⁻³ m²) → tank initially at 1 bar</text>
 <text x="${tx}" y="${ty + th + 70}" font-size="12">Case 5 (schedule): tank at 5 bar → valve (position ramps 0 → 1 over 2 s) → orifice → 1 bar boundary</text>
-<text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="12">Figure 1. Lumped tank connected to a pressure boundary through a flow component.</text>
 </svg>`;
 }
 
 function fig2TwoTankSchematic(): string {
   const W = 720;
-  const H = 270;
+  const H = 200;
   const t1x = 100;
   const t2x = 470;
   const ty = 80;
@@ -497,7 +496,6 @@ function fig2TwoTankSchematic(): string {
 <line x1="${ox + 22}" y1="${yc}" x2="${t2x}" y2="${yc}" stroke="#1f5fa8" stroke-width="2.2"/>
 <line x1="${t1x + tw / 2}" y1="${ty}" x2="${t1x + tw / 2}" y2="${ty - 28}" stroke="#999" stroke-width="1.4" stroke-dasharray="5 4"/>
 <text x="${t1x + tw / 2 + 8}" y="${ty - 16}" font-size="11">closed valve to 1 bar boundary (position = 0; the network requires one boundary node)</text>
-<text x="${W / 2}" y="${H - 12}" text-anchor="middle" font-size="12">Figure 2. Two rigid tanks joined by an orifice; the smaller high-pressure tank discharges into the larger one.</text>
 </svg>`;
 }
 

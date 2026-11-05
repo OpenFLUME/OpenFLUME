@@ -421,7 +421,7 @@ writeFig(
   lineChart({
     title: "Rectangular duct: laminar f·Re vs aspect ratio",
     xLabel: "aspect ratio α = h/w (log scale, 10^x)",
-    yLabel: "Darcy f · Re_Dh",
+    yLabel: "Darcy f · Re (hydraulic diameter)",
     series: [
       {
         label: "OpenFLUME rectChannel (exact series)",
@@ -775,20 +775,20 @@ writeFig(
     legend: "top-left",
     series: [
       {
-        label: "OpenFLUME, D_h = 204 µm",
+        label: "OpenFLUME, Dh = 204 µm",
         pts: reisCurve(REIS_2021.diameter),
         color: C.blue,
         mode: "line",
       },
       {
-        label: "D_h + 13.8 µm (stated SD)",
+        label: "Dh + 13.8 µm (stated SD)",
         pts: reisCurve(REIS_2021.diameter + REIS_2021.diameterSd),
         color: C.blue,
         mode: "line",
         dash: "4 4",
       },
       {
-        label: "D_h − 13.8 µm (stated SD)",
+        label: "Dh − 13.8 µm (stated SD)",
         pts: reisCurve(REIS_2021.diameter - REIS_2021.diameterSd),
         color: C.blue,
         mode: "line",
@@ -844,8 +844,9 @@ writeFig(
   "bubble-damping",
   lineChart({
     title: "Bubble-damped syringe step (Lee 2012 network)",
-    xLabel: "t / t0,  t0 = V0·R3/P0",
-    yLabel: "flow in branch R1 [µL/min]",
+    xLabel:
+      "scaled time t / t₀,  t₀ = bubble volume × outlet resistance / pressure",
+    yLabel: "flow from syringe 1 [µL/min]",
     legend: "bottom-right",
     series: [
       {
@@ -1114,7 +1115,7 @@ remaining mass imbalance fell below 10⁻⁹ kg/s — and 37 % at the UI default
 10⁻⁶, where the syringe step never propagated to branch R1 at all.
 \`flowScaledTolerance.test.ts\` fails on the previous solver.
 
-${fig(7, "Flow in branch R1 after the syringe step, in scaled time: three bubble volumes on one exact curve.")}
+${fig(7, "Flow from syringe 1 (branch R₁) after the syringe step, in scaled time: three bubble volumes on one exact curve.")}
 
 ## Conclusions
 

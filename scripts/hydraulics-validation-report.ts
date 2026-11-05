@@ -417,7 +417,7 @@ for (const b of LOOP_BRANCHES) b.R = b.k / (2 * RHO * b.A * b.A);
 
 function fig1LoopSchematic(): string {
   const W = 680;
-  const H = 470;
+  const H = 450;
   const nodePos: Record<string, [number, number]> = {
     HP: [110, 235],
     N1: [270, 105],
@@ -464,8 +464,7 @@ function fig1LoopSchematic(): string {
   parts.push(
     `<text x="110" y="285" text-anchor="middle" font-size="11.5">500 kPa</text>`,
     `<text x="580" y="285" text-anchor="middle" font-size="11.5">100 kPa</text>`,
-    `<text x="${W / 2}" y="${H - 34}" text-anchor="middle" font-size="12">All 12 branches are square-law resistances ΔP = K·ṁ|ṁ|/(2ρA²), A = 0.001 m².</text>`,
-    `<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 1. Topology of the multi-loop network: two pressure boundaries, six internal nodes, four independent loops.</text>`,
+    `<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">All 12 branches are square-law resistances ΔP = K·ṁ|ṁ|/(2ρA²), A = 0.001 m².</text>`,
     "</svg>",
   );
   return parts.join("\n");

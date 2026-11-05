@@ -269,7 +269,7 @@ remaining mass imbalance fell below 10⁻⁹ kg/s — and 37 % at the UI default
 
 ![Figure 7](figures/microfluidics/fig07-bubble-damping.svg)
 
-*Figure 7. Flow in branch R1 after the syringe step, in scaled time: three bubble volumes on one exact curve.*
+*Figure 7. Flow from syringe 1 (branch R₁) after the syringe step, in scaled time: three bubble volumes on one exact curve.*
 
 ## Conclusions
 

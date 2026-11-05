@@ -1023,7 +1023,7 @@ console.log(
 
 function fig1WallSchematic(): string {
   const W = 720;
-  const H = 330;
+  const H = 290;
   const yTop = 90;
   const wallH = 150;
   const xA = 250;
@@ -1058,13 +1058,12 @@ function fig1WallSchematic(): string {
 <text x="${xA}" y="${yTop - 20}" text-anchor="middle" font-size="11">s1</text>
 <text x="${xA + wA}" y="${yTop - 20}" text-anchor="middle" font-size="11">s2</text>
 <text x="${xA + wA + wB}" y="${yTop - 20}" text-anchor="middle" font-size="11">s3</text>
-<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 1. Composite wall: three solid nodes (surfaces and interface), two conduction and two convection conductors.</text>
 </svg>`;
 }
 
 function fig2HxSchematic(): string {
   const W = 720;
-  const H = 340;
+  const H = 296;
   const x0 = 110;
   const chW = 480;
   const chH = 42;
@@ -1098,7 +1097,6 @@ ${cells.join("\n")}
 <text x="${x0 - 12}" y="${yHot - 10}" text-anchor="start" font-size="12">hot: ṁ = ${HX.mdotH} kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = ${HX.ThIn} K</tspan></text>
 <text x="${x0 + chW + 12}" y="${yCold + chH + 24}" text-anchor="end" font-size="12">cold: ṁ = ${HX.mdotC} kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = ${HX.TcIn} K</tspan></text>
 <text x="${x0 + chW / 2}" y="${yWall + 34}" text-anchor="middle" font-size="12">wall solid nodes w<tspan font-size="9" dy="3">i</tspan><tspan dy="-3">; convection hA</tspan><tspan font-size="9" dy="3">seg</tspan><tspan dy="-3"> on each side (h = ${HX.h} W/m²K, ΣA = ${HX.Atot} m² per side)</tspan></text>
-<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 2. Counterflow HX: two water streams exchanging through per-segment wall nodes (${nShow} of N segments drawn).</text>
 </svg>`;
 }
 
