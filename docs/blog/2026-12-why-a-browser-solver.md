@@ -1,13 +1,13 @@
 ---
 title: Why a thermo-fluid solver should run in the browser
 description: The architecture behind OpenFLUME (Web Worker solver, CoolProp in WebAssembly, local-first storage, a Python package) and its trade-offs.
-date: 2026-12-15
+date: 2026-12-01
 author: John Rising
 ---
 
 # Why a thermo-fluid solver should run in the browser
 
-_John Rising · 2026-12-15_
+_John Rising · 2026-12-01_
 
 Engineering solvers have traditionally been desktop programs: licensed per seat, installed by an administrator, sometimes tied to one operating system. Newer ones run in the cloud, where your model goes up and results come back. OpenFLUME runs the whole solver in a browser tab, on your machine, from static files.
 
