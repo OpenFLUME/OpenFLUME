@@ -29,7 +29,7 @@ This year, with a lot of AI help, I finally got it far enough that I think it's 
 
 ## No install, and your model stays on your machine
 
-I wanted something an engineer could open on a locked-down corporate laptop without filing a ticket with IT.
+I wanted something an engineer could open on a locked-down corporate laptop without filing a ticket with IT. I also wanted students and researchers to be able to use it without a license, an approval process, or a lab that happens to have the right software installed.
 
 So the web app is just static files. The solver runs locally via your browser or Python, and real-fluid properties come from CoolProp, compiled to WebAssembly and shipped with it. Nothing you build gets uploaded anywhere.[¹](#notes)
 
