@@ -1561,8 +1561,10 @@ blowdown through a compressible orifice, a four-level time-step convergence
 study of that blowdown, equalization of two unequal tanks through an orifice,
 charging of a tank from a constant-pressure supply, and blowdown through a
 valve whose area follows a prescribed opening schedule. At the working time
-step (dt = 0.05 s) every trace agrees with its analytical reference to within
-${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)},
+step (dt = 0.05 s) every pressure and temperature trace agrees with its
+analytical reference to within
+${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
+(the scheduled-valve flow trace within ${pct(vsMaxMdot, 1)} of its peak),
 the time-step study confirms the expected first-order convergence of the
 backward-Euler integrator, and global mass conservation holds to
 ${pct(Math.max(bdFine.stats.cons, flStats.cons, vsStats.cons, ttStats.cons), 3)} or better in every case.
@@ -1879,9 +1881,9 @@ T/T₀ = (m/m₀)^(γ−1) cooling law; two-tank equalization lands on the exact
 energy-conservation equilibrium pressure to ${pctSmart(ttStats.finalP)}; adiabatic
 charging reproduces the fill-heating closed form to ${pctSmart(flTfClosedErr)};
 and a scheduled valve demonstrates time-varying component handling against an
-RK4 reference with time-varying area. All traces agree with their references
-to within ${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
-at dt = 0.05 s, deviations decay at the expected first order in dt
+RK4 reference with time-varying area. All pressure and temperature traces
+agree with their references to within ${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
+at dt = 0.05 s (the scheduled-valve flow trace within ${pct(vsMaxMdot, 1)} of its peak), deviations decay at the expected first order in dt
 (observed orders ${bdOrders.map((o) => o.toFixed(2)).join(", ")}), and global
 mass conservation closes to ${pct(Math.max(bdFine.stats.cons, flStats.cons, vsStats.cons, ttStats.cons), 3)}
 or better. The dominant error is the first-order temporal truncation of

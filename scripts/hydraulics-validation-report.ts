@@ -1403,6 +1403,32 @@ const parallelTable = [
   `| **total** | — | — | — | ${parTotalAn.toFixed(6)} | ${parTotalNum.toFixed(6)} | ${pctE(parTotalErr)} |`,
 ].join("\n");
 
+// Every row of the summary table below: case 3 contributes its branch flows
+// AND the total, case 6 the operating-point flow AND the pressure rise.
+const nCompared =
+  lamPoints.length +
+  turbPoints.length +
+  PAR.pipes.length +
+  1 + // case 3 total flow
+  LOOP_BRANCHES.length +
+  loopInternalIds.length +
+  (COL.nSeg - 1) +
+  1 + // case 5b riser flow
+  1 + // case 6 operating-point flow
+  1; // case 6 pump rise
+const maxErrAll = Math.max(
+  lamMaxErr,
+  turbMaxErr,
+  parMaxErr,
+  parTotalErr,
+  loopMaxFlowErr,
+  loopMaxPErr,
+  colMaxDevRel,
+  riserErr,
+  pumpMdotErr,
+  pumpRiseErr,
+);
+
 const report = `# Steady Incompressible Network Hydraulics Validation of OpenFLUME
 
 **A validation report for the pressure–flow network solver against the classical closed-form results of steady incompressible pipe hydraulics: Hagen–Poiseuille laminar flow, Darcy–Weisbach turbulent flow, parallel-pipe flow splits, multi-loop network analysis (Hardy-Cross reference problem), hydrostatics, and pump/system operating points.**
@@ -1425,9 +1451,10 @@ split among parallel pipes of unequal geometry, a six-node twelve-branch
 multi-loop water network of the kind classically solved with the Hardy-Cross
 method, hydrostatic pressure distributions with and without through-flow, and
 the operating point of a pump run against a pipe system curve. Across all
-${lamPoints.length + turbPoints.length + PAR.pipes.length + LOOP_BRANCHES.length + loopInternalIds.length + (COL.nSeg - 1) + 1 + 1} compared quantities the numerical solution
-reproduces the reference to within ${pctE(Math.max(lamMaxErr, turbMaxErr, parMaxErr, loopMaxFlowErr, loopMaxPErr, colMaxDevRel, riserErr, pumpMdotErr, pumpRiseErr))} — the agreement is limited only
-by the Newton convergence tolerance (10⁻⁹), not by any modeling
+${nCompared} compared quantities the numerical solution
+reproduces the reference to within ${pctE(maxErrAll)} (a relative error of
+${maxErrAll.toExponential(1)}), below the relative Newton convergence tolerance of 10⁻⁹:
+the agreement is limited by the Newton convergence, not by any modeling
 approximation, because every case is constructed so that the solver's
 friction closure and the analytic reference are the same expression.
 
@@ -1561,9 +1588,9 @@ pressure guesses only; these do not constrain the converged solution.
 ## Results and Discussion
 
 Every case converged. The table summarizes the maximum relative deviation of
-each compared quantity from its reference; the errors sit at the Newton
-convergence floor (10⁻⁹ relative residual), orders of magnitude below any
-physical-modeling tolerance.
+each compared quantity from its reference; the errors sit at or below the
+Newton convergence floor (10⁻⁹ relative residual), orders of magnitude below
+any physical-modeling tolerance.
 
 | Case | Compared quantity | Points | Max error |
 | ---- | ----------------- | ------ | --------- |
