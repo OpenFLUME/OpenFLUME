@@ -5,6 +5,11 @@
  *   A — NASA/TM-2011-216470 §6.13 + Majumdar TFAWS-2004
  *   B — JANNAF-2024 Majumdar & LeClair conjugate HX schematic
  *   C — GFSSP v5 manual Example 5 via Patel 2011
+ *
+ * Reference types (scripts/benchmarks-report.ts reports the achieved values):
+ *   A is gated against the ANALYTIC fin solution (analytic verification);
+ *   B's duty against ε-NTU (analytic), its outlet temperatures against the
+ *   published GFSSP values; C against GFSSP's published output.
  */
 
 import { describe, it, expect, beforeAll } from "vitest";
@@ -113,13 +118,20 @@ describe("Benchmark A — GFSSP Ex.13: Conduction rod with convection", () => {
   it("interior solid-node end-state temperatures match analytical within 3.0 K (N=5)", () => {
     const L = 0.6096;
     const N = 5;
+    const devs: number[] = [];
     for (let i = 0; i < N; i++) {
       const x_m = ((i + 0.5) * L) / N;
       const x_ft = x_m / 0.3048;
       const T_num = last(res.solidNodes![`s${i}`].temperature);
       const T_ana = analyticalT(x_ft);
-      expect(Math.abs(T_num - T_ana)).toBeLessThanOrEqual(3.0);
+      devs.push(T_num - T_ana);
     }
+    // Achieved values are logged so the report (scripts/benchmarks-report.ts)
+    // and the CI log show the agreement, not only the pass band.
+    console.log(
+      `Benchmark A: T_num − T_analytic = ${devs.map((d) => d.toFixed(2)).join(", ")} K (max |Δ| ${Math.max(...devs.map(Math.abs)).toFixed(2)} K; gate 3.0 K)`,
+    );
+    for (const d of devs) expect(Math.abs(d)).toBeLessThanOrEqual(3.0);
   });
 
   it("center node (s2) end-state ≈ 304.4 K", () => {
@@ -136,12 +148,15 @@ describe("Benchmark A — GFSSP Ex.13: Conduction rod with convection", () => {
     const Q_hot_ana = -k * A * conv(dTdx_hot);
     const Q_cold_num = last(res.conductors!["c_cold_s0"].heatRate);
     const Q_hot_num = last(res.conductors!["c_s4_hot"].heatRate);
-    expect(
-      Math.abs(-Q_cold_num - Math.abs(Q_cold_ana)) / Math.abs(Q_cold_ana),
-    ).toBeLessThan(0.07);
-    expect(
-      Math.abs(-Q_hot_num - Math.abs(Q_hot_ana)) / Math.abs(Q_hot_ana),
-    ).toBeLessThan(0.07);
+    const errCold =
+      Math.abs(-Q_cold_num - Math.abs(Q_cold_ana)) / Math.abs(Q_cold_ana);
+    const errHot =
+      Math.abs(-Q_hot_num - Math.abs(Q_hot_ana)) / Math.abs(Q_hot_ana);
+    console.log(
+      `Benchmark A: end heat flows vs analytic: cold ${(errCold * 100).toFixed(2)} %, hot ${(errHot * 100).toFixed(2)} % (gate 7 %)`,
+    );
+    expect(errCold).toBeLessThan(0.07);
+    expect(errHot).toBeLessThan(0.07);
   });
 
   it("global energy balance at end-state within 0.5%", () => {
@@ -151,7 +166,11 @@ describe("Benchmark A — GFSSP Ex.13: Conduction rod with convection", () => {
     for (let i = 0; i < 5; i++) {
       Q_conv += last(res.conductors![`c_s${i}_air`].heatRate);
     }
-    expect(Math.abs(Q_hot - (Q_cold + Q_conv)) / Q_hot).toBeLessThan(0.005);
+    const imbalance = Math.abs(Q_hot - (Q_cold + Q_conv)) / Q_hot;
+    console.log(
+      `Benchmark A: global energy imbalance ${(imbalance * 100).toExponential(2)} % (gate 0.5 %)`,
+    );
+    expect(imbalance).toBeLessThan(0.005);
   });
 
   it("air stream end-state temperature rise < 0.05 K", () => {
@@ -232,21 +251,25 @@ describe("Benchmark B — GFSSP-style N2-N2 counterflow HX", () => {
   });
 
   it("hot-out ≈ 390.3 K and cold-out ≈ 298.2 K within 2.5 K at end-state", () => {
-    expect(Math.abs(last(res.nodes["h5"].temperature) - 390.3)).toBeLessThan(
-      2.5,
+    const Th = last(res.nodes["h5"].temperature);
+    const Tc = last(res.nodes["c1"].temperature);
+    console.log(
+      `Benchmark B: Th_out=${Th.toFixed(2)} K (GFSSP 390.3 K, Δ ${(Th - 390.3).toFixed(2)} K), Tc_out=${Tc.toFixed(2)} K (GFSSP 298.2 K, Δ ${(Tc - 298.2).toFixed(2)} K); gate 2.5 K`,
     );
-    expect(Math.abs(last(res.nodes["c1"].temperature) - 298.2)).toBeLessThan(
-      2.5,
-    );
+    expect(Math.abs(Th - 390.3)).toBeLessThan(2.5);
+    expect(Math.abs(Tc - 298.2)).toBeLessThan(2.5);
   });
 
   it("energy balance hot vs cold duty at end-state within 1%", () => {
     const cp = 1040;
     const Q_h = 1.175 * cp * (394.26 - last(res.nodes["h5"].temperature));
     const Q_c = 1.193 * cp * (last(res.nodes["c1"].temperature) - 294.26);
-    expect(
-      Math.abs(Q_h - Q_c) / Math.max(Math.abs(Q_h), Math.abs(Q_c)),
-    ).toBeLessThan(0.01);
+    const imbalance =
+      Math.abs(Q_h - Q_c) / Math.max(Math.abs(Q_h), Math.abs(Q_c));
+    console.log(
+      `Benchmark B: hot/cold duty imbalance ${(imbalance * 100).toFixed(3)} % (gate 1 %)`,
+    );
+    expect(imbalance).toBeLessThan(0.01);
   });
 
   it("end-state wall temperatures are monotonic between hot and cold fluid temps", () => {
@@ -460,7 +483,7 @@ describe("Benchmark C — GFSSP Ex.5: water-water counterflow HX", () => {
   it("T_hot,out end-state = 295.67 K ± 1.0 K", () => {
     const Th_out = last(res.nodes["h12"].temperature);
     console.log(
-      `Benchmark C N=12: Th_out=${Th_out.toFixed(2)} K (target 295.67 K)`,
+      `Benchmark C N=12: Th_out=${Th_out.toFixed(2)} K (GFSSP 295.67 K, Δ ${(Th_out - 295.67).toFixed(2)} K; gate 1.0 K)`,
     );
     expect(Math.abs(Th_out - 295.67)).toBeLessThan(1.0);
   });
@@ -468,7 +491,7 @@ describe("Benchmark C — GFSSP Ex.5: water-water counterflow HX", () => {
   it("T_cold,out end-state = 290.94 K ± 0.5 K", () => {
     const Tc_out = last(res.nodes["c1"].temperature);
     console.log(
-      `Benchmark C N=12: Tc_out=${Tc_out.toFixed(2)} K (target 290.94 K)`,
+      `Benchmark C N=12: Tc_out=${Tc_out.toFixed(2)} K (GFSSP 290.94 K, Δ ${(Tc_out - 290.94).toFixed(2)} K; gate 0.5 K)`,
     );
     expect(Math.abs(Tc_out - 290.94)).toBeLessThan(0.5);
   });
@@ -477,7 +500,7 @@ describe("Benchmark C — GFSSP Ex.5: water-water counterflow HX", () => {
     const cp = 4182;
     const Q = 0.4014 * cp * (310.93 - last(res.nodes["h12"].temperature));
     console.log(
-      `Benchmark C N=12: Q=${(Q / 1000).toFixed(2)} kW (target 25.6 kW)`,
+      `Benchmark C N=12: Q=${(Q / 1000).toFixed(2)} kW (GFSSP 25.6 kW, ${(((Q - 25600) / 25600) * 100).toFixed(2)} %; gate 3 %)`,
     );
     expect(Math.abs(Q - 25600) / 25600).toBeLessThan(0.03);
   });

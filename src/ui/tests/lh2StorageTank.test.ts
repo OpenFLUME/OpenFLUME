@@ -49,6 +49,16 @@ describe("SINDA/FLUINT Sample F: LH2 tank no-vent fill", () => {
 
   it("matches the deck fill table at 15 min", { timeout: 60000 }, () => {
     const g = result().finalRegisters!;
+    // Achieved values, logged (the gates below are ±5 %, ±0.5 % on pressure).
+    const pct = (a: number, b: number) =>
+      `${(((a - b) / b) * 100).toFixed(2)} %`;
+    console.log(
+      `Sample F at 15 min: fill ${g.fillFrac.toFixed(3)} vs ${DECK.fillFraction} (${pct(g.fillFrac, DECK.fillFraction)}); ` +
+        `P ${(g.Ptank / PSI).toFixed(2)} vs ${(DECK.pressure / PSI).toFixed(3)} psia (${pct(g.Ptank, DECK.pressure)}); ` +
+        `T_V ${(g.TV / RANK).toFixed(2)} vs ${(DECK.vaporTemp / RANK).toFixed(3)} R (${pct(g.TV, DECK.vaporTemp)}); ` +
+        `T_L ${(g.TL / RANK).toFixed(2)} vs ${(DECK.liquidTemp / RANK).toFixed(3)} R (${pct(g.TL, DECK.liquidTemp)}); ` +
+        `TVS ${(g.mdotTvs / LBM_HR).toFixed(4)} vs ${(DECK.tvsFlow / LBM_HR).toFixed(4)} lbm/hr (${pct(g.mdotTvs, DECK.tvsFlow)})`,
+    );
     expect(g.fillFrac / DECK.fillFraction).toBeCloseTo(1, 1);
     expect(g.Ptank / DECK.pressure).toBeCloseTo(1, 2);
     expect(g.TV / DECK.vaporTemp).toBeCloseTo(1, 1);

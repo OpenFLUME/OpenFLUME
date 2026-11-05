@@ -67,14 +67,19 @@
  * ---------------------------------------------------------------------------
  * AGREEMENT WITH THE DECK
  * ---------------------------------------------------------------------------
- * At 15 min into the fill, against the deck's Figure F-4 / user-file table:
+ * At 15 min into the fill, against the deck's Figure F-4 / user-file table
+ * (achieved values as of the current solver; scripts/benchmarks-report.ts
+ * regenerates them into docs/validation/benchmarks-report.md):
  *
- *                    this model      deck
- *     fill fraction     0.734        0.739
- *     tank pressure    59.63 psia   59.72 psia
- *     vapor temp       47.78 R      47.387 R
- *     liquid temp      38.99 R      38.098 R
- *     TVS flow          0.0518      0.0522 lbm/hr
+ *                    this model      deck          difference
+ *     fill fraction     0.733        0.739           −0.8 %
+ *     tank pressure    59.52 psia   59.72 psia       −0.3 %
+ *     vapor temp       47.79 R      47.387 R         +0.8 %
+ *     liquid temp      38.88 R      38.098 R         +2.1 %
+ *     TVS flow          0.0512      0.0522 lbm/hr    −1.9 %
+ *
+ * The CI gates (lh2StorageTank.test.ts) are ±5 % on each ratio and ±0.5 %
+ * on pressure.
  *
  * ---------------------------------------------------------------------------
  * WHAT IS NOT MODELLED, AND WHY
