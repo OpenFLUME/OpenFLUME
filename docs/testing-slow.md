@@ -13,19 +13,19 @@ Mechanism: `src/testUtils/slow.ts` exports `describeSlow` = `describe` when `RUN
 
 ## Suites moved out of the default run
 
-| Suite (file › block)                                                                        | What it covers                                                                                   |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `chilldownBaseline.test.ts` › full 4-case N=3 suite (3 saturated + matched subcooled 74.97) | NBS Table-6 baseline table, pressure trend, sat-vs-sub matched pair, definitional sensitivity    |
-| `chilldownBaseline.test.ts` › trusted trace runs (figs 2, 10, 11, 12; N=6)                  | the pre-registered solves of `docs/validation/chilldown-report.md` converge and overlap the data |
-| `chilldownTwoPhase.test.ts` › test 2: Table-6 pressure trend (N=3, 3 solves)                | two-phase chilldown time/mdot trend vs driving pressure                                          |
-| `chilldown.test.ts` › test 3: Table-6 trend (3 solves)                                      | single-phase-surrogate chilldown trend vs driving pressure                                       |
-| `cavitatingVenturi.test.ts` › all-liquid-init no-root solver finding                        | `converged=false` + compromise state on a proven-no-root giant step                              |
-| `cavitatingVenturi.test.ts` › choking sweep 500/400/300 psia (3 solves, 2 no-root)          | choked-mdot downstream independence of the emergent venturi                                      |
-| `twoPhaseFlow.test.ts` › boiling-pot staircase B1–B3                                        | dome entry, saturation plateau, latent-heat balance (water)                                      |
-| `twoPhaseFlow.test.ts` › supercritical→subcritical blowdown robustness                      | no raw WASM abort across the critical point                                                      |
-| `diagnostics.test.ts` › N=4 chilldown diagnostics baseline                                  | `hFloorClampCount`/`statePHFallbackCount` all-zero on the diagnostics config                     |
+| Suite (file › block)                                                                        | What it covers                                                                                |
+| ------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `chilldownBaseline.test.ts` › full 4-case N=3 suite (3 saturated + matched subcooled 74.97) | NBS Table-6 baseline table, pressure trend, sat-vs-sub matched pair, definitional sensitivity |
+| `chilldownBaseline.test.ts` › trusted trace runs (figs 2, 5, 10–14; N=6)                    | the trace solves of `docs/validation/chilldown-report.md` converge and overlap the data       |
+| `chilldownTwoPhase.test.ts` › test 2: Table-6 pressure trend (N=3, 3 solves)                | two-phase chilldown time/mdot trend vs driving pressure                                       |
+| `chilldown.test.ts` › test 3: Table-6 trend (3 solves)                                      | single-phase-surrogate chilldown trend vs driving pressure                                    |
+| `cavitatingVenturi.test.ts` › all-liquid-init no-root solver finding                        | `converged=false` + compromise state on a proven-no-root giant step                           |
+| `cavitatingVenturi.test.ts` › choking sweep 500/400/300 psia (3 solves, 2 no-root)          | choked-mdot downstream independence of the emergent venturi                                   |
+| `twoPhaseFlow.test.ts` › boiling-pot staircase B1–B3                                        | dome entry, saturation plateau, latent-heat balance (water)                                   |
+| `twoPhaseFlow.test.ts` › supercritical→subcritical blowdown robustness                      | no raw WASM abort across the critical point                                                   |
+| `diagnostics.test.ts` › N=4 chilldown diagnostics baseline                                  | `hFloorClampCount`/`statePHFallbackCount` all-zero on the diagnostics config                  |
 
-The manually-run full baseline sweep (N=3/4/6, saturated + subcooled) remains `npx tsx scripts/chilldown-baseline.ts …` (never was in CI); the saturated grid study N=3–12 is part of `scripts/chilldown-validation-report.ts`.
+The manually-run full baseline sweep (N=3/4/6, saturated + subcooled) remains `npx tsx scripts/chilldown-baseline.ts …` (never was in CI); the saturated (N=3–12) and subcooled (N=3, 6, 12) grid studies are part of `scripts/chilldown-validation-report.ts`.
 
 ## Test tiers
 

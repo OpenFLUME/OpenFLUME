@@ -239,7 +239,7 @@ multi-loop verification case of
 
 Two consequences of this arrangement dictate how you will build and scope your models:
 
-First, **spatial resolution is entirely up to you**. A 100 m pipe represented by a single branch has only one flow rate and no interior temperature profile. If you represent that same pipe with twenty branches and nineteen interior nodes, you can capture an axial temperature profile and a distributed friction gradient. Wherever a gradient matters to your result you must subdivide the line into enough segments to resolve it. (The shipped chilldown example uses twenty axial segments for a 61 m line for exactly this reason; the Repeat and Split commands of section 3.13 build such discretizations.)
+First, **spatial resolution is entirely up to you**. A 100 m pipe represented by a single branch has only one flow rate and no interior temperature profile. If you represent that same pipe with twenty branches and nineteen interior nodes, you can capture an axial temperature profile and a distributed friction gradient. Wherever a gradient matters to your result you must subdivide the line into enough segments to resolve it. (The shipped cryogenic line cooldown example of section 7.11 uses twenty axial segments for a 61 m line for exactly this reason; the Repeat and Split commands of section 3.13 build such discretizations.)
 
 Second, **a node's volume determines its ability to store mass and energy**. In a steady-state run, volume is irrelevant and you can safely ignore it. In a transient run, however, an interior node accumulates mass and energy in proportion to its volume. This means you must assign a positive volume to every interior node in a transient model, because how you distribute that volume directly sets your system's behavior.
 
@@ -3077,9 +3077,10 @@ copper wall thermal mass with temperature-dependent NIST OFHC-copper specific
 heat and Miropolskii film-boiling convection. Fixed 1 s step.
 
 **Check.** Walls chill sequentially from inlet to outlet — segment 1 well before
-segment 20 — and the first segment ends below 50 K. Chilldown time at the
-instrumented station is compared with the NBS experiment and with GFSSP
-predictions in the validation suite.
+segment 20 — and the first segment ends below 50 K. The NBS 9264 validation of
+section 8.4 compares chilldown times at the instrumented station with the
+experiment and with GFSSP's predictions using a separate, coarser two-phase
+line model (`buildChilldownTwoPhase`), not this example.
 
 This is the most demanding shipped example: real-fluid two-phase flow, a moving
 front, temperature-dependent solid properties, and film boiling at once. It is
@@ -3207,7 +3208,7 @@ agreement figure.
 | Choked orifice                        | Analytical choked mass flux                                                                                                                                                                                                                             | 0.5 %                                                                                                                                               |
 | Species decay                         | Exponential analytical solution                                                                                                                                                                                                                         | 1 %                                                                                                                                                 |
 | Adaptive stepping                     | Runge–Kutta reference on blowdown                                                                                                                                                                                                                       | 2 %                                                                                                                                                 |
-| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 2–6 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band)                     |
+| Compressible duct flow, 5 cases       | GFSSP TFAWS-2007 paper (NTRS 20070036728): Runge–Kutta integration of the generalized 1-D ODE; Fanno/Rayleigh closed forms. Full report with the paper's sixteen figures: [`docs/validation/compressible-report.md`](validation/compressible-report.md) | Mass flow within 1 % (`central` scheme) / 0.4–3.5 % (default `upwind`); P, T, Mach profiles within 2–6 % (the paper's own 5 % band)                 |
 | Real-fluid transonic CD nozzle        | Analytic ideal-gas twin (same grid and scheme, N₂'s R and γ) plus the ideal choking relation; CoolProp nitrogen at 5 bar / 300 K (`src/core/__tests__/realFluidTransonic.test.ts`)                                                                      | Mass flow within 0.17 % of the twin; chokes within the upwind margin; same root from a flat cold start                                              |
 | Reacting-junction LOX/RP-1 thruster   | CEA identities; chamber and injector closed forms; quasi-1-D RK4 nozzle ODE; exact wall resistance network. Full report: [`docs/validation/combustion-report.md`](validation/combustion-report.md)                                                      | Chamber closure to machine precision; injector error ≤0.18 %; local nozzle profile error ≤4.87 %; wall temperatures to machine precision            |
 | Two-phase HEM path                    | Nitrogen boiling and condensation staircases across the dome, and saturated LN₂ blowdown against a Runge–Kutta reference (`src/core/__tests__/twoPhaseFlow.test.ts`); the experimental leg is the NBS/GFSSP two-phase chilldown benchmark (section 8.4) | $T$ tracks $T_\text{sat}(P(t))$ within 0.5 K; pressure within 3 %; mass conserved to 0.5 %; latent-heat and flow-boiling energy balances within 1 % |
@@ -3232,48 +3233,78 @@ and reacting-junction combustion
 
 ## 8.3 Code-to-Code Benchmarks
 
-| Benchmark                                        | Reference                                             | Result                                                                                                |
-| ------------------------------------------------ | ----------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| GFSSP Example 13, conduction rod with convection | NASA/TM-2011-216470 §6.13                             | Solid temperatures within 3.0 K; conduction heat flows within 7 %; global energy balance within 0.5 % |
-| N₂–N₂ counterflow heat exchanger                 | JANNAF 2024, Majumdar & LeClair                       | Duty within 5 %; outlet temperatures within 2.5 K; energy balance within 1 %                          |
-| GFSSP Example 5, water-water heat exchanger      | GFSSP v5 manual                                       | Hot outlet 295.67 ± 1.0 K; cold outlet 290.94 ± 0.5 K; duty within 3 %                                |
-| Lee & Martin entrapped air                       | GFSSP Figure 10; independent Runge–Kutta rigid column | First peak within 15 %; period 0.5–0.65 s; trace within 8 % at refined step                           |
-| SINDA/FLUINT Sample F, LH₂ no-vent fill          | C&R Technologies sample deck                          | Fill fraction, pressure, vapor temperature, and vent flow within about 1 % at 15 min                  |
-| NURETH-16 gas-cooled reactor loop                | NURETH-16 paper 13066                                 | Published _trends_ only; geometry is representative                                                   |
+The [benchmarks report](validation/benchmarks-report.md) is generated from
+live solves (`scripts/benchmarks-report.ts`) and gives, for every gated
+quantity, the reference, its type, the error achieved by the current solver,
+and the CI gate. The gates are pass bands; the achieved values are the
+agreement. Not every reference is another code's output:
+
+| Benchmark                                        | Reference (type)                                                                                         | Achieved                                                                                                                       | Gate                       |
+| ------------------------------------------------ | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------------------------- |
+| GFSSP Example 13, conduction rod with convection | NASA/TM-2011-216470 §6.13: the analytic fin solution (analytic verification, not code-to-code)           | Solid temperatures within 2.59 K; end heat flows −4.4 % and −5.6 %; energy balance 0.31 %                                      | 3.0 K; 7 %; 0.5 %          |
+| N₂–N₂ counterflow heat exchanger                 | JANNAF 2024, Majumdar & LeClair: duty against ε-NTU (analytic); outlet temperatures against GFSSP output | Duty −0.84 %; outlets −0.38 K of 390.3 K and +0.33 K of 298.2 K                                                                | 5 %; 2.5 K                 |
+| GFSSP Example 5, water-water heat exchanger      | GFSSP v5 manual (GFSSP output)                                                                           | Hot outlet +0.44 K of 295.67 K; cold outlet +0.19 K of 290.94 K; duty −2.8 % of 25.6 kW                                        | 1.0 K; 0.5 K; 3 %          |
+| Lee & Martin entrapped air                       | GFSSP Figure 10 (GFSSP output); independent Runge–Kutta rigid column                                     | First peak 1.69 MPa (−11 % of ≈1.90 MPa); period 0.50–0.51 s; against Runge–Kutta −6.1 % (peak), +0.1 % (time), 0.0 % (period) | ±15 %; 0.5–0.65 s; 8 %     |
+| SINDA/FLUINT Sample F, LH₂ no-vent fill          | C&R Technologies sample deck (SINDA/FLUINT output); emulated with logic rules (section 3.8)              | At 15 min: fill fraction −0.8 %, pressure −0.3 %, vapor temperature +0.8 %, liquid temperature +2.1 %, vent flow −1.9 %        | ±5 % each; ±0.5 % pressure |
+| NURETH-16 gas-cooled reactor loop                | NURETH-16 paper 13066                                                                                    | Published _trends_ only; geometry is representative                                                                            | Qualitative                |
+
+The Lee & Martin gas-cushion polytropic index (1.03) was chosen to recover the
+published first peak and period at the default step, so its GFSSP-figure rows
+are partly calibrated; the Runge–Kutta rows are not. Sample F is reproduced
+only through an emulation of FLUINT's twinned tanks and moveable ties built
+from registers, logic rules, and boundary-node controllers
+(`src/ui/lh2StorageTank.ts` lists what is emulated); it does not show that
+the core formulation represents a non-equilibrium no-vent fill (section 8.4).
 
 ## 8.4 Validation Against Experiment
 
-The cryogenic chilldown corpus derives from NBS Report 9264. Table 6 of that
-report supplies eighteen chilldown-time points for saturated and subcooled liquid
-hydrogen and nitrogen, and eleven digitized oscillograph figures supply
-forty-four station traces totaling 10 195 samples, rebuilt from source CSVs by
-`npm run gen:trace-corpus`.
+The cryogenic chilldown corpus derives from NBS Report 9264. Table 6 of the
+GFSSP Version 6 paper (Majumdar et al., AIAA 2015-3850) tabulates eighteen
+chilldown times from that report for saturated and subcooled liquid hydrogen
+and nitrogen, with GFSSP's predictions alongside, and eleven digitized
+oscillograph figures of the report supply forty-four station traces totaling
+10 195 samples, rebuilt from source CSVs by `npm run gen:trace-corpus`.
 
-Corpus discipline is explicit about which data may be used for what. Four
-saturated runs, sixteen traces, are **trusted** and calibration-grade. Seven
-subcooled runs are **diagnostic only**: at coarse axial discretization their
-errors reach +80 %, so they may inform a diagnosis but may not be quoted as
-agreement. The continuous-integration chilldown baseline requires the computed
-chilldown time at the instrumented station to stay within a factor of 1.6 of
-experiment, with mean absolute error under 25 % across the full four-case slow
-suite. Two-phase chilldown energy and enthalpy balances close within 10 % and
-12 % respectively.
+Trust levels are assigned from the experimental record alone, never from the
+model's error. A digitized run is **diagnostic only** when its record is
+compromised as a whole: the cold tails of several stations overlap so that
+they cannot be assigned to stations, or the valve opened before the chart's
+zero time. That applies to four subcooled hydrogen runs (Figs. 3, 4, 6 and
+7). The other seven runs, twenty-eight traces, saturated and subcooled, are
+**trusted**; per-trace QC flags (curve crossings, truncated cold tails, an
+oscillatory segment) restrict which features of a trusted trace may be
+compared. A Table-6 row inherits the trust level of the digitized run of the
+same test, which makes fourteen rows trusted and four diagnostic only. Every
+row is solved and reported. The continuous-integration chilldown baseline
+requires the computed chilldown time at the instrumented station to stay
+within a factor of 1.6 of experiment, with mean absolute error under 25 %
+across the full four-case slow suite. Two-phase chilldown energy and enthalpy
+balances close within 10 % and 12 % respectively.
 
 Single-phase chilldown surrogates reproduce the qualitative
 plateau-then-plunge structure of the published figures but are **not** comparable
 on absolute times, and are asserted as trends only.
 
-The [chilldown report](validation/chilldown-report.md) tabulates the four
-Table-6 liquid-nitrogen cases three ways. At the CI configuration (3 axial
-segments, 10 s step) OpenFLUME predicts the saturated station-4 chilldown times
-at 61.74, 74.97 and 86.73 psia within +13.0 %, +6.9 % and +18.6 % of
-experiment, against +12.1 %, +6.7 % and +7.7 % for GFSSP's published
-predictions; refined to 4–12 segments the saturated predictions lie between
-+2.1 % and +18.5 %. The subcooled case is +19.1 % (diagnostic only). Against
-the digitized traces of the four trusted runs the untuned model places the
-station-4 knee within 0.7–9.4 s where both are available, but the inlet wall
-chills too slowly and the modeled quench front is two to five times broader
-than measured.
+The [chilldown report](validation/chilldown-report.md) tabulates all eighteen
+Table-6 cases three ways: experiment, GFSSP's published prediction, and
+OpenFLUME, with the copper wall's temperature-dependent OFHC specific heat and
+conductivity. At the CI configuration (3 axial segments; 10 s step for
+nitrogen, 2.5 s for hydrogen) the mean absolute error over the eighteen rows
+is 10.6 % for OpenFLUME and 7.6 % for GFSSP. OpenFLUME predicts the saturated
+nitrogen station-4 chilldown times at 61.74, 74.97 and 86.73 psia within
+−0.5 %, −7.1 % and +2.7 % of experiment, against +12.1 %, +6.7 % and +7.7 %
+for GFSSP; refined to 4–12 segments the saturated predictions lie between
+−9.5 % and +4.2 %. (With the constant room-temperature copper specific heat
+used before, the same three cases were +13.0 %, +6.9 % and +18.6 %.) The
+subcooled nitrogen error grows with axial refinement: from −0.3 % to +29.0 %
+at 3 segments to +28.5 % to +38.3 % at 12, reaching +43.0 % at 6; two of the
+12-segment subcooled solves abort inside CoolProp and are reported as
+failures. Against the digitized traces of the seven trusted runs the untuned
+model places the station-4 knee within 9.1–48.3 s where both are available;
+the pooled trace RMSE is 42.4–86.2 K for the saturated runs and 35.9–84.3 K
+for the subcooled ones, the inlet wall chills too slowly where the inlet
+film-boiling coefficient is small, and the modeled quench front is 1.7–4.1
+times broader than measured.
 
 The [choked-flow report](validation/choked-flow-report.md) compares the
 restriction closures with 326 nozzle and 26 sharp-edged-orifice measurements of

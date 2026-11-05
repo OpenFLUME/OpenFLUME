@@ -122,18 +122,24 @@ is sequential and the inlet reaches cryogenic temperature.
 ## Comparison with the experiment
 
 - **The shipped example demonstrates the NBS Figure 2 configuration.** The
-  manual (§7.11) says chilldown time at the instrumented station "is compared
-  with the NBS experiment and with GFSSP predictions in the validation suite".
-  That comparison runs in the slow test tier on the repository's chilldown
-  builders, not as a pass/fail on this exact model.
-- **Validation corpus and trust levels** (manual §8.4). From NBS Report 9264,
-  Table 6 provides eighteen chilldown-time points for saturated and subcooled
-  hydrogen and nitrogen, and eleven digitized oscillograph figures provide 44
-  station traces (10 195 samples).
-  - **Trusted (calibration grade):** four saturated runs, sixteen traces.
-  - **Diagnostic only:** seven subcooled runs. Their errors reach +80 % at
-    coarse axial discretization, so they can inform a diagnosis but cannot be
-    quoted as agreement.
+  NBS 9264 comparison of chilldown times with the experiment and with GFSSP's
+  predictions (manual §8.4) uses a separate, coarser two-phase line model
+  (`buildChilldownTwoPhase`) in the slow test tier and the
+  [chilldown report](../validation/chilldown-report.md), not this exact
+  model.
+- **Validation corpus and trust levels** (manual §8.4). Table 6 of the GFSSP
+  Version 6 paper (AIAA 2015-3850) tabulates eighteen chilldown times from NBS
+  Report 9264 for saturated and subcooled hydrogen and nitrogen, and eleven
+  digitized oscillograph figures of the report provide 44 station traces
+  (10 195 samples).
+  - **Trust comes from the experimental record alone.** Seven runs
+    (twenty-eight traces, saturated and subcooled) are **trusted**. Four
+    subcooled hydrogen runs are **diagnostic only** because their records are
+    compromised (overlapping cold tails, or a valve opened before the chart's
+    zero time). Every Table-6 row is solved and reported.
+  - **Subcooled error grows with axial refinement.** For subcooled nitrogen
+    it rises from −0.3 % to +29.0 % at 3 segments to +28.5 % to +38.3 % at
+    12, reaching +43.0 %; a finer grid does not repair it.
   - **CI acceptance band:** computed chilldown time at the instrumented
     station within a factor of 1.6 of experiment, with mean absolute error
     under 25 % across the four-case slow suite. Two-phase chilldown energy and
@@ -150,8 +156,8 @@ is sequential and the inlet reaches cryogenic temperature.
   [`src/validation/nbsChilldown.ts`](../../src/validation/nbsChilldown.ts)).
   In this model, wall 20 sits at x = 61 m and is the nearest station.
 
-Together these support a factor-of-1.6 engineering band on trusted saturated
-runs, short of a precision prediction.
+Together these support a factor-of-1.6 engineering band on saturated runs,
+short of a precision prediction.
 
 ## Things to try
 

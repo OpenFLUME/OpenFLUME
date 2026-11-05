@@ -85,7 +85,9 @@ specific heat and Miropolskii film boiling
 ([§7.11](../user-manual.md#_7-11-cryogenic-line-cooldown)). Agreement with
 experiment is modest: the CI baseline holds chilldown time within a factor
 of 1.6 of experiment, with mean absolute error under 25 % across the slow
-suite. Only saturated runs are trusted; subcooled runs are diagnostic only
+suite. Trust levels come from the quality of the experimental record, and
+every Table-6 case is reported, including the subcooled cases the model
+over-predicts
 ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
 ### Thermal network verification

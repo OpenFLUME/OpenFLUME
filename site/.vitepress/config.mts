@@ -219,6 +219,10 @@ export default defineConfig({
             { text: "Combustion", link: "/validation/combustion-report" },
             { text: "Microfluidics", link: "/validation/microfluidics-report" },
             {
+              text: "Code-to-code benchmarks",
+              link: "/validation/benchmarks-report",
+            },
+            {
               text: "Cryogenic chilldown (NBS 9264)",
               link: "/validation/chilldown-report",
             },
