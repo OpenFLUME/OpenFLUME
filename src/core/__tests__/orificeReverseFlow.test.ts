@@ -96,6 +96,55 @@ describe("compressible orifice declared against the flow", () => {
     });
   }
 
+  it("dead-end gas orifice: zero flow at equal pressures, either declaration", () => {
+    // A closed tank behind one orifice: the steady root is P_tank = P_out
+    // with ṁ = 0.  The ṁ-signed closure used to accept ṁ = 0 at ANY tank
+    // pressure below P_out (ṁ_exp = 0 against the gradient).
+    for (const reversed of [false, true]) {
+      const cfg: NetworkConfig = {
+        meta: { name: "orifice-dead-end", version: 2 },
+        settings: {
+          mode: "steady",
+          tolerance: 1e-9,
+          maxIterations: 300,
+          relaxation: 0.9,
+        },
+        fluid: { model: "idealGas", preset: "air" },
+        nodes: [
+          {
+            id: "tank",
+            type: "internal",
+            x: 0,
+            y: 0,
+            pressure: 1.5e5,
+            temperature: 300,
+          },
+          {
+            id: "out",
+            type: "boundary",
+            x: 1,
+            y: 0,
+            pressure: 101325,
+            temperature: 300,
+          },
+        ],
+        branches: [
+          {
+            id: "o1",
+            from: reversed ? "out" : "tank",
+            to: reversed ? "tank" : "out",
+            initialMdot: 0,
+            component: { type: "orifice", area: 1e-4, cd: 0.6 },
+          },
+        ],
+      };
+      const r = solveSteady(cfg);
+      expect(r.converged).toBe(true);
+      expect(Math.abs(r.nodes.tank.pressure - 101325)).toBeLessThan(1e-3);
+      expect(Math.abs(r.branches.o1.mdot)).toBeLessThan(1e-9);
+    }
+  });
+
   it("transient flow reversal through a gas orifice between two tanks", () => {
     // Two closed tanks joined by an orifice, the high-pressure tank at the
     // orifice's `to` end. Flow must run to → from (ṁ < 0) and the tanks

@@ -835,18 +835,17 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // fall through to the Bernoulli ΔP path (Y = 1, analytic Jacobian).
       if (b.component instanceof Orifice) {
         // The closure is evaluated at the PRESSURE-upstream node and the
-        // expected flow is signed by sgn(P_from − P_to):
-        //   R = ṁ − sgn(P_from − P_to) · ṁ_exp(P_hi, P_lo, ρ_hi, κ_hi).
-        // Choosing the pair by sgn(ṁ) instead leaves no root at ṁ < 0
-        // (ṁ_exp ≥ 0) and, for ṁ ≥ 0 against the pressure gradient,
-        // ṁ_exp = 0 — an orifice declared against the flow would converge
-        // to zero flow. At a converged state sgn(ṁ) = sgn(ΔP), so the
-        // pressure-upstream node is the ṁ-upstream node and its ρ is the
-        // one evaluated above.
+        // expected flow is signed by sgn(P_from − P_to); the row's root is
+        //   ṁ = sgn(P_from − P_to) · ṁ_exp(P_hi, P_lo, ρ_hi, κ_hi)
+        // (written in pressure units by Orifice.residualPa).  Choosing the
+        // pair by sgn(ṁ) instead leaves no root at ṁ < 0 (ṁ_exp ≥ 0) and,
+        // for ṁ ≥ 0 against the pressure gradient, ṁ_exp = 0 — an orifice
+        // declared against the flow would converge to zero flow.  At a
+        // converged state sgn(ṁ) = sgn(ΔP), so the pressure-upstream node
+        // is the ṁ-upstream node and its ρ is the one evaluated above.
         const fromIsHigh = pFrom >= pTo;
         const hiNode = fromIsHigh ? b.from : b.to;
         const pHi = fromIsHigh ? pFrom : pTo;
-        const pLo = fromIsHigh ? pTo : pFrom;
         let hiRho = rhoUpstream;
         let hiT = upT;
         if (hiNode !== upNode) {
@@ -888,8 +887,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
               : orificeKappa(fluidOf(hiNode), pHi, hiT, hiRho);
         }
         if (kappa !== undefined) {
-          const mExp = b.component.massFlowFromState(pHi, pLo, hiRho, kappa);
-          R[nInt + j] = mdot - (fromIsHigh ? mExp : -mExp);
+          R[nInt + j] = b.component.residualPa(mdot, pFrom, pTo, hiRho, kappa);
           continue;
         }
       }
@@ -1759,7 +1757,6 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
         const fromIsHigh = pFrom.v >= pTo.v;
         const hiNode = fromIsHigh ? b.from : b.to;
         const pHi = fromIsHigh ? pFrom.v : pTo.v;
-        const pLo = fromIsHigh ? pTo.v : pFrom.v;
         let hiRho = rhoUpstream;
         let hiT = upT;
         if (hiNode !== upNode) {
@@ -1792,9 +1789,9 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
               : orificeKappa(fluidOf(hiNode), pHi, hiT, hiRho);
         }
         if (kappa !== undefined) {
-          const mExp = b.component.massFlowFromState(pHi, pLo, hiRho, kappa);
-          const expectedMdot = fromIsHigh ? mExp : -mExp;
-          R[nInt + j] = sub(mdot, constant(expectedMdot));
+          R[nInt + j] = constant(
+            b.component.residualPa(mdot.v, pFrom.v, pTo.v, hiRho, kappa),
+          );
           markFd(nInt + j, [
             nInt + j,
             ...colsForNode(b.from, usePHFor(b.from)),
