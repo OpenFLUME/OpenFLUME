@@ -1,13 +1,13 @@
 ---
 title: Introducing OpenFLUME
 description: An open-source thermo-fluid network solver that runs in your browser, why I wanted one for over a decade, and how to check whether it's right.
-date: 2026-11-10
+date: 2026-11-01
 author: John Rising
 ---
 
 # Introducing OpenFLUME
 
-_John Rising · 2026-11-10_
+_John Rising · 2026-11-01_
 
 Over ten years ago at Virgin Galactic, I needed to model a fluid network, and I ended up writing my own basic solver to do it.
 
