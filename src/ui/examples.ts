@@ -1,4 +1,5 @@
 import { NetworkConfig } from "./types";
+import type { SolidPropertySpec } from "../core";
 import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
 import { thrusterCombustor } from "./thrusterCombustor";
@@ -3590,6 +3591,19 @@ export function buildChilldownTwoPhase(options?: {
    * the front moves at the conservation speed of the accepted flow.
    */
   fluidFront?: boolean;
+  /**
+   * Copper wall properties.  'constant' (default, legacy — bit-identical
+   * configs): cp = 385 J/(kg·K) and k = 400 W/(m·K), the room-temperature
+   * values.  'ofhc-copper': the temperature-dependent NIST OFHC-copper
+   * cp(T) and k(T) (named material, core/solidProperties.ts; 4–300 K,
+   * RRR 100).  cp falls from ~390 J/(kg·K) at 300 K to ~205 at 80 K and
+   * ~8 at 20 K, so the constant value overstates the wall's stored energy
+   * between 300 K and the liquid temperature (by 12 % to 90 K, 32 % to
+   * 25 K).  The NBS 9264 validation solves use 'ofhc-copper' (as does
+   * the shipped 20-segment cryogenic line cooldown example, which is built
+   * separately — sindaFluintCryoLineCooldown).
+   */
+  wallMaterial?: "constant" | "ofhc-copper";
   dt?: number;
   endTime?: number;
   timeStepping?: "fixed" | "adaptive";
@@ -3619,8 +3633,9 @@ export function buildChilldownTwoPhase(options?: {
   const OD = 0.01905;
   const roughness = 1.5e-6;
   const rhoCu = 8960;
-  const cpCu = 385;
-  const kCu = 400;
+  const ofhc = options?.wallMaterial === "ofhc-copper";
+  const cpCu: SolidPropertySpec = ofhc ? { material: "ofhc-copper" } : 385;
+  const kCu: SolidPropertySpec = ofhc ? { material: "ofhc-copper" } : 400;
   const segL = L / N;
   const A_fluid = (Math.PI / 4) * D * D;
   const A_metal = (Math.PI / 4) * (OD * OD - D * D);

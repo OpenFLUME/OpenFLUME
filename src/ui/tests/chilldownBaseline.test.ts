@@ -12,7 +12,9 @@
  *   - timeStepping: 'fixed' (adaptive stepping makes dt a discontinuous
  *     function of parameters and destroys differentiability);
  *   - outletWallCoupling: 'upwind' so the last wall node chills and
- *     station 4 is bracketed by physical wall samples.
+ *     station 4 is bracketed by physical wall samples;
+ *   - wallMaterial: 'ofhc-copper' — temperature-dependent NIST OFHC cp(T)
+ *     and k(T), as in docs/validation/chilldown-report.md.
  *
  * CI scale: ONE representative N=3 case (saturated 74.97 psia, ~60–90 s
  * with the retry cascade).  The full 4-case suite (3
@@ -94,6 +96,7 @@ function runCase(point: ChilldownDataPoint): CaseResult {
     outletPressure: 101325,
     ...(subcooled ? { inletTemperature: point.subcooledAtTemperature!.K } : {}),
     outletWallCoupling: "upwind",
+    wallMaterial: "ofhc-copper",
     dt: 10,
     endTime: subcooled ? 360 : 300,
     timeStepping: "fixed",
@@ -174,7 +177,8 @@ describe("NBS Table-6 chilldown baseline — CI representative case (N=3, sat 74
     );
     // Same wide band as the full suite: catches gross regressions (no
     // crossing, factor-2 drift) without pretending the coarse-N model is
-    // exact.  Measured: ~128–160 s (exp 150 s) across solver versions.
+    // exact.  Measured: 139.4 s with the OFHC-copper wall (160.4 s with the
+    // former constant cp = 385 J/(kg·K)); exp 150 s.
     expect(m.timeS!).toBeGreaterThan(exp * 0.5);
     expect(m.timeS!).toBeLessThan(exp * 1.6);
   });
@@ -235,7 +239,8 @@ describeSlow(
       }
       console.log("BASELINE (N=3, station-4 knee, Tsat_local+15 K):");
       for (const r of rows) console.log("  " + r);
-      // Measured N=3 mean |err| = 12.8%; assert < 25% as a regression sentinel.
+      // Measured N=3 mean |err| = 3.4 % with the OFHC-copper wall (12.8 %
+      // with the former constant cp); assert < 25 % as a regression sentinel.
       const meanAbsPct = errs.reduce((a, b) => a + b, 0) / errs.length;
       console.log(`  mean |our err| = ${meanAbsPct.toFixed(1)}%`);
       expect(meanAbsPct).toBeLessThan(25);
@@ -272,7 +277,8 @@ describeSlow(
       );
       expect(sub).toBeLessThan(sat);
       // Table-6 values at 74.97 psia: sat 150 s, sub 100 s — sub should ALSO
-      // be below the saturated experimental value here (measured: sub=128.1).
+      // be below the saturated experimental value here (measured: sub=108.0
+      // with the OFHC-copper wall).
       expect(sub).toBeLessThan(cases[1].point.experimentalChilldownTimeS);
     });
 
@@ -339,6 +345,7 @@ describeSlow("NBS 9264 trusted trace runs — pre-registered solves", () => {
         outletPressure: 101325,
         fluidName: spec.fluidName,
         outletWallCoupling: "upwind",
+        wallMaterial: "ofhc-copper",
         dt: spec.dtS,
         endTime: spec.endTimeS,
         timeStepping: "fixed",

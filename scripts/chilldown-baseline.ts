@@ -110,6 +110,8 @@ function buildCaseConfig(p: ChilldownDataPoint, N: number): NetworkConfig {
     initialTemperature: INITIAL_T,
     ...(subcooled ? { inletTemperature: p.subcooledAtTemperature!.K } : {}),
     outletWallCoupling: "upwind",
+    // Temperature-dependent OFHC copper, as in the validation report.
+    wallMaterial: "ofhc-copper",
     dt: DT,
     endTime: subcooled ? 360 : 300,
     timeStepping: "fixed",
