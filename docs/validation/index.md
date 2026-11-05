@@ -61,8 +61,8 @@ npx tsx scripts/compressible-validation-report.ts
 
 The scripts are run by hand. CI does not rewrite the reports. A report
 therefore shows the solver as it was when the report was last regenerated,
-while the gate tests named in its header recheck the same physics on every CI
-run.
+while the gate tests named in its header recheck the same physics in CI (the
+slow suites on pushes to `main` and weekly).
 
 ## CI cadence
 
