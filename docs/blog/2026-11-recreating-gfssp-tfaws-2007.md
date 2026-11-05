@@ -1,13 +1,13 @@
 ---
 title: Recreating NASA's GFSSP compressible-flow verification paper in a browser
 description: OpenFLUME's recreation of the TFAWS-2007 GFSSP study, case by case. Fanno, Rayleigh, combined, and C-D nozzle flow against analytic references.
-date: 2026-11-17
+date: 2026-11-04
 author: John Rising
 ---
 
 # Recreating NASA's GFSSP compressible-flow verification paper in a browser
 
-_John Rising · 2026-11-17_
+_John Rising · 2026-11-04_
 
 In 2007, Bandyopadhyay and Majumdar presented "Modeling of Compressible Flow with Friction and Heat Transfer using the Generalized Fluid System Simulation Program (GFSSP)" at the Thermal & Fluids Analysis Workshop (TFAWS 2007, MSFC-464, [NTRS 20070036728](https://ntrs.nasa.gov/citations/20070036728)). They showed that a network code, from a family of solvers that usually neglects inertia and kinetic energy, could reproduce friction choking, thermal choking, and nozzle flow.
 
