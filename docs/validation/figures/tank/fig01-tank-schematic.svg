@@ -15,7 +15,7 @@
 <circle cx="560" cy="144.5" r="28" fill="#fdf2e3" stroke="#333" stroke-width="1.6"/>
 <text x="560" y="142.5" text-anchor="middle" font-size="12">boundary</text>
 <text x="560" y="158.5" text-anchor="middle" font-size="12">P<tspan font-size="9" dy="3">b</tspan><tspan dy="-3">, T</tspan><tspan font-size="9" dy="3">b</tspan></text>
-<text x="110" y="231" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orificeCompressible C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
+<text x="110" y="231" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orifice (compressible) C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
 <text x="110" y="249" font-size="12">Case 4 (charge): 5 bar / 300 K supply boundary → resistance (K = 10, A = 10⁻³ m²) → tank initially at 1 bar</text>
 <text x="110" y="267" font-size="12">Case 5 (schedule): tank at 5 bar → valve (position ramps 0 → 1 over 2 s) → orifice → 1 bar boundary</text>
 <text x="360" y="292" text-anchor="middle" font-size="12">Figure 1. Lumped tank connected to a pressure boundary through a flow component.</text>

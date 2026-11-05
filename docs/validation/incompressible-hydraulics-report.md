@@ -20,9 +20,10 @@ split among parallel pipes of unequal geometry, a six-node twelve-branch
 multi-loop water network of the kind classically solved with the Hardy-Cross
 method, hydrostatic pressure distributions with and without through-flow, and
 the operating point of a pump run against a pipe system curve. Across all
-49 compared quantities the numerical solution
-reproduces the reference to within 9.98e-10 % — the agreement is limited only
-by the Newton convergence tolerance (10⁻⁹), not by any modeling
+51 compared quantities the numerical solution
+reproduces the reference to within 9.98e-10 % (a relative error of
+1.0e-11), below the relative Newton convergence tolerance of 10⁻⁹:
+the agreement is limited by the Newton convergence, not by any modeling
 approximation, because every case is constructed so that the solver's
 friction closure and the analytic reference are the same expression.
 
@@ -158,9 +159,9 @@ pressure guesses only; these do not constrain the converged solution.
 ## Results and Discussion
 
 Every case converged. The table summarizes the maximum relative deviation of
-each compared quantity from its reference; the errors sit at the Newton
-convergence floor (10⁻⁹ relative residual), orders of magnitude below any
-physical-modeling tolerance.
+each compared quantity from its reference; the errors sit at or below the
+Newton convergence floor (10⁻⁹ relative residual), orders of magnitude below
+any physical-modeling tolerance.
 
 | Case | Compared quantity | Points | Max error |
 | ---- | ----------------- | ------ | --------- |

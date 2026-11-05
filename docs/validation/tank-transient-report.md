@@ -23,8 +23,10 @@ blowdown through a gas `orifice` (ISO/AGA expansibility, choking at $r_*$), a fo
 study of that blowdown, equalization of two unequal tanks through an orifice,
 charging of a tank from a constant-pressure supply, and blowdown through a
 valve whose area follows a prescribed opening schedule. At the working time
-step (dt = 0.05 s) every trace agrees with its analytical reference to within
-1.5 %,
+step (dt = 0.05 s) every pressure and temperature trace agrees with its
+analytical reference to within
+1.5 %
+(the scheduled-valve flow trace within 5.6 % of its peak),
 the time-step study confirms the expected first-order convergence of the
 backward-Euler integrator, and global mass conservation holds to
 0.001 % or better in every case.
@@ -88,7 +90,7 @@ Case 3 joins two rigid tanks of different volumes and pressures with an
 orifice (C_dA = 6.0e-5 m²). Both start at
 300 K. A closed valve (position 0) connects tank 1 to a boundary node
 because the transient system requires at least one boundary; its measured
-leakage flow is 2.0e-5 of the peak orifice flow —
+leakage flow is 3.1e-5 of the peak orifice flow —
 negligible (Figure 2).
 
 ![Figure 2](figures/tank/fig02-twotank-schematic.svg)
@@ -227,9 +229,9 @@ the integrated branch flow ∫|ṁ| dt versus the tank mass change V·Δρ (case
 | Case | max ΔP trace | max ΔT trace | final ΔP | final ΔT | mass conservation | steps |
 | ---- | ------------ | ------------ | -------- | -------- | ----------------- | ----- |
 | 1 — Choked blowdown (dt = 0.05 s) | 0.15 % | 0.16 % | 0.136 % | 0.162 % | 0.000 % | 160 |
-| 3 — Two-tank equalization (vs P_eq) | 0.48 % | 0.26 % | 0.001 % | 0.079 % | 0.001 % | 60 |
+| 3 — Two-tank equalization (vs P_eq) | 0.30 % | 0.18 % | 0.001 % | 0.061 % | 0.001 % | 60 |
 | 4 — Adiabatic fill | 1.46 % | 0.25 % | 0.001 % | 0.000 % | 0.000 % | 100 |
-| 5 — Scheduled valve | 1.16 % | 0.68 % | 0.000 % | 0.436 % | 0.001 % | 80 |
+| 5 — Scheduled valve | 1.13 % | 0.65 % | 0.000 % | 0.420 % | 0.001 % | 80 |
 
 (Case 2 is the dt sweep tabulated in the previous section. Case 3's final-ΔP
 column compares against the closed-form equilibrium pressure; its final-ΔT
@@ -257,7 +259,7 @@ are one-sided — the implicit step evaluates the vent flow at the end-of-step
 true average and the discrete trace lags the exact decay — and they shrink
 linearly with dt, as the time-step study shows. Global mass conservation —
 discharged mass versus tank inventory change — closes to
-4.7e-5 %.
+4.8e-5 %.
 
 ![Figure 3](figures/tank/fig03-blowdown-pressure.svg)
 
@@ -279,14 +281,14 @@ the pressures meet at the energy-conservation equilibrium
 3.00 bar. Figure 8 shows both pressure traces against
 the coupled RK4 reference with the closed-form equilibrium marked; the solver
 reaches final pressures of 3.000 and
-3.000 bar — within 1.0e-3 %
-of the exact value — and tracks the transient within 0.48 % of
+3.000 bar — within 1.1e-3 %
+of the exact value — and tracks the transient within 0.30 % of
 P₁,₀. Figure 9 shows the thermal signature of the exchange: the expanding
-tank cools to 259.5 K while the receiving tank, compressed
+tank cools to 259.4 K while the receiving tank, compressed
 and fed with warm enthalpy, heats to 325.4 K (RK4:
 259.3 / 325.6 K).
-Total mass drifts by at most 8.2e-4 % over the transient, and
-the closed boundary valve leaks only 2.0e-5 of the
+Total mass drifts by at most 8.6e-4 % over the transient, and
+the closed boundary valve leaks only 3.1e-5 of the
 peak orifice flow.
 
 ![Figure 8](figures/tank/fig08-twotank-pressure.svg)
@@ -305,14 +307,14 @@ Because the entering stream carries enthalpy c_pT_s but the tank stores only
 internal energy c_vT, the contents heat above the supply temperature —
 the classical fill-heating effect. The solver's final temperature is
 388.9 K against the closed-form 388.9 K
-(deviation 8.1e-8 %), squarely between the supply temperature
+(deviation 4.3e-8 %), squarely between the supply temperature
 and the evacuated-tank limit γT_s = 420 K, and the
 final pressure equalizes to 5.000 bar. Figures 10 and
 11 show the pressure and temperature traces: the fill completes in roughly
 1 s (the square-root pressure-deficit law closes in finite time), after which
 both curves sit on their equilibrium values. Trace agreement is within
 1.46 % of P_s on pressure and 0.25 % of T_s on
-temperature; mass conservation closes to 7.5e-7 %.
+temperature; mass conservation closes to 4.3e-7 %.
 
 ![Figure 10](figures/tank/fig10-fill-pressure.svg)
 
@@ -336,9 +338,9 @@ fast blowdown as the effective area grows, approaching the
 1.000 bar vs 1.000 bar
 reference; final temperature 190.7 K vs
 189.4 K). Figure 13 shows the vent flow
-rising with the schedule to a peak of 0.289 kg/s and
+rising with the schedule to a peak of 0.272 kg/s and
 collapsing as the tank empties. The solver tracks the pressure within
-1.16 % of P₀ and the flow within 4.82 % of the peak;
+1.13 % of P₀ and the flow within 5.62 % of the peak;
 the largest flow deviation sits at the emptying knee near t ≈ 2.2 s, where
 the flow collapses fastest and the first-order backward-Euler step lags the
 steep decay — a truncation effect that shrinks with dt like every other
@@ -360,12 +362,12 @@ coupled Newton solve of the nodal mass/energy storage and branch momentum
 equations — reproduces the classical lumped-parameter gas dynamics of tank
 systems. Choked adiabatic blowdown follows the closed-form solution and its
 T/T₀ = (m/m₀)^(γ−1) cooling law; two-tank equalization lands on the exact
-energy-conservation equilibrium pressure to 1.0e-3 %; adiabatic
-charging reproduces the fill-heating closed form to 8.1e-8 %;
+energy-conservation equilibrium pressure to 1.1e-3 %; adiabatic
+charging reproduces the fill-heating closed form to 4.3e-8 %;
 and a scheduled valve demonstrates time-varying component handling against an
-RK4 reference with time-varying area. All traces agree with their references
-to within 1.5 %
-at dt = 0.05 s, deviations decay at the expected first order in dt
+RK4 reference with time-varying area. All pressure and temperature traces
+agree with their references to within 1.5 %
+at dt = 0.05 s (the scheduled-valve flow trace within 5.6 % of its peak), deviations decay at the expected first order in dt
 (observed orders 0.99, 0.99, 1.00), and global
 mass conservation closes to 0.001 %
 or better. The dominant error is the first-order temporal truncation of
