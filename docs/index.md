@@ -6,8 +6,8 @@ description: GFSSP / SINDA-FLUINT-class thermo-fluid network solver that runs en
 
 hero:
   name: OpenFLUME
-  text: Thermo-fluid network analysis in your browser
-  tagline: A finite-volume network solver in the GFSSP / SINDA-FLUINT class. No install, no account, and your model never leaves your machine. Open source and checked against published benchmarks.
+  text: An open-source thermo-fluid network solver.
+  tagline: Model rocket feed lines, spacecraft cooling loops, and other fluid systems as nodes and flow paths. MIT-licensed, runs in your browser or from Python, and validated against analytic solutions, other codes, and experiments.
   actions:
     - theme: brand
       text: Launch the app
