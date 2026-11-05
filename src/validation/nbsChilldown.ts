@@ -204,6 +204,32 @@ export const NBS_CHILLDOWN_RIG = {
   },
 } as const;
 
+/**
+ * Wall discretization of every NBS 9264 validation solve (options of
+ * buildChilldownTwoPhase, src/ui/examples.ts) — single source of truth for
+ * the report, the CI gate and the manual N sweep.
+ *
+ *   - Every wall node convects to a SOLVED (internal) fluid node and none to
+ *     a boundary node, as in GFSSP's model of this line (AIAA 2015-3850
+ *     §4.3: solid nodes on the internal fluid nodes only, none on boundary
+ *     nodes 1 and 33): the inlet wall s0 convects to f1 ('downwind'), the
+ *     outlet wall sN to f_{N−1} ('upwind').  Convecting s0 to the inlet
+ *     boundary instead ties it to fixed zero-quality liquid, where the
+ *     Miropolskii coefficient is at its minimum and cannot respond to the
+ *     wall's heat, so the inlet wall (and station 1, interpolated from it)
+ *     never reached saturation inside the record.
+ *   - The end wall nodes carry half a segment of copper and wetted area
+ *     ('halfSegment'), so the total wall mass and area equal the line's,
+ *     as GFSSP distributes the total line mass over its solid nodes.
+ *   - Temperature-dependent NIST OFHC-copper cp(T) and k(T).
+ */
+export const NBS_LINE_WALL_MODEL = {
+  inletWallCoupling: "downwind",
+  outletWallCoupling: "upwind",
+  endWallLumping: "halfSegment",
+  wallMaterial: "ofhc-copper",
+} as const;
+
 // ---------------------------------------------------------------------------
 // Chilldown-time definition (see the long comment at the top of this file).
 // ---------------------------------------------------------------------------

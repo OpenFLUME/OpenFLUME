@@ -11,10 +11,13 @@
  *     piecewise-constant first-below;
  *   - timeStepping: 'fixed' (adaptive stepping makes dt a discontinuous
  *     function of parameters and destroys differentiability);
- *   - outletWallCoupling: 'upwind' so the last wall node chills and
- *     station 4 is bracketed by physical wall samples;
- *   - wallMaterial: 'ofhc-copper' — temperature-dependent NIST OFHC cp(T)
- *     and k(T), as in docs/validation/chilldown-report.md.
+ *   - NBS_LINE_WALL_MODEL (src/validation/nbsChilldown.ts): every wall
+ *     node convects to a solved fluid node (inlet wall to f1, outlet wall
+ *     to f_{N-1}), as in GFSSP's model of the line, so stations 1 and 4
+ *     are bracketed by physical wall samples; half-segment end wall nodes
+ *     (total wall mass and area equal the line's); temperature-dependent
+ *     NIST OFHC-copper cp(T) and k(T) — as in
+ *     docs/validation/chilldown-report.md.
  *
  * CI scale: ONE representative N=3 case (saturated 74.97 psia, ~60–90 s
  * with the retry cascade).  The full 4-case suite (3
@@ -38,6 +41,7 @@ import {
 import {
   getChilldownPoints,
   NBS_CHILLDOWN_RIG,
+  NBS_LINE_WALL_MODEL,
   DEFAULT_CHILLDOWN_TIME_DEFINITION,
   type ChilldownDataPoint,
   type ChilldownTimeDefinition,
@@ -95,8 +99,7 @@ function runCase(point: ChilldownDataPoint): CaseResult {
     drivingPressure: point.drivingPressure.pa,
     outletPressure: 101325,
     ...(subcooled ? { inletTemperature: point.subcooledAtTemperature!.K } : {}),
-    outletWallCoupling: "upwind",
-    wallMaterial: "ofhc-copper",
+    ...NBS_LINE_WALL_MODEL,
     dt: 10,
     endTime: subcooled ? 360 : 300,
     timeStepping: "fixed",
@@ -177,8 +180,7 @@ describe("NBS Table-6 chilldown baseline — CI representative case (N=3, sat 74
     );
     // Same wide band as the full suite: catches gross regressions (no
     // crossing, factor-2 drift) without pretending the coarse-N model is
-    // exact.  Measured: 139.4 s with the OFHC-copper wall (160.4 s with the
-    // former constant cp = 385 J/(kg·K)); exp 150 s.
+    // exact.  Measured: 153.3 s with NBS_LINE_WALL_MODEL; exp 150 s.
     expect(m.timeS!).toBeGreaterThan(exp * 0.5);
     expect(m.timeS!).toBeLessThan(exp * 1.6);
   });
@@ -239,8 +241,8 @@ describeSlow(
       }
       console.log("BASELINE (N=3, station-4 knee, Tsat_local+15 K):");
       for (const r of rows) console.log("  " + r);
-      // Measured N=3 mean |err| = 3.4 % with the OFHC-copper wall (12.8 %
-      // with the former constant cp); assert < 25 % as a regression sentinel.
+      // Measured N=3 mean |err| = 6.1 % with NBS_LINE_WALL_MODEL; assert
+      // < 25 % as a regression sentinel.
       const meanAbsPct = errs.reduce((a, b) => a + b, 0) / errs.length;
       console.log(`  mean |our err| = ${meanAbsPct.toFixed(1)}%`);
       expect(meanAbsPct).toBeLessThan(25);
@@ -277,8 +279,8 @@ describeSlow(
       );
       expect(sub).toBeLessThan(sat);
       // Table-6 values at 74.97 psia: sat 150 s, sub 100 s — sub should ALSO
-      // be below the saturated experimental value here (measured: sub=108.0
-      // with the OFHC-copper wall).
+      // be below the saturated experimental value here (measured: sub=120.0
+      // with NBS_LINE_WALL_MODEL).
       expect(sub).toBeLessThan(cases[1].point.experimentalChilldownTimeS);
     });
 
@@ -348,8 +350,7 @@ describeSlow("NBS 9264 trusted trace runs — planned solves", () => {
         ...(run.inletCondition === "subcooled"
           ? { inletTemperature: run.inletLiquidTempK }
           : {}),
-        outletWallCoupling: "upwind",
-        wallMaterial: "ofhc-copper",
+        ...NBS_LINE_WALL_MODEL,
         dt: spec.dtS,
         endTime: spec.endTimeS,
         timeStepping: "fixed",

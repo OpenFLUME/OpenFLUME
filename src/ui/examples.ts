@@ -3549,6 +3549,43 @@ export function buildChilldownTwoPhase(options?: {
    */
   outletWallCoupling?: "boundary" | "upwind";
   /**
+   * Which fluid node the INLET wall node (s0, at x = 0) convects to.
+   * 'boundary' (default, legacy — bit-identical configs): the fixed inlet
+   * boundary node f0.  For a saturated inlet that state is saturated
+   * liquid at zero quality, where the Miropolskii film-boiling coefficient
+   * (vapor Reynolds number scaled by x + (ρv/ρl)(1 − x), quality clamped
+   * at 0.01) is far smaller than at any solved node, so s0 chills late;
+   * for a subcooled inlet the same wall instead sees single-phase liquid
+   * Dittus–Boelter.  Either way s0 exchanges heat with a reservoir whose
+   * state the wall cannot change.
+   * 'downwind': the first INTERNAL fluid node (f1) — the solved state of
+   * the fluid that has absorbed the inlet wall's heat.  With
+   * outletWallCoupling 'upwind' every wall node then convects to a solved
+   * fluid node and none to a boundary node, as in GFSSP's NBS line model
+   * (AIAA 2015-3850 §4.3: solid nodes on the 31 internal fluid nodes only;
+   * boundary nodes 1 and 33 carry none) and its short-pipeline chilldown
+   * example (NASA/TM-2013-217492 §6.14: walls on internal nodes 2–29).
+   */
+  inletWallCoupling?: "boundary" | "downwind";
+  /**
+   * Mass and wetted (convective) area of the two END wall nodes s0 and sN.
+   * 'fullSegment' (default, legacy — bit-identical configs): every one of
+   * the N + 1 wall nodes carries a full segment (segL) of copper and
+   * wetted area, so the model line holds (N + 1)/N times the real wall
+   * mass and area (+33 % at N = 3, +17 % at N = 6).  With the inlet wall
+   * on the boundary reservoir the surplus at s0 was absorbed by the
+   * reservoir; once every wall convects to a solved fluid node it loads
+   * the fluid.
+   * 'halfSegment': the end nodes sit at x = 0 and x = L and own the half
+   * cells [0, segL/2] and [L − segL/2, L], so they carry half a segment's
+   * mass and wetted area (vertex-centred lumping; the axial conductors,
+   * of length segL between node centres, are unchanged).  The total wall
+   * mass and wetted area then equal the line's, as in GFSSP, which
+   * distributes the TOTAL line mass over its solid nodes (AIAA 2015-3850
+   * §4.3).
+   */
+  endWallLumping?: "fullSegment" | "halfSegment";
+  /**
    * Initial temperature (K) of the line wall and internal fluid nodes.
    * Default: outletTemperature (legacy — the two were previously coupled,
    * which confounds "warm initial line" with "warm outlet boundary").
@@ -3615,6 +3652,15 @@ export function buildChilldownTwoPhase(options?: {
   const T_out = options?.outletTemperature ?? 300;
   const T_inlet = options?.inletTemperature;
   const outletWallCoupling = options?.outletWallCoupling ?? "boundary";
+  const inletWallCoupling = options?.inletWallCoupling ?? "boundary";
+  if (inletWallCoupling === "downwind" && N < 2) {
+    throw new Error(
+      "buildChilldownTwoPhase: inletWallCoupling 'downwind' needs at least " +
+        "2 segments (an internal fluid node f1)",
+    );
+  }
+  const endWallFraction =
+    (options?.endWallLumping ?? "fullSegment") === "halfSegment" ? 0.5 : 1;
   const T_init = options?.initialTemperature ?? T_out;
   const dt = options?.dt ?? 0.5;
   const endTime = options?.endTime ?? 100;
@@ -3676,7 +3722,7 @@ export function buildChilldownTwoPhase(options?: {
       type: "solid",
       ...at(0, 80),
       temperature: T_init,
-      mass: mass_solid,
+      mass: mass_solid * endWallFraction,
       cp: cpCu,
       label: "Wall inlet",
     },
@@ -3719,7 +3765,7 @@ export function buildChilldownTwoPhase(options?: {
     type: "solid",
     ...at(N, 80),
     temperature: T_init,
-    mass: mass_solid,
+    mass: mass_solid * endWallFraction,
     cp: cpCu,
     label: "Wall outlet",
   });
@@ -3727,11 +3773,16 @@ export function buildChilldownTwoPhase(options?: {
   for (let i = 0; i <= N; i++) {
     conductors.push({
       id: `conv${i}`,
-      from: i === N && outletWallCoupling === "upwind" ? `f${N - 1}` : `f${i}`,
+      from:
+        i === N && outletWallCoupling === "upwind"
+          ? `f${N - 1}`
+          : i === 0 && inletWallCoupling === "downwind"
+            ? "f1"
+            : `f${i}`,
       to: `s${i}`,
       type: {
         kind: "convection",
-        area: convArea,
+        area: i === 0 || i === N ? convArea * endWallFraction : convArea,
         correlation:
           correlationModel === "darrHartwig"
             ? {
