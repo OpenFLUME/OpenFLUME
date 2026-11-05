@@ -17,13 +17,17 @@ const vueDir = path.dirname(require.resolve("vue/package.json"));
  * point out of `docs/` (to `../src`, `../scripts`, `../CHANGELOG.md`, …) are
  * rewritten to GitHub URLs at build time, so they work in both places.
  *
- * Deployed under the demo at https://openflume.github.io/OpenFLUME/docs/.
+ * Published at https://openflume.github.io/ by the OpenFLUME/openflume.github.io
+ * repository, whose workflow checks out this repository and builds `site/`.
  */
 
 const REPO = "https://github.com/OpenFLUME/OpenFLUME";
-const SITE = "https://openflume.github.io/OpenFLUME";
-const BASE = "/OpenFLUME/docs/";
-const APP = `${SITE}/`;
+/** Public origin of the docs site (the OpenFLUME org GitHub Pages site). */
+const SITE = "https://openflume.github.io";
+/** Path the site is served under. "/" in production (openflume.github.io). */
+const BASE = process.env.OPENFLUME_SITE_BASE ?? "/";
+/** The web app, served from the main repository's own GitHub Pages site. */
+const APP = "https://openflume.github.io/OpenFLUME/";
 const DESCRIPTION =
   "Open-source thermo-fluid network solver (GFSSP / SINDA-FLUINT class) that runs entirely in the browser. Steady and transient, real fluids, two-phase, conjugate heat transfer, combustion — verified against NASA benchmarks.";
 
@@ -36,14 +40,14 @@ export default defineConfig({
   lang: "en-US",
   base: BASE,
   srcDir: "../docs",
-  outDir: "../dist/docs",
+  outDir: process.env.OPENFLUME_SITE_OUTDIR ?? "../dist/site",
   cleanUrls: false,
   lastUpdated: false,
   // Blog posts dated in the future, or marked `draft: true`, are left out of
-  // the build. The deploy workflow rebuilds daily, so a post goes live on
+  // the build. The site repository rebuilds hourly, so a post goes live on
   // its date without a manual push.
   srcExclude: ["**/node_modules/**", ...unpublishedPosts()],
-  sitemap: { hostname: `${SITE}/docs/` },
+  sitemap: { hostname: `${SITE}/` },
   ignoreDeadLinks: [/^https?:\/\/localhost/],
 
   head: [
@@ -62,7 +66,7 @@ export default defineConfig({
   ],
 
   transformPageData(pageData) {
-    const canonical = `${SITE}/docs/${pageData.relativePath}`
+    const canonical = `${SITE}/${pageData.relativePath}`
       .replace(/index\.md$/, "")
       .replace(/\.md$/, ".html");
     const title = pageData.frontmatter.title ?? pageData.title ?? "OpenFLUME";

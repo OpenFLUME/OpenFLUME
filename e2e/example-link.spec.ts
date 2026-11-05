@@ -45,3 +45,10 @@ test.describe("Example links", () => {
     );
   });
 });
+
+test("the toolbar links to the documentation site", async ({ page }) => {
+  await page.goto("/");
+  const docs = page.locator('[data-testid="toolbar-docs"]');
+  await expect(docs).toBeVisible();
+  await expect(docs).toHaveAttribute("href", "https://openflume.github.io/");
+});

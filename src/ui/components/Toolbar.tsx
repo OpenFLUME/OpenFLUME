@@ -420,6 +420,17 @@ export default function Toolbar() {
           <CommandsIcon />
           <span className="btn__label">Commands</span>
         </button>
+        <a
+          data-testid="toolbar-docs"
+          className="btn"
+          href={DOCS_URL}
+          target="_blank"
+          rel="noopener"
+          title="Documentation, tutorials, and examples (opens in a new tab)"
+        >
+          <DocsIcon />
+          <span className="btn__label">Docs</span>
+        </a>
       </div>
       {/* Its own group: the actions group clips from the right, and these two
           are the last thing that may go. */}
@@ -586,6 +597,19 @@ function ActiveVariantPill() {
 }
 
 /** Terminal prompt chevron — the conventional "command" mark. */
+/** Documentation site (OpenFLUME/openflume.github.io). */
+const DOCS_URL = "https://openflume.github.io/";
+
+function DocsIcon() {
+  return (
+    <ToolbarIcon>
+      <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5Z" />
+      <path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5" />
+      <path d="M8 7.5h8M8 11h6" />
+    </ToolbarIcon>
+  );
+}
+
 function CommandsIcon() {
   return (
     <ToolbarIcon>

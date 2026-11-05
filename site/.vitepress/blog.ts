@@ -8,7 +8,8 @@ import path from "node:path";
  * UTC) is today or earlier and it is not marked `draft: true`. Unpublished
  * posts are excluded from the build entirely, so they cannot be reached or
  * indexed early, and the blog index (posts.data.ts) lists only published
- * ones. The deploy workflow runs daily to roll scheduled posts out.
+ * ones. The OpenFLUME/openflume.github.io workflow rebuilds the site hourly,
+ * which rolls scheduled posts out on their date.
  *
  * Set OPENFLUME_BLOG_PREVIEW=1 to build every post (local preview).
  */

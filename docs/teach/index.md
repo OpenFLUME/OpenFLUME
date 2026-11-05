@@ -170,7 +170,7 @@ as an issue.
   You may copy, adapt, translate, and redistribute it, including in course
   packs and commercial settings, provided you give credit. A suitable
   attribution is: "Adapted from the OpenFLUME educator kit, J. Rising,
-  https://openflume.github.io/OpenFLUME/docs/teach/, CC BY 4.0."
+  https://openflume.github.io/teach/, CC BY 4.0."
 - **Software:** OpenFLUME itself is MIT-licensed (see `LICENSE` in the
   repository).
 - **Citing the software** in a course or paper: use the Zenodo DOI

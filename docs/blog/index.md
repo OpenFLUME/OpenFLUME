@@ -11,4 +11,4 @@ Posts by John Rising on the design, verification, and limits of OpenFLUME. Newes
 
 <!-- The list above is generated from the posts in this folder (front-matter
 title, description, date). On GitHub it renders empty; read the blog at
-https://openflume.github.io/OpenFLUME/docs/blog/ -->
+https://openflume.github.io/blog/ -->
