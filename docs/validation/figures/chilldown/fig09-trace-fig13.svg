@@ -18,7 +18,7 @@
 <rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
 <text x="366" y="416" text-anchor="middle" font-size="12.5">Time t [s]</text>
 <text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Wall temperature [K]</text>
-<path d="M76.0,66.4 L120.3,135.0 L164.6,185.2 L208.9,223.6" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<path d="M76.0,66.4 L120.3,98.6 L164.6,130.2 L208.9,160.5" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
 <circle cx="76" cy="76.34856250000001" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <circle cx="80.87394957983193" cy="86.05725000000001" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <circle cx="85.74789915966386" cy="95.7659375" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
@@ -56,7 +56,7 @@
 <circle cx="241.7142857142857" cy="275.60587499999997" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <circle cx="246.58823529411765" cy="278.5195" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <circle cx="251.46218487394958" cy="281.433125" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<path d="M76.0,66.4 L120.3,73.2 L164.6,83.6 L208.9,96.8 L253.2,112.8 L297.5,130.6 L341.9,164.7 L386.2,200.2 L430.5,217.3 L474.8,247.9 L519.1,259.8" fill="none" stroke="#c0392b" stroke-width="1.8"/>
+<path d="M76.0,66.4 L120.3,71.1 L164.6,78.4 L208.9,87.6 L253.2,98.7 L297.5,111.8 L341.9,126.8 L386.2,149.2 L430.5,183.4 L474.8,209.6 L519.1,223.9" fill="none" stroke="#c0392b" stroke-width="1.8"/>
 <circle cx="76" cy="75.02418749999998" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
 <circle cx="88.18487394957984" cy="82.0535625" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
 <circle cx="100.36974789915966" cy="90.03037500000005" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
@@ -94,7 +94,7 @@
 <circle cx="490.2857142857143" cy="272.3153125" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
 <circle cx="502.4705882352941" cy="273.0080625" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
 <circle cx="514.655462184874" cy="274.40375" r="3.4" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<path d="M76.0,66.4 L120.3,66.7 L164.6,67.6 L208.9,69.2 L253.2,71.8 L297.5,74.2 L341.9,80.4 L386.2,89.2 L430.5,93.6 L474.8,111.7 L519.1,159.0 L563.4,208.9 L607.7,243.5" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<path d="M76.0,66.4 L120.3,66.6 L164.6,67.2 L208.9,68.3 L253.2,70.0 L297.5,72.5 L341.9,75.9 L386.2,79.9 L430.5,87.4 L474.8,104.7 L519.1,112.4 L563.4,121.6 L607.7,156.2" fill="none" stroke="#1e8449" stroke-width="1.8"/>
 <circle cx="76" cy="75.40112500000004" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
 <circle cx="90.62184873949579" cy="75.44187499999998" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
 <circle cx="105.24369747899159" cy="75.48262499999998" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
@@ -132,7 +132,7 @@
 <circle cx="573.1428571428571" cy="261.5369375" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
 <circle cx="587.7647058823529" cy="263.6865" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
 <circle cx="602.3865546218486" cy="266.151875" r="3.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<path d="M76.0,66.4 L120.3,66.4 L164.6,66.6 L208.9,66.9 L253.2,67.6 L297.5,68.2 L341.9,69.8 L386.2,72.5 L430.5,73.8 L474.8,79.3 L519.1,95.4 L563.4,118.4 L607.7,171.9 L652.0,230.5" fill="none" stroke="#d68910" stroke-width="1.8"/>
+<path d="M76.0,66.4 L120.3,66.4 L164.6,66.6 L208.9,66.9 L253.2,67.4 L297.5,68.2 L341.9,69.4 L386.2,70.8 L430.5,73.6 L474.8,80.0 L519.1,82.8 L563.4,86.4 L607.7,99.7 L652.0,129.7" fill="none" stroke="#d68910" stroke-width="1.8"/>
 <circle cx="76" cy="82.71575000000001" r="3.4" fill="none" stroke="#d68910" stroke-width="1.4"/>
 <circle cx="93.05882352941177" cy="82.77687500000002" r="3.4" fill="none" stroke="#d68910" stroke-width="1.4"/>
 <circle cx="110.11764705882354" cy="82.8278125" r="3.4" fill="none" stroke="#d68910" stroke-width="1.4"/>

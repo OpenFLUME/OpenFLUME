@@ -21,23 +21,21 @@ below. All eighteen chilldown times of Table 6 (liquid nitrogen and liquid
 hydrogen, saturated and subcooled) are solved and reported; trust levels are
 assigned from the experimental record alone. At the CI configuration (3 axial
 segments) the mean absolute error over the eighteen rows is
-10.6 % for OpenFLUME and 7.6 % for GFSSP's published
+13.5 % for OpenFLUME and 7.6 % for GFSSP's published
 33-node predictions. For the three saturated liquid-nitrogen cases OpenFLUME
-predicts station-4 chilldown times −0.5 %, −7.1 %, +2.7 % from
-experiment (mean absolute error 3.4 %), against
+predicts station-4 chilldown times +8.1 %, +2.2 %, +8.0 % from
+experiment (mean absolute error 6.1 %), against
 +12.1 %, +6.7 %, +7.7 % (8.8 %) for GFSSP;
 over 3 to 12 segments the saturated predictions lie between
-−9.5 % and +4.2 %. The subcooled
-liquid-nitrogen error grows with axial refinement, from −0.3 % to +29.0 % at
-N = 3 to +28.5 % to +38.3 % at N = 12. The wall uses the temperature-dependent
+−2.0 % and +11.8 %. The subcooled
+liquid-nitrogen error grows with axial refinement, from +9.4 % to +38.5 % at
+N = 3 to +34.3 % to +74.7 % at N = 12. The wall uses the temperature-dependent
 OFHC-copper specific heat and conductivity. Against the digitized
 wall-temperature traces of the 7 trusted runs, the untuned model
-(N = 6) places the station-4 knee within 9.1–48.3 s of the measured one where
-both are available, but its pooled trace RMSE is 42.4–86.2 K for the
-saturated runs and 35.9–84.3 K for the subcooled ones. Two model deficiencies stand out: the
-inlet wall chills far too slowly, because the film-boiling closure returns a
-small coefficient at the zero-quality inlet state, and the modeled quench
-front is 1.7–4.1 times broader than the measured one at this
+(N = 6) places the station-4 knee within 0.2–44.2 s of the measured one where
+both are available, but its pooled trace RMSE is 38.1–71.9 K for the
+saturated runs and 64.0–69.1 K for the subcooled ones. The main model deficiency is the
+quench front: the modeled front is 2.3–3.6 times broader than the measured one at this
 discretization. Cryogenic chilldown is the least mature area of the code;
 the numbers below are the evidence for that statement.
 
@@ -125,21 +123,25 @@ shipped 20-segment cryogenic line cooldown example of user manual §7.11 is a
 separate model): N equal pipe segments between a saturated (or
 subcooled) liquid inlet boundary at the driving pressure and an atmospheric
 outlet boundary, N − 1 internal fluid nodes with real-fluid (CoolProp,
-homogeneous-equilibrium) properties, and N + 1 lumped copper wall nodes, each
-coupled to its fluid node by a Miropolskii film-boiling convection conductor
-(Dittus–Boelter on single-phase states) and to its neighbors by axial
-conduction. The wall uses the temperature-dependent NIST OFHC-copper
-specific heat and conductivity (`wallMaterial: "ofhc-copper"`, 4–300 K,
-RRR 100); the vacuum jacket is represented by an adiabatic outer wall. The
-outlet wall node convects to the last internal fluid node ("upwind"
-coupling) so that station 4 is bracketed by chilled wall nodes. Nitrogen is
+homogeneous-equilibrium) properties, and N + 1 lumped copper wall nodes at
+the segment ends, joined by axial conduction. As in GFSSP's model of the
+line, every wall node convects to a solved (internal) fluid node and none to
+a boundary node: each interior wall node to the fluid node at its position,
+the inlet wall node to the first internal fluid node and the outlet wall
+node to the last, through a Miropolskii film-boiling conductor
+(Dittus–Boelter on single-phase states). A wall node on the inlet boundary
+would exchange heat with fixed zero-quality liquid, where the Miropolskii
+coefficient is at its minimum and cannot respond to the heat the wall
+releases. The two end wall nodes own half a segment each, so the total wall
+mass and wetted area equal the line's (`NBS_LINE_WALL_MODEL`,
+`src/validation/nbsChilldown.ts`). The wall uses the temperature-dependent
+NIST OFHC-copper specific heat and conductivity (4–300 K, RRR 100); the
+vacuum jacket is represented by an adiabatic outer wall. Nitrogen is
 CoolProp Nitrogen; hydrogen is ParaHydrogen. Transients use backward Euler
 with a fixed step: Δt = 10 s for nitrogen and 2.5 s for hydrogen. Nothing in
 this report is fitted: the CI configuration (N = 3) and the trace-baseline
 plan (N = 6) were fixed before these comparisons, and the closure constants
 are the published ones.
-
-With temperature-dependent copper properties, the saturated LN₂ errors at N = 3 are −0.5 %, −7.1 %, +2.7 % against +13.0 %, +6.9 %, +18.6 % with the previous constant c_p = 385 J/(kg·K) and k = 400 W/(m·K), the mean absolute error over all eighteen rows is 10.6 % against 23.7 %, and the pooled trace RMSE of the four saturated runs is 42.4–86.2 K against 49.0–60.6 K.
 
 ## Results
 
@@ -147,38 +149,38 @@ With temperature-dependent copper properties, the saturated LN₂ errors at N = 
 
 | Fluid | Inlet | P_drive [psia] | Experiment [s] | GFSSP [s] | GFSSP error | OpenFLUME [s] | OpenFLUME error | Converged | Digitized record | Trust level |
 | ----- | ----- | -------------- | -------------- | --------- | ----------- | ------------- | --------------- | --------- | ---------------- | ----------- |
-| LN₂ | saturated | 61.74 | 165 | 185 | +12.1 % | 164.1 | −0.5 % | yes | not digitized | trusted |
-| LN₂ | saturated | 74.97 | 150 | 160 | +6.7 % | 139.4 | −7.1 % | yes | not digitized | trusted |
-| LN₂ | saturated | 86.73 | 130 | 140 | +7.7 % | 133.5 | +2.7 % | yes | Fig. 12 | trusted |
-| LN₂ | subcooled | 36.75 | 222 | 250 | +12.6 % | 286.3 | +29.0 % | yes | not digitized | trusted |
-| LN₂ | subcooled | 49.97 | 170 | 175 | +2.9 % | 177.7 | +4.5 % | yes | not digitized | trusted |
-| LN₂ | subcooled | 61.74 | 129 | 140 | +8.5 % | 128.6 | −0.3 % | yes | Fig. 13 | trusted |
-| LN₂ | subcooled | 74.97 | 100 | 100 | +0.0 % | 108.0 | +8.0 % | yes | not digitized | trusted |
-| LN₂ | subcooled | 86.73 | 85 | 90 | +5.9 % | 100.6 | +18.3 % | yes | Fig. 14 | trusted |
-| LH₂ | saturated | 74.97 | 68 | 70 | +2.9 % | 58.3 | −14.3 % | yes | Fig. 2 | trusted |
-| LH₂ | saturated | 86.73 | 62 | 69 | +11.3 % | 50.9 | −17.9 % | yes | not digitized | trusted |
-| LH₂ | saturated | 111.72 | 42 | 50 | +19.0 % | 41.7 | −0.7 % | yes | not digitized | trusted |
-| LH₂ | saturated | 161.72 | 30 | 33 | +10.0 % | 32.3 | +7.5 % | yes | not digitized | trusted |
-| LH₂ | subcooled | 36.75 | 148 | 150 | +1.4 % | 131.6 | −11.1 % | yes | Fig. 3: cold tails overlap | diagnostic only |
-| LH₂ | subcooled | 61.74 | 75 | 80 | +6.7 % | 73.6 | −1.9 % | yes | Fig. 4: cold tails overlap | diagnostic only |
-| LH₂ | subcooled | 86.73 | 62 | 60 | −3.2 % | 54.1 | −12.7 % | yes | Fig. 5 | trusted |
-| LH₂ | subcooled | 111.72 | 41 | 45 | +9.8 % | 44.6 | +8.8 % | yes | Fig. 6: valve opened before t = 0, cold tails overlap | diagnostic only |
-| LH₂ | subcooled | 136.72 | 32 | 35 | +9.4 % | 38.7 | +21.1 % | yes | not digitized | trusted |
-| LH₂ | subcooled | 161.7 | 28 | 30 | +7.1 % | 35.0 | +24.9 % | yes | Fig. 7: cold tails overlap | diagnostic only |
+| LN₂ | saturated | 61.74 | 165 | 185 | +12.1 % | 178.3 | +8.1 % | yes | not digitized | trusted |
+| LN₂ | saturated | 74.97 | 150 | 160 | +6.7 % | 153.3 | +2.2 % | yes | not digitized | trusted |
+| LN₂ | saturated | 86.73 | 130 | 140 | +7.7 % | 140.4 | +8.0 % | yes | Fig. 12 | trusted |
+| LN₂ | subcooled | 36.75 | 222 | 250 | +12.6 % | 307.5 | +38.5 % | yes | not digitized | trusted |
+| LN₂ | subcooled | 49.97 | 170 | 175 | +2.9 % | 186.0 | +9.4 % | yes | not digitized | trusted |
+| LN₂ | subcooled | 61.74 | 129 | 140 | +8.5 % | 147.6 | +14.4 % | yes | Fig. 13 | trusted |
+| LN₂ | subcooled | 74.97 | 100 | 100 | +0.0 % | 120.0 | +20.0 % | yes | not digitized | trusted |
+| LN₂ | subcooled | 86.73 | 85 | 90 | +5.9 % | 98.3 | +15.6 % | yes | Fig. 14 | trusted |
+| LH₂ | saturated | 74.97 | 68 | 70 | +2.9 % | 63.1 | −7.2 % | yes | Fig. 2 | trusted |
+| LH₂ | saturated | 86.73 | 62 | 69 | +11.3 % | 54.6 | −11.9 % | yes | not digitized | trusted |
+| LH₂ | saturated | 111.72 | 42 | 50 | +19.0 % | 44.7 | +6.4 % | yes | not digitized | trusted |
+| LH₂ | saturated | 161.72 | 30 | 33 | +10.0 % | 36.4 | +21.3 % | yes | not digitized | trusted |
+| LH₂ | subcooled | 36.75 | 148 | 150 | +1.4 % | 138.5 | −6.4 % | yes | Fig. 3: cold tails overlap | diagnostic only |
+| LH₂ | subcooled | 61.74 | 75 | 80 | +6.7 % | 76.6 | +2.1 % | yes | Fig. 4: cold tails overlap | diagnostic only |
+| LH₂ | subcooled | 86.73 | 62 | 60 | −3.2 % | 56.3 | −9.2 % | yes | Fig. 5 | trusted |
+| LH₂ | subcooled | 111.72 | 41 | 45 | +9.8 % | 46.1 | +12.6 % | yes | Fig. 6: valve opened before t = 0, cold tails overlap | diagnostic only |
+| LH₂ | subcooled | 136.72 | 32 | 35 | +9.4 % | 39.6 | +23.8 % | yes | not digitized | trusted |
+| LH₂ | subcooled | 161.7 | 28 | 30 | +7.1 % | 35.4 | +26.3 % | yes | Fig. 7: cold tails overlap | diagnostic only |
 
 OpenFLUME: N = 3, station-4 knee at T_sat,local + 15 K. All eighteen solves converged.
 
 | Group | Rows | OpenFLUME mean abs. error (range) | GFSSP mean abs. error (range) | Trusted rows | OpenFLUME, trusted | GFSSP, trusted |
 | ----- | ---- | --------------------------------- | ----------------------------- | ------------ | ------------------ | -------------- |
-| Saturated LN₂ | 3 | 3.4 % (−7.1 % to +2.7 %) | 8.8 % (+6.7 % to +12.1 %) | 3 | 3.4 % | 8.8 % |
-| Subcooled LN₂ | 5 | 12.0 % (−0.3 % to +29.0 %) | 6.0 % (+0.0 % to +12.6 %) | 5 | 12.0 % | 6.0 % |
-| Saturated LH₂ | 4 | 10.1 % (−17.9 % to +7.5 %) | 10.8 % (+2.9 % to +19.0 %) | 4 | 10.1 % | 10.8 % |
-| Subcooled LH₂ | 6 | 13.4 % (−12.7 % to +24.9 %) | 6.3 % (−3.2 % to +9.8 %) | 2 | 16.9 % | 6.3 % |
+| Saturated LN₂ | 3 | 6.1 % (+2.2 % to +8.1 %) | 8.8 % (+6.7 % to +12.1 %) | 3 | 6.1 % | 8.8 % |
+| Subcooled LN₂ | 5 | 19.6 % (+9.4 % to +38.5 %) | 6.0 % (+0.0 % to +12.6 %) | 5 | 19.6 % | 6.0 % |
+| Saturated LH₂ | 4 | 11.7 % (−11.9 % to +21.3 %) | 10.8 % (+2.9 % to +19.0 %) | 4 | 11.7 % | 10.8 % |
+| Subcooled LH₂ | 6 | 13.4 % (−9.2 % to +26.3 %) | 6.3 % (−3.2 % to +9.8 %) | 2 | 16.5 % | 6.3 % |
 
-Over all eighteen rows the mean absolute error is 10.6 % for OpenFLUME and
+Over all eighteen rows the mean absolute error is 13.5 % for OpenFLUME and
 7.6 % for GFSSP. The model reproduces both trends in the data:
 chilldown shortens as driving pressure rises, and subcooling shortens it at
-matched pressure (108.0 s subcooled against 139.4 s
+matched pressure (120.0 s subcooled against 153.3 s
 saturated at 74.97 psia). The CI gate holds each of its four LN₂ cases (the saturated
 rows and subcooled 74.97 psia) inside a factor-of-1.6 band and the saturated mean absolute error below 25 %; that band is a
 regression guard, not a statement of accuracy.
@@ -196,13 +198,13 @@ station 4.
 
 | P_drive [psia] | Experiment [s] | T_sat,local + 15 K | T_sat,local + 30 K | T_inlet + 15 K | 100 K | Station 3 |
 | -------------- | -------------- | ------------------ | ------------------ | -------------- | ----- | --------- |
-| 61.74 | 165 | 164.1 | 134.7 | 135.4 | 143.2 | 140.0 |
-| 74.97 | 150 | 139.4 | 109.1 | 108.5 | 117.6 | 112.7 |
-| 86.73 | 130 | 133.5 | 98.1 | 96.3 | 107.4 | 100.0 |
+| 61.74 | 165 | 178.3 | 147.6 | 148.2 | 157.2 | 154.5 |
+| 74.97 | 150 | 153.3 | 120.8 | 119.7 | 130.3 | 126.1 |
+| 86.73 | 130 | 140.4 | 105.9 | 103.2 | 115.3 | 108.5 |
 
 Raising the margin from 15 K to 30 K shortens the predicted time by
-29.4–35.4 s
-(18–27 % of the measured time).
+30.7–34.5 s
+(19–27 % of the measured time).
 At N = 3 the model's station-4 wall approaches the liquid temperature slowly,
 so the comparison above depends on the definition at that level. The trace
 comparison below shows that the measured knee is much sharper.
@@ -213,32 +215,32 @@ Saturated LN₂:
 
 | P_drive [psia] | Experiment [s] | N = 3 | N = 4 | N = 6 | N = 8 | N = 12 |
 | -------------- | -------------- | ------ | ------ | ------ | ------ | ------ |
-| 61.74 | 165 | 164.1 (−0.5 %) | 162.8 (−1.3 %) | 166.8 (+1.1 %) | 168.8 (+2.3 %) | 171.9 (+4.2 %) |
-| 74.97 | 150 | 139.4 (−7.1 %) | 137.0 (−8.6 %) | 135.8 (−9.5 %) | 141.3 (−5.8 %) | 145.6 (−2.9 %) |
-| 86.73 | 130 | 133.5 (+2.7 %) | 126.3 (−2.9 %) | 124.5 (−4.2 %) | 123.9 (−4.7 %) | 122.2 (−6.0 %) |
+| 61.74 | 165 | 178.3 (+8.1 %) | 178.9 (+8.4 %) | 180.4 (+9.4 %) | 181.7 (+10.1 %) | 184.5 (+11.8 %) |
+| 74.97 | 150 | 153.3 (+2.2 %) | 149.9 (−0.1 %) | 148.4 (−1.1 %) | 148.3 (−1.1 %) | 147.0 (−2.0 %) |
+| 86.73 | 130 | 140.4 (+8.0 %) | 135.3 (+4.1 %) | 134.4 (+3.4 %) | 133.1 (+2.4 %) | 133.9 (+3.0 %) |
 
 Every saturated solve converged. Between N = 3 and N = 12 the saturated
-predictions span 9.1, 9.8, 11.3 s, the largest at
+predictions span 6.2, 6.4, 7.3 s, the largest at
 86.73 psia. Halving the time step to Δt = 5 s at N = 3 moves them by
-1.6, 0.4, 4.8 s. Every saturated LN₂ prediction in this
-study lies between −9.5 % and +4.2 % of
+8.5, 4.3, 6.1 s. Every saturated LN₂ prediction in this
+study lies between −2.0 % and +11.8 % of
 experiment; GFSSP's errors for the same cases are +6.7 % to +12.1 %.
 
 Subcooled LN₂:
 
 | P_drive [psia] | Experiment [s] | N = 3 | N = 6 | N = 12 |
 | -------------- | -------------- | ------ | ------ | ------ |
-| 36.75 | 222 | 286.3 (+29.0 %) | 294.9 (+32.9 %)* | failed† |
-| 49.97 | 170 | 177.7 (+4.5 %) | 230.7 (+35.7 %)* | 227.5 (+33.8 %)* |
-| 61.74 | 129 | 128.6 (−0.3 %) | 184.5 (+43.0 %) | 165.8 (+28.5 %) |
-| 74.97 | 100 | 108.0 (+8.0 %) | 118.6 (+18.6 %) | 138.3 (+38.3 %) |
-| 86.73 | 85 | 100.6 (+18.3 %) | 108.2 (+27.3 %) | failed† |
+| 36.75 | 222 | 307.5 (+38.5 %) | failed† | 347.6 (+56.6 %)* |
+| 49.97 | 170 | 186.0 (+9.4 %) | 199.5 (+17.3 %) | 228.4 (+34.3 %) |
+| 61.74 | 129 | 147.6 (+14.4 %) | 159.4 (+23.5 %) | 176.6 (+36.9 %) |
+| 74.97 | 100 | 120.0 (+20.0 %) | 129.5 (+29.5 %) | 157.1 (+57.1 %) |
+| 86.73 | 85 | 98.3 (+15.6 %) | 108.1 (+27.2 %) | 148.5 (+74.7 %) |
 
-(* : the solve did not converge — 36.75 psia at N = 6; 49.97 psia at N = 6; 49.97 psia at N = 12. † : the solve could not be completed — 36.75 psia at N = 12 (CoolProp abort); 86.73 psia at N = 12 (CoolProp abort); a solver robustness failure at that condition, reported rather than dropped.) The subcooled
-error grows with axial refinement: in 3 of the 3 cases with a time at every
+(* : the solve did not converge — 36.75 psia at N = 12. † : the solve could not be completed — 36.75 psia at N = 6 (timed out after 600 s); a solver robustness failure at that condition, reported rather than dropped.) The subcooled
+error grows with axial refinement: in 4 of the 4 cases with a time at every
 level the N = 12 error exceeds the N = 3 error, and over the converged solves the error rises
-from −0.3 % to +29.0 % at N = 3 to +28.5 % to +38.3 % at N = 12, reaching
-+43.0 % (N = 6). Refinement does not repair the subcooled
+from +9.4 % to +38.5 % at N = 3 to +34.3 % to +74.7 % at N = 12, reaching
++74.7 % (N = 12). Refinement does not repair the subcooled
 predictions. This is a model result.
 
 ![Figure 2](figures/chilldown/fig02-grid-study.svg)
@@ -264,76 +266,69 @@ the model improves.
 
 | Run | Condition | Model | Converged | Pooled RMSE [K] | Pooled MAE [K] | Discordant 150 K arrival pairs |
 | --- | --------- | ----- | --------- | --------------- | -------------- | ------------------------------ |
-| Fig. 2 | saturated LH2, 5.1 atm | ParaHydrogen, N = 6, Δt = 2.5 s | yes | 86.2 | 66.7 | 0 |
-| Fig. 5 | subcooled LH2, 5.9 atm | ParaHydrogen, N = 6, Δt = 2.5 s | yes | 84.3 | 51.4 | 0 |
-| Fig. 10 | saturated LN2, 2.5 atm | Nitrogen, N = 6, Δt = 10 s | yes | 42.4 | 35.2 | 0 |
-| Fig. 11 | saturated LN2, 3.4 atm | Nitrogen, N = 6, Δt = 10 s | yes | 60.7 | 43.0 | 3 |
-| Fig. 12 | saturated LN2, 5.9 atm | Nitrogen, N = 6, Δt = 10 s | yes | 57.7 | 39.9 | 3 |
-| Fig. 13 | subcooled LN2, 4.2 atm | Nitrogen, N = 6, Δt = 10 s | yes | 35.9 | 28.1 | 0 |
-| Fig. 14 | subcooled LN2, 5.9 atm | Nitrogen, N = 6, Δt = 10 s | yes | 44.4 | 31.2 | 0 |
+| Fig. 2 | saturated LH2, 5.1 atm | ParaHydrogen, N = 6, Δt = 2.5 s | yes | 71.9 | 57.7 | 0 |
+| Fig. 5 | subcooled LH2, 5.9 atm | ParaHydrogen, N = 6, Δt = 2.5 s | yes | 69.1 | 46.5 | 0 |
+| Fig. 10 | saturated LN2, 2.5 atm | Nitrogen, N = 6, Δt = 10 s | yes | 68.7 | 57.7 | 0 |
+| Fig. 11 | saturated LN2, 3.4 atm | Nitrogen, N = 6, Δt = 10 s | yes | 41.7 | 29.2 | 0 |
+| Fig. 12 | saturated LN2, 5.9 atm | Nitrogen, N = 6, Δt = 10 s | yes | 38.1 | 22.8 | 0 |
+| Fig. 13 | subcooled LN2, 4.2 atm | Nitrogen, N = 6, Δt = 10 s | yes | 64.0 | 48.5 | 0 |
+| Fig. 14 | subcooled LN2, 5.9 atm | Nitrogen, N = 6, Δt = 10 s | yes | 64.7 | 47.1 | 0 |
 
 | Run | Station | RMSE [K] | NRMSE | Data t(150 K) [s] | Model t(150 K) [s] | Data knee [s] | Model knee [s] | QC weight |
 | --- | ------- | -------- | ----- | ----------------- | ------------------ | ------------- | -------------- | --------- |
-| Fig. 2 | 1 | 62.2 | 0.26 | 9.3 | 17.1 | 19.9 | 41.6 | 1 |
-| Fig. 2 | 2 | 51.9 | 0.21 | 33.3 | 28.2 | 42.4 | 41.3 | 1 |
-| Fig. 2 | 3 | 118.5 | 0.49 | 55.0 | 41.7 | 60.9 | 51.6 | 0.5 |
-| Fig. 2 | 4 | 138.2 | 0.54 | 63.5 | 47.8 | 65.7 | 54.3 | 0.5 |
-| Fig. 5 | 1 | 13.7 | 0.05 | 9.5 | 8.6 | 18.9 | 21.6 | 1 |
-| Fig. 5 | 2 | 71.7 | 0.26 | 31.7 | 23.6 | 40.9 | 36.4 | 1 |
-| Fig. 5 | 3 | 127.6 | 0.47 | 49.9 | 36.1 | 58.3 | 47.1 | 0.5 |
-| Fig. 5 | 4 | 179.3 | 0.65 | 56.7 | 41.8 | 58.8 | 49.7 | 0.5 |
-| Fig. 10 | 1 | 65.1 | 0.36 | 68.9 | — | 83.8 | — | 1 |
-| Fig. 10 | 2 | 39.2 | 0.21 | 132.5 | 152.0 | 177.2 | 251.5 | 1 |
-| Fig. 10 | 3 | 40.6 | 0.22 | 188.1 | 212.0 | 208.2 | 266.0 | 1 |
-| Fig. 10 | 4 | 16.3 | 0.09 | 238.7 | 243.1 | 244.6 | 274.4 | 1 |
-| Fig. 11 | 1 | 58.1 | 0.29 | 59.7 | 191.0 | — | — | 1 |
-| Fig. 11 | 2 | 18.8 | 0.09 | 104.2 | 100.2 | — | 152.3 | 1 |
-| Fig. 11 | 3 | 39.5 | 0.20 | 161.3 | 141.3 | — | 173.6 | 1 |
-| Fig. 11 | 4 | 105.7 | 0.50 | 195.5 | 162.6 | 199.2 | 179.1 | 1 |
-| Fig. 12 | 1 | 48.5 | 0.23 | 36.9 | 91.3 | 43.9 | 166.1 | 1 |
-| Fig. 12 | 2 | 19.6 | 0.09 | 63.7 | 56.6 | 73.6 | 80.4 | 1 |
-| Fig. 12 | 3 | 56.0 | 0.27 | 102.0 | 79.7 | 109.9 | 96.8 | 1 |
-| Fig. 12 | 4 | 82.2 | 0.37 | 116.1 | 90.6 | 118.8 | 100.9 | 1 |
-| Fig. 13 | 1 | 30.2 | 0.15 | 19.9 | 28.8 | — | 56.8 | 1 |
-| Fig. 13 | 2 | 46.5 | 0.24 | 65.1 | 80.6 | — | 113.4 | 1 |
-| Fig. 13 | 3 | 38.5 | 0.20 | 96.8 | 113.0 | — | 145.9 | 1 |
-| Fig. 13 | 4 | 23.1 | 0.11 | 120.9 | 128.1 | 127.0 | 160.0 | 1 |
-| Fig. 14 | 1 | 25.0 | 0.12 | 14.5 | 21.2 | — | 40.8 | 0.75 |
-| Fig. 14 | 2 | 60.3 | 0.31 | 34.9 | 52.7 | — | 81.1 | 1 |
-| Fig. 14 | 3 | 43.2 | 0.22 | 65.6 | 79.2 | — | 116.5 | 1 |
-| Fig. 14 | 4 | 39.5 | 0.19 | 78.0 | 95.5 | 84.6 | 132.9 | 1 |
+| Fig. 2 | 1 | 70.5 | 0.29 | 9.3 | 18.4 | 19.9 | 36.5 | 1 |
+| Fig. 2 | 2 | 37.4 | 0.15 | 33.3 | 34.5 | 42.4 | 48.2 | 1 |
+| Fig. 2 | 3 | 72.3 | 0.30 | 55.0 | 47.8 | 60.9 | 56.4 | 0.5 |
+| Fig. 2 | 4 | 117.6 | 0.46 | 63.5 | 52.6 | 65.7 | 59.0 | 0.5 |
+| Fig. 5 | 1 | 45.4 | 0.16 | 9.5 | 15.4 | 18.9 | 31.3 | 1 |
+| Fig. 5 | 2 | 39.9 | 0.15 | 31.7 | 28.9 | 40.9 | 42.1 | 1 |
+| Fig. 5 | 3 | 91.3 | 0.34 | 49.9 | 41.1 | 58.3 | 51.0 | 0.5 |
+| Fig. 5 | 4 | 147.7 | 0.54 | 56.7 | 46.1 | 58.8 | 53.7 | 0.5 |
+| Fig. 10 | 1 | 58.3 | 0.32 | 68.9 | 115.7 | 83.8 | 221.7 | 1 |
+| Fig. 10 | 2 | 70.6 | 0.38 | 132.5 | 200.8 | 177.2 | — | 1 |
+| Fig. 10 | 3 | 78.1 | 0.42 | 188.1 | 261.0 | 208.2 | — | 1 |
+| Fig. 10 | 4 | 51.3 | 0.29 | 238.7 | 279.5 | 244.6 | — | 1 |
+| Fig. 11 | 1 | 18.9 | 0.09 | 59.7 | 69.4 | — | 146.3 | 1 |
+| Fig. 11 | 2 | 46.1 | 0.23 | 104.2 | 123.6 | — | 178.1 | 1 |
+| Fig. 11 | 3 | 11.0 | 0.06 | 161.3 | 163.0 | — | 193.8 | 1 |
+| Fig. 11 | 4 | 72.5 | 0.34 | 195.5 | 177.3 | 199.2 | 199.4 | 1 |
+| Fig. 12 | 1 | 9.9 | 0.05 | 36.9 | 40.0 | 43.9 | 62.1 | 1 |
+| Fig. 12 | 2 | 20.6 | 0.10 | 63.7 | 69.9 | 73.6 | 93.1 | 1 |
+| Fig. 12 | 3 | 31.4 | 0.15 | 102.0 | 89.8 | 109.9 | 105.4 | 1 |
+| Fig. 12 | 4 | 63.8 | 0.29 | 116.1 | 98.7 | 118.8 | 110.0 | 1 |
+| Fig. 13 | 1 | 74.7 | 0.37 | 19.9 | 50.1 | — | 82.9 | 1 |
+| Fig. 13 | 2 | 66.9 | 0.34 | 65.1 | 96.7 | — | 133.4 | 1 |
+| Fig. 13 | 3 | 67.1 | 0.36 | 96.8 | 131.7 | — | 161.1 | 1 |
+| Fig. 13 | 4 | 54.7 | 0.27 | 120.9 | 145.4 | 127.0 | 171.2 | 1 |
+| Fig. 14 | 1 | 57.2 | 0.27 | 14.5 | 34.9 | — | 57.7 | 0.75 |
+| Fig. 14 | 2 | 80.2 | 0.42 | 34.9 | 64.6 | — | 91.4 | 1 |
+| Fig. 14 | 3 | 66.1 | 0.34 | 65.6 | 88.2 | — | 109.4 | 1 |
+| Fig. 14 | 4 | 53.2 | 0.26 | 78.0 | 92.9 | 84.6 | 118.5 | 1 |
 
 (— : the feature is unavailable — the trace never reaches it inside the
 record, or the data trace's cold tail is QC-excluded.) Station NRMSE, scaled
 by each data trace's observed span, ranges from
-0.05 to 0.65. Figures 4–10
+0.05 to 0.54. Figures 4–10
 overlay model and data. Three findings recur across the runs:
 
-1. **The inlet region chills late where the inlet coefficient is small.**
-   Over the trusted runs the modeled 150 K arrivals at stations 2–4 differ
-   from the measured ones by −32.9 s to +24.0 s; at station 1 the
-   difference is +8 s (Fig. 2), −1 s (Fig. 5), — (Fig. 10), +131 s (Fig. 11), +54 s (Fig. 12), +9 s (Fig. 13), +7 s (Fig. 14). In Figs. 11 and 12 station 1 arrives out of order, which accounts for the discordant arrival pairs.
-   The cause is the inlet wall node. It convects to the inlet boundary
-   state, liquid at zero quality, where the Miropolskii coefficient
-   (evaluated at the clamped quality 0.01) is smallest: averaged over each
-   record it is 538, 3007, 6, 18, 47, 1046, 1314 W/(m²·K) at the
-   inlet wall node against 1718, 5796, 125, 135, 286, 1624, 2060 W/(m²·K)
-   at the next one (Figs. 2, 5, 10, 11, 12, 13, 14; ratio 3.2, 1.9, 19.9, 7.7, 6.1, 1.6, 1.6).
-   Where the ratio is large (the saturated LN₂ runs) the line inlet stays
-   warm, and station 1 (6.1 m) takes 40 % of its interpolated value from it.
-   In the experiment the inlet chills first.
+1. **Cold-front arrival.** Over the trusted runs the modeled 150 K
+   arrivals at stations 2–4 differ from the measured ones by
+   −18.2 s to +72.9 s; at station 1 the difference is
+   +9 s (Fig. 2), +6 s (Fig. 5), +47 s (Fig. 10), +10 s (Fig. 11), +3 s (Fig. 12), +30 s (Fig. 13), +20 s (Fig. 14). The model and the data order the stations' 150 K arrivals identically in every run.
+   The modeled station-1 wall reaches T_inlet + 15 K inside the record in
+   7 of the 7 runs, +12.5 s to +137.8 s from the measured knee where both are available.
 2. **The modeled quench front is diffuse.** At station 4 the wall takes
-   17.5, 17.9, 64.4, 41.5, 28.2, 50.5, 60.5 s to fall from 250 K to T_inlet + 15 K in the
+   18.3, 19.1, —, 45.5, 27.0, 45.4, 38.3 s to fall from 250 K to T_inlet + 15 K in the
    model against 7.0, 5.3, 37.2, 13.2, 8.5, 19.9, 14.6 s in the data, and
-   0.8, 1.0, 17.8, 10.1, 4.4, 4.4, 23.7 s against 0.5, 0.5, 2.1, 1.2, 1.1, 1.0, 5.0 s
+   1.1, 1.6, —, 12.0, 5.3, 4.9, 6.3 s against 0.5, 0.5, 2.1, 1.2, 1.1, 1.0, 5.0 s
    to cross the band from T_inlet + 30 K to T_inlet + 15 K. With 10 m of copper
    lumped into each wall node the front cannot be sharper than a segment's
    transit time, so the downstream traces begin to fall early and reach the
    knee late, and the knee time is less sensitive to these errors than the
    trace RMSE.
 3. **Subcooled runs fit no better than saturated ones.** The pooled RMSE of
-   the subcooled trusted runs (Figs. 5, 13, 14) is 35.9–84.3 K,
-   against 42.4–86.2 K for the saturated runs.
+   the subcooled trusted runs (Figs. 5, 13, 14) is 64.0–69.1 K,
+   against 38.1–71.9 K for the saturated runs.
 
 ![Figure 4](figures/chilldown/fig04-trace-fig02.svg)
 
@@ -376,18 +371,18 @@ overlay model and data. Three findings recur across the runs:
 ## Conclusions
 
 Over all eighteen NBS 9264 Table-6 chilldown times, OpenFLUME's untuned
-two-phase network model has a mean absolute error of 10.6 % at the CI
+two-phase network model has a mean absolute error of 13.5 % at the CI
 configuration, against 7.6 % for GFSSP's published predictions. For
-saturated liquid nitrogen OpenFLUME's mean absolute error is 3.4 %
+saturated liquid nitrogen OpenFLUME's mean absolute error is 6.1 %
 against 8.8 % for GFSSP, with discretization changing individual predictions by up to
-11.3 s. For subcooled liquid nitrogen the error grows with axial
-refinement (−0.3 % to +29.0 % at N = 3, +28.5 % to +38.3 % at N = 12, up to
-+43.0 % at N = 6), so agreement at the coarse grid is not evidence
+7.3 s. For subcooled liquid nitrogen the error grows with axial
+refinement (+9.4 % to +38.5 % at N = 3, +34.3 % to +74.7 % at N = 12, up to
++74.7 % at N = 12), so agreement at the coarse grid is not evidence
 that the subcooled closure is right. The chilldown-time
 comparison depends on a graphical knee definition at the
-18–27 % level, and the trace comparison shows where agreement
-in a single time is partly fortuitous: the model's inlet-region quench is
-too slow and its knee too gradual. Cryogenic chilldown remains the least
+19–27 % level, and the trace comparison shows where agreement
+in a single time is partly fortuitous: the model's quench front is too
+broad and its knee too gradual. Cryogenic chilldown remains the least
 mature capability of the code, and these results are a baseline for model
 improvement, not a calibration.
 

@@ -42,6 +42,7 @@ import {
   getChilldownPoints,
   NBS_CHILLDOWN_DATA,
   NBS_CHILLDOWN_RIG,
+  NBS_LINE_WALL_MODEL,
   type ChilldownDataPoint,
   type ChilldownTimeDefinition,
 } from "../src/validation/nbsChilldown";
@@ -81,9 +82,6 @@ function tracePsia(run: {
     ? String(row.drivingPressure.psia)
     : (run.drivingPressure.pa / 6894.757).toFixed(1);
 }
-
-type WallMaterial = "constant" | "ofhc-copper";
-const WALL: WallMaterial = "ofhc-copper";
 
 const fmt = (x: number | undefined, d = 1) =>
   x === undefined || !Number.isFinite(x) ? "—" : x.toFixed(d);
@@ -135,7 +133,6 @@ interface Table6Run {
   point: ChilldownDataPoint;
   N: number;
   dt: number;
-  wall: WallMaterial;
   converged: boolean;
   /** Set when the solve could not run to completion (e.g. a CoolProp
    *  abort or a timeout in an isolated child process). */
@@ -154,7 +151,6 @@ function table6Config(
   p: ChilldownDataPoint,
   N: number,
   dt: number,
-  wall: WallMaterial,
 ): NetworkConfig {
   const subcooled = p.inletCondition === "subcooled";
   return buildChilldownTwoPhase({
@@ -164,8 +160,7 @@ function table6Config(
     outletPressure: 101325,
     fluidName: fluidNameOf(p),
     ...(subcooled ? { inletTemperature: p.subcooledAtTemperature!.K } : {}),
-    outletWallCoupling: "upwind",
-    wallMaterial: wall,
+    ...NBS_LINE_WALL_MODEL,
     dt,
     endTime: subcooled ? 360 : 300,
     timeStepping: "fixed",
@@ -183,11 +178,10 @@ function wallHistory(cfg: NetworkConfig, res: TransientResult) {
 function runTable6(
   p: ChilldownDataPoint,
   N: number,
-  opts: { dt?: number; wall?: WallMaterial } = {},
+  opts: { dt?: number } = {},
 ): Table6Run {
   const dt = opts.dt ?? defaultDtOf(p);
-  const wall = opts.wall ?? WALL;
-  const cfg = table6Config(p, N, dt, wall);
+  const cfg = table6Config(p, N, dt);
   const res = solveTransient(cfg);
   const f = fluidFor(fluidNameOf(p));
   const subcooled = p.inletCondition === "subcooled";
@@ -205,7 +199,6 @@ function runTable6(
     point: p,
     N,
     dt,
-    wall,
     converged: res.converged,
     times: sweep.map((m) => m.timeS),
     thresholdK: sweep[0].thresholdK,
@@ -227,10 +220,9 @@ if (caseArg) {
     id: string;
     N: number;
     dt?: number;
-    wall?: WallMaterial;
   };
   const p = NBS_CHILLDOWN_DATA.find((x) => x.id === c.id)!;
-  const r = runTable6(p, c.N, { dt: c.dt, wall: c.wall });
+  const r = runTable6(p, c.N, { dt: c.dt });
   console.log(
     `RESULT ${JSON.stringify({ converged: r.converged, times: r.times, thresholdK: r.thresholdK })}`,
   );
@@ -240,16 +232,15 @@ const ISOLATED_TIMEOUT_S = 600;
 function runTable6Isolated(
   p: ChilldownDataPoint,
   N: number,
-  opts: { dt?: number; wall?: WallMaterial } = {},
+  opts: { dt?: number } = {},
 ): Table6Run {
   const dt = opts.dt ?? defaultDtOf(p);
-  const wall = opts.wall ?? WALL;
   const out = spawnSync(
     process.execPath,
     [
       ...process.execArgv,
       fileURLToPath(import.meta.url),
-      `${CASE_FLAG}${JSON.stringify({ id: p.id, N, dt, wall })}`,
+      `${CASE_FLAG}${JSON.stringify({ id: p.id, N, dt })}`,
     ],
     {
       encoding: "utf8",
@@ -257,7 +248,7 @@ function runTable6Isolated(
       maxBuffer: 1 << 26,
     },
   );
-  const base = { point: p, N, dt, wall, thresholdK: NaN };
+  const base = { point: p, N, dt, thresholdK: NaN };
   const line = (out.stdout ?? "")
     .split("\n")
     .find((l) => l.startsWith("RESULT "));
@@ -356,8 +347,6 @@ for (const r of t6)
   console.log(
     `  ${r.point.id}: exp ${r.point.experimentalChilldownTimeS} s, GFSSP ${r.point.gfsspPredictedChilldownTimeS} s, OpenFLUME ${fmt(r.times[0])} s (conv ${r.converged})`,
   );
-console.log("Table 6 — same solves with the constant-cp wall (previous model)");
-const t6Const = ALL_POINTS.map((p) => runTable6(p, 3, { wall: "constant" }));
 
 const satLN2 = getChilldownPoints("LN2", "saturated");
 const subLN2 = getChilldownPoints("LN2", "subcooled");
@@ -425,15 +414,13 @@ const fig02Table6 = NBS_CHILLDOWN_DATA.find(
 interface TraceSolve {
   runId: string;
   model: ModelWallHistory;
-  hInlet: number[];
-  hFirst: number[];
   cmp: RunTraceComparison;
   converged: boolean;
   N: number;
   dt: number;
   fluidName: string;
 }
-function solveTraceRun(run: TraceRun, wall: WallMaterial): TraceSolve {
+function solveTraceRun(run: TraceRun): TraceSolve {
   const spec = TRACE_BASELINE_SOLVE_PLAN.find((s) => s.runId === run.runId)!;
   const cfg = buildChilldownTwoPhase({
     segments: spec.segments,
@@ -444,22 +431,16 @@ function solveTraceRun(run: TraceRun, wall: WallMaterial): TraceSolve {
     ...(run.inletCondition === "subcooled"
       ? { inletTemperature: run.inletLiquidTempK }
       : {}),
-    outletWallCoupling: "upwind",
-    wallMaterial: wall,
+    ...NBS_LINE_WALL_MODEL,
     dt: spec.dtS,
     endTime: spec.endTimeS,
     timeStepping: "fixed",
   });
   const res = solveTransient(cfg);
   const model = wallHistory(cfg, res);
-  const hOf = (id: string) =>
-    (res.conductors?.[id] as { heatTransferCoeff?: number[] } | undefined)
-      ?.heatTransferCoeff ?? [];
   return {
     runId: run.runId,
     model,
-    hInlet: hOf("conv0"),
-    hFirst: hOf("conv1"),
     cmp: compareRunTraces(run, model),
     converged: res.converged,
     N: spec.segments,
@@ -470,7 +451,7 @@ function solveTraceRun(run: TraceRun, wall: WallMaterial): TraceSolve {
 
 console.log("Trace baseline — the trusted runs");
 const traceSolves = NBS_TRUSTED_TRACE_RUNS.map((run) => {
-  const ts = solveTraceRun(run, WALL);
+  const ts = solveTraceRun(run);
   console.log(
     `  ${run.runId}: converged=${ts.converged} pooled RMSE ${fmt(ts.cmp.pooled.rmseK)} K, MAE ${fmt(ts.cmp.pooled.maeK)} K`,
   );
@@ -482,20 +463,13 @@ const satTraceSolves = traceSolves.filter(
 const subTraceSolves = traceSolves.filter(
   (ts) => getTraceRun(ts.runId).inletCondition === "subcooled",
 );
-console.log("Trace baseline — saturated runs with the constant-cp wall");
-const satTraceConst = satTraceSolves.map((ts) =>
-  solveTraceRun(getTraceRun(ts.runId), "constant"),
-);
-
-/* Diagnostics: front sharpness at station 4, inlet-node convection. */
+/* Diagnostics: front sharpness at station 4. */
 interface FrontWidth {
   runId: string;
   model?: number;
   data?: number;
   bandModel?: number;
   bandData?: number;
-  hInletMean: number;
-  hFirstMean: number;
 }
 const between = (t: number[], v: number[], hi: number, lo: number) => {
   const a = thresholdCrossingTime(t, v, hi, "below");
@@ -508,15 +482,12 @@ const frontWidths: FrontWidth[] = traceSolves.map((ts) => {
   const m = extractModelStationTrace(ts.model, 4);
   const Tk = run.inletLiquidTempK + 15;
   const usable = d.qc.coldTailUsable;
-  const span = ts.model.timesS.map((t) => t <= run.timeSpanS);
   return {
     runId: ts.runId,
     model: between(m.timesS, m.valuesK, 250, Tk),
     data: usable ? between(d.timesS, d.wallTempsK, 250, Tk) : undefined,
     bandModel: between(m.timesS, m.valuesK, Tk + 15, Tk),
     bandData: usable ? between(d.timesS, d.wallTempsK, Tk + 15, Tk) : undefined,
-    hInletMean: mean(ts.hInlet.filter((_, k) => k > 0 && span[k])),
-    hFirstMean: mean(ts.hFirst.filter((_, k) => k > 0 && span[k])),
   };
 });
 
@@ -737,7 +708,6 @@ const groupStats = GROUPS.map((g) => {
   );
   const ok = rs.filter((r) => r.converged && Number.isFinite(ourErr(r)));
   const trusted = ok.filter((r) => trustOf(r.point) === "trusted");
-  const cst = rs.map((r) => runOf(t6Const, r.point));
   return {
     ...g,
     n: rs.length,
@@ -751,9 +721,6 @@ const groupStats = GROUPS.map((g) => {
     nTrusted: trusted.length,
     oursRange: range(ok.map(ourErr)),
     gfsspRange: range(rs.map((r) => gfsspErr(r.point))),
-    constMae: meanAbs(
-      cst.filter((r) => Number.isFinite(ourErr(r))).map(ourErr),
-    ),
   };
 });
 const statRows = groupStats
@@ -765,9 +732,6 @@ const statRows = groupStats
 const allOk = t6.filter((r) => r.converged && Number.isFinite(ourErr(r)));
 const oursAllMae = meanAbs(allOk.map(ourErr));
 const gfsspAllMae = meanAbs(t6.map((r) => gfsspErr(r.point)));
-const constAllMae = meanAbs(
-  t6Const.filter((r) => Number.isFinite(ourErr(r))).map(ourErr),
-);
 const satStat = groupStats[0];
 const oursSatMae = satStat.ours;
 const gfsspSatMae = satStat.gfssp;
@@ -880,7 +844,6 @@ const kRange = (xs: number[]) =>
   `${Math.min(...xs).toFixed(1)}–${Math.max(...xs).toFixed(1)} K`;
 const satRmse = rmseOf(satTraceSolves);
 const subRmse = rmseOf(subTraceSolves);
-const satRmseConst = rmseOf(satTraceConst);
 const nrmses = traceSolves.flatMap((t) =>
   t.cmp.stations.map((s) => s.metrics.nrmse ?? NaN),
 );
@@ -892,21 +855,22 @@ const st4KneeGaps = traceSolves
     return m.available && d.available ? Math.abs(m.value - d.value) : NaN;
   })
   .filter(Number.isFinite);
+const st1Reached = traceSolves.filter(
+  (ts) => ts.cmp.stations[0].modelFeatures.kneeTimeS.available,
+).length;
+const st1KneeGaps = traceSolves
+  .map((ts) => {
+    const s = ts.cmp.stations[0];
+    const m = s.modelFeatures.kneeTimeS;
+    const d = s.dataFeatures.kneeTimeS;
+    return m.available && d.available ? m.value - d.value : NaN;
+  })
+  .filter(Number.isFinite);
 const frontRatios = frontWidths
   .filter((f) => f.model !== undefined && f.data !== undefined)
   .map((f) => f.model! / f.data!);
 const figList = (ts: TraceSolve[]) =>
   ts.map((t) => getTraceRun(t.runId).figure.replace("Fig. ", "")).join(", ");
-
-const constSat = satLN2.map((p) => runOf(t6Const, p));
-const oldNewSentence =
-  `With temperature-dependent copper properties, the saturated LN₂ errors ` +
-  `at N = 3 are ${satGate.map((r) => signedPct(ourErr(r))).join(", ")} ` +
-  `against ${constSat.map((r) => signedPct(ourErr(r))).join(", ")} with the ` +
-  `previous constant c_p = 385 J/(kg·K) and k = 400 W/(m·K), the mean ` +
-  `absolute error over all eighteen rows is ${oursAllMae.toFixed(1)} % ` +
-  `against ${constAllMae.toFixed(1)} %, and the pooled trace RMSE of the ` +
-  `four saturated runs is ${kRange(satRmse)} against ${kRange(satRmseConst)}.`;
 
 const report = `# Cryogenic Transfer-Line Chilldown Validation of OpenFLUME
 
@@ -944,10 +908,8 @@ OFHC-copper specific heat and conductivity. Against the digitized
 wall-temperature traces of the ${NBS_TRUSTED_TRACE_RUNS.length} trusted runs, the untuned model
 (N = 6) places the station-4 knee within ${Math.min(...st4KneeGaps).toFixed(1)}–${Math.max(...st4KneeGaps).toFixed(1)} s of the measured one where
 both are available, but its pooled trace RMSE is ${kRange(satRmse)} for the
-saturated runs and ${kRange(subRmse)} for the subcooled ones. Two model deficiencies stand out: the
-inlet wall chills far too slowly, because the film-boiling closure returns a
-small coefficient at the zero-quality inlet state, and the modeled quench
-front is ${Math.min(...frontRatios).toFixed(1)}–${Math.max(...frontRatios).toFixed(1)} times broader than the measured one at this
+saturated runs and ${kRange(subRmse)} for the subcooled ones. The main model deficiency is the
+quench front: the modeled front is ${Math.min(...frontRatios).toFixed(1)}–${Math.max(...frontRatios).toFixed(1)} times broader than the measured one at this
 discretization. Cryogenic chilldown is the least mature area of the code;
 the numbers below are the evidence for that statement.
 
@@ -1025,21 +987,25 @@ shipped 20-segment cryogenic line cooldown example of user manual §7.11 is a
 separate model): N equal pipe segments between a saturated (or
 subcooled) liquid inlet boundary at the driving pressure and an atmospheric
 outlet boundary, N − 1 internal fluid nodes with real-fluid (CoolProp,
-homogeneous-equilibrium) properties, and N + 1 lumped copper wall nodes, each
-coupled to its fluid node by a Miropolskii film-boiling convection conductor
-(Dittus–Boelter on single-phase states) and to its neighbors by axial
-conduction. The wall uses the temperature-dependent NIST OFHC-copper
-specific heat and conductivity (\`wallMaterial: "ofhc-copper"\`, 4–300 K,
-RRR 100); the vacuum jacket is represented by an adiabatic outer wall. The
-outlet wall node convects to the last internal fluid node ("upwind"
-coupling) so that station 4 is bracketed by chilled wall nodes. Nitrogen is
+homogeneous-equilibrium) properties, and N + 1 lumped copper wall nodes at
+the segment ends, joined by axial conduction. As in GFSSP's model of the
+line, every wall node convects to a solved (internal) fluid node and none to
+a boundary node: each interior wall node to the fluid node at its position,
+the inlet wall node to the first internal fluid node and the outlet wall
+node to the last, through a Miropolskii film-boiling conductor
+(Dittus–Boelter on single-phase states). A wall node on the inlet boundary
+would exchange heat with fixed zero-quality liquid, where the Miropolskii
+coefficient is at its minimum and cannot respond to the heat the wall
+releases. The two end wall nodes own half a segment each, so the total wall
+mass and wetted area equal the line's (\`NBS_LINE_WALL_MODEL\`,
+\`src/validation/nbsChilldown.ts\`). The wall uses the temperature-dependent
+NIST OFHC-copper specific heat and conductivity (4–300 K, RRR 100); the
+vacuum jacket is represented by an adiabatic outer wall. Nitrogen is
 CoolProp Nitrogen; hydrogen is ParaHydrogen. Transients use backward Euler
 with a fixed step: Δt = 10 s for nitrogen and 2.5 s for hydrogen. Nothing in
 this report is fitted: the CI configuration (N = 3) and the trace-baseline
 plan (N = 6) were fixed before these comparisons, and the closure constants
 are the published ones.
-
-${oldNewSentence}
 
 ## Results
 
@@ -1142,19 +1108,12 @@ by each data trace's observed span, ranges from
 ${Math.min(...nrmses).toFixed(2)} to ${Math.max(...nrmses).toFixed(2)}. Figures ${TRACE_FIG0}–${TRACE_FIG0 + traceSolves.length - 1}
 overlay model and data. Three findings recur across the runs:
 
-1. **The inlet region chills late where the inlet coefficient is small.**
-   Over the trusted runs the modeled 150 K arrivals at stations 2–4 differ
-   from the measured ones by ${range(lags234, 1, secs)}; at station 1 the
-   difference is ${traceSolves.map((ts) => `${secs(arrivalLag(ts, 1), 0)} (Fig. ${figNo(ts)})`).join(", ")}.${runsWithDiscordant.length ? ` In ${figPhrase(runsWithDiscordant)} station 1 arrives out of order, which accounts for the discordant arrival pairs.` : ""}
-   The cause is the inlet wall node. It convects to the inlet boundary
-   state, liquid at zero quality, where the Miropolskii coefficient
-   (evaluated at the clamped quality 0.01) is smallest: averaged over each
-   record it is ${frontWidths.map((f) => f.hInletMean.toFixed(0)).join(", ")} W/(m²·K) at the
-   inlet wall node against ${frontWidths.map((f) => f.hFirstMean.toFixed(0)).join(", ")} W/(m²·K)
-   at the next one (Figs. ${figList(traceSolves)}; ratio ${frontWidths.map((f) => (f.hFirstMean / f.hInletMean).toFixed(1)).join(", ")}).
-   Where the ratio is large (the saturated LN₂ runs) the line inlet stays
-   warm, and station 1 (6.1 m) takes 40 % of its interpolated value from it.
-   In the experiment the inlet chills first.
+1. **Cold-front arrival.** Over the trusted runs the modeled 150 K
+   arrivals at stations 2–4 differ from the measured ones by
+   ${range(lags234, 1, secs)}; at station 1 the difference is
+   ${traceSolves.map((ts) => `${secs(arrivalLag(ts, 1), 0)} (Fig. ${figNo(ts)})`).join(", ")}.${runsWithDiscordant.length ? ` In ${figPhrase(runsWithDiscordant)} the model orders ${runsWithDiscordant.reduce((a, ts) => a + ts.cmp.front150.discordantPairs, 0) === 1 ? "one station pair" : "some station pairs"} differently from the data.` : " The model and the data order the stations' 150 K arrivals identically in every run."}
+   The modeled station-1 wall reaches T_inlet + 15 K inside the record in
+   ${st1Reached} of the ${traceSolves.length} runs${st1KneeGaps.length ? `, ${range(st1KneeGaps, 1, secs)} from the measured knee where both are available` : ""}.
 2. **The modeled quench front is diffuse.** At station 4 the wall takes
    ${frontWidths.map((f) => fmt(f.model)).join(", ")} s to fall from 250 K to T_inlet + 15 K in the
    model against ${frontWidths.map((f) => fmt(f.data)).join(", ")} s in the data, and
@@ -1193,8 +1152,8 @@ ${signedPct(subMaxErr)} at N = ${subMaxAt}), so agreement at the coarse grid is 
 that the subcooled closure is right. The chilldown-time
 comparison depends on a graphical knee definition at the
 ${Math.min(...defShiftPct).toFixed(0)}–${Math.max(...defShiftPct).toFixed(0)} % level, and the trace comparison shows where agreement
-in a single time is partly fortuitous: the model's inlet-region quench is
-too slow and its knee too gradual. Cryogenic chilldown remains the least
+in a single time is partly fortuitous: the model's quench front is too
+broad and its knee too gradual. Cryogenic chilldown remains the least
 mature capability of the code, and these results are a baseline for model
 improvement, not a calibration.
 
