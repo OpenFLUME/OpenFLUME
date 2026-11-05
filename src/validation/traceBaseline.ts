@@ -1,7 +1,7 @@
 /**
  * Trace-baseline plumbing — the PRE-FIT, NO-TUNING comparison of
  * model-predicted wall-temperature traces against the trusted NBS-9264
- * digitized corpus (NBS_TRUSTED_SATURATED_TRACE_RUNS), per the binding
+ * digitized corpus (NBS_TRUSTED_TRACE_RUNS), per the binding
  * protocol (§6–§7) and
  * the data-side trace policy.
  *
@@ -17,8 +17,8 @@
  *   - the morphology feature extraction with corpus QC gating;
  *   - guarded front-arrival ordering (the final-sample-interval guard of
  *     extractTraceFeatures applied to the ordering problem);
- *   - the pre-registered solve plan for the 4 trusted runs (discretization
- *     per protocol §3.1.6 — NOT tuned here).
+ *   - the solve plan for the 7 trusted runs (discretization per protocol
+ *     §3.1.6 — NOT tuned here).
  *
  * NOTHING is fitted.  No closure constants, no nuisance parameters, no
  * numerics knobs are adjusted anywhere in this study.
@@ -28,8 +28,9 @@
  * ============================================================================
  * 1. KNEE THRESHOLD: the data corpus has no pressure record, so the shared
  *    model+data knee threshold is the DATA-NATIVE convention of
- *    nbsTraceCorpus.test.ts: T_knee = inletLiquidTempK + 15 K (for these
- *    saturated runs inletLiquidTempK = Tsat(P_drive)).  The protocol's
+ *    nbsTraceCorpus.test.ts: T_knee = inletLiquidTempK + 15 K (for
+ *    saturated runs inletLiquidTempK = Tsat(P_drive); for subcooled runs
+ *    the subcooled inlet temperature).  The protocol's
  *    primary scalar chilldown time (station 4, Tsat_local + 15 K, smooth)
  *    is ADDITIONALLY computed for the model by the measurement driver and
  *    reported separately for Table-6 comparability — the two definitions
@@ -72,7 +73,7 @@ import {
 import type { CorpusWallTempTrace, TraceRun } from "./nbsTraceCorpus";
 
 // ---------------------------------------------------------------------------
-// Pre-registered solve plan for the trusted saturated runs (protocol §3.1.6)
+// Solve plan for the trusted runs (protocol §3.1.6)
 // ---------------------------------------------------------------------------
 
 export type TraceBaselineClosure = "miropolskii" | "darrHartwig";
@@ -94,13 +95,23 @@ export interface TrustedRunSolveSpec {
 }
 
 /**
- * THE pre-registered discretizations (protocol §3.1.6: saturated LN2 at
- * N=6, dt=10; saturated LH2 at N=6, dt=2.5 fixed, ParaHydrogen).  These
- * are inputs, not fitted outputs.
+ * THE discretizations (protocol §3.1.6: LN2 at N=6, dt=10; LH2 at N=6,
+ * dt=2.5 fixed, ParaHydrogen).  These are inputs, not fitted outputs.  The
+ * four saturated entries were pre-registered; the three subcooled runs
+ * (figs 05, 13, 14) joined the trusted set when trust levels were made a
+ * function of the record's QC alone, and follow the same rule unchanged.
+ * Subcooled runs are solved with inletTemperature = run.inletLiquidTempK.
  */
 export const TRACE_BASELINE_SOLVE_PLAN: readonly TrustedRunSolveSpec[] = [
   {
     runId: "nbs9264-fig02",
+    fluidName: "ParaHydrogen",
+    segments: 6,
+    dtS: 2.5,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig05",
     fluidName: "ParaHydrogen",
     segments: 6,
     dtS: 2.5,
@@ -122,6 +133,20 @@ export const TRACE_BASELINE_SOLVE_PLAN: readonly TrustedRunSolveSpec[] = [
   },
   {
     runId: "nbs9264-fig12",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig13",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig14",
     fluidName: "Nitrogen",
     segments: 6,
     dtS: 10,

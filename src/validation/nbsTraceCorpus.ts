@@ -39,21 +39,32 @@
  *     time window.
  *
  * ============================================================================
- * TRUSTED vs DIAGNOSTIC (protocol §3.2 — binding)
+ * TRUSTED vs DIAGNOSTIC — assigned from the EXPERIMENTAL RECORD ALONE
  * ============================================================================
- *   NBS_TRUSTED_SATURATED_TRACE_RUNS: the 4 saturated runs whose conditions
- *     are calibration-grade at the frozen discretizations (sat LH2 fig02;
- *     sat LN2 figs 10, 11, 12) — 4 runs / 16 correlated traces.
- *   NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS: the 7 subcooled runs (figs 03–07,
- *     13, 14).  The current solver is NOT defensible at subcooled
- *     conditions (protocol §3.2: errors grow with N away from data, up to
- *     +80 %; compromise steps) — these traces are imported for morphology
- *     DIAGNOSIS ONLY and are marked diagnosticOnly by default.  They are
- *     not fit targets.
+ * A run's trust level depends only on the QC of its digitized record,
+ * never on how well any model reproduces it (classifying data by model
+ * error would be selection on the outcome).  A run is diagnosticOnly when
+ * any of its traces carries a RUN-COMPROMISING flag
+ * (RUN_COMPROMISING_QC_FLAGS):
+ *   - ambiguousTailAssignment: the cold tails of several stations overlap
+ *     in the figure, so which tail belongs to which station cannot be
+ *     recovered — the run's station-resolved cold-side features (knee,
+ *     plateau, chilldown time) cannot be attributed;
+ *   - preTZeroValveOpening: the valve opened before the chart's t = 0, so
+ *     every timing feature of the run is shifted by an unknown 1–2 s.
+ * Every other run is trusted.  Result: trusted = figs 02, 05, 10, 11, 12,
+ * 13, 14 (7 runs / 28 traces, saturated AND subcooled); diagnosticOnly =
+ * figs 03, 04, 06, 07 (subcooled LH2).
  * Per-trace QC flags further restrict WHICH FEATURES of a trusted trace
  * are usable (see TraceQcFlag); e.g. fig11 stns 1–3 stop before the cold
  * plateau and support front morphology but NOT endpoint / chilldown-time
  * objectives.
+ *
+ * (History: the subcooled runs were previously all diagnosticOnly because
+ * the solver over-predicts them, with the error GROWING under axial
+ * refinement — up to +80 % with the former constant-cp wall; see
+ * docs/validation/chilldown-report.md for the current values.  That is a
+ * model result and is now reported as one, not used to exclude data.)
  *
  * ============================================================================
  * QUALITY-WEIGHT POLICY (PROVISIONAL — not a formal uncertainty model)
@@ -276,7 +287,28 @@ export interface CorpusWallTempTrace extends DigitizedWallTempTrace {
   qualityWeight: number;
 }
 
-export type TraceCalibrationTier = "trustedSaturated" | "diagnosticOnly";
+export type TraceCalibrationTier = "trusted" | "diagnosticOnly";
+
+/**
+ * QC flags that compromise a whole run (see the module header): any trace
+ * carrying one makes the run diagnosticOnly.  The remaining flags restrict
+ * features or weights of the individual trace only.
+ */
+export const RUN_COMPROMISING_QC_FLAGS: readonly TraceQcFlag[] = [
+  "ambiguousTailAssignment",
+  "preTZeroValveOpening",
+];
+
+/** Run trust level from the QC flags of its traces (record only). */
+export function runTierFromQc(
+  traces: readonly { qc: TraceQc }[],
+): TraceCalibrationTier {
+  return traces.some((t) =>
+    t.qc.flags.some((f) => RUN_COMPROMISING_QC_FLAGS.includes(f)),
+  )
+    ? "diagnosticOnly"
+    : "trusted";
+}
 
 /**
  * One physical NBS-9264 experimental run (one figure) — the INDEPENDENT
@@ -299,10 +331,11 @@ export interface TraceRun {
   /** Inlet liquid temperature (K): Tsat(P_drive) for saturated runs. */
   inletLiquidTempK: number;
   /**
-   * 'trustedSaturated' — calibration-grade conditions (protocol §3.2).
-   * 'diagnosticOnly'   — subcooled runs; solver not defensible there, so
-   *                      these traces support morphology diagnosis only and
-   *                      are excluded from any fit by default.
+   * 'trusted'        — no run-compromising QC flag (runTierFromQc).
+   * 'diagnosticOnly' — the record itself is compromised (ambiguous tail
+   *                    assignment or unknown time origin); these traces
+   *                    support morphology diagnosis only and are excluded
+   *                    from any fit by default.
    */
   calibrationTier: TraceCalibrationTier;
   timeSpanS: number;
@@ -650,8 +683,7 @@ function buildTraceRuns(raw: RawTraceRunData[]): TraceRun[] {
       inletCondition: r.liquidState,
       drivingPressure: { atm: r.pDriveAtm, pa: r.pDrivePa },
       inletLiquidTempK: r.tInletK,
-      calibrationTier:
-        r.liquidState === "saturated" ? "trustedSaturated" : "diagnosticOnly",
+      calibrationTier: runTierFromQc(traces),
       timeSpanS: r.timeSpanS,
       resampleDtS: r.resampleDtS,
       traces: traces as TraceRun["traces"],
@@ -744,13 +776,12 @@ export function validateTraceCorpus(runs: TraceRun[]): void {
         );
       }
     }
-    // Tier policy: trusted ⇔ saturated (protocol §3.2 defensibility).
-    if (
-      run.inletCondition === "subcooled" &&
-      run.calibrationTier !== "diagnosticOnly"
-    ) {
+    // Tier policy: the trust level is a function of the record's QC flags
+    // only (never of the inlet condition or of any model's error).
+    if (run.calibrationTier !== runTierFromQc(run.traces)) {
       throw new Error(
-        `validateTraceCorpus: ${run.runId} subcooled but not diagnosticOnly`,
+        `validateTraceCorpus: ${run.runId} tier ${run.calibrationTier} ` +
+          `disagrees with its QC flags (${runTierFromQc(run.traces)})`,
       );
     }
   }
@@ -786,21 +817,26 @@ function buildCorpus(): TraceRun[] {
 export const NBS_TRACE_RUNS: readonly TraceRun[] = buildCorpus();
 
 /**
- * TRUSTED subset (protocol §3.2 + trace-audit): the 4 saturated runs —
- * sat LH2 fig02, sat LN2 figs 10/11/12 = 4 runs / 16 correlated traces.
- * Per-trace QC flags still apply: fig11 stns1–3 (stop before the cold
- * plateau) support early/mid-front morphology only; fig02 stn3/4 pass
- * through a low-T knee-crossing region at t~66 s.
+ * TRUSTED subset (record QC only — see the module header): figs 02, 05,
+ * 10, 11, 12, 13, 14 = 7 runs / 28 correlated traces, saturated and
+ * subcooled.  Per-trace QC flags still apply: e.g. fig11 stns1–3 and
+ * fig13/14 stns 1–2 stop before the cold plateau and support
+ * early/mid-front morphology only; fig02 stn3/4 and fig05 stn3/4 pass
+ * through low-T knee-crossing regions.
  */
+export const NBS_TRUSTED_TRACE_RUNS: readonly TraceRun[] =
+  NBS_TRACE_RUNS.filter((r) => r.calibrationTier === "trusted");
+
+/** The saturated runs of the trusted subset (figs 02, 10, 11, 12). */
 export const NBS_TRUSTED_SATURATED_TRACE_RUNS: readonly TraceRun[] =
-  NBS_TRACE_RUNS.filter((r) => r.calibrationTier === "trustedSaturated");
+  NBS_TRUSTED_TRACE_RUNS.filter((r) => r.inletCondition === "saturated");
 
 /**
- * DIAGNOSTIC subset: the 7 subcooled runs (figs 03–07 LH2, 13–14 LN2).
- * Solver is not calibration-defensible at subcooled conditions (protocol
- * §3.2) — imported for morphology diagnosis, excluded from fits by default.
+ * DIAGNOSTIC subset: runs whose record is compromised (figs 03, 04, 06,
+ * 07 — subcooled LH2 with overlapping cold tails or a pre-t=0 valve
+ * opening) — imported for morphology diagnosis, excluded from fits.
  */
-export const NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS: readonly TraceRun[] =
+export const NBS_DIAGNOSTIC_TRACE_RUNS: readonly TraceRun[] =
   NBS_TRACE_RUNS.filter((r) => r.calibrationTier === "diagnosticOnly");
 
 /** Lookup helper. */

@@ -24,10 +24,7 @@ import {
   TRACE_BASELINE_SOLVE_PLAN,
   type ModelWallHistory,
 } from "../traceBaseline";
-import {
-  getTraceRun,
-  NBS_TRUSTED_SATURATED_TRACE_RUNS,
-} from "../nbsTraceCorpus";
+import { getTraceRun, NBS_TRUSTED_TRACE_RUNS } from "../nbsTraceCorpus";
 import { NBS_CHILLDOWN_RIG } from "../nbsChilldown";
 
 // ---------------------------------------------------------------------------
@@ -80,21 +77,27 @@ describe("extractModelStationTrace: exact NBS station positions", () => {
 // Solve-plan mapping (the pre-registered discretization, protocol §3.1.6)
 // ---------------------------------------------------------------------------
 
-describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted run", () => {
-  it("covers exactly the 4 trusted saturated corpus runs", () => {
+describe("TRACE_BASELINE_SOLVE_PLAN: discretization per trusted run", () => {
+  it("covers exactly the 7 trusted corpus runs", () => {
     const planIds = TRACE_BASELINE_SOLVE_PLAN.map((s) => s.runId).sort();
-    const trustedIds = NBS_TRUSTED_SATURATED_TRACE_RUNS.map(
-      (r) => r.runId,
-    ).sort();
+    const trustedIds = NBS_TRUSTED_TRACE_RUNS.map((r) => r.runId).sort();
     expect(planIds).toEqual(trustedIds);
   });
 
-  it("fig02 (sat LH2) → ParaHydrogen, N=6, dt=2.5 fixed; LN2 runs → Nitrogen, N=6, dt=10", () => {
-    const fig02 = solveSpecForRun("nbs9264-fig02");
-    expect(fig02.fluidName).toBe("ParaHydrogen");
-    expect(fig02.dtS).toBe(2.5);
-    expect(fig02.segments).toBe(6);
-    for (const id of ["nbs9264-fig10", "nbs9264-fig11", "nbs9264-fig12"]) {
+  it("LH2 runs (figs 02, 05) → ParaHydrogen, N=6, dt=2.5 fixed; LN2 runs → Nitrogen, N=6, dt=10", () => {
+    for (const id of ["nbs9264-fig02", "nbs9264-fig05"]) {
+      const spec = solveSpecForRun(id);
+      expect(spec.fluidName).toBe("ParaHydrogen");
+      expect(spec.dtS).toBe(2.5);
+      expect(spec.segments).toBe(6);
+    }
+    for (const id of [
+      "nbs9264-fig10",
+      "nbs9264-fig11",
+      "nbs9264-fig12",
+      "nbs9264-fig13",
+      "nbs9264-fig14",
+    ]) {
       const spec = solveSpecForRun(id);
       expect(spec.fluidName).toBe("Nitrogen");
       expect(spec.dtS).toBe(10);
@@ -109,7 +112,7 @@ describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted r
     }
   });
 
-  it("rejects non-trusted (subcooled, diagnosticOnly) runs", () => {
+  it("rejects diagnosticOnly runs", () => {
     expect(() => solveSpecForRun("nbs9264-fig03")).toThrow(/not a trusted/);
   });
 });
@@ -120,7 +123,7 @@ describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted r
 
 describe("compareRunTraces plumbing on real corpus metadata", () => {
   it('per-station identity: a "model" equal to the data gives exactly zero error', () => {
-    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+    for (const run of NBS_TRUSTED_TRACE_RUNS) {
       for (const tr of run.traces) {
         const cmp = compareStationTrace(
           { timesS: tr.timesS, valuesK: tr.wallTempsK },
@@ -135,7 +138,7 @@ describe("compareRunTraces plumbing on real corpus metadata", () => {
   });
 
   it("compareRunTraces on a spatially-exact interpolated model reproduces the data within interpolation error", () => {
-    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+    for (const run of NBS_TRUSTED_TRACE_RUNS) {
       // Shared uniform 1 s model grid over the figure span; each wall
       // "node" sits exactly at a station and carries that station's data
       // linearly interpolated onto the grid.

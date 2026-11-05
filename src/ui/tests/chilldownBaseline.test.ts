@@ -48,7 +48,7 @@ import {
   type ChilldownMetricInput,
 } from "../../validation/chilldownMetric";
 import { interpolateTraceToStation } from "../../validation/stationInterp";
-import { NBS_TRUSTED_SATURATED_TRACE_RUNS } from "../../validation/nbsTraceCorpus";
+import { NBS_TRUSTED_TRACE_RUNS } from "../../validation/nbsTraceCorpus";
 import {
   compareRunTraces,
   solveSpecForRun,
@@ -326,17 +326,18 @@ describeSlow(
 );
 
 /**
- * Pre-registered trace baseline (src/validation/traceBaseline.ts): the four
- * trusted saturated NBS-9264 runs solved with TRACE_BASELINE_SOLVE_PLAN, as
+ * Trace baseline (src/validation/traceBaseline.ts): the seven trusted
+ * NBS-9264 runs (trust from record QC only — saturated and subcooled)
+ * solved with TRACE_BASELINE_SOLVE_PLAN, as
  * rendered by scripts/chilldown-validation-report.ts.  Model-error values
  * are reported, not pinned (see traceBaseline.test.ts); this gate pins that
  * the solves the report quotes converge and produce a comparable trace at
  * every station.
  */
-describeSlow("NBS 9264 trusted trace runs — pre-registered solves", () => {
-  it("all four trusted runs converge and overlap the digitized record at every station", async () => {
+describeSlow("NBS 9264 trusted trace runs — planned solves", () => {
+  it("all seven trusted runs converge and overlap the digitized record at every station", async () => {
     await initRealFluids();
-    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+    for (const run of NBS_TRUSTED_TRACE_RUNS) {
       const spec = solveSpecForRun(run.runId);
       const cfg = buildChilldownTwoPhase({
         segments: spec.segments,
@@ -344,6 +345,9 @@ describeSlow("NBS 9264 trusted trace runs — pre-registered solves", () => {
         drivingPressure: run.drivingPressure.pa,
         outletPressure: 101325,
         fluidName: spec.fluidName,
+        ...(run.inletCondition === "subcooled"
+          ? { inletTemperature: run.inletLiquidTempK }
+          : {}),
         outletWallCoupling: "upwind",
         wallMaterial: "ofhc-copper",
         dt: spec.dtS,
