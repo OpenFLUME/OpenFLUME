@@ -62,8 +62,8 @@
  *
  * (History: the subcooled runs were previously all diagnosticOnly because
  * the solver over-predicts them, with the error GROWING under axial
- * refinement — up to +80 % with the former constant-cp wall; see
- * docs/validation/chilldown-report.md for the current values.  That is a
+ * refinement; see docs/validation/chilldown-report.md for the current
+ * values.  That is a
  * model result and is now reported as one, not used to exclude data.)
  *
  * ============================================================================
