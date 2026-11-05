@@ -193,9 +193,7 @@ contributions it can receive. The bug-report template asks for:
   experiment);
 - the tolerance you consider acceptable;
 - units and assumptions;
-- the model, as an attached `.fn` file, a pasted JSON config, or a link from
-  the toolbar **Share** button (the model is compressed into the URL fragment,
-  which is never sent to a server).
+- the model, as an attached `.fn` file or a pasted JSON config.
 
 New validation cases are welcome too. See
 [CONTRIBUTING.md](../../CONTRIBUTING.md). Numerical claims must state their

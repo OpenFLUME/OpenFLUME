@@ -167,7 +167,6 @@ export default defineConfig({
               text: "Tutorial: cryogenic chilldown",
               link: "/guides/cryogenic-chilldown",
             },
-            { text: "Sharing models", link: "/guides/sharing" },
             { text: "Coming from GFSSP", link: "/guides/from-gfssp" },
           ],
         },

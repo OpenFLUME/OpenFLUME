@@ -49,8 +49,8 @@ and their DOIs. For reproducible work, also record:
   ([§8.7 Result Provenance](user-manual.md#_8-7-result-provenance)). Quote the
   hash alongside the result.
 
-A share link encodes the model but not the solver version, so state the
-version separately when you publish one.
+A `.fn` file holds the model but not the solver version, so state the
+version alongside any model you publish.
 
 ## Paper in preparation
 

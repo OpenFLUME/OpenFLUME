@@ -17,7 +17,6 @@ Use it for preliminary design and analysis of propulsion feed systems, tank pres
 - [Examples gallery](https://openflume.github.io/OpenFLUME/docs/examples.html): all built-in models with deep links
 - [Python package](https://openflume.github.io/OpenFLUME/docs/python.html): API, CLI, sweeps
 - [Coming from GFSSP or SINDA/FLUINT](https://openflume.github.io/OpenFLUME/docs/guides/from-gfssp.html)
-- [Sharing models](https://openflume.github.io/OpenFLUME/docs/guides/sharing.html): the model is encoded in the URL fragment and is never uploaded
 
 ## Verification
 

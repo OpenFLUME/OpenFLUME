@@ -40,10 +40,7 @@ current features, licensing, and pricing.
 - **Zero install.** The [app](https://openflume.github.io/OpenFLUME/) runs
   in a browser. No account, license server, or IT ticket.
 - **Local-first.** The solver runs in a Web Worker on your machine and model
-  data is not uploaded. The toolbar **Share** button compresses the whole
-  model into the URL fragment (`#model=...`), which browsers do not send to
-  servers. A shared link opens with the same validation and embedded-code
-  trust prompt as loading a file.
+  data is not uploaded.
 - **Open source, MIT licensed.** The equations, closures, tolerances, and
   tests are public, so a reviewer can trace any result to the code that
   produced it.
@@ -115,7 +112,7 @@ The full list of structural limits is
 If OpenFLUME and a commercial tool disagree on a case where you trust the
 reference,
 [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose)
-with the reference value, tolerance, units, and a share link or `.fn` file.
+with the reference value, tolerance, units, and the `.fn` file.
 
 ## Example links
 

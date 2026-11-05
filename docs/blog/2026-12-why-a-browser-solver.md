@@ -1,6 +1,6 @@
 ---
 title: Why a thermo-fluid solver should run in the browser
-description: The architecture behind OpenFLUME (Web Worker solver, CoolProp in WebAssembly, local-first storage, URL-fragment share links, a Python package) and its trade-offs.
+description: The architecture behind OpenFLUME (Web Worker solver, CoolProp in WebAssembly, local-first storage, a Python package) and its trade-offs.
 date: 2026-12-15
 author: John Rising
 ---
@@ -40,14 +40,6 @@ Real-fluid properties come from `coolprop-wasm`: MIT-licensed, covering the cryo
 ### Local-first persistence
 
 Models save as `.fn` files, a line-oriented, lossless text format that diffs cleanly in version control. The browser autosaves your current model and mirrors run results so a reload resumes the session. **Save** also writes a portable `<model>.runs.json` sidecar with each run's config snapshot, result, and solver diary. Browser storage is not a backup; save the `.fn` file and sidecar if the work matters.
-
-### Share links that never touch a server
-
-The toolbar's **Share** button copies a link with the entire model inside the URL fragment: `#model=` followed by the `.fn` text, deflate-compressed and base64url-encoded (`src/ui/shareLink.ts`). Browsers don't send the fragment to the server, so the host only sees a request for the bare page; as the source puts it, "a link is the model, not a pointer to an upload." Referenced components are embedded in the shared copy.
-
-Opening a link goes through the same parse, validation, and embedded-code trust prompt as **Load**. Built-in examples use the same mechanism with a short slug, for example [`#example=tank-blowdown`](https://openflume.github.io/OpenFLUME/#example=tank-blowdown).
-
-Chat apps and email clients truncate long links, so above about 8,000 characters the app still makes the link but warns you. For big models, send the `.fn` file.
 
 ### The Python package bundles the same core
 

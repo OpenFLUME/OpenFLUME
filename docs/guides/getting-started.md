@@ -1,12 +1,12 @@
 ---
 title: Getting started
-description: Run your first OpenFLUME model in five minutes in the browser — an orifice hand-calc, a tank blowdown transient, saving, sharing, and local install.
+description: Run your first OpenFLUME model in five minutes in the browser — an orifice hand-calc, a tank blowdown transient, saving, and local install.
 ---
 
 # Getting started
 
 In about five minutes you run a steady case you can check by hand and a
-transient, then save and share your work; local and Python installs are
+transient, then save your work. Local and Python installs are
 optional. The [user's manual](../user-manual.md) covers each step in depth, and
 its §2.3 (First Simulation) is this walkthrough in reference form.
 
@@ -111,18 +111,7 @@ parameter sweep.
 - The browser autosaves the current model and run history, so a reload loses
   nothing. Autosave is not a backup; save a file for anything you want to keep.
 
-## 5. Share a link
-
-**Share** in the toolbar copies a link containing the whole model, compressed
-into the URL fragment (`#model=…`). Browsers never send the fragment to the
-server, so nothing is uploaded. Opening the link applies the same validation
-and embedded-code trust prompt as **Load**.
-
-Links to built-in examples are shorter: `#example=<slug>`, like the two links
-above. See [Sharing models](sharing.md) for the link format, length limits,
-and a table of all 14 example links.
-
-## 6. Install locally (optional)
+## 5. Install locally (optional)
 
 The hosted app and a local copy run the same code. Install locally to work
 offline, run the test suites, or keep user components on disk. You need
@@ -140,7 +129,7 @@ server, which discovers user-component files under `library/components`
 (manual §2.4). OpenFLUME is **not** published to npm; to call the TypeScript
 core from your own scripts, import it from the source tree (manual §5.5).
 
-## 7. Use it from Python (optional)
+## 6. Use it from Python (optional)
 
 ```bash
 pip install openflume

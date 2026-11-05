@@ -27,10 +27,6 @@ first, and the solver result is something to verify.
 - **Nothing is uploaded.** The solver runs in a Web Worker on the student's
   machine. Models autosave to browser storage and are saved as `.fn` files on
   the student's disk.
-- **Share links.** The toolbar **Share** button copies a link containing the
-  whole model, compressed into the URL fragment (`#model=…`). Browsers do not
-  send the fragment to the server, so one link gives a class a starting model
-  without uploading it anywhere.
 - **Inspectable.** **Text view** shows the entire model as plain text, the
   same text as a `.fn` file. Students can see every number the solver uses,
   and you can see every number a student changed.
@@ -54,9 +50,8 @@ to these labs:
   is no separated-flow (Lockhart–Martinelli) correlation yet.
 - Cavitation is modelled only at venturi closure.
 - A steady closed ideal-gas loop needs a pressure anchor.
-- User-authored code is trusted, not sandboxed. A share link or file with
-  embedded code triggers the same trust prompt as loading a file. Tell
-  students to accept code only from you.
+- User-authored code is trusted, not sandboxed. Loading a file with embedded
+  code triggers a trust prompt. Tell students to accept code only from you.
 
 The complete list is in user manual §1.7.
 
@@ -92,22 +87,13 @@ done the [Getting started](../guides/getting-started.md) page or Lab 1.
 1. **Built-in example links.** Where a lab starts from a shipped example, the
    lab page links straight to it (for example
    `https://openflume.github.io/OpenFLUME/#example=tank-blowdown`). The link
-   loads a fresh copy of the example, replacing the student's open model.
-2. **Share link.** Build or edit the model, then click **Share** in the
-   toolbar. The button changes to **Link copied**. Paste the link into your
-   LMS or an email. Note that:
-   - The link contains the model only, not your results. Students have to
-     click **Run** themselves.
-   - Above 8,000 characters, the app warns that some chat apps and forums
-     truncate long links. Distribute large models as a `.fn` file instead.
-   - Opening a link goes through the same validation and embedded-code trust
-     prompt as loading a file.
-   - The link is a snapshot. If you fix the model later, send a new link.
-3. **`.fn` file.** Click **Save** to download the model as a `.fn` text file.
-   Students open it with **Load**. Plain text works well with version control
-   and diffs, and has no length limit.
+   loads a fresh copy of the example. If the student already has a model open, the app asks before replacing it.
+2. **`.fn` file.** For a model you built or edited, click **Save** to
+   download it as a `.fn` text file and post it to your LMS or send it by
+   email. Students open it with **Load**. Plain text works well with version
+   control and diffs.
 
-Remind students that **loading an example, a link, or a file replaces the open
+Remind students that **loading an example or a file replaces the open
 model**, so they should **Save** their own work first.
 
 ## How students submit

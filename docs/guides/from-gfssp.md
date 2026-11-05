@@ -89,8 +89,6 @@ below).
   sweep workspace and Model Text always take SI.
 - **Text model files.** `.fn` is a line-oriented, lossless text projection of
   the model (Appendix C) that can be diffed and kept in version control.
-  **Share** puts the whole model in a link
-  ([Sharing models](sharing.md)).
 - **Real fluids from CoolProp.** 124 HEOS fluids
   ([fluid-catalogue.md](../fluid-catalogue.md)) sit alongside incompressible,
   ideal-gas, and thermal-expansion liquid models. Different equation-of-state

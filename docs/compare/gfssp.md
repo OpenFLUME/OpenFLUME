@@ -129,9 +129,7 @@ well short of GFSSP-equivalent chilldown accuracy.
 - you want to read and audit the solver, closures, and tests (MIT license);
 - you want to script studies from Python (`pip install openflume`) or keep
   models as plain-text `.fn` files under version control;
-- you are teaching, reviewing, or sharing a model by link (the toolbar
-  **Share** button keeps the model in the URL fragment, which is never sent
-  to a server);
+- you are teaching or reviewing a model;
 - you want an independent cross-check of a GFSSP result.
 
 For important work, use OpenFLUME for early sizing and as an independent
