@@ -9,6 +9,9 @@ export default tseslint.config(
   {
     ignores: [
       "dist/**",
+      "site/node_modules/**",
+      "site/.vitepress/cache/**",
+      "site/.vitepress/.temp/**",
       "coverage/**",
       "node_modules/**",
       "playwright-report/**",

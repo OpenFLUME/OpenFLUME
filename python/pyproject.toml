@@ -21,6 +21,12 @@ keywords = [
   "cryogenics",
   "CoolProp",
   "GFSSP",
+  "SINDA/FLUINT",
+  "heat transfer",
+  "two-phase flow",
+  "rocket",
+  "feed system",
+  "simulation",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -34,7 +40,10 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Topic :: Scientific/Engineering",
   "Topic :: Scientific/Engineering :: Physics",
+  "Intended Audience :: Education",
+  "Intended Audience :: Manufacturing",
   "Typing :: Typed",
 ]
 dependencies = [
@@ -52,8 +61,11 @@ test = ["pytest>=8"]
 openflume = "openflume.__main__:main"
 
 [project.urls]
-Homepage = "https://github.com/OpenFLUME/OpenFLUME"
-Documentation = "https://github.com/OpenFLUME/OpenFLUME/blob/main/docs/python.md"
+Homepage = "https://openflume.github.io/OpenFLUME/docs/"
+Documentation = "https://openflume.github.io/OpenFLUME/docs/python.html"
+"Web app" = "https://openflume.github.io/OpenFLUME/"
+Source = "https://github.com/OpenFLUME/OpenFLUME"
+DOI = "https://doi.org/10.5281/zenodo.22051608"
 Issues = "https://github.com/OpenFLUME/OpenFLUME/issues"
 Changelog = "https://github.com/OpenFLUME/OpenFLUME/blob/main/CHANGELOG.md"
 

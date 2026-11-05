@@ -20,6 +20,7 @@
   "exclude": [
     "scripts/__tests__/**",
     "scripts/capture-manual-figures.ts",
+    "scripts/brand/**/*.ts",
     "node_modules",
     "dist"
   ]

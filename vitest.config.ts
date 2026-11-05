@@ -5,6 +5,6 @@ export default defineConfig({
     testTimeout: 300000,
     hookTimeout: 120000,
     reporters: process.env.CI ? ["default"] : ["verbose"],
-    exclude: ["node_modules", "dist", "e2e", "build", "coverage"],
+    exclude: ["**/node_modules/**", "dist", "e2e", "build", "coverage", "site"],
   },
 });

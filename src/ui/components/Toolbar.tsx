@@ -9,6 +9,7 @@ import {
   RUNS_FILE_SUFFIX,
 } from "../runsFile";
 import { exampleGroups } from "../examples";
+import { parseExampleFragment } from "../exampleLink";
 import { validateNetwork, networkUsesRealFluid } from "../../core";
 import { PRESETS, activeUnitPreset } from "../units";
 import { formatSig } from "../format";
@@ -230,6 +231,40 @@ export default function Toolbar() {
     },
     [dirty, loadExample],
   );
+
+  // Example deep links (`#example=<slug>`, see exampleLink.ts), handled once
+  // on startup. The fragment is cleared immediately so a reload never
+  // re-applies it over the user's work, and opening an example over an
+  // autosaved model asks first.
+  const exampleLinkHandledRef = useRef(false);
+  React.useEffect(() => {
+    if (exampleLinkHandledRef.current) return;
+    exampleLinkHandledRef.current = true;
+    const fragment = parseExampleFragment(window.location.hash);
+    if (fragment.kind === "none") return;
+    window.history.replaceState(
+      null,
+      "",
+      window.location.pathname + window.location.search,
+    );
+    const name = fragment.name;
+    if (!name) {
+      setValidationErrors([
+        `The link refers to an unknown example "${fragment.slug}".`,
+      ]);
+      return;
+    }
+    if (useStore.getState().baseConfig.nodes.length === 0) {
+      loadExample(name);
+      return;
+    }
+    setConfirm({
+      title: "Open example",
+      message: `Open the example "${name}"? It replaces the network currently in this browser. Save first if you want to keep it.`,
+      acceptLabel: "Open",
+      onAccept: () => loadExample(name),
+    });
+  }, [loadExample, setValidationErrors]);
 
   const isRunning = running;
   const isPreparingRun = preparingOperation === "run";

@@ -40,6 +40,23 @@ jobs:
           path: dist/
           retention-days: 1
 
+  # Documentation site: VitePress fails the build on dead internal links, so
+  # this catches a broken docs link before it reaches the published site.
+  docs-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22.13.0
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+
   # Every Vitest file on every PR (expensive `describeSlow` blocks skipped),
   # plus the generated-catalogue drift check so a coolprop-wasm bump cannot
   # ship a stale fluid list. The RUN_SLOW sweeps and convergence studies run

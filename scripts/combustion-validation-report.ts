@@ -1169,7 +1169,7 @@ writeFig(
         dash: "5 3",
       },
     ],
-    legend: "top-right",
+    legend: "bottom-left",
   }),
 );
 

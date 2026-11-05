@@ -4,9 +4,71 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="%BASE_URL%favicon.svg" type="image/svg+xml" />
-    <title>OpenFLUME</title>
+    <title>OpenFLUME — thermo-fluid network solver in your browser</title>
+    <meta
+      name="description"
+      content="Open-source GFSSP / SINDA-FLUINT-class thermo-fluid network solver that runs entirely in your browser. Steady and transient, real fluids, two-phase, conjugate heat transfer. No install; nothing leaves your machine."
+    />
+    <link rel="canonical" href="https://openflume.github.io/OpenFLUME/" />
+    <meta name="theme-color" content="#197cb4" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="OpenFLUME" />
+    <meta property="og:url" content="https://openflume.github.io/OpenFLUME/" />
+    <meta
+      property="og:title"
+      content="OpenFLUME — thermo-fluid network solver in your browser"
+    />
+    <meta
+      property="og:description"
+      content="GFSSP / SINDA-FLUINT-class network solver. Steady + transient, real fluids, two-phase, conjugate heat transfer. No install; nothing leaves your machine. MIT."
+    />
+    <meta
+      property="og:image"
+      content="https://openflume.github.io/OpenFLUME/og-image.png"
+    />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="640" />
+    <meta
+      property="og:image:alt"
+      content="OpenFLUME: thermo-fluid network analysis in your browser"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta
+      name="twitter:image"
+      content="https://openflume.github.io/OpenFLUME/og-image.png"
+    />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "OpenFLUME",
+        "alternateName": "Open FLUid Model Environment",
+        "description": "Open-source finite-volume thermo-fluid network solver (GFSSP / SINDA-FLUINT class) that runs entirely in the browser: steady and transient analysis, real fluids via CoolProp, two-phase flow, conjugate heat transfer, compressible duct flow, and CEA-coupled combustion.",
+        "url": "https://openflume.github.io/OpenFLUME/",
+        "applicationCategory": "EngineeringApplication",
+        "applicationSubCategory": "Thermal-fluid system simulation",
+        "operatingSystem": "Any (web browser)",
+        "license": "https://opensource.org/licenses/MIT",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "John Rising" },
+        "codeRepository": "https://github.com/OpenFLUME/OpenFLUME",
+        "softwareHelp": "https://openflume.github.io/OpenFLUME/docs/",
+        "identifier": "https://doi.org/10.5281/zenodo.22051608",
+        "keywords": "thermo-fluid network, GFSSP, SINDA/FLUINT, propulsion, cryogenics, heat transfer, two-phase flow, CoolProp, rocket feed system"
+      }
+    </script>
   </head>
   <body>
+    <noscript>
+      OpenFLUME is a thermo-fluid network solver that runs in your browser and
+      needs JavaScript. Documentation:
+      <a href="https://openflume.github.io/OpenFLUME/docs/"
+        >openflume.github.io/OpenFLUME/docs</a
+      >.
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
