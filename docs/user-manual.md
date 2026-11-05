@@ -3288,23 +3288,25 @@ on absolute times, and are asserted as trends only.
 The [chilldown report](validation/chilldown-report.md) tabulates all eighteen
 Table-6 cases three ways: experiment, GFSSP's published prediction, and
 OpenFLUME, with the copper wall's temperature-dependent OFHC specific heat and
-conductivity. At the CI configuration (3 axial segments; 10 s step for
-nitrogen, 2.5 s for hydrogen) the mean absolute error over the eighteen rows
-is 10.6 % for OpenFLUME and 7.6 % for GFSSP. OpenFLUME predicts the saturated
-nitrogen station-4 chilldown times at 61.74, 74.97 and 86.73 psia within
-−0.5 %, −7.1 % and +2.7 % of experiment, against +12.1 %, +6.7 % and +7.7 %
-for GFSSP; refined to 4–12 segments the saturated predictions lie between
-−9.5 % and +4.2 %. (With the constant room-temperature copper specific heat
-used before, the same three cases were +13.0 %, +6.9 % and +18.6 %.) The
-subcooled nitrogen error grows with axial refinement: from −0.3 % to +29.0 %
-at 3 segments to +28.5 % to +38.3 % at 12, reaching +43.0 % at 6; two of the
-12-segment subcooled solves abort inside CoolProp and are reported as
-failures. Against the digitized traces of the seven trusted runs the untuned
-model places the station-4 knee within 9.1–48.3 s where both are available;
-the pooled trace RMSE is 42.4–86.2 K for the saturated runs and 35.9–84.3 K
-for the subcooled ones, the inlet wall chills too slowly where the inlet
-film-boiling coefficient is small, and the modeled quench front is 1.7–4.1
-times broader than measured.
+conductivity. As in GFSSP's model of the line, every wall node convects to a
+solved fluid node (the inlet wall to the first internal node, the outlet wall
+to the last) and the two end wall nodes carry half a segment, so the total
+wall mass and wetted area are the line's. At the CI configuration (3 axial
+segments; 10 s step for nitrogen, 2.5 s for hydrogen) the mean absolute error
+over the eighteen rows is 13.5 % for OpenFLUME and 7.6 % for GFSSP. OpenFLUME
+predicts the saturated nitrogen station-4 chilldown times at 61.74, 74.97 and
+86.73 psia within +8.1 %, +2.2 % and +8.0 % of experiment, against +12.1 %,
++6.7 % and +7.7 % for GFSSP; refined to 4–12 segments the saturated
+predictions lie between −2.0 % and +11.8 %. The subcooled nitrogen error
+grows with axial refinement: from +9.4 % to +38.5 % at 3 segments to +34.3 %
+to +74.7 % at 12; one 6-segment subcooled solve times out and one
+12-segment solve does not converge, and both are reported. Against the
+digitized traces of the seven trusted runs the untuned model places the
+station-4 knee within 0.2–44.2 s where both are available, and the modeled
+wall at station 1 reaches the knee threshold in all seven runs; the pooled
+trace RMSE is 38.1–71.9 K for the saturated runs and 64.0–69.1 K for the
+subcooled ones, and the modeled quench front is 2.3–3.6 times broader than
+measured.
 
 The [choked-flow report](validation/choked-flow-report.md) compares the
 restriction closures with 326 nozzle and 26 sharp-edged-orifice measurements of

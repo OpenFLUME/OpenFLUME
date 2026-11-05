@@ -84,9 +84,7 @@ for chilldown", citing Cross, Majumdar et al. (2002).
 
 Copper's specific heat drops steeply on cooling. The header comment quotes
 about 385 J/(kg·K) at 300 K, about 90 at 80 K, and order 1 near 20 K, so each
-segment cools faster the colder it gets. Per the same comment, a constant
-385 J/(kg·K) "materially over-predicts the cold-end cooldown time". The
-material catalogue and its validity ranges are in
+segment cools faster the colder it gets. The material catalogue and its validity ranges are in
 [solid-properties-results.md](../solid-properties-results.md).
 
 The comment also notes that for hydrogen most of the cooling comes from the
@@ -138,8 +136,8 @@ is sequential and the inlet reaches cryogenic temperature.
     compromised (overlapping cold tails, or a valve opened before the chart's
     zero time). Every Table-6 row is solved and reported.
   - **Subcooled error grows with axial refinement.** For subcooled nitrogen
-    it rises from −0.3 % to +29.0 % at 3 segments to +28.5 % to +38.3 % at
-    12, reaching +43.0 %; a finer grid does not repair it.
+    it rises from +9.4 % to +38.5 % at 3 segments to +34.3 % to +74.7 % at
+    12; a finer grid does not repair it.
   - **CI acceptance band:** computed chilldown time at the instrumented
     station within a factor of 1.6 of experiment, with mean absolute error
     under 25 % across the four-case slow suite. Two-phase chilldown energy and
