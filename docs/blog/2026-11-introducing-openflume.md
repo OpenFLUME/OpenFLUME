@@ -33,8 +33,6 @@ I wanted something an engineer could open on a locked-down corporate laptop with
 
 So the web app is just static files. The solver runs locally via your browser or Python, and real-fluid properties come from CoolProp, compiled to WebAssembly and shipped with it. Nothing you build gets uploaded anywhere.[¹](#notes)
 
-Sharing works the same way, which I'm kind of delighted by. The **Share** button copies a link with your whole model compressed into the part of the URL after the `#`, and browsers never send that part to a server. The link is the model. Drop it in a forum answer or a bug report and whoever clicks it is running your network a few seconds later.
-
 ## What it does
 
 If you've used GFSSP or SINDA/FLUINT, the basic idea will feel familiar. You draw nodes and branches, and it solves coupled mass, momentum, and energy, with Newton–Raphson for steady problems and backward Euler for transients. The [user manual](../user-manual.md) covers all of it in more detail than anyone wants, but here's the gist.
