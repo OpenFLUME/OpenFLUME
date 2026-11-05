@@ -50,7 +50,7 @@
  * This file only re-exports; it has no logic of its own.
  */
 export type { BranchComponent } from "./branchComponent";
-export { interpolateSchedule } from "./branchComponent";
+export { interpolateSchedule, kineticEndArea } from "./branchComponent";
 
 export {
   RE_LAMINAR,

@@ -52,6 +52,7 @@ import {
   CavitatingVenturi,
 } from "../components";
 import { orificeKappa } from "../components/orifice";
+import { kineticEndArea } from "../components/branchComponent";
 import { FALLBACK_H_FLOOR } from "../correlations";
 import type { Dual } from "../dual";
 import { constant, add, sub, mul, div, pow, neg, abs } from "../dual";
@@ -1045,7 +1046,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       ): number => {
         if (!ctx.kineticEnergy) return 0;
         const comp = branches[j].component;
-        const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+        const A = kineticEndArea(comp, end);
         if (A === undefined || !(A > 0) || !(rho > 0)) return 0;
         const v = mdotBranch / (rho * A);
         return 0.5 * v * v;
@@ -1962,7 +1963,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       ): Dual => {
         if (!ctx.kineticEnergy) return constant(0);
         const comp = branches[j].component;
-        const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+        const A = kineticEndArea(comp, end);
         if (A === undefined || !(A > 0) || !(rho.v > 0)) return constant(0);
         const v = div(mdotBranch, mul(rho, constant(A)));
         return mul(constant(0.5), mul(v, v));

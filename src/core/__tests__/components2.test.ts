@@ -140,18 +140,21 @@ describe("AreaChange", () => {
     expect(dp).toBeGreaterThan(0);
   });
 
-  it("reversed flow swaps roles and flips net ΔP sign", () => {
+  it("reversed flow swaps roles: ΔP equals minus the mirrored geometry's forward ΔP", () => {
     const rho = 998;
     const A_in = 0.001;
     const A_out = 0.002;
     const ac = new AreaChange(A_in, A_out);
     // Forward: expansion (mdot>0 => net pressure rise in from→to => dP<0)
     const dpFwd = ac.pressureDrop(0.5, rho, 1e-3);
-    // Reverse: swapped to contraction in from→to (mdot<0 => dP>0 because Bernoulli drop dominates)
+    // Reverse: physically a contraction flowing to→from, so the pressure
+    // falls from `to` to `from`: P_from − P_to < 0 as well.
     const dpRev = ac.pressureDrop(-0.5, rho, 1e-3);
     expect(dpFwd).toBeLessThan(0);
-    expect(dpRev).toBeGreaterThan(0);
-    // Magnitudes should be different because expansion vs contraction have different K factors
+    expect(dpRev).toBeLessThan(0);
+    const mirrored = new AreaChange(A_out, A_in).pressureDrop(0.5, rho, 1e-3);
+    expect(Math.abs(dpRev + mirrored)).toBeLessThan(1e-9 * mirrored);
+    // Magnitudes differ: expansion and contraction have different K factors
     expect(Math.abs(dpFwd)).not.toBeCloseTo(Math.abs(dpRev), 6);
   });
 
@@ -180,12 +183,17 @@ describe("AreaChange", () => {
           id: "a1",
           from: "A",
           to: "B",
-          component: { type: "areaChange", areaIn: 0.001, areaOut: 0.002 },
+          // A contraction: the static pressure falls in the flow direction.
+          // (A lone sudden expansion between static-pressure boundaries
+          // has P_from − P_to ≤ 0 for either flow direction, so with
+          // P_A > P_B it has no root.)
+          component: { type: "areaChange", areaIn: 0.002, areaOut: 0.001 },
         },
       ],
     });
     const res = solveSteady(config);
     expect(res.converged).toBe(true);
+    expect(res.branches.a1.mdot).toBeGreaterThan(0);
   });
 });
 

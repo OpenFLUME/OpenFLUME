@@ -43,7 +43,7 @@ import {
 import { solveDense, norm2, dot, matVec, matVecTrans } from "./linalg";
 import { RealFluid, clampToValidPH, getFluidLimits } from "../fluids/realFluid";
 import { IdealGas } from "../fluids";
-import { FlowSource, CavitatingVenturi } from "../components";
+import { FlowSource, CavitatingVenturi, kineticEndArea } from "../components";
 import { integrateBDF1 } from "../stiffOde";
 import { makeChemistryRHS } from "../chemistry";
 import { getSolverDiagnostics } from "../diagnostics";
@@ -630,7 +630,7 @@ function updateLegacyNode(
   ): number => {
     if (!ctx.kineticEnergy) return 0;
     const comp = branches[branchIdx].component;
-    const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+    const A = kineticEndArea(comp, end);
     if (A === undefined || !(A > 0) || !(rho > 0)) return 0;
     const v = mdot / (rho * A);
     return 0.5 * v * v;
