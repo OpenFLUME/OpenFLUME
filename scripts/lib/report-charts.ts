@@ -85,7 +85,12 @@ export function lineChart(opts: {
   const pw = W - m.l - m.r;
   const ph = H - m.t - m.b;
 
-  const allPts = opts.series.flatMap((s) => s.pts);
+  // Non-finite points (a failed or unavailable value) are gaps: they are
+  // left out of the axis ranges and break the line instead of poisoning
+  // every coordinate with NaN.
+  const finite = ([x, y]: [number, number]) =>
+    Number.isFinite(x) && Number.isFinite(y);
+  const allPts = opts.series.flatMap((s) => s.pts).filter(finite);
   const xMin = opts.xRange?.[0] ?? Math.min(...allPts.map((p) => p[0]));
   let xMax = opts.xRange?.[1] ?? Math.max(...allPts.map((p) => p[0]));
   let yMin = Math.min(...allPts.map((p) => p[1]));
@@ -136,17 +141,20 @@ export function lineChart(opts: {
   for (const s of opts.series) {
     if (s.mode !== "markers") {
       const path = s.pts
-        .map(
-          ([x, y], i) =>
-            `${i === 0 ? "M" : "L"}${sx(x).toFixed(1)},${sy(y).toFixed(1)}`,
+        .map((p, i) =>
+          finite(p)
+            ? `${i === 0 || !finite(s.pts[i - 1]) ? "M" : "L"}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`
+            : "",
         )
+        .filter((c) => c !== "")
         .join(" ");
-      parts.push(
-        `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="1.8"${s.dash ? ` stroke-dasharray="${s.dash}"` : ""}/>`,
-      );
+      if (path !== "")
+        parts.push(
+          `<path d="${path}" fill="none" stroke="${s.color}" stroke-width="1.8"${s.dash ? ` stroke-dasharray="${s.dash}"` : ""}/>`,
+        );
     }
     if (s.mode !== "line") {
-      for (const [x, y] of s.pts) {
+      for (const [x, y] of s.pts.filter(finite)) {
         parts.push(markerSvg(s.marker ?? "circle", sx(x), sy(y), 3.4, s.color));
       }
     }
