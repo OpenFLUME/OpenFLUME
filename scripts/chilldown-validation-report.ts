@@ -167,7 +167,13 @@ const REP_CASES = [
   "subLH2-P86.73",
 ];
 const DIAG_CASES = ["subLN2-P61.74", "satLN2-P86.73"];
-const DIAG_NS = [3, 12, 30];
+/** Diagnostic solves: N = 3, 6, 12 at Δt = 10 s (the step at which these
+ *  converge) and N = 30 at the step used (Δt = 5 s). */
+const DIAG_NS = [3, 6, 12, 30];
+const DIAG_DT = 10;
+const diagKey = (id: string, N: number) =>
+  N === PRIMARY_N ? jkey("t6", id, N, "P") : jkey("dg", id, N, "P", DIAG_DT);
+const diagDt = (N: number) => (N === PRIMARY_N ? NBS_TIME_STEP_S.LN2 : DIAG_DT);
 const KNEE15: ChilldownTimeDefinition = DEFAULT_CHILLDOWN_TIME_DEFINITION;
 const KNEE30: ChilldownTimeDefinition = {
   station: 4,
@@ -247,10 +253,7 @@ const dtKey = (id: string, N: number, m: number, dt: number) =>
   m === 1 ? jkey("t6", id, N, "P") : jkey("dt", id, N, "P", dt);
 // Table 6: all eighteen rows at the CI configuration.
 for (const p of ALL_POINTS) {
-  addJob(jkey("t6", p.id, CI_N, "P"), {
-    ...t6Spec(p, CI_N, "P"),
-    diag: DIAG_CASES.includes(p.id),
-  });
+  addJob(jkey("t6", p.id, CI_N, "P"), t6Spec(p, CI_N, "P"));
   addJob(jkey("t6", p.id, CI_N, "T300"), t6Spec(p, CI_N, "T300"));
   addJob(jkey("t6", p.id, CI_N, "LEG"), t6Spec(p, CI_N, "LEG"));
 }
@@ -263,10 +266,29 @@ for (const p of REPS) {
   for (const N of GRID_NS.filter((n) => n !== CI_N))
     addJob(jkey("t6", p.id, N, "P"), {
       ...t6Spec(p, N, "P"),
-      diag: DIAG_CASES.includes(p.id) && DIAG_NS.includes(N),
+      diag: DIAG_CASES.includes(p.id) && N === PRIMARY_N,
     });
   addJob(jkey("t6", p.id, 12, "LEG"), t6Spec(p, 12, "LEG"));
 }
+// Diagnostic solves of the two nitrogen cases (Δt = 10 s, N = 3, 6, 12).
+for (const id of DIAG_CASES) {
+  const p = NBS_CHILLDOWN_DATA.find((x) => x.id === id)!;
+  for (const N of DIAG_NS.filter((n) => n !== PRIMARY_N))
+    addJob(diagKey(id, N), {
+      ...t6Spec(p, N, "P", DIAG_DT),
+      diag: true,
+    });
+}
+// The same subcooled case in the pre-GFSSP layout at the diagnostic step.
+for (const N of DIAG_NS.filter((n) => n !== PRIMARY_N))
+  addJob(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT), {
+    ...t6Spec(
+      NBS_CHILLDOWN_DATA.find((x) => x.id === DIAG_CASES[0])!,
+      N,
+      "LEG",
+      DIAG_DT,
+    ),
+  });
 // Time step: the subset at N = 3 (four levels) and N = 30 (three levels).
 for (const p of REPS)
   for (const [N, levels] of [
@@ -293,16 +315,20 @@ jobs.sort((a, b) => b.spec.N - a.spec.N);
 
 const CACHE = process.env.CHILLDOWN_CACHE;
 let solved: Map<string, SolveOut>;
-if (CACHE && existsSync(CACHE)) {
-  solved = new Map(Object.entries(JSON.parse(readFileSync(CACHE, "utf8"))));
-  console.log(`read ${solved.size} solves from ${CACHE}`);
-} else {
-  console.log(`running ${jobs.length} solves`);
-  solved = await runSolveJobs(HOST, jobs, {
+solved =
+  CACHE && existsSync(CACHE)
+    ? new Map(Object.entries(JSON.parse(readFileSync(CACHE, "utf8"))))
+    : new Map<string, SolveOut>();
+if (solved.size > 0) console.log(`read ${solved.size} solves from ${CACHE}`);
+const todo = jobs.filter((j) => !solved.has(j.key));
+if (todo.length > 0) {
+  console.log(`running ${todo.length} solves`);
+  const fresh = await runSolveJobs(HOST, todo, {
     timeoutS: SOLVE_TIMEOUT_S,
     concurrency: WORKERS,
     log: (m) => console.log(m),
   });
+  for (const [k, v] of fresh) solved.set(k, v);
   if (CACHE) writeFileSync(CACHE, JSON.stringify(Object.fromEntries(solved)));
 }
 const out = (k: string): SolveOut => {
@@ -683,7 +709,7 @@ function interpolateStation4(o: SolveOut): number[] {
 }
 const diagCases: DiagCase[] = DIAG_CASES.flatMap((id) =>
   DIAG_NS.map((N) => {
-    const o = out(jkey("t6", id, N, "P"));
+    const o = out(diagKey(id, N));
     if (!usable(o) || !o.diag)
       return { id, N, o, knee: undefined, t250: NaN, t150: NaN, wallShare: {} };
     const d = o.diag;
@@ -913,12 +939,12 @@ const FIG_END = TRACE_FIG0 + TS.n6.length;
       yRange: [60, 320],
       series: [
         ...DIAG_NS.map((N, i): Series => {
-          const o = out(jkey("t6", id, N, "P"));
+          const o = out(diagKey(id, N));
           const w = usable(o) ? interpolateStation4(o) : [];
           return {
-            label: `Model, N = ${N}`,
+            label: `Model, N = ${N}, Δt = ${diagDt(N)} s${o.converged ? "" : " (not converged)"}`,
             pts: w.map((T, k): [number, number] => [o.timesS[k], T]),
-            color: [C.blue, C.green, C.red][i],
+            color: [C.blue, C.green, C.orange, C.red][i],
             mode: "line",
           };
         }),
@@ -985,6 +1011,10 @@ const groupStatRows = (rsAll: Row[]) =>
   [
     statLine("All 18 rows", rsAll),
     statLine(`${nTrustedRows} trusted rows`, trustedRows(rsAll)),
+    statLine(
+      `${rsAll.filter((r) => r.ok).length} rows whose solve converged`,
+      rsAll.filter((r) => r.ok),
+    ),
     ...GROUPS.map((g) =>
       statLine(
         g.label,
@@ -994,6 +1024,46 @@ const groupStatRows = (rsAll: Row[]) =>
   ].join("\n");
 const STAT_HEAD = `| Rows | n | OpenFLUME MAE | OpenFLUME signed mean | OpenFLUME late | GFSSP MAE | GFSSP signed mean | GFSSP late | Correlation of errors |
 | ---- | - | ------------- | --------------------- | -------------- | --------- | ----------------- | --------- | --------------------- |`;
+
+/* Trends, computed: falling time with pressure within a group; subcooling
+ * shortening the time at matched pressure. */
+const trendFacts = (() => {
+  let pairs = 0;
+  let ok = 0;
+  const wrong: string[] = [];
+  for (const g of GROUPS) {
+    const rs = sel(R.P3, (p) => inGroup(p, g)).sort(
+      (a, b) => a.p.drivingPressure.psia - b.p.drivingPressure.psia,
+    );
+    for (let i = 1; i < rs.length; i++) {
+      pairs++;
+      if ((rs[i].t ?? NaN) < (rs[i - 1].t ?? NaN)) ok++;
+      else
+        wrong.push(
+          `${g.label} ${rs[i - 1].p.drivingPressure.psia}→${rs[i].p.drivingPressure.psia} psia`,
+        );
+    }
+  }
+  let sPairs = 0;
+  let sOk = 0;
+  const sWrong: string[] = [];
+  for (const sat of R.P3.filter((r) => r.p.inletCondition === "saturated")) {
+    const sub = R.P3.find(
+      (r) =>
+        r.p.inletCondition === "subcooled" &&
+        r.p.fluid === sat.p.fluid &&
+        r.p.drivingPressure.psia === sat.p.drivingPressure.psia,
+    );
+    if (!sub) continue;
+    sPairs++;
+    if ((sub.t ?? NaN) < (sat.t ?? NaN)) sOk++;
+    else
+      sWrong.push(
+        `${fluidLabel(sat.p)} ${sat.p.drivingPressure.psia} psia (saturated ${fmt(sat.t)} s, subcooled ${fmt(sub.t)} s; measured ${sat.p.experimentalChilldownTimeS} s and ${sub.p.experimentalChilldownTimeS} s)`,
+      );
+  }
+  return `Chilldown time falls with driving pressure in ${ok} of ${pairs} adjacent pairs of rows within a group${wrong.length ? ` (exceptions: ${wrong.join("; ")})` : ""}. At matched pressure the subcooled time is shorter than the saturated one in ${sOk} of ${sPairs} pairs${sWrong.length ? `; the exceptions are ${sWrong.join("; ")}` : ""}, where the measurement has the subcooled time the shorter in every pair.`;
+})();
 
 // The representative subset: OpenFLUME at each N against GFSSP's published values.
 const subsetStat = (N: number) => ourStats(R.grid[N]);
@@ -1113,29 +1183,44 @@ const diagRow = (c: DiagCase) => {
   const closure = d
     ? `${((d.fluidEnthalpyGainJ / d.wallEnergyRemovedJ - 1) * 100).toFixed(1)} %`
     : "—";
-  return `| ${c.id} | ${c.N} | ${fmt(c.t250)} | ${fmt(c.t150)} | ${fmt(c.knee)} | ${c.tKneeLiquid === undefined ? "never" : fmt(c.tKneeLiquid)} | ${c.minQuality === undefined ? "—" : fmt(c.minQuality, 3)} | ${fmt(c.shelfMinH, 0)} | ${c.hLiquid === undefined ? "—" : fmt(c.hLiquid, 0)} | ${share("vapor")} / ${share("twoPhase")} / ${share("liquid")} | ${closure} |`;
+  return `| ${c.id} | ${c.N}${c.o.converged ? "" : "*"} | ${diagDt(c.N)} | ${fmt(c.t250)} | ${fmt(c.t150)} | ${fmt(c.knee)} | ${c.tKneeLiquid === undefined ? "never" : fmt(c.tKneeLiquid)} | ${c.minQuality === undefined ? "—" : fmt(c.minQuality, 3)} | ${fmt(c.shelfMinH, 0)} | ${c.hLiquid === undefined ? "—" : fmt(c.hLiquid, 0)} | ${share("vapor")} / ${share("twoPhase")} / ${share("liquid")} | ${closure} |`;
 };
 const diagRows = diagCases
   .filter((c) => usable(c.o))
   .map(diagRow)
   .join("\n");
-const dSub = DIAG_NS.map((N) => diagOf("subLN2-P61.74", N)).filter((c) =>
+const dSubAll = DIAG_NS.map((N) => diagOf("subLN2-P61.74", N)).filter((c) =>
   usable(c.o),
 );
+const dSub = dSubAll.filter((c) => c.o.converged);
 const dSat = DIAG_NS.map((N) => diagOf("satLN2-P86.73", N)).filter((c) =>
   usable(c.o),
 );
-const subMinH = dSub.map((c) => c.shelfMinH ?? NaN).filter(Number.isFinite);
-const satMinH = dSat.map((c) => c.shelfMinH ?? NaN).filter(Number.isFinite);
-const subHLiq = dSub.map((c) => c.hLiquid ?? NaN).filter(Number.isFinite);
-const subMinQ = dSub.map((c) => c.minQuality ?? NaN).filter(Number.isFinite);
-const satMinQ = dSat.map((c) => c.minQuality ?? NaN).filter(Number.isFinite);
-const subKnees = DIAG_NS.map((N) => repRow(N, REPS[1]));
-const subLinear = REPS[1];
-const dtSubN30 = dtRows.find((r) => r.p.id === subLinear.id && r.N === 30)!;
-const dtSubN3 = dtRows.find((r) => r.p.id === subLinear.id && r.N === 3)!;
-const subDtTimes = (r: DtRow) =>
-  r.times.filter((t): t is number => t !== undefined && Number.isFinite(t));
+const minMax = (xs: number[], d = 0) =>
+  xs.length === 0
+    ? "—"
+    : Math.min(...xs) === Math.max(...xs)
+      ? Math.min(...xs).toFixed(d)
+      : `${Math.min(...xs).toFixed(d)}–${Math.max(...xs).toFixed(d)}`;
+const fin = (xs: (number | undefined)[]) =>
+  xs.filter((x): x is number => x !== undefined && Number.isFinite(x));
+const subMinH = fin(dSub.map((c) => c.shelfMinH));
+const satMinH = fin(dSat.map((c) => c.shelfMinH));
+const subHLiq = fin(dSub.map((c) => c.hLiquid));
+const subMinQ = fin(dSub.map((c) => c.minQuality));
+const satMinQ = fin(dSat.map((c) => c.minQuality));
+
+const legacyDiag = DIAG_NS.filter((n) => n !== PRIMARY_N).map((N) =>
+  timeOf(out(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT))),
+);
+const legacyGrowth =
+  (legacyDiag[legacyDiag.length - 1] ?? NaN) - (legacyDiag[0] ?? NaN);
+const internalGrowth =
+  (dSubAll.find((c) => c.N === 12)?.knee ?? NaN) -
+  (dSubAll.find((c) => c.N === 3)?.knee ?? NaN);
+/** Interval from the outlet wall's 150 K arrival to its knee. */
+const shelfInterval = (c: DiagCase) => (c.knee ?? NaN) - c.t150;
+
 /* Trace-section derived numbers. */
 const traceStationRows = (set: TraceSolve[]) =>
   set
@@ -1259,14 +1344,8 @@ ${signedPct(g18.signed)}, ${g18.late} of 18 late); the correlation of the two se
 ${s3.corr.toFixed(2)}. A representative subset (saturated and subcooled LN₂ and LH₂) is
 also solved at GFSSP's 30 segments: its mean absolute error is
 ${subsetStat(3).mae.toFixed(1)} % at N = 3, ${subsetStat(PRIMARY_N).mae.toFixed(1)} % at N = ${PRIMARY_N} and ${subsetG.mae.toFixed(1)} % for GFSSP.
-The subcooled liquid-nitrogen case is not time-step converged at N = ${PRIMARY_N}
-(${subDtTimes(dtSubN30)
-  .map((t) => t.toFixed(0))
-  .join(", ")} s over the time steps that completed), and its chilldown time
-is ${signedPct(repRow(PRIMARY_N, REPS[1]).err)} from experiment against ${signedPct(gfsspErr(REPS[1]))} for GFSSP. The modeled outlet
-wall of that case waits on a low-quality film-boiling shelf, and its knee is the
-instant the outlet node turns to single-phase liquid ("Subcooled liquid
-nitrogen" below). Cryogenic chilldown is the least mature area of the code;
+The subcooled liquid-nitrogen case at 61.74 psia is ${cell(repRow(3, REPS[1]))} at N = 3 and ${cell(repRow(PRIMARY_N, REPS[1]))} at N = ${PRIMARY_N} (GFSSP ${signedPct(gfsspErr(REPS[1]))}); it is not time-step converged (the knee falls as the step is refined and the finer-step solves do not converge). At the one step at which all its diagnostic solves converge (Δt = 10 s) the knee of the GFSSP layout changes by ${fmt(internalGrowth)} s between N = 3 and N = 12, against ${fmt(legacyGrowth)} s for the earlier layout: for this case the growth of the error with refinement that the earlier layout showed was the layout. The converged solves show the outlet wall waiting on a low-quality film-boiling shelf that ends when the outlet node turns to single-phase liquid ("Subcooled liquid nitrogen" below); the correlation as implemented is the documented one.
+Cryogenic chilldown is the least mature area of the code;
 the numbers below are the evidence for that statement.
 
 ## Experiment and Data
@@ -1412,11 +1491,8 @@ ${STAT_HEAD}
 ${groupStatRows(R.P3)}
 
 OpenFLUME at N = ${CI_N}. The correlation is the Pearson correlation between OpenFLUME's
-and GFSSP's relative errors over the rows. "Late" counts rows whose predicted time exceeds the measured one. The
-model reproduces the trend of falling chilldown time with driving pressure
-within each group where the groups' rows are monotone in the data; the
-subcooling trend (shorter at matched pressure) is examined in the
-subcooled-nitrogen section below. ${failedList.length === 0 && nonConvList.length === 0 ? "All solves of the report converged." : "Solves that failed or did not converge are listed at the end of this section."}
+and GFSSP's relative errors over the rows. "Late" counts rows whose predicted time exceeds the measured one.
+${trendFacts} ${failedList.length === 0 && nonConvList.length === 0 ? "All solves of the report converged." : "Solves that failed or did not converge are listed at the end of this section."}
 
 ${figLink(1, `Predicted against measured station-4 chilldown time for all eighteen Table-6 rows: GFSSP's published predictions and OpenFLUME (N = ${CI_N}; the four representative rows also at N = ${PRIMARY_N}).`)}
 
@@ -1504,7 +1580,7 @@ The bracket spans ${range(bracketSpread, 1, (x) => `${x.toFixed(1)} s`).replace(
 ${layoutRows}
 
 With the legacy layout the N = ${CI_N} mean absolute error is ${layoutS3.mae.toFixed(1)} % (signed mean ${signedPct(layoutS3.signed)}) against ${s3.mae.toFixed(1)} % (${signedPct(s3.signed)}) with GFSSP's layout.
-At N = 12 the offset has shrunk from 20 m to 5 m:
+At N = 12 the legacy layout's offset between the outlet wall and its fluid is 5 m, against 20 m at N = 3:
 
 | Case | P_drive [psia] | Experiment [s] | Legacy layout, N = 12 | GFSSP layout, N = 12 |
 | ---- | -------------- | -------------- | ------------------ | ------------------ |
@@ -1519,52 +1595,72 @@ refinement behavior was traced with diagnostics that record the outlet fluid nod
 and the heat the wall gives up by the phase of the fluid it is attached to. The
 saturated case at 86.73 psia is the comparison.
 
-| Case | N | t(250 K) [s] | t(150 K) [s] | Knee [s] | First liquid at outlet node [s] | Minimum two-phase quality (wall < 150 K) | Minimum h, two-phase [W/m²K] | h at first liquid step [W/m²K] | Wall heat to vapor / two-phase / liquid [%] | Energy closure |
-| ---- | - | ------------ | ------------ | -------- | ------------------------------- | ---------------------------------------- | ---------------------------- | ------------------------------ | -------------------------------------------- | -------------- |
+| Case | N | Δt [s] | t(250 K) [s] | t(150 K) [s] | Knee [s] | First liquid at outlet node [s] | Minimum two-phase quality (wall < 150 K) | Minimum h, two-phase [W/m²K] | h at first liquid step [W/m²K] | Wall heat to vapor / two-phase / liquid [%] | Energy closure |
+| ---- | - | ----- | ------------ | ------------ | -------- | ------------------------------- | ---------------------------------------- | ---------------------------- | ------------------------------ | -------------------------------------------- | -------------- |
 ${diagRows}
 
 Station-4 wall temperatures (stations interpolated between wall nodes):
 
 ${figLink(FIG_END, "Subcooled LN₂ at 61.74 psia: station-4 wall temperature of the model at N = 3, 12 and 30 against the digitized Fig. 13 trace.")}
 
-What the diagnostics show:
+What the diagnostics show (a * on N marks a solve that did not converge; its numbers are
+listed but not used in the statements below):
 
-1. **Outlet shelf and handoff.** In the subcooled case the outlet node's two-phase quality
-   falls to ${subMinQ.length ? `${Math.min(...subMinQ).toFixed(3)}–${Math.max(...subMinQ).toFixed(3)}` : "—"} while the outlet wall is below 150 K (saturated case: ${satMinQ.length ? `${Math.min(...satMinQ).toFixed(2)}–${Math.max(...satMinQ).toFixed(2)}` : "—"}).
-   Miropolskii's coefficient scales with (x + (ρ_v/ρ_l)(1 − x))^0.8 (\`src/core/correlations/miropolskii.ts:54–57\`),
-   so it falls with quality: its minimum on the shelf is ${subMinH.length ? `${Math.min(...subMinH).toFixed(0)}–${Math.max(...subMinH).toFixed(0)}` : "—"} W/m²K
-   in the subcooled case against ${satMinH.length ? `${Math.min(...satMinH).toFixed(0)}–${Math.max(...satMinH).toFixed(0)}` : "—"} W/m²K in the saturated one. The wall
-   leaves the shelf only when the outlet node's state becomes single-phase liquid; the conductor then
-   switches to Dittus–Boelter (\`miropolskii.ts:24–30\`) and h jumps to ${subHLiq.length ? `${Math.min(...subHLiq).toFixed(0)}–${Math.max(...subHLiq).toFixed(0)}` : "—"} W/m²K at the first liquid step. The
-   knee of the subcooled case is within a step or two of that handoff in every solve above; in the saturated case the outlet node never becomes liquid.
-2. **The correlation, not a coding defect.** The switch at zero quality follows the formulation: GFSSP applies Dittus–Boelter
-   to single-phase states and Miropolskii to two-phase states (AIAA 2015-3850; the GFSSP manual, Eq. 7g and the modified
-   Miropolskii correlation), and quality is clamped to ≥ 0.01 inside the correlation (\`miropolskii.ts:34\`). OpenFLUME therefore
-   inherits a discontinuity of the heat-transfer coefficient at the liquid boundary of the two-phase
-   region. No change to the correlation was made: none follows from the formulation or from GFSSP's documented practice.
-3. **Refinement.** The chilldown time of this case rises from ${fmt(subKnees[0].t)} s (N = 3) to ${fmt(subKnees[1].t)} s (N = 12) and ${fmt(subKnees[2].t)} s
-   (N = 30); the time at which the outlet node first turns liquid moves with it (table). The saturated case moves by
-   ${fmt(Math.abs((repRow(PRIMARY_N, REPS[0]).t ?? NaN) - (repRow(3, REPS[0]).t ?? NaN)))} s over the same range. Why the outlet node's quality reaches zero later on a finer grid is not
-   established here; a plausible hypothesis (not tested) is that a finer grid distributes the vapor generated upstream differently
-   along the line.
-4. **Time-step dependence at N = ${PRIMARY_N}.** At N = ${PRIMARY_N} the knee of this case is ${subDtTimes(
-  dtSubN30,
+1. **The solves that did not converge.** ${
+  dSubAll.filter((c) => !c.o.converged).length === 0
+    ? "All subcooled diagnostic solves converged."
+    : `Of the ${dSubAll.length} subcooled diagnostic solves, ${dSubAll
+        .filter((c) => !c.o.converged)
+        .map(
+          (c) =>
+            `N = ${c.N} (Δt = ${diagDt(c.N)} s: ${c.o.stalledSteps.length} stalled steps; energy closure ${c.o.diag ? fmt((c.o.diag.fluidEnthalpyGainJ / c.o.diag.wallEnergyRemovedJ - 1) * 100, 0) : "—"} %)`,
+        )
+        .join(
+          ", ",
+        )} did not converge, and are listed in the table but not used in the statements below.`
+} The time-step table shows the same case failing, timing out or not converging at ${dtFailed.filter((x) => x.includes("LN₂ subcooled")).length} of its solves.
+2. **Shelf and handoff, converged solves.** On the converged subcooled solves the outlet node's two-phase quality falls to
+   ${minMax(subMinQ, 3)} while the outlet wall is below 150 K (saturated case: ${minMax(satMinQ, 2)}). The Miropolskii coefficient
+   falls with quality (\`src/core/correlations/miropolskii.ts:54–57\`): its minimum is ${minMax(subMinH)} W/m²K on the subcooled
+   shelf against ${minMax(satMinH)} W/m²K in the saturated case. When the outlet node's state becomes single-phase liquid the
+   conductor switches to Dittus–Boelter (\`miropolskii.ts:24–30\`) and h is ${minMax(subHLiq)} W/m²K at the first liquid step.
+   The first liquid step of the outlet node is ${minMax(
+     dSub.map((c) => (c.tKneeLiquid ?? NaN) - (c.knee ?? NaN)),
+     0,
+   )} s after the station-4 knee of these solves
+   (the station is interpolated between wall nodes); in the saturated case the outlet node never becomes liquid.
+3. **The correlation as implemented is the documented one.** Its coefficients (0.023, exponents 0.8 and 0.4, and the factor Y with
+   0.1, 0.4, 0.4) are those of Eq. 7h of the GFSSP manual, with Dittus–Boelter (Eq. 7g) on single-phase states, so the
+   switch at the liquid boundary is the formulation's. Quality is clamped to [0.01, 0.99] inside the correlation
+   (\`miropolskii.ts:34\`); the text of the GFSSP papers consulted does not say how GFSSP treats the limit x → 0. No change to the
+   correlation was made: none follows from the formulation or from GFSSP's documented practice. The earlier crashes of
+   these solves were a different defect, now fixed: the P–h clamp let a compressed-liquid state fall below the property
+   library's range and its flash threw (\`src/core/fluids/realFluid.ts\`, commit 436fdc5).
+4. **Refinement.** The chilldown time of this case in the diagnostic solves is ${dSubAll.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}; in the saturated case ${dSat.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}.
+   For the converged solves the outlet wall's 150 K arrival is ${dSub.map((c) => `${fmt(c.t150)} s (N = ${c.N})`).join(", ")} and the interval from that arrival to the knee
+   ${dSub.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")}. For the saturated case the 150 K arrival is ${dSat.map((c) => `${fmt(c.t150)} s (N = ${c.N})`).join(", ")} and the interval ${dSat.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")}. Why the outlet wall's arrival is later on a finer grid is not
+   established here; a hypothesis, not tested, is that a coarse grid advances the fluid front numerically.
+5. **Time step.** At N = ${CI_N} the knee of this case is ${dtRows
+  .find((r) => r.p.id === REPS[1].id && r.N === CI_N)!
+  .times.map(
+    (t, i) =>
+      `${fmt(t)} s${dtRows.find((r) => r.p.id === REPS[1].id && r.N === CI_N)!.converged[i] ? "" : "*"} (Δt = ${fmt(dtRows.find((r) => r.p.id === REPS[1].id && r.N === CI_N)!.dts[i], 2)} s)`,
+  )
+  .join(
+    ", ",
+  )}: it falls as the step is refined and the finer-step solves do not converge. At N = ${PRIMARY_N} two of the other three steps time out. The
+   subcooled-nitrogen times are therefore not time-step converged, and none of them is quoted as a converged prediction. Whether the solver's failures to converge at fine steps reflect a physical flow-boiling instability or a numerical one is not established.
+6. **Layout.** At the same step (Δt = ${DIAG_DT} s) the pre-GFSSP layout gives ${DIAG_NS.filter(
+  (n) => n !== PRIMARY_N,
 )
-  .map((t) => t.toFixed(0))
-  .join(", ")} s for the time steps that completed
-   (N = 3: ${subDtTimes(dtSubN3)
-     .map((t) => t.toFixed(0))
-     .join(
-       ", ",
-     )} s), not monotone in Δt, and some steps did not converge (table above). At N = ${PRIMARY_N} the solver shows
-   isolated Newton steps that fail to converge while the inlet mass flow swings between the outputs of
-   consecutive steps. Whether that swing is a physical flow-boiling instability or numerical is not established by this report. The
-   N = ${PRIMARY_N} subcooled-nitrogen time is therefore reported with that uncertainty and is not a converged prediction.
-5. **Layout.** The growth of the error with refinement that the legacy layout produced for this case
-   (legacy N = 3 → 12: ${cell(rowFor(R.L3, REPS[1]))} → ${cell(rowFor(R.L12, REPS[1]))}) was in large part an artifact of that layout (an outlet wall chilled by fluid L/N
-   upstream); with GFSSP's layout the same case runs from ${fmt(repRow(3, REPS[1]).t)} s to ${fmt(repRow(12, REPS[1]).t)} s between N = 3 and N = 12.
-   The chilldown time of the subcooled case is later than that of the saturated case at matched pressure in the CI
-   configuration (see Table 6), which is the opposite of the measured ordering.
+  .map((N) => {
+    const o = out(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT));
+    return `${fmt(timeOf(o))} s${o.converged ? "" : "*"} (N = ${N})`;
+  })
+  .join(", ")} against ${dSubAll
+  .filter((c) => c.N !== PRIMARY_N)
+  .map((c) => `${fmt(c.knee)} s (N = ${c.N})`)
+  .join(", ")} with GFSSP's layout.
 
 ### Wall-temperature traces of the trusted runs
 
