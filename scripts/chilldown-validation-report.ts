@@ -314,8 +314,7 @@ for (const run of NBS_TRUSTED_TRACE_RUNS) {
 jobs.sort((a, b) => b.spec.N - a.spec.N);
 
 const CACHE = process.env.CHILLDOWN_CACHE;
-let solved: Map<string, SolveOut>;
-solved =
+const solved: Map<string, SolveOut> =
   CACHE && existsSync(CACHE)
     ? new Map(Object.entries(JSON.parse(readFileSync(CACHE, "utf8"))))
     : new Map<string, SolveOut>();

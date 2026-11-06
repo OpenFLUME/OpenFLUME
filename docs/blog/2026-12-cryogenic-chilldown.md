@@ -65,17 +65,17 @@ The example's automated test is structural: every wall chills below 300 K, wall 
 | 74.97 psia       | 150 s        | 160 s           |
 | 86.73 psia       | 130 s        | 140 s           |
 
-- **CI gate.** Every pull request runs one case (saturated, 74.97 psia, experiment 150 s). The station-4 time must fall within 0.5×–1.6× of experiment; the current value is 153.3 s. The band catches gross regressions, such as a missing crossing or a factor-of-two drift, "without pretending the coarse-N model is exact."
-- **Slow suite.** On `main` and weekly, all three points run at N = 3. The recorded mean absolute error is 6.1 %, against 8.8 % for GFSSP's predictions; the suite asserts under 25 % as a regression sentinel.
-- **Trends.** Chilldown time strictly decreases with driving pressure, and at a matched 74.97 psia subcooling shortens it.
+- **CI gate.** Every pull request runs one case (saturated, 74.97 psia, experiment 150 s). The station-4 time must fall within 0.5×–1.6× of experiment; the current value is 121.0 s. The band catches gross regressions, such as a missing crossing or a factor-of-two drift, "without pretending the coarse-N model is exact."
+- **Slow suite.** On `main` and weekly, all three points run at N = 3. The recorded mean absolute error is 14.9 % (all three early, by 12–19 %), against 8.8 % for GFSSP's predictions; the suite asserts under 25 % as a regression sentinel.
+- **Trends.** Chilldown time strictly decreases with driving pressure. Subcooling does not shorten it at a matched 74.97 psia in this model (134.1 s subcooled against 121.0 s saturated, where the measurement is 100 s against 150 s), so the suite no longer asserts that ordering and the report states the deficiency.
 - **Curve shape.** At four segments the two-phase model reproduces the published wall-temperature curves (`chilldownTwoPhase.test.ts`): plateau then plunge downstream, completion gaps that shrink as the front accelerates, a common asymptote near saturation, and downstream steepening. That last feature, a steeper maximum dT/dt at the last station than the first, cannot occur in a single-phase gas model.
 - **Conservation.** Two-phase chilldown energy balances close within 10 %, and the subcooled flashing case's global enthalpy balance closes within 12 %.
 
 ## Disagreements and trust levels
 
-**Trust levels.** The trace corpus is split by trust level in code, assigned from the experimental record alone. Four subcooled hydrogen runs (Figs. 3, 4, 6, 7) are **diagnostic only**: their cold tails overlap so that they cannot be assigned to stations, or the valve opened before the chart's zero time. The other seven runs (twenty-eight traces) are **trusted**. All eighteen Table-6 rows are solved and reported; their mean absolute error is 13.5 % at N = 3, against 7.6 % for GFSSP.
+**Trust levels.** The trace corpus is split by trust level in code, assigned from the experimental record alone. Four subcooled hydrogen runs (Figs. 3, 4, 6, 7) are **diagnostic only**: their cold tails overlap so that they cannot be assigned to stations, or the valve opened before the chart's zero time. The other seven runs (twenty-eight traces) are **trusted**. All eighteen Table-6 rows are solved and reported; their mean absolute error is 24.3 % at N = 3, against 7.6 % for GFSSP. The knee uses one definition for the model and for the digitized traces, and each run starts from the initial wall temperature measured in its traces (271–307 K).
 
-**Subcooled runs.** For subcooled LN₂ the error grows with axial refinement, from +9.4 % to +38.5 % at three segments to +34.3 % to +74.7 % at twelve. In the slow suite, the subcooled LN₂ point at 74.97 psia comes out at 120.0 s against a measured 100 s: shorter than saturated, as it should be.
+**Subcooled runs.** Subcooled LN₂ is the weakest case: late by 29–68 % at three segments, and not converged in the time step (the knee falls as the step is refined, and finer-step solves do not converge). The growth of its error with axial refinement that an earlier layout showed came from the layout: with GFSSP's layout the knee of the 61.74 psia case moves by 5 s from 3 to 12 segments at a 10 s step, against 44 s before. At GFSSP's 30 segments a four-case subset has a mean absolute error of 23.0 %, against 5.6 % for GFSSP; saturated LN₂ is +3.7 % and hydrogen is about 22 % early.
 
 **Single-phase surrogate.** A separate builder replaces the boiling liquid with cold nitrogen vapor. It reproduces the plateau-then-plunge shape but not absolute times, so its tests assert trends only.
 
@@ -91,6 +91,6 @@ The example's automated test is structural: every wall chills below 300 K, wall 
 
 ## Summary
 
-On saturated LN₂ on a three-segment line, OpenFLUME's station-4 chilldown time has a recorded 6.1 % mean absolute error against NBS 9264 (8.8 % for GFSSP), and 13.5 % over all eighteen Table-6 rows (7.6 % for GFSSP), with the correct pressure trend and curve structure. Subcooled LN₂ errors grow with refinement, so coarse-grid agreement there cannot be quoted as evidence, and the LH₂ example is a physics demonstration only.
+On a three-segment line OpenFLUME's station-4 chilldown time has a recorded 24.3 % mean absolute error against NBS 9264 over all eighteen Table-6 rows (7.6 % for GFSSP), with the correct pressure trend. At GFSSP's 30 segments saturated LN₂ is within 4 % and a four-case subset is at 23 % (GFSSP 5.6 %). Subcooled LN₂ is not time-step converged and cannot be quoted, and the LH₂ example is a physics demonstration only.
 
 If you have chilldown data with clear provenance, or think one of these comparisons is set up wrong, please [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose).

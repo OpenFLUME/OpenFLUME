@@ -135,9 +135,14 @@ is sequential and the inlet reaches cryogenic temperature.
     subcooled hydrogen runs are **diagnostic only** because their records are
     compromised (overlapping cold tails, or a valve opened before the chart's
     zero time). Every Table-6 row is solved and reported.
-  - **Subcooled error grows with axial refinement.** For subcooled nitrogen
-    it rises from +9.4 % to +38.5 % at 3 segments to +34.3 % to +74.7 % at
-    12; a finer grid does not repair it.
+  - **Chilldown-time results** ([report](../validation/chilldown-report.md)).
+    Over the eighteen rows at three segments the mean absolute error is
+    24.3 % against 7.6 % for GFSSP; at GFSSP's 30 segments the four-case
+    subset is 23.0 % against 5.6 %. Saturated nitrogen at 30 segments is
+    +3.7 % and the hydrogen cases are 22 % early. Subcooled nitrogen is not
+    converged in the time step and is not quoted as a prediction. The knee
+    uses one definition for model and data and each run starts from its
+    measured initial wall temperature.
   - **CI acceptance band:** computed chilldown time at the instrumented
     station within a factor of 1.6 of experiment, with mean absolute error
     under 25 % across the four-case slow suite. Two-phase chilldown energy and
@@ -154,8 +159,8 @@ is sequential and the inlet reaches cryogenic temperature.
   [`src/validation/nbsChilldown.ts`](../../src/validation/nbsChilldown.ts)).
   In this model, wall 20 sits at x = 61 m and is the nearest station.
 
-Together these support a factor-of-1.6 engineering band on saturated runs,
-short of a precision prediction.
+Together these support a factor-of-1.6 engineering band on the nitrogen and
+hydrogen rows that converge, short of a precision prediction.
 
 ## Things to try
 
