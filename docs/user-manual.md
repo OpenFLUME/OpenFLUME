@@ -3299,25 +3299,32 @@ with the same threshold applied to the digitized trace of the run. Each solve
 starts from the measured initial wall temperature of its run (the first samples
 of the digitized traces, 271–307 K, mean 288 K), not 300 K.
 
-All eighteen rows are solved at the 3-segment CI configuration. The mean
-absolute error is 24.3 % for OpenFLUME (signed mean −2.2 %, 5 of 18 late)
-against 7.6 % for GFSSP (+7.3 %, 16 late); the correlation of the two sets of
-errors is −0.10. Saturated nitrogen is early by 12–19 %, saturated and
-subcooled hydrogen early by 14–29 %, and subcooled nitrogen late by 29–68 %;
-five subcooled solves (two hydrogen, three nitrogen) did not converge and are
-marked. A representative subset (saturated and subcooled LN₂ at 86.73 and 61.74
-psia, saturated LH₂ at 74.97 psia and subcooled LH₂ at 86.73 psia) is also solved at
-6, 12 and 30 segments: its mean absolute error is 23.0 % at 3 segments and 23.0 %
-at 30, against 5.6 % for GFSSP; saturated nitrogen at 30 segments is +3.7 %. The
-subcooled nitrogen time is not converged in the time step (the knee falls as the
-step is refined and the finer-step solves do not converge), and its 30-segment
-value (+43.9 %) is not quoted as a prediction. With the previous end-node layout
-the subcooled nitrogen knee grew by 44 s from 3 to 12 segments at a 10 s step;
-with GFSSP's layout it moves by 5 s, so that growth was the layout. The
-digitized traces of the seven trusted runs show the station-4 knee 15 s early to
-48 s late where both knees exist (6 segments) and the model's quench front 2–4
-times broader than the measured one; the model's station-1 knee differs from the
-measured one by −2 s to +41 s at 30 segments.
+All eighteen rows are solved at the 3-segment CI configuration, with the
+longitudinal inertia term of GFSSP's chilldown formulation (Cross et al. 2002,
+Eq. 17; without it the outlet flow is supersonic) and a K = 2 inlet restriction
+for the dewar valve and entrance (GFSSP's coefficient is not published; K = 1
+and 5 are the sensitivity). The mean absolute error is 19.3 % for OpenFLUME
+(signed mean +6.3 %, 6 of 18 late) against 7.6 % for GFSSP (+7.3 %, 16 late);
+the correlation of the two sets of errors is −0.07. Saturated nitrogen is early
+by 4–14 %, saturated hydrogen early by 6–20 %, subcooled hydrogen −18 % to
++0.5 %, and subcooled nitrogen late by 29–57 %; three subcooled solves (two hydrogen, one nitrogen)
+accepted unconverged steps and are flagged. Without them the mean absolute
+error is 19.7 % (GFSSP 7.6 %), and without the subcooled nitrogen rows as well
+10.1 % over 11 rows (GFSSP 8.7 %). The subcooled nitrogen time depends on when
+the outlet node turns liquid, which depends on the outlet pressure and on
+GFSSP's exit restriction, whose coefficient is not published; the outlet is at
+101 325 Pa, and at the documented 12.05 psia the outlet node stays two-phase
+and the 61.74 psia knee moves from +49 % to +102 %. A representative subset
+(saturated and subcooled LN₂ at 86.73 and 61.74 psia, saturated LH₂ at 74.97
+psia and subcooled LH₂ at 86.73 psia) is also solved at 6, 12 and 30 segments:
+its mean absolute error is 22.6 % at 3 segments and 13.5 % over the three cases
+that reach the knee at 30, against 4.6 % for GFSSP; saturated nitrogen at 30
+segments is +8.1 % (GFSSP +7.7 %) and the hydrogen cases are 16–17 % early. The
+subcooled nitrogen solve at 30 segments does not converge and its station 4
+does not reach the knee within the horizon, so it is not quoted as a
+prediction. The digitized traces of the seven trusted runs show the station-4
+knee 10 s early to 57 s late where both knees exist (6 segments) and the
+model's quench front 3–4 times broader than the measured one.
 
 The [choked-flow report](validation/choked-flow-report.md) compares the
 restriction closures with 326 nozzle and 26 sharp-edged-orifice measurements of

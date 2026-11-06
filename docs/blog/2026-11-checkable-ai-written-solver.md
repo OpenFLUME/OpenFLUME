@@ -62,7 +62,7 @@ Many of the most serious defects in the [CHANGELOG](../../CHANGELOG.md) were som
 
 None of these crashed. All of them produced plausible numbers. Several of the fixes had the same shape, replacing a silent fallback with a loud failure.
 
-The record has limits too. Most of it is analytic verification, and the experimental side is narrow. Across the eighteen NBS 9264 chilldown times, OpenFLUME's mean absolute error is 24.3 % against 7.6 % for GFSSP's published predictions, so GFSSP is better there ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
+The record has limits too. Most of it is analytic verification, and the experimental side is narrow. Across the eighteen NBS 9264 chilldown times, OpenFLUME's mean absolute error is 19.3 % against 7.6 % for GFSSP's published predictions, so GFSSP is better there ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
 ## Where that leaves me
 
