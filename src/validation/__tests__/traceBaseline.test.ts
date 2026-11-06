@@ -295,3 +295,75 @@ describe("feature conventions", () => {
     expect(cmp.dataFeatures.crossing150KS.available).toBe(true);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The unified knee definition (local saturation + 15 K, model AND data)
+// ---------------------------------------------------------------------------
+
+describe("compareRunTraces: one knee definition for model and data", () => {
+  const run = NBS_TRUSTED_TRACE_RUNS.find((r) => r.runId === "nbs9264-fig12")!;
+  const timesS = [0, 10, 20, 30];
+  const base = syntheticModel(timesS);
+  // Pressure falls linearly from 4 bar at the inlet to 1.1 bar at the exit.
+  const fluidXM = [0, 30.48, 60.96];
+  const pressureTracesPa = fluidXM.map((x) =>
+    timesS.map(() => 4e5 - ((4e5 - 1.1e5) * x) / 60.96),
+  );
+  const tsat = (p: number) => 60 + 2e-4 * p; // monotone stand-in for Tsat(P)
+
+  it("with model pressures the threshold is T_sat(P_local) + 15 K at each station, the same for model and data", () => {
+    const cmp = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat },
+    );
+    expect(cmp.kneeDefinition).toBe("localSaturation");
+    cmp.stations.forEach((s, i) => {
+      const x = NBS_CHILLDOWN_RIG.stations[i].xM;
+      const p = 4e5 - ((4e5 - 1.1e5) * x) / 60.96;
+      expect(s.kneeThresholdK).toBeCloseTo(tsat(p) + 15, 9);
+      expect(cmp.kneeThresholdsK[i]).toBe(s.kneeThresholdK);
+    });
+    expect(cmp.kneeThresholdK).toBe(cmp.kneeThresholdsK[3]);
+    // Upstream stations are at higher pressure, hence a higher threshold.
+    expect(cmp.kneeThresholdsK[0]).toBeGreaterThan(cmp.kneeThresholdsK[3]);
+  });
+
+  it("the data knee uses the identical threshold (a trace that never reaches it has none)", () => {
+    const hiP = fluidXM.map(() => timesS.map(() => 8e5));
+    const cmp = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa: hiP },
+      { saturationTemperatureK: tsat },
+    );
+    for (const s of cmp.stations) {
+      if (s.coldTailUsable && s.dataFeatures.kneeTimeS.available) {
+        const tr = run.traces[s.station - 1];
+        expect(Math.min(...tr.wallTempsK)).toBeLessThan(s.kneeThresholdK);
+      }
+    }
+  });
+
+  it("without model pressures it falls back to the data-native T_inlet + 15 K", () => {
+    const cmp = compareRunTraces(run, base);
+    expect(cmp.kneeDefinition).toBe("dataNative");
+    for (const k of cmp.kneeThresholdsK)
+      expect(k).toBeCloseTo(dataNativeKneeThresholdK(run), 12);
+  });
+
+  it("the margin is a parameter", () => {
+    const a = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat, kneeMarginK: 30 },
+    );
+    const b = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat },
+    );
+    a.kneeThresholdsK.forEach((k, i) =>
+      expect(k - b.kneeThresholdsK[i]).toBeCloseTo(15, 9),
+    );
+  });
+});

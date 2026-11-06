@@ -60,6 +60,34 @@ export interface ChilldownMetricResult {
 /** Fraction of trailing samples used for the late-time pressure mean. */
 const LATE_FRACTION = 0.1;
 
+/**
+ * The knee threshold of the unified definition at one station:
+ * T_sat(P_local,late) + marginK, with P_local,late the mean of the
+ * spatially-interpolated pressure trace at the station over the final 10 %
+ * of the solve.  Model and digitized traces of the same run are both
+ * compared against this one number (the digitized record carries no
+ * pressure, so the model solve of the run at its driving pressure supplies
+ * it).
+ */
+export function localSaturationThreshold(
+  input: Pick<
+    ChilldownMetricInput,
+    "fluidXM" | "pressureTracesPa" | "saturationTemperatureK"
+  >,
+  station: 1 | 2 | 3 | 4,
+  marginK: number,
+): { thresholdK: number; pLocalLatePa: number; tSatLocalK: number } {
+  const pTrace = interpolateTraceToStation(
+    input.fluidXM,
+    input.pressureTracesPa,
+    stationXM(station),
+  );
+  const nLate = Math.max(1, Math.floor(pTrace.length * LATE_FRACTION));
+  const pLocalLatePa = pTrace.slice(-nLate).reduce((a, b) => a + b, 0) / nLate;
+  const tSatLocalK = input.saturationTemperatureK(pLocalLatePa);
+  return { thresholdK: tSatLocalK + marginK, pLocalLatePa, tSatLocalK };
+}
+
 export function predictedChilldownTime(
   input: ChilldownMetricInput,
   def: ChilldownTimeDefinition,
@@ -82,15 +110,14 @@ export function predictedChilldownTime(
       thresholdK = input.inletLiquidTempK + def.threshold.marginK;
       break;
     case "aboveLocalTsat": {
-      const pTrace = interpolateTraceToStation(
-        input.fluidXM,
-        input.pressureTracesPa,
-        xStation,
+      const loc = localSaturationThreshold(
+        input,
+        def.station,
+        def.threshold.marginK,
       );
-      const nLate = Math.max(1, Math.floor(pTrace.length * LATE_FRACTION));
-      pLocalLatePa = pTrace.slice(-nLate).reduce((a, b) => a + b, 0) / nLate;
-      tSatLocalK = input.saturationTemperatureK(pLocalLatePa);
-      thresholdK = tSatLocalK + def.threshold.marginK;
+      thresholdK = loc.thresholdK;
+      pLocalLatePa = loc.pLocalLatePa;
+      tSatLocalK = loc.tSatLocalK;
       break;
     }
   }

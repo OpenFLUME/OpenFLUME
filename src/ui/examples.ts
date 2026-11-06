@@ -3641,6 +3641,29 @@ export function buildChilldownTwoPhase(options?: {
    * separately — sindaFluintCryoLineCooldown).
    */
   wallMaterial?: "constant" | "ofhc-copper";
+  /**
+   * Where the line's end wall nodes find their fluid.
+   * 'boundary' (default, legacy — bit-identical configs): the line is N
+   * segments between the inlet and outlet BOUNDARY nodes f0 and fN, with
+   * N − 1 internal fluid nodes; the end wall nodes (x = 0 and x = L) have no
+   * fluid node of their own and borrow a neighbour (inletWallCoupling /
+   * outletWallCoupling), so the outlet wall that defines station 4 is
+   * chilled by fluid a distance L/N upstream of it.
+   * 'internal': GFSSP's layout of this line (AIAA 2015-3850 §4.3: N pipe
+   * segments between N + 1 INTERNAL fluid nodes, each with its own solid
+   * node, and the dewar and the ambient outlet as boundary nodes attached to
+   * the two end fluid nodes by short branches).  Fluid nodes f1 … f(N+1) sit
+   * at x = 0 … L with the wall nodes s0 … sN on them (no coupling offset
+   * anywhere); the inlet boundary f0 and the outlet boundary f(N+2) join
+   * f1 and f(N+1) through `endBranchLength` pipes; the end fluid nodes hold
+   * half a segment of volume.  inletWallCoupling and outletWallCoupling do
+   * not apply.
+   */
+  endNodeLayout?: "boundary" | "internal";
+  /** Length (m) of the two short branches joining the boundary nodes to the
+   *  end fluid nodes when endNodeLayout is 'internal' (negligible friction;
+   *  default 0.05 m). */
+  endBranchLength?: number;
   dt?: number;
   endTime?: number;
   timeStepping?: "fixed" | "adaptive";
@@ -3693,6 +3716,178 @@ export function buildChilldownTwoPhase(options?: {
     y,
     position: metres(i * segL),
   });
+  const corrFor = (i: number) =>
+    correlationModel === "darrHartwig"
+      ? {
+          model: "darrHartwig" as const,
+          diameter: D,
+          flowArea: A_fluid,
+          axialPosition: i * segL,
+        }
+      : correlationModel === "ttWf"
+        ? {
+            model: "ttWf" as const,
+            diameter: D,
+            flowArea: A_fluid,
+            axialPosition: i * segL,
+            segmentLength: segL,
+            ...(fluidFront ? { fluidFront: true as const } : {}),
+          }
+        : {
+            model: "miropolskii" as const,
+            diameter: D,
+            flowArea: A_fluid,
+          };
+
+  const settings: NetworkConfig["settings"] = {
+    mode: "transient",
+    tolerance: 1e-5,
+    maxIterations: 200,
+    relaxation: 0.7,
+    endTime,
+    ...(timeStepping === "fixed"
+      ? { dt, timeStepping: "fixed" as const }
+      : {
+          timeStepping: "adaptive" as const,
+          adaptive: {
+            dtInitial: dt,
+            dtMin: 0.2,
+            dtMax: 15,
+            relTol: 5e-2,
+            absTolP: 5000,
+            absTolT: 2.0,
+            safety: 0.9,
+          },
+        }),
+  };
+
+  if ((options?.endNodeLayout ?? "boundary") === "internal") {
+    // GFSSP's layout (see the endNodeLayout option): N + 1 internal fluid
+    // nodes f1 … f(N+1) at x = 0 … L, each with a wall node s(i−1) on it,
+    // and the boundary nodes f0 / f(N+2) on short end branches.
+    const lb = options?.endBranchLength ?? 0.05;
+    const nInt = N + 1;
+    const intNodes: NetworkConfig["nodes"] = [];
+    const walls: NetworkConfig["solidNodes"] = [];
+    const conds: NetworkConfig["conductors"] = [];
+    const brs: NetworkConfig["branches"] = [];
+    const bnd = (
+      id: string,
+      x: number,
+      P: number,
+    ): NetworkConfig["nodes"][0] =>
+      id === "f0"
+        ? {
+            id,
+            type: "boundary",
+            x: 0,
+            y: 0,
+            position: metres(x),
+            pressure: P,
+            ...(T_inlet === undefined
+              ? { quality: 0 }
+              : { temperature: T_inlet }),
+            label: "Inlet",
+          }
+        : {
+            id,
+            type: "boundary",
+            x: (nInt + 1) * 170,
+            y: 0,
+            position: metres(x),
+            pressure: P,
+            temperature: T_out,
+            label: "Outlet",
+          };
+    intNodes.push(bnd("f0", -lb, P_in));
+    for (let j = 0; j <= N; j++) {
+      const frac = j === 0 || j === N ? endWallFraction : 1;
+      const p0 = P_in - (P_in - P_out) * (j / N);
+      intNodes.push({
+        id: `f${j + 1}`,
+        type: "internal",
+        ...at(j + 1, 0),
+        position: metres(j * segL),
+        pressure: p0,
+        temperature: T_init,
+        volume: vol * frac,
+        label: `Node ${j}`,
+      });
+      walls.push({
+        id: `s${j}`,
+        type: "solid",
+        ...at(j + 1, 80),
+        position: metres(j * segL),
+        temperature: T_init,
+        mass: mass_solid * frac,
+        cp: cpCu,
+        label: j === 0 ? "Wall inlet" : j === N ? "Wall outlet" : `Wall ${j}`,
+      });
+      conds.push({
+        id: `conv${j}`,
+        from: `f${j + 1}`,
+        to: `s${j}`,
+        type: {
+          kind: "convection",
+          area: convArea * frac,
+          correlation: corrFor(j),
+        },
+        label: `Conv ${j}`,
+      });
+    }
+    intNodes.push(bnd(`f${N + 2}`, L + lb, P_out));
+    for (let j = 0; j < N; j++) {
+      conds.push({
+        id: `cond${j}`,
+        from: `s${j}`,
+        to: `s${j + 1}`,
+        type: { kind: "conduction", k: kCu, area: A_metal, length: segL },
+        label: `Cond ${j}`,
+      });
+    }
+    const pipeOf = (len: number) => ({
+      type: "pipe" as const,
+      length: len,
+      diameter: D,
+      roughness,
+    });
+    // pipe0: inlet boundary → f1; pipe1 … pipeN: f1 … f(N+1); pipe(N+1): → outlet.
+    brs.push({
+      id: "pipe0",
+      from: "f0",
+      to: "f1",
+      component: pipeOf(lb),
+      label: "Inlet branch",
+    });
+    for (let j = 1; j <= N; j++)
+      brs.push({
+        id: `pipe${j}`,
+        from: `f${j}`,
+        to: `f${j + 1}`,
+        component: pipeOf(segL),
+        label: `Pipe ${j}`,
+      });
+    brs.push({
+      id: `pipe${N + 1}`,
+      from: `f${N + 1}`,
+      to: `f${N + 2}`,
+      component: pipeOf(lb),
+      label: "Outlet branch",
+    });
+    if (fluidFront) intNodes[0].fluidFrontInlet = 1;
+    return {
+      meta: {
+        name: `Cryogenic chilldown — two-phase ${fluidName} (NBS/GFSSP Fig.14)`,
+        version: 2,
+      },
+      settings,
+      fluid: { model: "realFluid", params: { fluidName } },
+      nodes: intNodes,
+      solidNodes: walls,
+      conductors: conds,
+      branches: brs,
+    };
+  }
 
   const nodes: NetworkConfig["nodes"] = [
     T_inlet === undefined
@@ -3783,28 +3978,7 @@ export function buildChilldownTwoPhase(options?: {
       type: {
         kind: "convection",
         area: i === 0 || i === N ? convArea * endWallFraction : convArea,
-        correlation:
-          correlationModel === "darrHartwig"
-            ? {
-                model: "darrHartwig" as const,
-                diameter: D,
-                flowArea: A_fluid,
-                axialPosition: i * segL,
-              }
-            : correlationModel === "ttWf"
-              ? {
-                  model: "ttWf" as const,
-                  diameter: D,
-                  flowArea: A_fluid,
-                  axialPosition: i * segL,
-                  segmentLength: segL,
-                  ...(fluidFront ? { fluidFront: true as const } : {}),
-                }
-              : {
-                  model: "miropolskii" as const,
-                  diameter: D,
-                  flowArea: A_fluid,
-                },
+        correlation: corrFor(i),
       },
       label: `Conv ${i}`,
     });
@@ -3829,28 +4003,6 @@ export function buildChilldownTwoPhase(options?: {
       label: `Pipe ${i}`,
     });
   }
-
-  const settings: NetworkConfig["settings"] = {
-    mode: "transient",
-    tolerance: 1e-5,
-    maxIterations: 200,
-    relaxation: 0.7,
-    endTime,
-    ...(timeStepping === "fixed"
-      ? { dt, timeStepping: "fixed" as const }
-      : {
-          timeStepping: "adaptive" as const,
-          adaptive: {
-            dtInitial: dt,
-            dtMin: 0.2,
-            dtMax: 15,
-            relTol: 5e-2,
-            absTolP: 5000,
-            absTolT: 2.0,
-            safety: 0.9,
-          },
-        }),
-  };
 
   return {
     meta: {
