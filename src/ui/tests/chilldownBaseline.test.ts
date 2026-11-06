@@ -17,7 +17,10 @@
  *     are bracketed by physical wall samples; half-segment end wall nodes
  *     (total wall mass and area equal the line's); temperature-dependent
  *     NIST OFHC-copper cp(T) and k(T) — as in
- *     docs/validation/chilldown-report.md.
+ *     docs/validation/chilldown-report.md;
+ *   - NBS_LINE_FLOW_MODEL: longitudinal inertia (GFSSP's formulation, Cross
+ *     et al. 2002 Eq. 17; without it the outlet flow is supersonic) and the
+ *     K = 2 inlet restriction for the dewar valve and entrance.
  *
  * CI scale: ONE representative N=3 case (saturated 74.97 psia, ~60–90 s
  * with the retry cascade).  The full 4-case suite (3
@@ -44,6 +47,7 @@ import {
   NBS_CHILLDOWN_RIG,
   NBS_TIME_STEP_S,
   NBS_LINE_WALL_MODEL,
+  NBS_LINE_FLOW_MODEL,
   DEFAULT_CHILLDOWN_TIME_DEFINITION,
   type ChilldownDataPoint,
   type ChilldownTimeDefinition,
@@ -103,6 +107,7 @@ function runCase(point: ChilldownDataPoint): CaseResult {
     outletPressure: 101325,
     ...(subcooled ? { inletTemperature: point.subcooledAtTemperature!.K } : {}),
     ...NBS_LINE_WALL_MODEL,
+    ...NBS_LINE_FLOW_MODEL,
     // The report's configuration (single source of truth): the measured
     // initial wall temperature of the run, the fluid's fixed step, and a
     // horizon of three measured chilldown times.
@@ -187,7 +192,9 @@ describe("NBS Table-6 chilldown baseline — CI representative case (N=3, sat 74
     );
     // Same wide band as the full suite: catches gross regressions (no
     // crossing, factor-2 drift) without pretending the coarse-N model is
-    // exact.  Measured: 153.3 s with NBS_LINE_WALL_MODEL; exp 150 s.
+    // exact.  Measured: 129.4 s with NBS_LINE_WALL_MODEL and
+    // NBS_LINE_FLOW_MODEL (121.0 s before longitudinal inertia and the inlet
+    // restriction); exp 150 s.
     expect(m.timeS!).toBeGreaterThan(exp * 0.5);
     expect(m.timeS!).toBeLessThan(exp * 1.6);
   });
@@ -248,9 +255,10 @@ describeSlow(
       }
       console.log("BASELINE (N=3, station-4 knee, Tsat_local+15 K):");
       for (const r of rows) console.log("  " + r);
-      // Measured N=3 mean |err| = 14.9 % (all three early, −12 % to −19 %: the
-      // coarse grid with the measured initial temperature); assert
-      // < 25 % as a regression sentinel.
+      // Measured N=3 mean |err| = 7.8 % (all three early, −3.5 % to −13.7 %,
+      // with longitudinal inertia and the inlet restriction; 14.9 % without
+      // them); the 25 % sentinel is unchanged — the gate guards against
+      // regressions, it does not ratchet to the current value.
       const meanAbsPct = errs.reduce((a, b) => a + b, 0) / errs.length;
       console.log(`  mean |our err| = ${meanAbsPct.toFixed(1)}%`);
       expect(meanAbsPct).toBeLessThan(25);
@@ -288,12 +296,15 @@ describeSlow(
       // The measurement is sub 100 s < sat 150 s (GFSSP: 100 s < 160 s).
       // With the GFSSP layout, the measured initial wall temperature and
       // the report's time step this model's N = 3 subcooled time is LONGER
-      // than its saturated one: the outlet wall waits on a Miropolskii
-      // shelf at near-zero quality until the node flips to single-phase
-      // liquid (docs/validation/chilldown-report.md, "Subcooled liquid
-      // nitrogen").  The gate therefore no longer asserts the ordering;
-      // it keeps the subcooled time inside the same wide regression band
-      // as the saturated ones, and the report states the deficiency.
+      // than its saturated one (149.4 s against 129.4 s): the outlet wall
+      // sits on a Miropolskii shelf at near-zero quality, and whether the
+      // outlet node turns liquid depends on the outlet pressure and on
+      // GFSSP's unpublished exit restriction (docs/validation/
+      // chilldown-report.md, "Outlet pressure and the exit restriction").
+      // The gate therefore does not assert the ordering; it keeps the
+      // subcooled time inside the same wide regression band as the
+      // saturated ones (1.6 × 100 s; measured 149.4 s), and the report
+      // states the deficiency.
       const exp = cases[3].point.experimentalChilldownTimeS;
       expect(sub).toBeGreaterThan(exp * 0.5);
       expect(sub).toBeLessThan(exp * 1.6);
@@ -366,6 +377,7 @@ describeSlow("NBS 9264 trusted trace runs — planned solves", () => {
           ? { inletTemperature: run.inletLiquidTempK }
           : {}),
         ...NBS_LINE_WALL_MODEL,
+        ...NBS_LINE_FLOW_MODEL,
         dt: spec.dtS,
         endTime: spec.endTimeS,
         timeStepping: "fixed",

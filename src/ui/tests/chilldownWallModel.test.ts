@@ -15,8 +15,13 @@ import { buildChilldownTwoPhase } from "../examples";
 import { physicalPosition } from "../../core";
 import {
   NBS_CHILLDOWN_RIG,
+  NBS_DOCUMENTED_OUTLET_PRESSURE_PA,
+  NBS_INLET_RESTRICTION_K,
+  NBS_INLET_RESTRICTION_K_SENSITIVITY,
+  NBS_LINE_FLOW_MODEL,
   NBS_LINE_WALL_MODEL,
   NBS_LINE_WALL_MODEL_LEGACY,
+  NBS_OUTLET_PRESSURE_PA,
 } from "../../validation/nbsChilldown";
 
 const L = NBS_CHILLDOWN_RIG.lengthM;
@@ -127,5 +132,95 @@ describe("legacy line wall model (end walls borrow a neighbour)", () => {
     expect(() =>
       buildChilldownTwoPhase({ segments: 1, inletWallCoupling: "downwind" }),
     ).toThrow(/at least 2 segments/);
+  });
+});
+
+/**
+ * Flow model of the NBS validation solves (NBS_LINE_FLOW_MODEL): longitudinal
+ * inertia and the inlet restriction.  Structural; the solves are gated in
+ * chilldownFlowModel.test.ts and chilldownBaseline.test.ts.
+ */
+describe("NBS line flow model (inertia, inlet restriction)", () => {
+  const A = (Math.PI / 4) * D * D;
+  const nbs = (N: number) =>
+    buildChilldownTwoPhase({
+      segments: N,
+      length: L,
+      ...NBS_LINE_WALL_MODEL,
+      ...NBS_LINE_FLOW_MODEL,
+    });
+
+  it("is GFSSP's formulation: inertia on, a K-factor inlet restriction of K = 2", () => {
+    expect(NBS_LINE_FLOW_MODEL.longitudinalInertia).toBe(true);
+    expect(NBS_LINE_FLOW_MODEL.inletRestrictionK).toBe(NBS_INLET_RESTRICTION_K);
+    expect(NBS_INLET_RESTRICTION_K).toBe(2);
+    // The sensitivity brackets the nominal value.
+    expect(NBS_INLET_RESTRICTION_K_SENSITIVITY[0]).toBeLessThan(
+      NBS_INLET_RESTRICTION_K,
+    );
+    expect(NBS_INLET_RESTRICTION_K_SENSITIVITY[1]).toBeGreaterThan(
+      NBS_INLET_RESTRICTION_K,
+    );
+  });
+
+  it("longitudinalInertia turns on the momentum-flux and kinetic-energy terms", () => {
+    const cfg = nbs(3);
+    expect(cfg.settings.momentumFlux).toBe(true);
+    expect(cfg.settings.kineticEnergy).toBe(true);
+  });
+
+  it("the inlet branch becomes a resistance (not an orifice) on the line's flow area", () => {
+    for (const N of [3, 30]) {
+      const cfg = nbs(N);
+      const b = cfg.branches.find((x) => x.id === "pipe0")!;
+      expect(b.from).toBe("f0");
+      expect(b.to).toBe("f1");
+      expect(b.component).toEqual({
+        type: "resistance",
+        k: NBS_INLET_RESTRICTION_K,
+        area: A,
+      });
+      // The outlet branch and the line segments are unchanged pipes.
+      expect(
+        cfg.branches.find((x) => x.id === `pipe${N + 1}`)!.component.type,
+      ).toBe("pipe");
+      for (let j = 1; j <= N; j++)
+        expect(
+          cfg.branches.find((x) => x.id === `pipe${j}`)!.component.type,
+        ).toBe("pipe");
+    }
+  });
+
+  it("defaults are unchanged: no inertia terms and the 0.05 m inlet pipe", () => {
+    for (const cfg of [
+      buildChilldownTwoPhase(),
+      buildChilldownTwoPhase({
+        segments: 3,
+        length: L,
+        ...NBS_LINE_WALL_MODEL,
+      }),
+    ]) {
+      expect(cfg.settings.momentumFlux).toBeUndefined();
+      expect(cfg.settings.kineticEnergy).toBeUndefined();
+      expect(cfg.branches[0].component.type).toBe("pipe");
+    }
+  });
+
+  it("rejects an inlet restriction without the internal layout, and a negative K", () => {
+    expect(() =>
+      buildChilldownTwoPhase({ segments: 3, inletRestrictionK: 2 }),
+    ).toThrow(/endNodeLayout/);
+    expect(() =>
+      buildChilldownTwoPhase({
+        segments: 3,
+        endNodeLayout: "internal",
+        inletRestrictionK: -1,
+      }),
+    ).toThrow(/K ≥ 0/);
+  });
+
+  it("the outlet stays at one atmosphere; the documented 12.05 psia is a sensitivity input", () => {
+    expect(NBS_OUTLET_PRESSURE_PA).toBe(101325);
+    expect(NBS_DOCUMENTED_OUTLET_PRESSURE_PA / 6894.757).toBeCloseTo(12.05, 3);
   });
 });

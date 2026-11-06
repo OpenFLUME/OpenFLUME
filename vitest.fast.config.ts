@@ -23,6 +23,7 @@ const scientificAndSlowFiles = [
   "src/ui/tests/cavitatingVenturi.test.ts",
   "src/ui/tests/chilldown.test.ts",
   "src/ui/tests/chilldownBaseline.test.ts",
+  "src/ui/tests/chilldownFlowModel.test.ts",
   "src/ui/tests/chilldownTwoPhase.test.ts",
   "src/ui/tests/gfssp-benchmarks.test.ts",
   "src/ui/tests/leeMartin.test.ts",
