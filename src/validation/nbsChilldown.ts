@@ -264,8 +264,9 @@ export const NBS_INLET_RESTRICTION_K_SENSITIVITY = [1, 5] as const;
  *   - Longitudinal inertia (momentum flux and kinetic energy) on: GFSSP's
  *     chilldown formulation includes it (Cross, Majumdar, Bennett and Malla,
  *     J. Spacecraft Rockets 39(2), 2002, Eq. 17); without it the outlet flow
- *     of the vapor-filled line is supersonic (Mach 1.06–1.94 at the outlet
- *     node of saturated LH2 74.97 psia at N = 30, t = 21–51 s).
+ *     of the vapor-filled line is supersonic (peak outlet-node Mach number
+ *     1.27–1.93 in the four representative cases at N = 30, at most 0.72
+ *     with it; docs/validation/chilldown-report.md, "Longitudinal inertia").
  *   - An inlet restriction of K = NBS_INLET_RESTRICTION_K in place of the
  *     negligible-friction inlet branch, standing for GFSSP's inlet valve
  *     branch; without it the first fluid node sits at the dewar pressure

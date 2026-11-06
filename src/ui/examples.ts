@@ -3672,9 +3672,9 @@ export function buildChilldownTwoPhase(options?: {
    * GFSSP's chilldown formulation includes the longitudinal inertia term in
    * its momentum equation (Cross, Majumdar, Bennett and Malla, J. Spacecraft
    * Rockets 39(2), 2002, Eq. 17).  Without it the vapor-filled line
-   * accelerates the flow past the speed of sound at the outlet node (Mach
-   * 1.06–1.94 in the saturated LH2 74.97 psia solve at N = 30, t = 21–51 s),
-   * which a 1-D duct cannot do; with it the flow chokes physically.  The
+   * accelerates the flow past the speed of sound at the outlet node (peak
+   * Mach 1.27–1.93 in the four NBS cases of the report at N = 30; at most
+   * 0.72 with it), which a heated constant-area duct cannot do.  The
    * NBS 9264 validation solves turn it on (NBS_LINE_FLOW_MODEL,
    * src/validation/nbsChilldown.ts).
    */
