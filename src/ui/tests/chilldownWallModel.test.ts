@@ -12,6 +12,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { buildChilldownTwoPhase } from "../examples";
+import { physicalPosition } from "../../core";
 import {
   NBS_CHILLDOWN_RIG,
   NBS_LINE_WALL_MODEL,
@@ -40,7 +41,8 @@ function convections(cfg: ReturnType<typeof build>) {
   return (cfg.conductors ?? []).filter((c) => c.type.kind === "convection");
 }
 
-const px = (n: { position?: { x?: number } }) => n.position?.x ?? NaN;
+const px = (n: Parameters<typeof physicalPosition>[0]) =>
+  physicalPosition(n)?.x ?? NaN;
 
 describe("NBS line wall model (GFSSP layout)", () => {
   for (const N of [3, 6, 12, 30]) {
