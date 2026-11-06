@@ -1045,6 +1045,8 @@ const trendFacts = (() => {
   }
   let sPairs = 0;
   let sOk = 0;
+  let measShorter = 0;
+  let measEqual = 0;
   const sWrong: string[] = [];
   for (const sat of R.P3.filter((r) => r.p.inletCondition === "saturated")) {
     const sub = R.P3.find(
@@ -1055,13 +1057,17 @@ const trendFacts = (() => {
     );
     if (!sub) continue;
     sPairs++;
+    const eS = sub.p.experimentalChilldownTimeS;
+    const eT = sat.p.experimentalChilldownTimeS;
+    if (eS < eT) measShorter++;
+    else if (eS === eT) measEqual++;
     if ((sub.t ?? NaN) < (sat.t ?? NaN)) sOk++;
     else
       sWrong.push(
         `${fluidLabel(sat.p)} ${sat.p.drivingPressure.psia} psia (saturated ${fmt(sat.t)} s, subcooled ${fmt(sub.t)} s; measured ${sat.p.experimentalChilldownTimeS} s and ${sub.p.experimentalChilldownTimeS} s)`,
       );
   }
-  return `Chilldown time falls with driving pressure in ${ok} of ${pairs} adjacent pairs of rows within a group${wrong.length ? ` (exceptions: ${wrong.join("; ")})` : ""}. At matched pressure the subcooled time is shorter than the saturated one in ${sOk} of ${sPairs} pairs${sWrong.length ? `; the exceptions are ${sWrong.join("; ")}` : ""}, where the measurement has the subcooled time the shorter in every pair.`;
+  return `Chilldown time falls with driving pressure in ${ok} of ${pairs} adjacent pairs of rows within a group${wrong.length ? ` (exceptions: ${wrong.join("; ")})` : ""}. At matched pressure the subcooled time is shorter than the saturated one in ${sOk} of ${sPairs} pairs${sWrong.length ? `; the exceptions are ${sWrong.join("; ")}` : ""}, where the measured subcooled time is the shorter in ${measShorter} of the ${sPairs} pairs${measEqual ? ` and equal in ${measEqual}` : ""}.`;
 })();
 
 // The representative subset: OpenFLUME at each N against GFSSP's published values.
