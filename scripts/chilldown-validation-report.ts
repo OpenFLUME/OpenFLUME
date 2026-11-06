@@ -25,15 +25,18 @@
  *   npx tsx scripts/chilldown-validation-report.ts
  *
  * Scope and cost (bounded by design): Table 6 at N = 3 for all eighteen rows
- * (plus the 300 K-start, pre-GFSSP-layout and initial-temperature-bracket
- * variants, all at N = 3); the representative subset (saturated and subcooled
- * LN2 and LH2) at N = 3, 6, 12 and GFSSP's N = 30, with the time step doubled
- * and halved; the seven trusted trace runs at N = 6 and the four of them in
- * the subset at N = 30.  N = 60 is not run.  Each solve is a child process
- * limited to 300 s (a timeout is listed in the report, not dropped), four at
- * a time.  Expected runtime: 15-25 minutes on four cores (about 190 solves,
- * most of them seconds long; the N = 12 and N = 30 solves of the subset
- * dominate, the subcooled-nitrogen N = 30 solves reaching the timeout).
+ * (plus the 300 K-start, pre-GFSSP-layout, initial-temperature-bracket,
+ * no-inertia and no-inlet-restriction variants, all at N = 3); the
+ * representative subset (saturated and subcooled LN2 and LH2) at N = 3, 6, 12
+ * and GFSSP's N = 30, with the time step doubled and halved, without
+ * longitudinal inertia at N = 30, with the inlet-restriction K varied (N = 3)
+ * and at the documented 12.05 psia outlet pressure (N = 3; the subcooled LN2
+ * case also at N = 30); the seven trusted trace runs at N = 6.  N = 60 is not
+ * run, and N = 30 only for the four subset cases.  Each solve is a child
+ * process limited to 420 s (stopped 30 s before and listed with its partial
+ * histories, not dropped),
+ * four at a time.  Expected runtime: about 15 minutes on four cores (about
+ * 170 solves, most of them seconds long; the N = 30 solves dominate).
  * CHILLDOWN_CACHE=<file> stores the solve histories of a run and re-reads
  * them, for editing the report text only.
  */
@@ -65,6 +68,10 @@ import {
   DEFAULT_CHILLDOWN_TIME_DEFINITION,
   NBS_CHILLDOWN_DATA,
   NBS_CHILLDOWN_RIG,
+  NBS_DOCUMENTED_OUTLET_PRESSURE_PA,
+  NBS_INLET_RESTRICTION_K,
+  NBS_INLET_RESTRICTION_K_SENSITIVITY,
+  NBS_OUTLET_PRESSURE_PA,
   NBS_TIME_STEP_S,
   type ChilldownDataPoint,
   type ChilldownTimeDefinition,
@@ -156,7 +163,7 @@ const GRID_NS = [3, 6, 12, 30]; // refinement ladder of the representative subse
 const TRACE_N = 6; // the trace-test plan: all trusted runs
 const DT_LEVELS_CI = [2, 1, 0.5, 0.25]; // multiples of the fluid's step, N = 3
 const DT_LEVELS_PRIMARY = [2, 1, 0.5]; // N = 30 (a quarter step is too costly)
-const SOLVE_TIMEOUT_S = 300;
+const SOLVE_TIMEOUT_S = 420;
 const WORKERS = 4;
 /** The representative subset solved at GFSSP's resolution: a saturated and a
  *  subcooled case of each fluid (all four have a trusted digitized run). */
@@ -167,13 +174,16 @@ const REP_CASES = [
   "subLH2-P86.73",
 ];
 const DIAG_CASES = ["subLN2-P61.74", "satLN2-P86.73"];
-/** Diagnostic solves: N = 3, 6, 12 at Δt = 10 s (the step at which these
- *  converge) and N = 30 at the step used (Δt = 5 s). */
+/** Diagnostic solves: the subset's own solves at the step used, with the
+ *  outlet node and the energy closure recorded. */
 const DIAG_NS = [3, 6, 12, 30];
-const DIAG_DT = 10;
-const diagKey = (id: string, N: number) =>
-  N === PRIMARY_N ? jkey("t6", id, N, "P") : jkey("dg", id, N, "P", DIAG_DT);
-const diagDt = (N: number) => (N === PRIMARY_N ? NBS_TIME_STEP_S.LN2 : DIAG_DT);
+const diagKey = (id: string, N: number) => jkey("t6", id, N, "P");
+const diagDt = (_N: number) => NBS_TIME_STEP_S.LN2;
+/** Inlet-restriction values solved: none (the negligible-friction inlet
+ *  branch, null) and the sensitivity pair around the nominal K. */
+const K_SENS = NBS_INLET_RESTRICTION_K_SENSITIVITY;
+/** The subcooled LN2 case of the outlet-pressure study. */
+const P83_CASE = "subLN2-P61.74";
 const KNEE15: ChilldownTimeDefinition = DEFAULT_CHILLDOWN_TIME_DEFINITION;
 const KNEE30: ChilldownTimeDefinition = {
   station: 4,
@@ -182,7 +192,12 @@ const KNEE30: ChilldownTimeDefinition = {
 
 const dtOf = (p: ChilldownDataPoint): number => NBS_TIME_STEP_S[p.fluid];
 
-type Variant = "P" | "T300" | "LEG" | "TLO" | "THI";
+/** P: the validation model.  T300: 300 K start.  LEG: pre-GFSSP layout.
+ *  TLO/THI: corpus initial-temperature bracket.  NOI: no longitudinal
+ *  inertia.  NOK: no inlet restriction.  K1/K5: inlet K varied.  P83: the
+ *  documented 12.05 psia outlet pressure. */
+type Variant =
+  "P" | "T300" | "LEG" | "TLO" | "THI" | "NOI" | "NOK" | `K${number}` | "P83";
 const jkey = (
   kind: string,
   id: string,
@@ -214,6 +229,11 @@ function t6Spec(
                 : init.K,
         }),
     ...(v === "LEG" ? { layout: "legacy" as const } : {}),
+    ...(v === "NOI" ? { inertia: false } : {}),
+    ...(v === "NOK" ? { inletK: null } : {}),
+    ...(/^K\d/.test(v) ? { inletK: Number(v.slice(1)) } : {}),
+    ...(v === "P83" ? { outletPa: NBS_DOCUMENTED_OUTLET_PRESSURE_PA } : {}),
+    diag: v === "P" || v === "P83" || v === "NOI",
   };
 }
 function traceSpec(run: TraceRun, N: number, v: "P" | "T300"): SolveSpec {
@@ -251,44 +271,28 @@ const addJob = (key: string, spec: SolveSpec) => {
  *  refinement ladder's own solve, never solved twice. */
 const dtKey = (id: string, N: number, m: number, dt: number) =>
   m === 1 ? jkey("t6", id, N, "P") : jkey("dt", id, N, "P", dt);
-// Table 6: all eighteen rows at the CI configuration.
-for (const p of ALL_POINTS) {
-  addJob(jkey("t6", p.id, CI_N, "P"), t6Spec(p, CI_N, "P"));
-  addJob(jkey("t6", p.id, CI_N, "T300"), t6Spec(p, CI_N, "T300"));
-  addJob(jkey("t6", p.id, CI_N, "LEG"), t6Spec(p, CI_N, "LEG"));
-}
+// Table 6: all eighteen rows at the CI configuration, with the variants.
+for (const p of ALL_POINTS)
+  for (const v of ["P", "T300", "LEG", "NOI", "NOK"] as const)
+    addJob(jkey("t6", p.id, CI_N, v), t6Spec(p, CI_N, v));
 for (const p of noTrace)
   for (const v of ["TLO", "THI"] as const)
     addJob(jkey("t6", p.id, CI_N, v), t6Spec(p, CI_N, v));
-// The representative subset: N = 6, 12, 30 (N = 3 is above), and the
-// pre-GFSSP layout at N = 12.
+// The representative subset: N = 6, 12, 30 (N = 3 is above); without
+// longitudinal inertia at N = 30; the inlet K varied and the documented
+// outlet pressure at N = 3; the subcooled LN2 case at that pressure at N = 30.
 for (const p of REPS) {
   for (const N of GRID_NS.filter((n) => n !== CI_N))
-    addJob(jkey("t6", p.id, N, "P"), {
-      ...t6Spec(p, N, "P"),
-      diag: DIAG_CASES.includes(p.id) && N === PRIMARY_N,
-    });
-  addJob(jkey("t6", p.id, 12, "LEG"), t6Spec(p, 12, "LEG"));
+    addJob(jkey("t6", p.id, N, "P"), t6Spec(p, N, "P"));
+  addJob(jkey("t6", p.id, PRIMARY_N, "NOI"), t6Spec(p, PRIMARY_N, "NOI"));
+  for (const k of K_SENS)
+    addJob(jkey("t6", p.id, CI_N, `K${k}`), t6Spec(p, CI_N, `K${k}`));
+  addJob(jkey("t6", p.id, CI_N, "P83"), t6Spec(p, CI_N, "P83"));
 }
-// Diagnostic solves of the two nitrogen cases (Δt = 10 s, N = 3, 6, 12).
-for (const id of DIAG_CASES) {
-  const p = NBS_CHILLDOWN_DATA.find((x) => x.id === id)!;
-  for (const N of DIAG_NS.filter((n) => n !== PRIMARY_N))
-    addJob(diagKey(id, N), {
-      ...t6Spec(p, N, "P", DIAG_DT),
-      diag: true,
-    });
+{
+  const p = NBS_CHILLDOWN_DATA.find((x) => x.id === P83_CASE)!;
+  addJob(jkey("t6", p.id, PRIMARY_N, "P83"), t6Spec(p, PRIMARY_N, "P83"));
 }
-// The same subcooled case in the pre-GFSSP layout at the diagnostic step.
-for (const N of DIAG_NS.filter((n) => n !== PRIMARY_N))
-  addJob(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT), {
-    ...t6Spec(
-      NBS_CHILLDOWN_DATA.find((x) => x.id === DIAG_CASES[0])!,
-      N,
-      "LEG",
-      DIAG_DT,
-    ),
-  });
 // Time step: the subset at N = 3 (four levels) and N = 30 (three levels).
 for (const p of REPS)
   for (const [N, levels] of [
@@ -299,16 +303,9 @@ for (const p of REPS)
       const dt = dtOf(p) * m;
       addJob(dtKey(p.id, N, m, dt), t6Spec(p, N, "P", dt));
     }
-// Traces: every trusted run at the trace plan's N = 6, and the runs of the
-// representative subset at GFSSP's N = 30.
-for (const run of NBS_TRUSTED_TRACE_RUNS) {
+// Traces: every trusted run at the trace plan's N = 6.
+for (const run of NBS_TRUSTED_TRACE_RUNS)
   addJob(jkey("tr", run.runId, TRACE_N, "P"), traceSpec(run, TRACE_N, "P"));
-  if (run.conditionId && REP_CASES.includes(run.conditionId))
-    addJob(
-      jkey("tr", run.runId, PRIMARY_N, "P"),
-      traceSpec(run, PRIMARY_N, "P"),
-    );
-}
 
 // Longest first, so the four workers finish together.
 jobs.sort((a, b) => b.spec.N - a.spec.N);
@@ -398,7 +395,15 @@ interface Row {
   err: number;
   ok: boolean; // converged and completed
   failed?: string;
+  /** Steps accepted with a scaled residual above 0.01 (stalled). */
+  stalled: number;
+  /** Fluid energy gain over wall energy removed, minus one [%]. */
+  closurePct?: number;
 }
+const closureOf = (o: SolveOut) =>
+  o.diag
+    ? (o.diag.fluidEnthalpyGainJ / o.diag.wallEnergyRemovedJ - 1) * 100
+    : undefined;
 function rowOf(p: ChilldownDataPoint, N: number, v: Variant): Row {
   const o = out(jkey("t6", p.id, N, v));
   const t = timeOf(o);
@@ -408,6 +413,8 @@ function rowOf(p: ChilldownDataPoint, N: number, v: Variant): Row {
     err: errPct(t, p.experimentalChilldownTimeS),
     ok: o.converged && !o.failed,
     failed: o.failed,
+    stalled: o.stalledSteps.length,
+    closurePct: closureOf(o),
   };
 }
 const gfsspErr = (p: ChilldownDataPoint) =>
@@ -464,12 +471,22 @@ const R = {
   P3: rowsAt(ALL_POINTS, CI_N, "P"),
   T3: rowsAt(ALL_POINTS, CI_N, "T300"),
   L3: rowsAt(ALL_POINTS, CI_N, "LEG"),
+  NOI3: rowsAt(ALL_POINTS, CI_N, "NOI"),
+  NOK3: rowsAt(ALL_POINTS, CI_N, "NOK"),
   /** The representative subset at every level of the ladder. */
   grid: Object.fromEntries(
     GRID_NS.map((N) => [N, rowsAt(REPS, N, "P")] as const),
   ) as Record<number, Row[]>,
-  L12: rowsAt(REPS, 12, "LEG"),
+  NOI30: rowsAt(REPS, PRIMARY_N, "NOI"),
+  K: Object.fromEntries(
+    K_SENS.map((k) => [k, rowsAt(REPS, CI_N, `K${k}`)] as const),
+  ) as Record<number, Row[]>,
+  P83: rowsAt(REPS, CI_N, "P83"),
 };
+/** Rows whose solve converged at every step (no flagged step). */
+const unflagged = (rs: Row[]) => rs.filter((r) => r.ok);
+const isSubLN2 = (p: ChilldownDataPoint) =>
+  p.fluid === "LN2" && p.inletCondition === "subcooled";
 const repRow = (N: number, p: ChilldownDataPoint) =>
   R.grid[N].find((r) => r.p.id === p.id)!;
 const rowFor = (rs: Row[], p: ChilldownDataPoint) =>
@@ -619,10 +636,6 @@ function traceSolveOf(
 const TS = {
   /** All trusted runs at the trace plan's N = 6. */
   n6: NBS_TRUSTED_TRACE_RUNS.map((r) => traceSolveOf(r, TRACE_N, "P")),
-  /** The trusted runs of the representative subset at GFSSP's N = 30. */
-  n30: NBS_TRUSTED_TRACE_RUNS.filter(
-    (r) => r.conditionId && REP_CASES.includes(r.conditionId),
-  ).map((r) => traceSolveOf(r, PRIMARY_N, "P")),
 };
 const stationKnee = (ts: TraceSolve, st: number) => {
   const s = ts.cmp.stations[st - 1];
@@ -961,6 +974,51 @@ const FIG_END = TRACE_FIG0 + TS.n6.length;
   );
 }
 
+// The same case at the two outlet pressures (no exit restriction).
+const FIG_POUT = FIG_END + 1;
+{
+  const p = NBS_CHILLDOWN_DATA.find((x) => x.id === P83_CASE)!;
+  const tr = traceRunFor(p)!.traces[3];
+  const stride = Math.max(1, Math.ceil(tr.timesS.length / 40));
+  const line = (N: number, v: Variant, color: string, dash?: string) => {
+    const o = out(jkey("t6", p.id, N, v));
+    const w = usable(o) ? interpolateStation4(o) : [];
+    return {
+      label: `N = ${N}, outlet ${v === "P83" ? "83.08" : "101.325"} kPa${o.converged ? "" : " (not converged)"}`,
+      pts: w.map((T, k): [number, number] => [o.timesS[k], T]),
+      color,
+      mode: "line" as const,
+      ...(dash ? { dash } : {}),
+    };
+  };
+  writeFig(
+    FIG_POUT,
+    "outlet-pressure",
+    lineChart({
+      title: `Subcooled LN₂, ${p.drivingPressure.psia} psia: station-4 wall at two outlet pressures`,
+      xLabel: "Time t [s]",
+      yLabel: "Wall temperature at station 4 [K]",
+      legend: "outside-right",
+      yRange: [60, 320],
+      series: [
+        line(CI_N, "P", C.blue),
+        line(PRIMARY_N, "P", C.red),
+        line(CI_N, "P83", C.blue, "6 4"),
+        line(PRIMARY_N, "P83", C.red, "6 4"),
+        {
+          label: `Data (${traceRunFor(p)!.figure})`,
+          pts: tr.timesS
+            .map((t, j): [number, number] => [t, tr.wallTempsK[j]])
+            .filter((_, j) => j % stride === 0),
+          color: C.grey,
+          mode: "markers",
+          marker: "circle",
+        },
+      ],
+    }),
+  );
+}
+
 /* ==========================================================================
  * Report markdown — derived quantities
  * ========================================================================== */
@@ -998,7 +1056,7 @@ const t6Rows = ALL_POINTS.map((p) => {
   const r3 = rowFor(R.P3, p);
   const r30 = REP_CASES.includes(p.id) ? repRow(PRIMARY_N, p) : undefined;
   const init = initialWallTemperatureForPoint(p);
-  return `| ${fluidLabel(p)} | ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${p.gfsspPredictedChilldownTimeS} (${signedPct(gfsspErr(p))}) | ${cell(r3)} | ${cell(r30)} | ${fmt(init.K, 0)}${init.source === "trace" ? "" : "ᵃ"} | ${recordOf(p)} | ${trustOf(p)} |`;
+  return `| ${fluidLabel(p)} | ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${p.gfsspPredictedChilldownTimeS} (${signedPct(gfsspErr(p))}) | ${cell(r3)} | ${r3.stalled} | ${r3.closurePct === undefined ? "—" : signedPct(r3.closurePct)} | ${cell(r30)} | ${fmt(init.K, 0)}${init.source === "trace" ? "" : "ᵃ"} | ${recordOf(p)} | ${trustOf(p)} |`;
 }).join("\n");
 
 const statLine = (label: string, rs: Row[]) => {
@@ -1009,11 +1067,19 @@ const statLine = (label: string, rs: Row[]) => {
 const groupStatRows = (rsAll: Row[]) =>
   [
     statLine("All 18 rows", rsAll),
-    statLine(`${nTrustedRows} trusted rows`, trustedRows(rsAll)),
     statLine(
-      `${rsAll.filter((r) => r.ok).length} rows whose solve converged`,
-      rsAll.filter((r) => r.ok),
+      `${unflagged(rsAll).length} rows without a flagged step`,
+      unflagged(rsAll),
     ),
+    statLine(
+      "All rows except subcooled LN₂",
+      sel(rsAll, (p) => !isSubLN2(p)),
+    ),
+    statLine(
+      "Rows without a flagged step, except subcooled LN₂",
+      sel(unflagged(rsAll), (p) => !isSubLN2(p)),
+    ),
+    statLine(`${nTrustedRows} trusted rows`, trustedRows(rsAll)),
     ...GROUPS.map((g) =>
       statLine(
         g.label,
@@ -1091,12 +1157,121 @@ const layoutRows = ALL_POINTS.map((p) => {
   const b3 = rowFor(R.P3, p);
   return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${cell(a3)} | ${cell(b3)} |`;
 }).join("\n");
-const layoutRows12 = REPS.map((p) => {
-  const a = rowFor(R.L12, p);
-  const b = repRow(12, p);
-  return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${cell(a)} | ${cell(b)} |`;
-}).join("\n");
 const layoutS3 = ourStats(R.L3);
+
+/* Longitudinal inertia, inlet restriction, outlet pressure. */
+const sU = ourStats(unflagged(R.P3));
+const gU = gfsspStats(unflagged(R.P3));
+const sNoSub = ourStats(sel(unflagged(R.P3), (p) => !isSubLN2(p)));
+const gNoSub = gfsspStats(sel(unflagged(R.P3), (p) => !isSubLN2(p)));
+const nFlagged = R.P3.filter((r) => !r.ok).length;
+const flaggedNames = (rs: Row[]) =>
+  rs
+    .filter((r) => !r.ok)
+    .map(
+      (r) =>
+        `${fluidLabel(r.p)} ${r.p.inletCondition} ${r.p.drivingPressure.psia} psia`,
+    );
+const noiS3 = ourStats(R.NOI3);
+const noiS3x = ourStats(sel(R.NOI3, (p) => !isSubLN2(p)));
+const pS3x = ourStats(sel(R.P3, (p) => !isSubLN2(p)));
+const inertiaRows = REPS.map((p) => {
+  const a3 = rowFor(R.NOI3, p);
+  const b3 = rowFor(R.P3, p);
+  const a30 = rowFor(R.NOI30, p);
+  const b30 = repRow(PRIMARY_N, p);
+  return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${p.gfsspPredictedChilldownTimeS} | ${cell(a3)} | ${cell(b3)} | ${cell(a30)} | ${cell(b30)} |`;
+}).join("\n");
+const inertiaShift3 = R.P3.map((r, i) => (r.t ?? NaN) - (R.NOI3[i].t ?? NaN));
+const kRows = REPS.map((p) => {
+  const cells = [
+    rowFor(R.NOK3, p),
+    ...K_SENS.slice(0, 1).map((k) => rowFor(R.K[k], p)),
+    rowFor(R.P3, p),
+    ...K_SENS.slice(1).map((k) => rowFor(R.K[k], p)),
+  ];
+  return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${cells.map((r) => `${cell(r)}${r.stalled ? ` [${r.stalled}]` : ""}`).join(" | ")} |`;
+}).join("\n");
+const kOrder = [K_SENS[0], NBS_INLET_RESTRICTION_K, ...K_SENS.slice(1)];
+const kSpread = REPS.map((p) => {
+  const ts = [
+    rowFor(R.P3, p).t,
+    ...K_SENS.map((k) => rowFor(R.K[k], p).t),
+  ].filter((x): x is number => x !== undefined);
+  return { p, spread: Math.max(...ts) - Math.min(...ts) };
+});
+const nFlaggedNoK = R.NOK3.filter((r) => !r.ok).length;
+const p83Rows = REPS.map((p) => {
+  const a = rowFor(R.P3, p);
+  const b = rowFor(R.P83, p);
+  return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${p.experimentalChilldownTimeS} | ${p.gfsspPredictedChilldownTimeS} | ${cell(a)} | ${cell(b)} |`;
+}).join("\n");
+/** Outlet node of a solve with diagnostics: phase and quality history. */
+const outletNodeOf = (o: SolveOut) => {
+  const d = o.diag;
+  if (!usable(o) || !d) return undefined;
+  const n = o.timesS.length;
+  const tail = Math.floor(0.9 * n);
+  const q = d.endNode.quality
+    .slice(tail)
+    .filter((x): x is number => x !== null);
+  const firstLiquid = o.timesS.find((_, k) => d.endNode.phase[k] === "liquid");
+  return {
+    firstLiquidS: firstLiquid,
+    lastPhase: d.endNode.phase[n - 1],
+    tailMaxQuality: q.length ? Math.max(...q) : undefined,
+    tailMinQuality: q.length ? Math.min(...q) : undefined,
+    endS: o.timesS[n - 1],
+  };
+};
+/** Outlet-node Mach number V/c with V = ṁ_out/(ρA), on the steps at which
+ *  the outlet node is single-phase vapor (c is not defined for the
+ *  homogeneous two-phase states here). */
+const LINE_AREA = (Math.PI / 4) * 0.015875 ** 2;
+const machOf = (o: SolveOut) => {
+  const d = o.diag;
+  if (!usable(o) || !d) return undefined;
+  const f = fluidFor(specConditions(o.spec).fluidName);
+  let max = 0;
+  let first: number | undefined;
+  let last: number | undefined;
+  for (let k = 1; k < o.timesS.length; k++) {
+    if (d.endNode.phase[k] !== "vapor") continue;
+    const P = d.endNode.pressurePa[k];
+    const T = d.endNode.temperatureK[k];
+    const m =
+      d.mdotOutKgS[k] / (f.density(P, T) * LINE_AREA) / f.speedOfSound(P, T);
+    if (!Number.isFinite(m)) continue;
+    max = Math.max(max, m);
+    if (m > 1) {
+      first ??= o.timesS[k];
+      last = o.timesS[k];
+    }
+  }
+  return { max, first, last };
+};
+const machCell = (o: SolveOut) => {
+  const m = machOf(o);
+  return m === undefined
+    ? "—"
+    : `${fmt(m.max, 2)}${m.first !== undefined ? ` (> 1 for t = ${fmt(m.first, 0)}–${fmt(m.last, 0)} s)` : ""}`;
+};
+const machRows = REPS.map((p) => {
+  const a = out(jkey("t6", p.id, PRIMARY_N, "NOI"));
+  const b = out(jkey("t6", p.id, PRIMARY_N, "P"));
+  return `| ${fluidLabel(p)} ${p.inletCondition} | ${p.drivingPressure.psia} | ${machCell(a)} | ${machCell(b)} |`;
+}).join("\n");
+const p83Case = NBS_CHILLDOWN_DATA.find((x) => x.id === P83_CASE)!;
+const poutRows = ([CI_N, PRIMARY_N] as const)
+  .flatMap((N) =>
+    (["P", "P83"] as const).map((v) => {
+      const o = out(jkey("t6", P83_CASE, N, v));
+      const t = timeOf(o);
+      const on = outletNodeOf(o);
+      return `| ${N} | ${v === "P83" ? "83.08 (12.05 psia)" : "101.325"} | ${t === undefined ? `not reached in ${fmt(on?.endS, 0)} s` : `${fmt(t)} (${signedPct(errPct(t, p83Case.experimentalChilldownTimeS))})`}${o.converged ? "" : "*"} | ${on?.firstLiquidS === undefined ? "never" : fmt(on.firstLiquidS)} | ${on?.lastPhase ?? "—"}${on?.tailMaxQuality !== undefined ? `, x = ${fmt(on.tailMinQuality, 3)}–${fmt(on.tailMaxQuality, 3)}` : ""} |`;
+    }),
+  )
+  .join("\n");
 
 const initRows = ALL_POINTS.map((p) => {
   const ini = initialWallTemperatureForPoint(p);
@@ -1215,14 +1390,6 @@ const subHLiq = fin(dSub.map((c) => c.hLiquid));
 const subMinQ = fin(dSub.map((c) => c.minQuality));
 const satMinQ = fin(dSat.map((c) => c.minQuality));
 
-const legacyDiag = DIAG_NS.filter((n) => n !== PRIMARY_N).map((N) =>
-  timeOf(out(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT))),
-);
-const legacyGrowth =
-  (legacyDiag[legacyDiag.length - 1] ?? NaN) - (legacyDiag[0] ?? NaN);
-const internalGrowth =
-  (dSubAll.find((c) => c.N === 12)?.knee ?? NaN) -
-  (dSubAll.find((c) => c.N === 3)?.knee ?? NaN);
 /** Interval from the outlet wall's 150 K arrival to its knee. */
 const shelfInterval = (c: DiagCase) => (c.knee ?? NaN) - c.t150;
 
@@ -1293,18 +1460,12 @@ const traceFindings = (set: TraceSolve[], label: string) => {
   return lines.join("\n");
 };
 
-const subsetTraceRows = TS.n30
-  .map((t30) => {
-    const t6 = TS.n6.find((t) => t.run.runId === t30.run.runId)!;
-    return `| ${t30.run.figure} | ${fmt(t6.cmp.pooled.rmseK)} | ${fmt(t30.cmp.pooled.rmseK)} | ${signedSec(stationKnee(t6, 1).lag)} | ${signedSec(stationKnee(t30, 1).lag)} | ${signedSec(stationKnee(t6, 4).lag)} | ${signedSec(stationKnee(t30, 4).lag)} |`;
-  })
-  .join("\n");
-
 const failedList = [...solved.entries()]
   .filter(([, o]) => o.failed)
   .map(([k, o]) => `- \`${k}\`: ${o.failed}`);
 const nonConvList = notConverged.map(
-  ([k, o]) => `- \`${k}\`: ${o.stalledSteps.length} stalled step(s)`,
+  ([k, o]) =>
+    `- \`${k}\`: ${o.stoppedAtS !== undefined ? `stopped at the ${SOLVE_TIMEOUT_S - 30} s limit at t = ${fmt(o.stoppedAtS)} s, ` : ""}${o.stalledSteps.length} stalled step(s)`,
 );
 
 /* ==========================================================================
@@ -1342,14 +1503,23 @@ times of Table 6 (liquid nitrogen and liquid hydrogen, saturated and
 subcooled) are solved at the 3-segment CI configuration, from the measured
 initial wall temperature of each run and with one knee definition applied
 alike to the model and to the digitized data; trust levels are assigned from
-the experimental record alone. Over the eighteen rows the mean absolute error
-is ${s3.mae.toFixed(1)} % for OpenFLUME (signed mean ${signedPct(s3.signed)}, ${s3.late} of 18 late)
-and ${g18.mae.toFixed(1)} % for GFSSP's published 33-node predictions (signed mean
-${signedPct(g18.signed)}, ${g18.late} of 18 late); the correlation of the two sets of errors is
-${s3.corr.toFixed(2)}. A representative subset (saturated and subcooled LN₂ and LH₂) is
+the experimental record alone. The model includes the longitudinal inertia
+term of GFSSP's chilldown formulation (without it the outlet flow is
+supersonic) and an inlet restriction for the dewar valve and entrance. Over
+the eighteen rows the mean absolute error is ${s3.mae.toFixed(1)} % for OpenFLUME (signed mean
+${signedPct(s3.signed)}, ${s3.late} of 18 late) and ${g18.mae.toFixed(1)} % for GFSSP's published 30-segment
+predictions (signed mean ${signedPct(g18.signed)}, ${g18.late} of 18 late). ${nFlagged} rows accepted
+steps that did not converge and are flagged; over the other ${sU.n} the mean
+absolute error is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and without the subcooled LN₂ rows
+${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %). The subcooled LN₂ rows are late by
+${range(sel(R.P3, isSubLN2).map((r) => r.err))}: their outlet wall sits on a film-boiling shelf at near-zero quality
+until the outlet node turns liquid, and that node's phase depends on the
+outlet pressure and on an exit restriction that GFSSP's model has and whose
+coefficient is not published, so they are reported as sensitive to that
+input rather than as point values. A representative subset (saturated and subcooled LN₂ and LH₂) is
 also solved at GFSSP's 30 segments: its mean absolute error is
-${subsetStat(3).mae.toFixed(1)} % at N = 3, ${subsetStat(PRIMARY_N).mae.toFixed(1)} % at N = ${PRIMARY_N} and ${subsetG.mae.toFixed(1)} % for GFSSP.
-The subcooled liquid-nitrogen case at 61.74 psia is ${cell(repRow(3, REPS[1]))} at N = 3 and ${cell(repRow(PRIMARY_N, REPS[1]))} at N = ${PRIMARY_N} (GFSSP ${signedPct(gfsspErr(REPS[1]))}); it is not time-step converged (the knee falls as the step is refined and the finer-step solves do not converge). At the one step at which all its diagnostic solves converge (Δt = 10 s) the knee of the GFSSP layout changes by ${fmt(internalGrowth)} s between N = 3 and N = 12, against ${fmt(legacyGrowth)} s for the earlier layout: for this case the growth of the error with refinement that the earlier layout showed was the layout. The converged solves show the outlet wall waiting on a low-quality film-boiling shelf that ends when the outlet node turns to single-phase liquid ("Subcooled liquid nitrogen" below); the correlation as implemented is the documented one.
+${subsetStat(3).mae.toFixed(1)} % at N = 3 and, over the ${subsetStat(PRIMARY_N).n} cases whose station 4 reaches the knee at
+N = ${PRIMARY_N}, ${subsetStat(PRIMARY_N).mae.toFixed(1)} % against ${subsetG.mae.toFixed(1)} % for GFSSP.
 Cryogenic chilldown is the least mature area of the code;
 the numbers below are the evidence for that statement.
 
@@ -1467,12 +1637,33 @@ segment of volume, so the total wall mass, wetted area and fluid volume equal
 the line's (\`NBS_LINE_WALL_MODEL\`, \`src/validation/nbsChilldown.ts\`). The wall
 uses the temperature-dependent NIST OFHC-copper specific heat and conductivity
 (4–300 K, RRR 100); the vacuum jacket is represented by an adiabatic outer wall.
-Nitrogen is CoolProp Nitrogen; hydrogen is ParaHydrogen. Transients use backward
+Nitrogen is CoolProp Nitrogen; hydrogen is ParaHydrogen.
+
+The branch momentum equation includes the longitudinal inertia (momentum-flux)
+term and the energy balance the kinetic energy of the flow (\`NBS_LINE_FLOW_MODEL\`).
+GFSSP's chilldown formulation includes the inertia term (Cross, Majumdar,
+Bennett, and Malla, 2002, Eq. 17). Without it the vapor-filled line
+accelerates its outflow past the speed of sound at the outlet node, which a
+constant-area duct fed from upstream cannot do (table "Longitudinal inertia"). The short inlet branch is a
+K-factor resistance, ΔP = K ṁ|ṁ|/(2ρA²) on the line's flow area, standing for the
+valve and entrance between the dewar and the line; GFSSP's model has a restriction
+branch there (AIAA 2015-3850, Fig. 14) whose coefficient is not published.
+K = ${NBS_INLET_RESTRICTION_K} is set from a physical argument, not fitted: a sharp-edged entrance (K ≈ 0.5)
+plus a fully open valve (K of order 1). K = ${K_SENS.join(" and ")} are the sensitivity. The
+outlet is a boundary node at ${NBS_OUTLET_PRESSURE_PA} Pa. NBS 9264 and GFSSP give 12.05 psia
+(83.08 kPa); GFSSP's model also has an exit restriction whose coefficient is
+not published, and without it that pressure leaves the subcooled-LN₂ outlet node two-phase
+(see "Outlet pressure and the exit restriction"). Transients use backward
 Euler with a fixed step, Δt = ${NBS_TIME_STEP_S.LN2} s for nitrogen and ${NBS_TIME_STEP_S.LH2} s for hydrogen
 (from the time-step study below), a horizon of three measured chilldown times (at least
 300 s) and each run's measured initial wall temperature. Nothing in this
 report is fitted: N, Δt and the initial temperature are fixed by the definitions
-above, and the closure constants are the published ones.
+above, the closure constants are the published ones, and K is set from the
+physical argument above. A solve that accepts a step whose scaled residual stays above
+0.01 (a stalled step) is flagged: such steps do not conserve energy, and the
+energy closure (fluid enthalpy gain over the wall energy removed) is listed
+with every Table-6 row. Flagged rows are reported but excluded from the
+summary statistics, which are given with and without them.
 
 The earlier layout (\`endNodeLayout: "boundary"\`: N segments between the boundary
 nodes, the two end wall nodes borrowing a neighbouring fluid node) is kept for
@@ -1483,19 +1674,21 @@ to the fluid a segment length L/N upstream of it (20 m at N = 3).
 
 ### Table 6: experiment, GFSSP, and OpenFLUME
 
-| Fluid | Inlet | P_drive [psia] | Experiment [s] | GFSSP [s] | OpenFLUME N = ${CI_N} [s] | OpenFLUME N = ${PRIMARY_N} [s] | T₀ [K] | Digitized record | Trust level |
-| ----- | ----- | -------------- | -------------- | --------- | ----------- | ------------- | ------ | ---------------- | ----------- |
+| Fluid | Inlet | P_drive [psia] | Experiment [s] | GFSSP [s] | OpenFLUME N = ${CI_N} [s] | Stalled steps | Energy closure | OpenFLUME N = ${PRIMARY_N} [s] | T₀ [K] | Digitized record | Trust level |
+| ----- | ----- | -------------- | -------------- | --------- | ----------- | ------------- | -------------- | ------------- | ------ | ---------------- | ----------- |
 ${t6Rows}
 
 OpenFLUME errors are relative to experiment. N = ${CI_N} for all eighteen rows; N = ${PRIMARY_N} only for the
 four representative rows (— : not solved). Station-4 knee as defined above.
 ᵃ: mean initial wall temperature of the eleven runs (no digitized run of this
-test). * : the solve did not converge. † : the solve failed or timed out.
+test). * : the solve accepted stalled steps (flagged). † : the solve failed or timed out.
+Energy closure: fluid energy gain over wall energy removed, minus one, at N = ${CI_N}.
 
 ${STAT_HEAD}
 ${groupStatRows(R.P3)}
 
-OpenFLUME at N = ${CI_N}. The correlation is the Pearson correlation between OpenFLUME's
+OpenFLUME at N = ${CI_N}. Flagged rows (${flaggedNames(R.P3).join("; ") || "none"}) are excluded
+from the second and fourth lines. The correlation is the Pearson correlation between OpenFLUME's
 and GFSSP's relative errors over the rows. "Late" counts rows whose predicted time exceeds the measured one.
 ${trendFacts} ${failedList.length === 0 && nonConvList.length === 0 ? "All solves of the report converged." : "Solves that failed or did not converge are listed at the end of this section."}
 
@@ -1521,7 +1714,7 @@ ${figLink(2, "Predicted over measured station-4 chilldown time of the four repre
 
 The step used (Δt, ${NBS_TIME_STEP_S.LN2} s for nitrogen and ${NBS_TIME_STEP_S.LH2} s for hydrogen) is doubled and halved
 on the four representative cases at N = ${CI_N} (also quartered) and at N = ${PRIMARY_N}
-(a quarter step is not solved at N = ${PRIMARY_N}); a solve is abandoned after ${SOLVE_TIMEOUT_S} s and listed.
+(a quarter step is not solved at N = ${PRIMARY_N}); a solve is stopped after ${SOLVE_TIMEOUT_S - 30} s and listed with its partial history.
 
 ${dtHead}
 ${dtTable}
@@ -1529,6 +1722,73 @@ ${dtTable}
 (* : the solve did not converge; † : failed or timed out.) Between Δt and Δt/2 the
 chilldown time moves by at most ${fmt(dtMaxResid(CI_N))} s at N = ${CI_N} and ${fmt(dtMaxResid(PRIMARY_N))} s at N = ${PRIMARY_N}
 over the cases where both completed.${dtFailed.length ? `\n\nNot completed or not converged:\n\n${dtFailed.map((x) => `- ${x}`).join("\n")}` : ""}
+
+### Longitudinal inertia
+
+The four representative cases with and without the momentum-flux and
+kinetic-energy terms (\`longitudinalInertia\`), at N = ${CI_N} and N = ${PRIMARY_N}:
+
+| Case | P_drive [psia] | Experiment [s] | GFSSP [s] | No inertia, N = ${CI_N} | Inertia, N = ${CI_N} | No inertia, N = ${PRIMARY_N} | Inertia, N = ${PRIMARY_N} |
+| ---- | -------------- | -------------- | --------- | --------------- | ------------ | ---------------- | ------------- |
+${inertiaRows}
+
+Largest outlet-node Mach number at N = ${PRIMARY_N} (single-phase vapor steps):
+
+| Case | P_drive [psia] | No inertia | Inertia |
+| ---- | -------------- | ---------- | ------- |
+${machRows}
+
+Over all eighteen rows at N = ${CI_N} the mean absolute error is ${noiS3.mae.toFixed(1)} % without the inertia
+terms and ${s3.mae.toFixed(1)} % with them (${noiS3x.mae.toFixed(1)} % and ${pS3x.mae.toFixed(1)} % without the subcooled LN₂ rows); the
+terms move the predicted time by ${range(inertiaShift3, 1, signedSec)}. Without inertia ${R.NOI3.filter((r) => !r.ok).length} rows are flagged.
+
+### Inlet restriction
+
+Chilldown time of the subset at N = ${CI_N} against the inlet loss coefficient K (none: the
+0.05 m negligible-friction inlet branch). [n]: number of stalled steps.
+
+| Case | P_drive [psia] | Experiment [s] | No restriction | K = ${kOrder[0]} | K = ${kOrder[1]} (used) | K = ${kOrder[2]} |
+| ---- | -------------- | -------------- | -------------- | ----- | ------------ | ----- |
+${kRows}
+
+Between K = ${kOrder[0]} and K = ${kOrder[2]} the chilldown time moves by ${kSpread.map((k) => `${fmt(k.spread)} s (${fluidLabel(k.p)} ${k.p.inletCondition})`).join(", ")}.
+Over all eighteen rows at N = ${CI_N}, ${nFlaggedNoK} rows are flagged without the restriction and ${nFlagged} with K = ${NBS_INLET_RESTRICTION_K}.
+Without it the first fluid node is held at the dewar pressure, where a subcooled inlet
+switches it between liquid and two-phase from one iteration to the next; the
+convection coefficient then jumps between Dittus–Boelter (of order 10³ W/m²K) and
+Miropolskii at low quality (of order 10 W/m²K), and the Newton iteration stalls.
+
+### Outlet pressure and the exit restriction
+
+NBS 9264 and GFSSP give the outlet pressure as 12.05 psia (83.08 kPa;
+TFAWS 2013), and GFSSP's model has an exit restriction (Fig. 14 of AIAA
+2015-3850) whose coefficient is not published. The subset at N = ${CI_N} with the outlet at
+83.08 kPa and no exit restriction:
+
+| Case | P_drive [psia] | Experiment [s] | GFSSP [s] | Outlet 101.325 kPa | Outlet 83.08 kPa |
+| ---- | -------------- | -------------- | --------- | ------------------ | ---------------- |
+${p83Rows}
+
+The subcooled LN₂ case at ${p83Case.drivingPressure.psia} psia, station-4 knee and the state of the outlet
+fluid node (the node the outlet wall convects to) over the last 10 % of the solve:
+
+| N | Outlet pressure [kPa] | Station-4 knee [s] | First liquid step at the outlet node [s] | Outlet node at the end |
+| - | --------------------- | ------------------ | ---------------------------------------- | ---------------------- |
+${poutRows}
+
+The subcooled LN₂ inlet (${p83Case.subcooledAtTemperature!.K} K) is saturated at ${fmt(fluidFor("Nitrogen").saturationPressure(p83Case.subcooledAtTemperature!.K) / 1000, 1)} kPa. Near the
+outlet the line pressure approaches the boundary pressure, so below that pressure the
+liquid that reaches the outlet node cannot stay liquid: at 83.08 kPa the node stays
+two-phase at near-zero quality, where the Miropolskii coefficient is of order 10 W/m²K,
+instead of turning liquid (Dittus–Boelter, of order 10³ W/m²K). An exit restriction
+raises the outlet node's pressure above the boundary's; GFSSP's model has one, and its
+subcooled-LN₂ times are finite at 12.05 psia, which is consistent with a restriction that
+keeps that node liquid, but its coefficient is not published and this is not established
+here. At N = ${PRIMARY_N} neither outlet pressure gives a usable time: both solves accept stalled
+steps and station 4 does not reach the knee within the horizon (energy closure ${["P", "P83"].map((v) => fmt(closureOf(out(jkey("t6", P83_CASE, PRIMARY_N, v as Variant))), 0) + " %").join(" and ")}). The subcooled LN₂ rows therefore depend on an unpublished input of GFSSP's model and
+are not quoted as point values.
+
+${figLink(FIG_POUT, `Subcooled LN₂ at ${p83Case.drivingPressure.psia} psia: station-4 wall temperature at N = ${CI_N} and N = ${PRIMARY_N} with the outlet at 101.325 kPa (solid) and 83.08 kPa (dashed), no exit restriction, against the digitized trace.`)}
 
 ### Knee of the digitized traces under the same definition
 
@@ -1585,92 +1845,48 @@ The bracket spans ${range(bracketSpread, 1, (x) => `${x.toFixed(1)} s`).replace(
 ${layoutRows}
 
 With the legacy layout the N = ${CI_N} mean absolute error is ${layoutS3.mae.toFixed(1)} % (signed mean ${signedPct(layoutS3.signed)}) against ${s3.mae.toFixed(1)} % (${signedPct(s3.signed)}) with GFSSP's layout.
-At N = 12 the legacy layout's offset between the outlet wall and its fluid is 5 m, against 20 m at N = 3:
-
-| Case | P_drive [psia] | Experiment [s] | Legacy layout, N = 12 | GFSSP layout, N = 12 |
-| ---- | -------------- | -------------- | ------------------ | ------------------ |
-${layoutRows12}
+The legacy layout has no inlet branch, so it carries no inlet restriction; both include longitudinal inertia.
 
 ### Subcooled liquid nitrogen
 
-The subcooled liquid-nitrogen case at 61.74 psia has the largest and least
-stable error of the representative subset (${cell(repRow(3, REPS[1]))} at N = 3,
-${cell(repRow(12, REPS[1]))} at N = 12, ${cell(repRow(PRIMARY_N, REPS[1]))} at N = ${PRIMARY_N}; GFSSP ${signedPct(gfsspErr(REPS[1]))}). Its
-refinement behavior was traced with diagnostics that record the outlet fluid node (the one the outlet wall convects to)
-and the heat the wall gives up by the phase of the fluid it is attached to. The
-saturated case at 86.73 psia is the comparison.
+The subcooled liquid-nitrogen case at 61.74 psia has the largest error of the
+representative subset (${GRID_NS.map((N) => `${cell(repRow(N, REPS[1]))} at N = ${N}`).join(", ")}; GFSSP ${signedPct(gfsspErr(REPS[1]))}). The
+diagnostics record the outlet fluid node (the one the outlet wall convects to),
+the heat the wall gives up by the phase of the fluid it is attached to, and the
+energy closure. The saturated case at 86.73 psia is the comparison. All solves
+are at the step used (Δt = ${NBS_TIME_STEP_S.LN2} s).
 
 | Case | N | Δt [s] | t(250 K) [s] | t(150 K) [s] | Knee [s] | First liquid at outlet node [s] | Minimum two-phase quality (wall < 150 K) | Minimum h, two-phase [W/m²K] | h at first liquid step [W/m²K] | Wall heat to vapor / two-phase / liquid [%] | Energy closure |
 | ---- | - | ----- | ------------ | ------------ | -------- | ------------------------------- | ---------------------------------------- | ---------------------------- | ------------------------------ | -------------------------------------------- | -------------- |
 ${diagRows}
 
-Station-4 wall temperatures (stations interpolated between wall nodes):
+${figLink(FIG_END, `Subcooled LN₂ at 61.74 psia: station-4 wall temperature of the model at N = ${DIAG_NS.join(", ")} against the digitized Fig. 13 trace.`)}
 
-${figLink(FIG_END, "Subcooled LN₂ at 61.74 psia: station-4 wall temperature of the model at N = 3, 12 and 30 against the digitized Fig. 13 trace.")}
-
-What the diagnostics show (a * on N marks a solve that did not converge; its numbers are
+What the diagnostics show (a * on N marks a solve with stalled steps; its numbers are
 listed but not used in the statements below):
 
-1. **The solves that did not converge.** ${
-  dSubAll.filter((c) => !c.o.converged).length === 0
-    ? "All subcooled diagnostic solves converged."
-    : `Of the ${dSubAll.length} subcooled diagnostic solves, ${dSubAll
-        .filter((c) => !c.o.converged)
-        .map(
-          (c) =>
-            `N = ${c.N} (Δt = ${diagDt(c.N)} s: ${c.o.stalledSteps.length} stalled steps; energy closure ${c.o.diag ? fmt((c.o.diag.fluidEnthalpyGainJ / c.o.diag.wallEnergyRemovedJ - 1) * 100, 0) : "—"} %)`,
-        )
-        .join(
-          ", ",
-        )} did not converge, and are listed in the table but not used in the statements below.`
-} The time-step table shows the same case failing, timing out or not converging at ${dtFailed.filter((x) => x.includes("LN₂ subcooled")).length} of its solves.
-2. **Shelf and handoff, converged solves.** On the converged subcooled solves the outlet node's two-phase quality falls to
+1. **Shelf and handoff.** ${
+  dSub.length === 0
+    ? "No subcooled diagnostic solve converged."
+    : `On the converged subcooled solves the outlet node's two-phase quality falls to
    ${minMax(subMinQ, 3)} while the outlet wall is below 150 K (saturated case: ${minMax(satMinQ, 2)}). The Miropolskii coefficient
-   falls with quality (\`src/core/correlations/miropolskii.ts:54–57\`): its minimum is ${minMax(subMinH)} W/m²K on the subcooled
-   shelf against ${minMax(satMinH)} W/m²K in the saturated case. When the outlet node's state becomes single-phase liquid the
-   conductor switches to Dittus–Boelter (\`miropolskii.ts:24–30\`) and h is ${minMax(subHLiq)} W/m²K at the first liquid step.
-   The first liquid step of the outlet node is ${minMax(
-     dSub.map((c) => (c.tKneeLiquid ?? NaN) - (c.knee ?? NaN)),
-     0,
-   )} s after the station-4 knee of these solves
-   (the station is interpolated between wall nodes); in the saturated case the outlet node never becomes liquid.
-3. **The correlation as implemented is the documented one.** Its coefficients (0.023, exponents 0.8 and 0.4, and the factor Y with
+   falls with quality (\`src/core/correlations/miropolskii.ts\`): its minimum is ${minMax(subMinH)} W/m²K on the subcooled
+   shelf against ${minMax(satMinH)} W/m²K in the saturated case. When the outlet node turns single-phase liquid the
+   conductor switches to Dittus–Boelter and h is ${minMax(subHLiq)} W/m²K at the first liquid step, which comes ${dSub.map((c) => signedSec((c.tKneeLiquid ?? NaN) - (c.knee ?? NaN), 0)).join(", ")} relative to the station-4 knee of these solves; in the saturated case the outlet node never turns liquid.`
+}
+2. **The correlation as implemented is the documented one.** Its coefficients (0.023, exponents 0.8 and 0.4, and the factor Y with
    0.1, 0.4, 0.4) are those of Eq. 7h of the GFSSP manual, with Dittus–Boelter (Eq. 7g) on single-phase states, so the
-   switch at the liquid boundary is the formulation's. Quality is clamped to [0.01, 0.99] inside the correlation
-   (\`miropolskii.ts:34\`); the text of the GFSSP papers consulted does not say how GFSSP treats the limit x → 0. No change to the
-   correlation was made: none follows from the formulation or from GFSSP's documented practice. The earlier crashes of
-   these solves were a different defect, now fixed: the P–h clamp let a compressed-liquid state fall below the property
-   library's range and its flash threw (\`src/core/fluids/realFluid.ts\`, commit 436fdc5).
-4. **Refinement.** The chilldown time of this case in the diagnostic solves is ${dSubAll.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}; in the saturated case ${dSat.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}.
-   For the converged solves the outlet wall's 150 K arrival is ${dSub.map((c) => `${fmt(c.t150)} s (N = ${c.N})`).join(", ")} and the interval from that arrival to the knee
-   ${dSub.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")}. For the saturated case the 150 K arrival is ${dSat.map((c) => `${fmt(c.t150)} s (N = ${c.N})`).join(", ")} and the interval ${dSat.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")}. Why the outlet wall's arrival is later on a finer grid is not
-   established here; a hypothesis, not tested, is that a coarse grid advances the fluid front numerically.
-5. **Time step.** At N = ${CI_N} the knee of this case is ${dtRows
-  .find((r) => r.p.id === REPS[1].id && r.N === CI_N)!
-  .times.map(
-    (t, i) =>
-      `${fmt(t)} s${dtRows.find((r) => r.p.id === REPS[1].id && r.N === CI_N)!.converged[i] ? "" : "*"} (Δt = ${fmt(dtRows.find((r) => r.p.id === REPS[1].id && r.N === CI_N)!.dts[i], 2)} s)`,
-  )
-  .join(
-    ", ",
-  )}: it falls as the step is refined and the finer-step solves do not converge. At N = ${PRIMARY_N} two of the other three steps time out. The
-   subcooled-nitrogen times are therefore not time-step converged, and none of them is quoted as a converged prediction. Whether the solver's failures to converge at fine steps reflect a physical flow-boiling instability or a numerical one is not established.
-6. **Layout.** At the same step (Δt = ${DIAG_DT} s) the pre-GFSSP layout gives ${DIAG_NS.filter(
-  (n) => n !== PRIMARY_N,
-)
-  .map((N) => {
-    const o = out(jkey("dgL", DIAG_CASES[0], N, "LEG", DIAG_DT));
-    return `${fmt(timeOf(o))} s${o.converged ? "" : "*"} (N = ${N})`;
-  })
-  .join(", ")} against ${dSubAll
-  .filter((c) => c.N !== PRIMARY_N)
-  .map((c) => `${fmt(c.knee)} s (N = ${c.N})`)
-  .join(", ")} with GFSSP's layout.
+   switch at the liquid boundary is the formulation's. Quality is clamped to [0.01, 0.99] inside the correlation. No change to the
+   correlation was made.
+3. **Refinement.** The chilldown time of this case is ${dSubAll.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}; in the saturated case ${dSat.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}.
+   The interval from the outlet wall's 150 K arrival to the knee is ${dSub.map((c) => `${fmt(shelfInterval(c))} s (N = ${c.N})`).join(", ")} for the subcooled case and ${dSat.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")} for the saturated one.
+4. **Outlet pressure.** The outlet node's phase, and with it the coefficient of the outlet wall, depends on the outlet
+   pressure and on GFSSP's unpublished exit restriction ("Outlet pressure and the exit restriction"). The subcooled
+   LN₂ times are therefore a sensitivity to that input, not point predictions.
 
 ### Wall-temperature traces of the trusted runs
 
-The ${NBS_TRUSTED_TRACE_RUNS.length} trusted runs are solved at N = ${TRACE_N} (all) and, for the runs of the representative
-subset (${TS.n30.map((t) => t.run.figure).join(", ")}), at N = ${PRIMARY_N}, each from its measured initial wall temperature, with Δt = ${NBS_TIME_STEP_S.LN2} s for nitrogen and
+The ${NBS_TRUSTED_TRACE_RUNS.length} trusted runs are solved at N = ${TRACE_N} with the validation model, each from its measured initial wall temperature, with Δt = ${NBS_TIME_STEP_S.LN2} s for nitrogen and
 ${NBS_TIME_STEP_S.LH2} s for para-hydrogen (the frozen calibration plan, \`TRACE_BASELINE_SOLVE_PLAN\`, differs from these: Δt = 10 s and 2.5 s, 300 K start);
 subcooled runs start at their recorded inlet temperature. Model traces are interpolated to the exact station positions and aligned to the
 digitized record; nothing is tuned. The knee threshold is the unified one, from each solve's own late-time pressure. These numbers are reported, not
@@ -1678,7 +1894,7 @@ gated.
 
 | Run | Condition | Model | Converged | Pooled RMSE [K] | Pooled MAE [K] |
 | --- | --------- | ----- | --------- | --------------- | -------------- |
-${[...TS.n6, ...TS.n30].map(pooledRow).join("\n")}
+${TS.n6.map(pooledRow).join("\n")}
 
 | Run | Station | Knee threshold [K] | Data t(150 K) [s] | Model t(150 K) [s] | Data knee [s] | Model knee [s] | Knee lag | RMSE [K] |
 | --- | ------- | ------------------ | ----------------- | ------------------ | ------------- | -------------- | -------- | -------- |
@@ -1686,18 +1902,11 @@ ${traceStationRows(TS.n6)}
 
 (N = ${TRACE_N}; — : the feature is unavailable — the trace never reaches it inside the record, or the data trace's cold tail is QC-excluded.)
 
-Knee lags at stations 1 and 4 at the two resolutions, for the runs solved at both:
-
-| Run | Pooled RMSE N = ${TRACE_N} [K] | Pooled RMSE N = ${PRIMARY_N} [K] | Station-1 lag N = ${TRACE_N} | Station-1 lag N = ${PRIMARY_N} | Station-4 lag N = ${TRACE_N} | Station-4 lag N = ${PRIMARY_N} |
-| --- | ------------------------------ | ------------------------------- | ------------------- | -------------------- | ------------------- | -------------------- |
-${subsetTraceRows}
-
 Observations (computed from the tables; the figures overlay model and data). Pooled
 RMSE at N = ${TRACE_N} is ${kRange(rmseOf(TS.n6, "saturated"))} for the saturated runs and ${kRange(rmseOf(TS.n6, "subcooled"))} for the subcooled ones.
 
 ${traceFindings(TS.n6, `N = ${TRACE_N}, all trusted runs`)}
 
-${TS.n30.length ? traceFindings(TS.n30, `N = ${PRIMARY_N}, representative runs`) : ""}
 
 ${TS.n6.map((ts, k) => figLink(TRACE_FIG0 + k, `${ts.run.figure} of NBS 9264 (${ts.run.inletCondition} ${ts.run.fluid.replace("2", "₂")}, ${ts.run.drivingPressure.atm} atm): digitized wall temperature (markers) and the OpenFLUME solve (lines, N = ${ts.N}, Δt = ${ts.o.spec.dtS} s, T₀ = ${fmt(ts.o.spec.initialK, 1)} K) at the four stations.`)).join("\n\n")}
 
@@ -1709,23 +1918,27 @@ ${failedList.length || nonConvList.length ? `### Solves that failed or did not c
 | Table-6 rows without a compromised record (${nTrustedRows} rows) | Validation against experiment | Trusted | The error, with the definition, initial temperature and discretization stated |
 | Table-6 rows whose digitized record is compromised (${18 - nTrustedRows} rows) | Validation against experiment | Diagnostic only | The trend; the error with that caveat |
 | GFSSP Table-6 predictions | Code-to-code | Reference | Agreement between codes, not with experiment |
-| Subcooled LN₂ at N = ${PRIMARY_N} | Validation against experiment | Not time-step converged | That the time is not converged; not a point estimate |
+| Rows with stalled steps (${nFlagged} at N = ${CI_N}) | Validation against experiment | Flagged | The time with the flag; excluded from the summary statistics |
+| Subcooled LN₂ rows | Validation against experiment | Sensitive to an unpublished input (GFSSP's exit restriction, outlet pressure) | That the time depends on the outlet node's phase; not a point estimate |
 | Trusted trace runs (Figs. 2, 5, 10, 11, 12, 13, 14) | Validation against experiment | Trusted, reported (not gated) | Station order, knees where available, RMSE as a baseline |
 | Diagnostic trace runs (Figs. 3, 4, 6, 7) | Validation against experiment | Diagnostic only | Nothing quantitative |
 
 ## Conclusions
 
 Over all eighteen NBS 9264 Table-6 chilldown times, OpenFLUME's untuned
-two-phase network model has a mean absolute error of ${s3.mae.toFixed(1)} % at the CI
+two-phase network model, with GFSSP's longitudinal inertia term and an inlet
+restriction, has a mean absolute error of ${s3.mae.toFixed(1)} % at the CI
 configuration (signed mean ${signedPct(s3.signed)}, ${s3.late} of 18 late), against ${g18.mae.toFixed(1)} % for GFSSP's published
-predictions (${signedPct(g18.signed)}, ${g18.late} late); the correlation of the two sets of errors is ${s3.corr.toFixed(2)}.
-At GFSSP's resolution the four-case subset has a mean absolute error of ${subsetStat(PRIMARY_N).mae.toFixed(1)} %
-(${subsetStat(3).mae.toFixed(1)} % at N = 3; GFSSP ${subsetG.mae.toFixed(1)} %). The subcooled liquid-nitrogen case is
-${signedPct(repRow(PRIMARY_N, REPS[1]).err)} from experiment at N = ${PRIMARY_N} and not converged in the time step, with the outlet
-wall governed by the handoff from film boiling at low quality to single-phase liquid. The
-chilldown-time comparison depends on the initial wall temperature
-(${range(initShiftS, 1, signedSec)} between a 300 K and the measured start), on the knee margin
-(${range(shiftPcts)} for 15 K against 30 K) and on the line's layout. Cryogenic chilldown remains the least
+predictions (${signedPct(g18.signed)}, ${g18.late} late). Without the ${nFlagged} flagged rows it is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and
+without the subcooled LN₂ rows as well ${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).
+At GFSSP's resolution the ${subsetStat(PRIMARY_N).n} subset cases whose station 4 reaches the knee have a mean absolute error of
+${subsetStat(PRIMARY_N).mae.toFixed(1)} % (GFSSP ${subsetG.mae.toFixed(1)} %; the four cases at N = 3: ${subsetStat(3).mae.toFixed(1)} %). The subcooled liquid-nitrogen rows are late; their outlet wall
+waits on a near-zero-quality film-boiling shelf, and whether the outlet node turns liquid depends on the outlet pressure and
+on GFSSP's unpublished exit restriction. The remaining difference from GFSSP on the hydrogen rows is not explained here; GFSSP's
+unpublished inputs (the valve and exit-restriction coefficients, the wall roughness, the copper properties
+below 100 K) are candidates. The chilldown-time comparison also depends on the initial wall temperature
+(${range(initShiftS, 1, signedSec)} between a 300 K and the measured start) and on the knee margin
+(${range(shiftPcts)} for 15 K against 30 K). Cryogenic chilldown remains the least
 mature capability of the code, and these results are a baseline for model improvement, not a calibration.
 
 ## References
@@ -1746,7 +1959,7 @@ mature capability of the code, and these results are a baseline for model improv
    pp. 49–52, as used for chilldown by Cross, M. F., Majumdar, A. K.,
    Bennett, J. C., and Malla, R. B., "Modeling of Chill Down in Cryogenic
    Transfer Lines," *Journal of Spacecraft and Rockets* 39(2), 2002,
-   pp. 284–289.
+   pp. 284–289 (Eq. 17: the momentum equation with the longitudinal inertia term).
 5. NIST Cryogenic Material Properties Database, "OFHC Copper (UNS
    C10100/C10200)," rev. 2010 (Marquardt, Le, and Radebaugh, 2000).
 

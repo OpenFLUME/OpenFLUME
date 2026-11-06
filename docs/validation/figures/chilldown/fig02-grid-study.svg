@@ -13,40 +13,39 @@
 <text x="548.5925925925926" y="390" text-anchor="middle" font-size="11">25</text>
 <line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
 <text x="656" y="390" text-anchor="middle" font-size="11">30</text>
-<line x1="76" y1="334.2046823395097" x2="656" y2="334.2046823395097" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="338.2046823395097" text-anchor="end" font-size="11">0.8</text>
-<line x1="76" y1="273.5142879145334" x2="656" y2="273.5142879145334" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="277.5142879145334" text-anchor="end" font-size="11">1.0</text>
-<line x1="76" y1="212.82389348955712" x2="656" y2="212.82389348955712" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="216.82389348955712" text-anchor="end" font-size="11">1.2</text>
-<line x1="76" y1="152.1334990645808" x2="656" y2="152.1334990645808" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="156.1334990645808" text-anchor="end" font-size="11">1.4</text>
-<line x1="76" y1="91.44310463960454" x2="656" y2="91.44310463960454" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="95.44310463960454" text-anchor="end" font-size="11">1.6</text>
+<line x1="76" y1="362.5435022059408" x2="656" y2="362.5435022059408" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="366.5435022059408" text-anchor="end" font-size="11">0.8</text>
+<line x1="76" y1="288.5019418130279" x2="656" y2="288.5019418130279" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="292.5019418130279" text-anchor="end" font-size="11">1.0</text>
+<line x1="76" y1="214.46038142011503" x2="656" y2="214.46038142011503" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="218.46038142011503" text-anchor="end" font-size="11">1.2</text>
+<line x1="76" y1="140.41882102720214" x2="656" y2="140.41882102720214" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="144.41882102720214" text-anchor="end" font-size="11">1.4</text>
+<line x1="76" y1="66.37726063428926" x2="656" y2="66.37726063428926" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="70.37726063428926" text-anchor="end" font-size="11">1.6</text>
 <rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
 <text x="366" y="416" text-anchor="middle" font-size="12.5">Pipe segments N</text>
 <text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Predicted / measured station-4 chilldown time</text>
-<path d="M76.0,273.5 L656.0,273.5" fill="none" stroke="#7f8c8d" stroke-width="1.8" stroke-dasharray="6 4"/>
-<path d="M76.0,313.5 L140.4,285.5 L269.3,278.9 L656.0,262.4" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
-<circle cx="76" cy="313.4737084440605" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<circle cx="140.44444444444446" cy="285.4722741191335" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<circle cx="269.3333333333333" cy="278.8898419812149" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<circle cx="656" cy="262.427631253464" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<path d="M76.0,186.7 L140.4,168.0 L269.3,63.5 L656.0,140.3" fill="none" stroke="#c0392b" stroke-width="1.8"/>
-<rect x="72.6" y="183.34193611228397" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="137.04444444444445" y="164.63303944703884" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="265.93333333333334" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="652.6" y="136.91598305931774" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<path d="M76.0,354.5 L140.4,348.0 L269.3,343.5 L656.0,339.3" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<path d="M76.0,288.5 L656.0,288.5" fill="none" stroke="#7f8c8d" stroke-width="1.8" stroke-dasharray="6 4"/>
+<path d="M76.0,311.1 L140.4,283.8 L269.3,274.7 L656.0,258.3" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<circle cx="76" cy="311.0622165028252" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="140.44444444444446" cy="283.79130176295564" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="269.3333333333333" cy="274.7415706065357" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="258.34642240629614" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,107.5 L140.4,127.9 L269.3,63.5" fill="none" stroke="#c0392b" stroke-width="1.8"/>
+<rect x="72.6" y="104.13245544315109" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="137.04444444444445" y="124.48731850714546" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="265.93333333333334" y="60.06428571428578" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<path d="M76.0,354.5 L140.4,352.5 L269.3,350.7 L656.0,346.2" fill="none" stroke="#1e8449" stroke-width="1.8"/>
 <polygon points="76,351.1357142857143 72.6,357.93571428571425 79.4,357.93571428571425" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="140.44444444444446,344.58787717365936 137.04444444444445,351.3878771736593 143.84444444444446,351.3878771736593" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="269.3333333333333,340.0893424297683 265.93333333333334,346.88934242976825 272.7333333333333,346.88934242976825" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="656,335.86082169693 652.6,342.66082169692993 659.4,342.66082169692993" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<path d="M76.0,344.4 L140.4,346.4 L269.3,344.2 L656.0,342.8" fill="none" stroke="#d68910" stroke-width="1.8"/>
-<polygon points="76,341.02444735374564 79.4,344.4244473537456 76,347.8244473537456 72.6,344.4244473537456" fill="none" stroke="#d68910" stroke-width="1.4"/>
-<polygon points="140.44444444444446,343.0323272377099 143.84444444444446,346.4323272377099 140.44444444444446,349.8323272377099 137.04444444444445,346.4323272377099" fill="none" stroke="#d68910" stroke-width="1.4"/>
-<polygon points="269.3333333333333,340.7738248506241 272.7333333333333,344.1738248506241 269.3333333333333,347.5738248506241 265.93333333333334,344.1738248506241" fill="none" stroke="#d68910" stroke-width="1.4"/>
-<polygon points="656,339.44862305507337 659.4,342.84862305507335 656,346.2486230550733 652.6,342.84862305507335" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="140.44444444444446,349.13921495643854 137.04444444444445,355.9392149564385 143.84444444444446,355.9392149564385" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="269.3333333333333,347.30620564409287 265.93333333333334,354.1062056440928 272.7333333333333,354.1062056440928" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,342.7645093689305 652.6,349.56450936893043 659.4,349.56450936893043" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<path d="M76.0,353.6 L140.4,350.7 L269.3,354.1 L656.0,350.4" fill="none" stroke="#d68910" stroke-width="1.8"/>
+<polygon points="76,350.2283080054615 79.4,353.62830800546146 76,357.02830800546144 72.6,353.62830800546146" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="140.44444444444446,347.3418197377104 143.84444444444446,350.7418197377104 140.44444444444446,354.14181973771036 137.04444444444445,350.7418197377104" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="269.3333333333333,350.6610326799534 272.7333333333333,354.06103267995337 269.3333333333333,357.46103267995335 265.93333333333334,354.06103267995337" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="656,346.98798365942486 659.4,350.38798365942483 656,353.7879836594248 652.6,350.38798365942483" fill="none" stroke="#d68910" stroke-width="1.4"/>
 <rect x="668" y="54" width="204" height="100" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
 <line x1="676" y1="64" x2="698" y2="64" stroke="#7f8c8d" stroke-width="1.8" stroke-dasharray="6 4"/>
 <text x="704" y="68" font-size="11">Equality</text>
