@@ -3664,6 +3664,36 @@ export function buildChilldownTwoPhase(options?: {
    *  end fluid nodes when endNodeLayout is 'internal' (negligible friction;
    *  default 0.05 m). */
   endBranchLength?: number;
+  /**
+   * Longitudinal inertia: turns on the solver's momentum-flux term
+   * (settings.momentumFlux) and the kinetic energy carried in the nodal
+   * energy balance (settings.kineticEnergy).  Default false (legacy,
+   * bit-identical configs: the shipped example keeps its baseline).
+   * GFSSP's chilldown formulation includes the longitudinal inertia term in
+   * its momentum equation (Cross, Majumdar, Bennett and Malla, J. Spacecraft
+   * Rockets 39(2), 2002, Eq. 17).  Without it the vapor-filled line
+   * accelerates the flow past the speed of sound at the outlet node (Mach
+   * 1.06–1.94 in the saturated LH2 74.97 psia solve at N = 30, t = 21–51 s),
+   * which a 1-D duct cannot do; with it the flow chokes physically.  The
+   * NBS 9264 validation solves turn it on (NBS_LINE_FLOW_MODEL,
+   * src/validation/nbsChilldown.ts).
+   */
+  longitudinalInertia?: boolean;
+  /**
+   * Inlet restriction: replaces the short inlet branch (dewar → first fluid
+   * node, endNodeLayout 'internal' only) with a K-factor resistance
+   * ΔP = K ṁ|ṁ| / (2 ρ A²) on the line's flow area.  Default undefined
+   * (legacy: a 0.05 m pipe of negligible friction).  It represents the valve
+   * and entrance between the dewar and the line, which GFSSP models as a
+   * restriction branch (AIAA 2015-3850 Fig. 14) with an unpublished
+   * coefficient.  Without it the first fluid node is pinned at the dewar
+   * pressure, where a subcooled inlet flips it between liquid and two-phase
+   * from step to step (Dittus–Boelter ↔ Miropolskii, two orders of magnitude
+   * in h) and the Newton iteration stalls.  A K-factor resistance is used
+   * rather than an `orifice` component, whose compressible branch aborts
+   * inside CoolProp-wasm for some real-fluid states.
+   */
+  inletRestrictionK?: number;
   dt?: number;
   endTime?: number;
   timeStepping?: "fixed" | "adaptive";
@@ -3739,11 +3769,30 @@ export function buildChilldownTwoPhase(options?: {
             flowArea: A_fluid,
           };
 
+  const inletK = options?.inletRestrictionK;
+  if (
+    inletK !== undefined &&
+    (options?.endNodeLayout ?? "boundary") !== "internal"
+  ) {
+    throw new Error(
+      "buildChilldownTwoPhase: inletRestrictionK needs endNodeLayout " +
+        "'internal' (the restriction replaces the short inlet branch)",
+    );
+  }
+  if (inletK !== undefined && !(inletK >= 0 && Number.isFinite(inletK))) {
+    throw new Error(
+      `buildChilldownTwoPhase: inletRestrictionK must be a finite K ≥ 0; got ${inletK}`,
+    );
+  }
+
   const settings: NetworkConfig["settings"] = {
     mode: "transient",
     tolerance: 1e-5,
     maxIterations: 200,
     relaxation: 0.7,
+    ...(options?.longitudinalInertia
+      ? { momentumFlux: true, kineticEnergy: true }
+      : {}),
     endTime,
     ...(timeStepping === "fixed"
       ? { dt, timeStepping: "fixed" as const }
@@ -3856,8 +3905,11 @@ export function buildChilldownTwoPhase(options?: {
       id: "pipe0",
       from: "f0",
       to: "f1",
-      component: pipeOf(lb),
-      label: "Inlet branch",
+      component:
+        inletK === undefined
+          ? pipeOf(lb)
+          : { type: "resistance" as const, k: inletK, area: A_fluid },
+      label: inletK === undefined ? "Inlet branch" : "Inlet restriction",
     });
     for (let j = 1; j <= N; j++)
       brs.push({

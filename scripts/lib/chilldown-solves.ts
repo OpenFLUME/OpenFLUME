@@ -31,8 +31,10 @@ import {
 import {
   NBS_CHILLDOWN_DATA,
   NBS_CHILLDOWN_RIG,
+  NBS_LINE_FLOW_MODEL,
   NBS_LINE_WALL_MODEL,
   NBS_LINE_WALL_MODEL_LEGACY,
+  NBS_OUTLET_PRESSURE_PA,
 } from "../../src/validation/nbsChilldown";
 import { getTraceRun } from "../../src/validation/nbsTraceCorpus";
 import { nistOfhcCopperCpFit } from "../../src/core/solidProperties";
@@ -51,6 +53,15 @@ export interface SolveSpec {
    *  pre-GFSSP-layout coupling (end walls borrowing a neighbour). */
   layout?: "nbs" | "legacy";
   correlation?: "miropolskii" | "darrHartwig";
+  /** Longitudinal inertia (NBS_LINE_FLOW_MODEL); default on.  false = the
+   *  earlier solves without the momentum-flux and kinetic-energy terms. */
+  inertia?: boolean;
+  /** Inlet restriction K; default NBS_LINE_FLOW_MODEL's.  null = no
+   *  restriction (the negligible-friction inlet branch).  Not applicable to
+   *  the legacy layout, which never has one. */
+  inletK?: number | null;
+  /** Outlet pressure [Pa]; default NBS_OUTLET_PRESSURE_PA. */
+  outletPa?: number;
   /** Also return the explanatory diagnostics. */
   diag?: boolean;
 }
@@ -91,6 +102,9 @@ export interface SolveOut {
   stalledSteps: number[];
   wallS: number;
   failed?: string;
+  /** The solve was stopped at its wall-time limit; the histories end at
+   *  this simulated time [s] (partial, never counted as converged). */
+  stoppedAtS?: number;
   timesS: number[];
   wallXM: number[];
   wallTracesK: number[][];
@@ -134,11 +148,18 @@ export function specConditions(spec: SolveSpec): {
 export function buildSpecConfig(spec: SolveSpec): NetworkConfig {
   const c = specConditions(spec);
   const legacy = spec.layout === "legacy";
+  const inletK =
+    spec.inletK === undefined
+      ? NBS_LINE_FLOW_MODEL.inletRestrictionK
+      : spec.inletK;
   return buildChilldownTwoPhase({
     segments: spec.N,
     length: NBS_CHILLDOWN_RIG.lengthM,
     drivingPressure: c.drivingPressurePa,
-    outletPressure: 101325,
+    outletPressure: spec.outletPa ?? NBS_OUTLET_PRESSURE_PA,
+    longitudinalInertia:
+      spec.inertia ?? NBS_LINE_FLOW_MODEL.longitudinalInertia,
+    ...(legacy || inletK === null ? {} : { inletRestrictionK: inletK }),
     fluidName: spec.fluidName ?? c.fluidName,
     ...(c.inletTemperatureK !== undefined
       ? { inletTemperature: c.inletTemperatureK }
@@ -194,8 +215,26 @@ function diagnose(cfg: NetworkConfig, res: TransientResult): SolveDiag {
   const outB = cfg.branches[cfg.branches.length - 1];
   const mIn = res.branches[inB.id].mdot;
   const mOut = res.branches[outB.id].mdot;
-  const hIn = res.nodes[inB.from].enthalpy!;
-  const hOut = res.nodes[outB.from].enthalpy!;
+  // With settings.kineticEnergy the branches carry stagnation enthalpy
+  // h + V²/2, V = ṁ/(ρA) at the upstream endpoint (src/core/solver/step.ts),
+  // so the closure must count the kinetic energy of the in- and outflow.
+  const flowArea = (b: NetworkConfig["branches"][number]): number => {
+    const c = b.component as { type: string; diameter?: number; area?: number };
+    return c.type === "pipe"
+      ? (Math.PI / 4) * (c.diameter ?? NaN) ** 2
+      : Number(c.area);
+  };
+  const stagnation = (b: NetworkConfig["branches"][number], m: number[]) => {
+    const nd = res.nodes[b.from];
+    if (!cfg.settings.kineticEnergy) return nd.enthalpy!;
+    const A = flowArea(b);
+    return nd.enthalpy!.map((h, k) => {
+      const v = m[k] / (nd.density[k] * A);
+      return h + 0.5 * v * v;
+    });
+  };
+  const hIn = stagnation(inB, mIn);
+  const hOut = stagnation(outB, mOut);
   let massIn = 0;
   let massOut = 0;
   let enthalpyNet = 0;
@@ -243,16 +282,26 @@ function diagnose(cfg: NetworkConfig, res: TransientResult): SolveDiag {
   };
 }
 
-/** Child entry: solve one spec and print the RESULT line. */
-export async function runChild(spec: SolveSpec): Promise<void> {
+/** Child entry: solve one spec and print the RESULT line.  With a wall-time
+ *  limit the solve stops there and returns its partial histories. */
+export async function runChild(
+  spec: SolveSpec,
+  limitS?: number,
+): Promise<void> {
   await initRealFluids();
   const cfg = buildSpecConfig(spec);
   const t0 = Date.now();
-  const res = solveTransient(cfg);
+  const res = solveTransient(
+    cfg,
+    limitS === undefined
+      ? undefined
+      : { shouldAbort: () => (Date.now() - t0) / 1000 > limitS },
+  );
   const sr = res.stepResidualsScaled ?? [];
   const out: SolveOut = {
     spec,
-    converged: res.converged,
+    converged: res.converged && !res.aborted,
+    ...(res.aborted ? { stoppedAtS: res.times[res.times.length - 1] } : {}),
     stalledSteps: sr.map((x, i) => (x > 0.01 ? i : -1)).filter((i) => i >= 0),
     wallS: (Date.now() - t0) / 1000,
     timesS: res.times,
@@ -269,11 +318,16 @@ export async function runChild(spec: SolveSpec): Promise<void> {
 }
 
 const CHILD_FLAG = "--chilldown-child=";
+const LIMIT_FLAG = "--chilldown-limit=";
 
 export function maybeRunAsChild(): boolean {
   const arg = process.argv.find((a) => a.startsWith(CHILD_FLAG));
   if (!arg) return false;
-  void runChild(JSON.parse(arg.slice(CHILD_FLAG.length)) as SolveSpec).then(
+  const lim = process.argv.find((a) => a.startsWith(LIMIT_FLAG));
+  void runChild(
+    JSON.parse(arg.slice(CHILD_FLAG.length)) as SolveSpec,
+    lim ? Number(lim.slice(LIMIT_FLAG.length)) : undefined,
+  ).then(
     () => process.exit(0),
     (e) => {
       console.error(e);
@@ -327,6 +381,9 @@ export async function runSolveJobs(
             ...process.execArgv,
             hostScript,
             `${CHILD_FLAG}${JSON.stringify(job.spec)}`,
+            // Stop the solve before the hard kill so that its partial
+            // histories are returned (and listed as stopped), not lost.
+            `${LIMIT_FLAG}${Math.max(1, timeoutS - 30)}`,
           ],
           { stdio: ["ignore", "pipe", "pipe"] },
         );
@@ -369,7 +426,7 @@ export async function runSolveJobs(
           }
           results.set(job.key, out);
           log(
-            `  ${job.key}: ${out.failed ?? (out.converged ? "ok" : "not converged")} (${out.wallS.toFixed(0)} s)`,
+            `  ${job.key}: ${out.failed ?? (out.stoppedAtS !== undefined ? `stopped at t = ${out.stoppedAtS.toFixed(1)} s` : out.converged ? "ok" : "not converged")} (${out.wallS.toFixed(0)} s)`,
           );
           pump();
         });

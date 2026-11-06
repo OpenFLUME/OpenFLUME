@@ -243,6 +243,52 @@ export const NBS_LINE_WALL_MODEL = {
   wallMaterial: "ofhc-copper",
 } as const;
 
+/**
+ * Loss coefficient K of the inlet restriction (dewar → line) of the NBS 9264
+ * validation solves, on the line's flow area.  GFSSP's model of this line
+ * has a restriction branch at the inlet (AIAA 2015-3850 Fig. 14) whose
+ * coefficient is not published, so the value is set from a physical
+ * argument and never fitted to the data or to GFSSP: a sharp-edged entrance
+ * from the dewar (K ≈ 0.5) plus a fully open valve (K of order 1 for a
+ * full-port valve), i.e. K = 2.  The report quotes K = 1 and K = 5 as the
+ * sensitivity (docs/validation/chilldown-report.md, "Inlet restriction").
+ */
+export const NBS_INLET_RESTRICTION_K = 2;
+/** The two K values of the inlet-restriction sensitivity study. */
+export const NBS_INLET_RESTRICTION_K_SENSITIVITY = [1, 5] as const;
+
+/**
+ * Flow model of every NBS 9264 validation solve (options of
+ * buildChilldownTwoPhase), applied together with NBS_LINE_WALL_MODEL.
+ *
+ *   - Longitudinal inertia (momentum flux and kinetic energy) on: GFSSP's
+ *     chilldown formulation includes it (Cross, Majumdar, Bennett and Malla,
+ *     J. Spacecraft Rockets 39(2), 2002, Eq. 17); without it the outlet flow
+ *     of the vapor-filled line is supersonic (Mach 1.06–1.94 at the outlet
+ *     node of saturated LH2 74.97 psia at N = 30, t = 21–51 s).
+ *   - An inlet restriction of K = NBS_INLET_RESTRICTION_K in place of the
+ *     negligible-friction inlet branch, standing for GFSSP's inlet valve
+ *     branch; without it the first fluid node sits at the dewar pressure
+ *     and a subcooled inlet flips it between liquid and two-phase, which
+ *     stalls the Newton iteration.
+ *
+ * The outlet stays at 101325 Pa.  NBS and GFSSP give 12.05 psia (83.08 kPa)
+ * at the outlet, but GFSSP's model also has an exit restriction whose
+ * coefficient is not published; at 83.08 kPa without it the subcooled-LN2
+ * outlet node stays two-phase and station 4 never reaches the knee
+ * (report, "Outlet pressure and the exit restriction").
+ */
+export const NBS_LINE_FLOW_MODEL = {
+  longitudinalInertia: true,
+  inletRestrictionK: NBS_INLET_RESTRICTION_K,
+} as const;
+
+/** Outlet (ambient) pressure of the NBS 9264 validation solves [Pa]. */
+export const NBS_OUTLET_PRESSURE_PA = 101325;
+/** Outlet pressure documented by NBS 9264 / GFSSP (12.05 psia) [Pa]; used
+ *  only for the outlet-pressure sensitivity. */
+export const NBS_DOCUMENTED_OUTLET_PRESSURE_PA = 83082;
+
 /** The pre-GFSSP-layout wall model (end walls borrowing a neighbour), kept
  *  to quantify the layout effect and as a reference for older results. */
 export const NBS_LINE_WALL_MODEL_LEGACY = {

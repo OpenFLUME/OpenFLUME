@@ -19,7 +19,8 @@
  *
  * All solves use NBS_LINE_WALL_MODEL (src/validation/nbsChilldown.ts):
  * every wall node convects to a solved fluid node, so the end wall nodes
- * chill physically and stations 1 and 4 are BRACKETED by wall samples.
+ * chill physically and stations 1 and 4 are BRACKETED by wall samples;
+ * and NBS_LINE_FLOW_MODEL: longitudinal inertia and the inlet restriction.
  */
 
 import { buildChilldownTwoPhase } from "../src/ui/examples";
@@ -36,6 +37,7 @@ import {
 import {
   getChilldownPoints,
   NBS_CHILLDOWN_RIG,
+  NBS_LINE_FLOW_MODEL,
   NBS_LINE_WALL_MODEL,
   type ChilldownDataPoint,
   type ChilldownTimeDefinition,
@@ -111,8 +113,9 @@ function buildCaseConfig(p: ChilldownDataPoint, N: number): NetworkConfig {
     outletTemperature: OUTLET_T,
     initialTemperature: INITIAL_T,
     ...(subcooled ? { inletTemperature: p.subcooledAtTemperature!.K } : {}),
-    // Wall model of the validation report (NBS_LINE_WALL_MODEL).
+    // Wall and flow model of the validation report.
     ...NBS_LINE_WALL_MODEL,
+    ...NBS_LINE_FLOW_MODEL,
     dt: DT,
     endTime: subcooled ? 360 : 300,
     timeStepping: "fixed",
