@@ -57,11 +57,12 @@ Four equation-of-state classes are supported: constant-density incompressible
 liquid, ideal gas with user-settable gas constants, thermal-expansion liquids (for
 buoyancy-driven circulation), and real fluid through a CoolProp WebAssembly
 sidecar.
-Seventeen branch component
+Nineteen branch component
 types model momentum sources and sinks: pipe, orifice, cavitating venturi,
 generic resistance, valve, check valve, dynamic check valve, relief valve, pump,
 bend, area change, flow source, pressure regulator, heated pipe, tabulated
-pressure drop, Reynolds-dependent custom resistance, and user-authored components.
+pressure drop, Reynolds-dependent custom resistance, rectangular channel,
+capillary channel, and user-authored components.
 Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a temperature-dependent material catalogue and five
