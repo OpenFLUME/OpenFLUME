@@ -555,6 +555,135 @@ export function getFluidLimits(fluidName: SupportedRealFluid) {
   return limits;
 }
 
+/**
+ * Lowest enthalpy a COMPRESSED liquid can have at pressure P: h(T_lo(P), P)
+ * with T_lo(P) = max(Tmin, T_melt(P)).  The global `limits.hmin` is the
+ * saturated liquid at Tmin (the triple point), i.e. the floor at P = Pmin
+ * only.  A compressed liquid at the same temperature holds MORE enthalpy
+ * (h rises with P at fixed T) and below the melting line is not a liquid at
+ * all, so an iterate clamped to the global hmin at P of a few bar lies BELOW
+ * the liquid's floor, where CoolProp's single-phase P-h flash fails ("Hmolar
+ * ... is below the minimum value ...", the quoted Tmin being the melting
+ * temperature at P).  Each such failure throws a C++ exception through the
+ * WASM boundary and leaks it: a few hundred of them (a refined subcooled
+ * chilldown solve produces them at every cold-liquid Newton overshoot) end
+ * in `Aborted(native code called abort())` and a poisoned module.
+ *
+ * Returns the global hmin unless the state is within the band where the
+ * compressed-liquid floor can bind.  The (T, P) flash is made 10 mK above
+ * T_lo, not on the saturation curve (some backends resolve that to the vapor
+ * branch).  A vapor-branch misresolution is orders of magnitude above the
+ * band and is ignored.  Bounded cache, keyed by exact P.
+ */
+const liquidFloorCache = new Map<string, number>();
+const LIQUID_FLOOR_CACHE_CAPACITY = 20000;
+/** Per-fluid melting-line probes: a dedicated AbstractState, or null once
+ *  the fluid is known to have none (one failed probe per fluid, ever). */
+const meltingProbe = new Map<string, AbstractState | null>();
+
+/** Specific volume of the saturated liquid at Tmin per fluid (the scale of
+ *  the compression term v·ΔP in the floor); 0 when unavailable. */
+const vLiqAtTmin = new Map<string, number>();
+
+function liquidFloorBandJPerKg(
+  fluidName: SupportedRealFluid,
+  P: number,
+): number {
+  let v = vLiqAtTmin.get(fluidName);
+  if (v === undefined) {
+    v = 1e-3;
+    try {
+      const rho = getCoolProp().PropsSI(
+        "DMASS",
+        "T",
+        getFluidLimits(fluidName).Tmin,
+        "Q",
+        0,
+        fluidName,
+      );
+      if (isFinite(rho) && rho > 0) v = 1 / rho;
+    } catch {
+      // keep the default
+    }
+    vLiqAtTmin.set(fluidName, v);
+  }
+  // h(T_lo, P) − h_f(Tmin) ≈ v (1 − βT) (P − Pmin) < v P; the factor 1.5 and
+  // the constant cover the (T_lo − Tmin) sensible term.
+  return 1500 + 1.5 * v * P;
+}
+
+function meltingTemperature(
+  fluidName: SupportedRealFluid,
+  P: number,
+  Pmin: number,
+): number {
+  // At and just above the triple-point pressure the melting line is at (or
+  // below) Tmin and the probe may reject the query; it must not disable the
+  // probe for the pressures where it is needed.
+  if (!(P > 1.05 * Pmin)) return -Infinity;
+  let probe = meltingProbe.get(fluidName);
+  if (probe === undefined) {
+    try {
+      probe = getCoolProp().factory("HEOS", fluidName);
+    } catch {
+      probe = null;
+    }
+    meltingProbe.set(fluidName, probe);
+  }
+  if (probe === null) return -Infinity;
+  try {
+    const cp = getCoolProp();
+    const iT = (cp.parameters.iT as unknown as { value?: number }).value;
+    const iP = (cp.parameters.iP as unknown as { value?: number }).value;
+    if (iT === undefined || iP === undefined) throw new Error("no enum value");
+    const Tm = (
+      probe as unknown as {
+        melting_line(a: number, b: number, c: number): number;
+      }
+    ).melting_line(iT, iP, P);
+    return isFinite(Tm) ? Tm : -Infinity;
+  } catch {
+    meltingProbe.set(fluidName, null);
+    return -Infinity;
+  }
+}
+
+function compressedLiquidFloor(
+  fluidName: SupportedRealFluid,
+  limits: ReturnType<typeof getFluidLimits>,
+  P: number,
+): number {
+  const key = `${fluidName}@${P}`;
+  const hit = liquidFloorCache.get(key);
+  if (hit !== undefined) return hit;
+  let floor = limits.hmin;
+  try {
+    const Tlo = Math.max(
+      limits.Tmin,
+      meltingTemperature(fluidName, P, limits.Pmin),
+    );
+    const cpm = getCoolProp();
+    let hT = cpm.PropsSI("HMASS", "T", Tlo + 1e-2, "P", P, fluidName);
+    // Out of the fluid's range PropsSI returns Infinity instead of throwing;
+    // step further into the liquid once before giving up.
+    if (!isFinite(hT))
+      hT = cpm.PropsSI("HMASS", "T", Tlo + 0.5, "P", P, fluidName);
+    if (
+      isFinite(hT) &&
+      hT >= limits.hmin &&
+      hT <= limits.hmin + liquidFloorBandJPerKg(fluidName, P) + 10000
+    ) {
+      floor = hT;
+    }
+  } catch {
+    // keep the global floor
+  }
+  if (liquidFloorCache.size >= LIQUID_FLOOR_CACHE_CAPACITY)
+    liquidFloorCache.clear();
+  liquidFloorCache.set(key, floor);
+  return floor;
+}
+
 /** Clamp P/h to valid range for a fluid. Returns [clampedP, clampedH]. */
 export function clampToValidPH(
   fluidName: SupportedRealFluid,
@@ -563,7 +692,13 @@ export function clampToValidPH(
 ): [number, number] {
   const limits = getFluidLimits(fluidName);
   const clampedP = Math.max(limits.Pmin, Math.min(limits.Pmax, P));
-  const clampedH = Math.max(limits.hmin, Math.min(limits.hmax, h));
+  let clampedH = Math.max(limits.hmin, Math.min(limits.hmax, h));
+  if (clampedH < limits.hmin + liquidFloorBandJPerKg(fluidName, clampedP)) {
+    clampedH = Math.max(
+      clampedH,
+      compressedLiquidFloor(fluidName, limits, clampedP),
+    );
+  }
   return [clampedP, clampedH];
 }
 
