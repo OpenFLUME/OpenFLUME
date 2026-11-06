@@ -8,6 +8,14 @@ updates:
       npm:
         patterns:
           - "*"
+    ignore:
+      # typescript-eslint supports TypeScript <6.1.0 only; a TypeScript 7 (or
+      # 6.1) bump makes `npm ci` fail with ERESOLVE and turns the whole group
+      # PR red. Remove once typescript-eslint supports the next release.
+      - dependency-name: typescript
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
 
   - package-ecosystem: github-actions
     directory: /
