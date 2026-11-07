@@ -120,19 +120,19 @@ Verification evidence is split into three deliberately distinct classes, and eve
 
 Eleven validation reports are regenerated from live solves, not transcribed:
 
-| Report                                                                           | Contents                                                                                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point             |
-| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                               |
-| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers                   |
-| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                     |
-| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                   |
-| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack            |
-| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers |
-| [Code-to-code benchmarks](docs/validation/benchmarks-report.md)                  | GFSSP and SINDA/FLUINT problems: reference type, achieved error, and CI gate for each                  |
-| [Chilldown](docs/validation/chilldown-report.md)                                 | NBS 9264 LN₂/LH₂ transfer-line chilldown: experiment, GFSSP's published predictions, and OpenFLUME     |
-| [Choked flow](docs/validation/choked-flow-report.md)                             | Cryogenic nozzle and orifice critical flow (NASA TP-1484, TM X-71760); Hord LH₂ venturi cavitation     |
-| [Tank self-pressurization](docs/validation/tank-self-pressurization-report.md)   | Heated 4.89 m³ LH₂ tank (NASA TM-103804) against the lumped homogeneous tank                           |
+| Report                                                                           | Contents                                                                                                          |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point                        |
+| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                                          |
+| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers, Anzelius–Schumann chilldown |
+| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                                |
+| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                              |
+| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack                       |
+| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers            |
+| [Code-to-code benchmarks](docs/validation/benchmarks-report.md)                  | GFSSP and SINDA/FLUINT problems: reference type, achieved error, and CI gate for each                             |
+| [Chilldown](docs/validation/chilldown-report.md)                                 | NBS 9264 LN₂/LH₂ transfer-line chilldown: experiment, GFSSP's published predictions, and OpenFLUME                |
+| [Choked flow](docs/validation/choked-flow-report.md)                             | Cryogenic nozzle and orifice critical flow (NASA TP-1484, TM X-71760); Hord LH₂ venturi cavitation                |
+| [Tank self-pressurization](docs/validation/tank-self-pressurization-report.md)   | Heated 4.89 m³ LH₂ tank (NASA TM-103804) against the lumped homogeneous tank                                      |
 
 The last three reports are validation against experiment, using digitized data with cited provenance: NBS Report 9264 cryogenic chilldown, NASA critical-flow measurements for nitrogen and methane, Hord's liquid-hydrogen venturi cavitation data, and a NASA liquid-hydrogen tank self-pressurization test. Each states per-dataset trust levels, assigned from the quality of the experimental record rather than from the model's error — trusted runs are separated from diagnostic-only runs — and reports disagreements as findings, including the regimes where a closure does not apply. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 

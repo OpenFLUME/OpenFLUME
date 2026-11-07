@@ -99,7 +99,9 @@ to 1.2e-14 %. Lumped cooldown is within 0.18 % of the temperature span at
 dt = τ/100, with first-order time convergence (error ratio 4.01 for a 4×
 step refinement). A 20-segment counterflow heat exchanger has effectiveness
 within 2.62 % and outlets within 1.730 K of ε–NTU; the remaining error is
-shown to be segmentation error.
+shown to be segmentation error. A transient chilldown of an aluminum tube
+matches the Anzelius–Schumann closed form to 3.0e-3 of the initial wall–inlet
+temperature difference (b = 0.94 1/m) with first-order convergence.
 
 ![Radiation–convection equilibrium temperature of a heated solid node against the analytic solution](../validation/figures/thermal/fig04-radiation-convection-equilibrium.svg)
 
