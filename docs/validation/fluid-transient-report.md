@@ -177,7 +177,7 @@ Time integration is backward Euler with a coupled Newton solve per step
 stable but first-order accurate and numerically dissipative: for a linear
 oscillator each step multiplies the amplitude by 1/√(1+(ωΔt)²), a per-period
 decay factor of approximately exp(−πωΔt). This artificial damping is
-quantified in case 3 rather than hidden. Initial flow states are seeded with
+quantified in case 3. Initial flow states are seeded with
 `branches[].initialMdot` (0 for startup and the oscillator, the analytic
 steady flow for decay).
 

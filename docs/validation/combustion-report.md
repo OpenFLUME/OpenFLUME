@@ -250,7 +250,7 @@ the larger error and is not visible here. The drift is grid-convergent — it
 is the documented cost of the scheme that removes the wrong-branch
 transonic roots (see [docs/combustion.md](../combustion.md)).
 
-Note that both legs now run closer to the sonic cell than the fixed station
+Both legs now run closer to the sonic cell than the fixed station
 names used before this revision did (M = 0.8 and
 M = 1.2, against roughly 0.53 and 1.19), and each spans more of
 the nozzle, so the two rows are not directly comparable with the figures in
