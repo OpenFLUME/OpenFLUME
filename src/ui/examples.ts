@@ -137,6 +137,104 @@ export const tankBlowdown: NetworkConfig = {
   ],
 };
 
+export const pressureFedPropellant: NetworkConfig = {
+  meta: { name: "Pressure-fed propellant feed system", version: 2 },
+  settings: {
+    mode: "steady",
+    tolerance: 1e-8,
+    maxIterations: 500,
+    relaxation: 0.8,
+  },
+  fluid: { model: "incompressible", preset: "water" },
+  // Pressure-fed feed system (issue #25): pressurant bottle -> regulator
+  // orifice -> propellant tank -> feed pipe -> shut-off valve -> injector
+  // orifice -> chamber. The tank and chamber are the operating
+  // pressures; the regulator and injector dominate the drops.
+  nodes: [
+    {
+      id: "pressurant",
+      type: "boundary",
+      x: 0,
+      y: 0,
+      position: metres(0),
+      pressure: 1_600_000,
+      temperature: 300,
+      label: "Pressurant bottle",
+    },
+    {
+      id: "tank",
+      type: "internal",
+      x: 160,
+      y: 0,
+      position: metres(0.5),
+      pressure: 1_200_000,
+      temperature: 300,
+      volume: 0.2,
+      label: "Propellant tank",
+    },
+    {
+      id: "feed",
+      type: "internal",
+      x: 340,
+      y: 0,
+      position: metres(1),
+      pressure: 1_000_000,
+      temperature: 300,
+      label: "Feed line",
+    },
+    {
+      id: "valveNode",
+      type: "internal",
+      x: 520,
+      y: 3,
+      position: metres(1.2),
+      pressure: 950_000,
+      temperature: 300,
+      label: "Downstream of valve",
+    },
+    {
+      id: "chamber",
+      type: "boundary",
+      x: 800,
+      y: 0,
+      position: metres(1.5),
+      pressure: 500_000,
+      temperature: 300,
+      label: "Chamber",
+    },
+  ],
+  branches: [
+    {
+      id: "regulator",
+      from: "pressurant",
+      to: "tank",
+      component: { type: "orifice", area: 0.0005, cd: 0.65 },
+      label: "Regulator",
+    },
+    {
+      id: "feedLine",
+      from: "tank",
+      to: "feed",
+      component: { type: "pipe", length: 3, diameter: 0.02, roughness: 1e-5 },
+      label: "Feed line",
+    },
+    {
+      id: "shutoff",
+      from: "feed",
+      to: "valveNode",
+      component: { type: "valve", area: 0.0005, cd: 0.65, position: 1 },
+      label: "Shut-off valve",
+    },
+    {
+      id: "injector",
+      from: "valveNode",
+      to: "chamber",
+      component: { type: "orifice", area: 0.0003, cd: 0.8 },
+      label: "Injector",
+    },
+  ],
+};
+
 export const waterDistributionNetwork: NetworkConfig = {
   meta: { name: "Water distribution network", version: 2 },
   settings: {
@@ -4559,6 +4657,17 @@ function configureShippedExamples(): void {
   position(tankBlowdown, "tank", 4, 4);
   position(tankBlowdown, "ambient", 302, 2);
 
+  const propellantPositions: Array<[string, number, number]> = [
+    ["pressurant", 4, 4],
+    ["tank", 160, 4],
+    ["feed", 340, 4],
+    ["valveNode", 520, 4],
+    ["chamber", 800, 4],
+  ];
+  propellantPositions.forEach(([id, x, y]) =>
+    position(pressureFedPropellant, id, x, y),
+  );
+
   const waterPositions: Array<[string, number, number]> = [
     ["SRC", 2, 2],
     ["N0", 154, 4],
@@ -4774,6 +4883,12 @@ function configureShippedExamples(): void {
     240,
   );
   placeNoteBelow(
+    pressureFedPropellant,
+    "overview",
+    "Pressurant at 1600 kPa is regulated down to a 1200 kPa propellant tank.\nPropellant flows down a feed line through a shut-off valve and the injector orifice into a 500 kPa chamber.\nHand check: injector drop is about 700 kPa, so the jet speed is about 37 m/s and the flow is about 9 kg/s.\nPress Run and compare with the orifice equation.",
+    320,
+  );
+  placeNoteBelow(
     waterDistributionNetwork,
     "overview",
     "A pump pushes water through pipes to three paths.\nEach path has a valve that can be partly open.\nSome pipes go up or down, which changes how hard the pump must work.\nChange valve settings to send more or less flow down each path.",
@@ -4830,6 +4945,7 @@ export const exampleGroups: Record<string, string[]> = {
   Applications: [
     "Three-pipe junction",
     "Tank blowdown",
+    "Pressure-fed propellant feed system",
     "Water distribution network",
     "Heated pipe with radiating wall (conjugate HT)",
     "Spacecraft radiator panel (ammonia loop heat pipe)",
@@ -5178,7 +5294,7 @@ export const nitrousOxideCavitatingVenturiSteady: NetworkConfig = {
 };
 
 /**
- * The shipped example library — these 14 entries populate the UI
+ * The shipped example library — these 15 entries populate the UI
  * **Examples ▾** dropdown (see `exampleGroups`) and are the configs
  * covered by the examples-library round-trip/physics tests.
  *
@@ -5195,6 +5311,7 @@ export const examples: Record<string, NetworkConfig> = {
   "Sanity: orifice hand-calc": sanityOrificeHandCalc,
   "Three-pipe junction": threePipeJunction,
   "Tank blowdown": tankBlowdown,
+  "Pressure-fed propellant feed system": pressureFedPropellant,
   "Water distribution network": waterDistributionNetwork,
   "Heated pipe with radiating wall (conjugate HT)": heatedPipeRadiatingWall,
   "Spacecraft radiator panel (ammonia loop heat pipe)": spacecraftRadiatorPanel,
