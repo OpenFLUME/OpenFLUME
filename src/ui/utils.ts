@@ -23,6 +23,7 @@ export function newDocumentToken(): string {
 }
 
 export function saveDocumentToken(token: string): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(DOCUMENT_KEY, token);
   } catch {
@@ -39,11 +40,26 @@ export function loadDocumentToken(): string | null {
 }
 
 export function saveToLocalStorage(config: NetworkConfig): void {
+  // Embed mode (?embed=1, see embedMode.ts): never write, so an embed
+  // can never overwrite a visitor's autosaved model.
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch {
     // ignore quota errors
   }
+}
+
+/**
+ * Embed read-only gate (issue #26). Set once from the URL query at
+ * startup; while set, document persistence functions no-op.
+ */
+let embedReadOnly = false;
+export function setEmbedReadOnly(enabled: boolean): void {
+  embedReadOnly = enabled;
+}
+export function isEmbedReadOnly(): boolean {
+  return embedReadOnly;
 }
 
 export function loadFromLocalStorage(): NetworkConfig | null {
@@ -60,6 +76,7 @@ export function loadFromLocalStorage(): NetworkConfig | null {
 }
 
 export function saveUnitPreferences(prefs: UnitPreferences): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(UNITS_KEY, JSON.stringify(prefs));
   } catch {
@@ -87,6 +104,7 @@ export function getDefaultUnitPreferences(): UnitPreferences {
 }
 
 export function saveSigFigs(n: number): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(SIGFIGS_KEY, String(n));
   } catch {
@@ -122,6 +140,7 @@ export function loadGlobalMapOpen(): boolean {
 }
 
 export function saveGlobalMapOpen(open: boolean): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(GLOBAL_MAP_KEY, open ? "1" : "0");
   } catch {
@@ -141,6 +160,7 @@ export function loadShowLabels(): boolean {
 }
 
 export function saveShowLabels(show: boolean): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(SHOW_LABELS_KEY, show ? "1" : "0");
   } catch {
@@ -193,6 +213,7 @@ export function loadCanvasVisibility(): CanvasVisibility {
 }
 
 export function saveCanvasVisibility(visibility: CanvasVisibility): void {
+  if (isEmbedReadOnly()) return;
   try {
     localStorage.setItem(CANVAS_VISIBILITY_KEY, JSON.stringify(visibility));
   } catch {

@@ -14,7 +14,7 @@
 import type { RunRecord } from "./runHistory";
 import type { NetworkConfig } from "./types";
 import { configHash } from "./provenance";
-import { safeFilename } from "./utils";
+import { isEmbedReadOnly, safeFilename } from "./utils";
 
 export const RUNS_FILE_SUFFIX = ".runs.json";
 const RUNS_STORAGE_KEY = "fluids-network-runs-v1";
@@ -146,6 +146,9 @@ export function saveRunsToLocalStorage(
   runs: readonly RunRecord[],
   documentToken: string,
 ): void {
+  // Embed mode (?embed=1): an embed must never overwrite a visitor's
+  // autosaved model or its runs mirror (issue #26).
+  if (isEmbedReadOnly()) return;
   let candidate = [...runs];
   while (true) {
     try {
