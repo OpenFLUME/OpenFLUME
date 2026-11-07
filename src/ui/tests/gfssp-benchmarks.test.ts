@@ -2,7 +2,8 @@
  * GFSSP-grounded conjugate thermal-fluid benchmark tests (transient end-state validation)
  *
  * Sources cited:
- *   A — NASA/TM-2011-216470 §6.13 + Majumdar TFAWS-2004
+ *   A — NASA/TM-2013-217492 §6.13 (Example 11, §5.11 of the v5 Educational
+ *       manual, NASA/TM-2011-216470) + Majumdar TFAWS-2004
  *   B — JANNAF-2024 Majumdar & LeClair conjugate HX schematic
  *   C — GFSSP v5 manual Example 5 via Patel 2011
  *

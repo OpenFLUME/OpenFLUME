@@ -431,8 +431,8 @@ describe("GFSSP TFAWS-2007 case 1 — Fanno flow", () => {
 
   it("mass flow matches the analytical choked flow rate (upwind: scheme accuracy; central: <1%)", () => {
     // Default limited-upwind momentum faces are first-order at the choking
-    // cell — GFSSP-class accuracy (the TFAWS-2007 paper reports 1.7–5% on
-    // these cases).  Measured here: 2.1%.
+    // cell — GFSSP-class accuracy (the TFAWS-2007 paper reports agreement within
+    // 5% for its Rayleigh case).  Measured here: 2.1%.
     const mdot = res.branches["b0"].mdot;
     expect(
       Math.abs(mdot - analyticMdot(duct)) / analyticMdot(duct),

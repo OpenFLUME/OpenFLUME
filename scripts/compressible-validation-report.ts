@@ -1532,8 +1532,8 @@ The table above uses \`momentumFluxScheme: "central"\`. The solver's default,
 \`"upwind"\`, trades a few percent of choked-flow accuracy for transonic
 robustness (no spurious sonic-crossing roots; cold-start convergence — see
 the compressible-duct and real-fluid transonic tests). Re-running the same cases under the
-default gives GFSSP-class agreement — the original study reports 1.7–5 % on
-its own first-order upwind discretization:
+default gives GFSSP-class agreement — the original study reports agreement within
+5 % for its Rayleigh case:
 
 | Case | ṁ error | max ΔM/M | stations compared |
 | ---- | ------- | -------- | ----------------- |

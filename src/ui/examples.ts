@@ -939,7 +939,8 @@ export const heatedPipeRadiatingWall: NetworkConfig = {
 /**
  * Benchmark A — GFSSP Ex.13: Conduction rod with convection (steady)
  *
- * Source: NASA/TM-2011-216470 §6.13 + Majumdar TFAWS-2004.
+ * Source: NASA/TM-2013-217492 §6.13 (Example 11, §5.11 of the v5 Educational
+ * manual, NASA/TM-2011-216470) + Majumdar TFAWS-2004.
  * Rod: L=0.6096 m, D=0.0508 m, k=16.27 W/(m·K), A_cs=2.028e-3 m², P=0.1596 m.
  * Ends held at 273.15 K and 373.15 K; convection h=6.47 W/(m²·K) to air at 294.26 K.
  * Discretized with N=5 solid segment nodes (masses for transient-validity).
