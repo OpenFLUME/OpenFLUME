@@ -11,7 +11,7 @@
 import { describe, it, expect } from "vitest";
 import {
   lnGamma,
-  marshallPigfordJ,
+  schumannJ,
   schumannFluidTheta,
   schumannFluidTemperature,
   schumannWallTheta,
@@ -67,20 +67,20 @@ describe("lnGamma", () => {
   });
 });
 
-describe("marshallPigfordJ (Marcum Q1)", () => {
+describe("schumannJ (Marcum Q1)", () => {
   it.each(REFERENCE)(
     "J(%s, %s) matches the 80-digit reference to 1e-10 relative",
     (a, b, ref) => {
-      const v = marshallPigfordJ(a, b);
+      const v = schumannJ(a, b);
       expect(Math.abs(v - ref) / ref).toBeLessThan(1e-10);
     },
   );
 
   it("limits: J(0, b) = 1 and J(a, 0) = exp(-a)", () => {
-    for (const b of [0, 0.3, 5, 800]) expect(marshallPigfordJ(0, b)).toBe(1);
+    for (const b of [0, 0.3, 5, 800]) expect(schumannJ(0, b)).toBe(1);
     for (const a of [1e-6, 0.5, 3, 40]) {
       expect(
-        Math.abs(marshallPigfordJ(a, 0) - Math.exp(-a)) / Math.exp(-a),
+        Math.abs(schumannJ(a, 0) - Math.exp(-a)) / Math.exp(-a),
       ).toBeLessThan(1e-15);
     }
   });
@@ -88,13 +88,13 @@ describe("marshallPigfordJ (Marcum Q1)", () => {
   it("is monotone: decreasing in a, increasing in b", () => {
     let prev = 1;
     for (let a = 0.25; a < 30; a += 0.25) {
-      const v = marshallPigfordJ(a, 3);
+      const v = schumannJ(a, 3);
       expect(v).toBeLessThan(prev);
       prev = v;
     }
     prev = 0;
     for (let b = 0.25; b < 30; b += 0.25) {
-      const v = marshallPigfordJ(4, b);
+      const v = schumannJ(4, b);
       expect(v).toBeGreaterThan(prev);
       prev = v;
     }
@@ -140,17 +140,15 @@ describe("marshallPigfordJ (Marcum Q1)", () => {
             i0(2 * Math.sqrt(b * xi));
         }
       }
-      expect(Math.abs(marshallPigfordJ(a, b) - (1 - integral))).toBeLessThan(
-        1e-12,
-      );
+      expect(Math.abs(schumannJ(a, b) - (1 - integral))).toBeLessThan(1e-12);
     }
   });
 
   it("rejects invalid arguments", () => {
-    expect(() => marshallPigfordJ(-1, 1)).toThrow(RangeError);
-    expect(() => marshallPigfordJ(1, -1)).toThrow(RangeError);
-    expect(() => marshallPigfordJ(NaN, 1)).toThrow(RangeError);
-    expect(() => marshallPigfordJ(1, Infinity)).toThrow(RangeError);
+    expect(() => schumannJ(-1, 1)).toThrow(RangeError);
+    expect(() => schumannJ(1, -1)).toThrow(RangeError);
+    expect(() => schumannJ(NaN, 1)).toThrow(RangeError);
+    expect(() => schumannJ(1, Infinity)).toThrow(RangeError);
   });
 });
 
@@ -221,7 +219,7 @@ describe("Anzelius–Schumann temperatures", () => {
     const t = 40;
     const tau = p.a * (t - z / p.u);
     expect(schumannWallTemperature(p, z, t)).toBeCloseTo(
-      33.15 + 266.85 * marshallPigfordJ(tau, p.b * z),
+      33.15 + 266.85 * schumannJ(tau, p.b * z),
       10,
     );
   });

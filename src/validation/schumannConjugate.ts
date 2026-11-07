@@ -283,10 +283,17 @@ export function runSchumannCase(spec: SchumannSpec): SchumannRun {
   }
   let dEfluid = 0;
   const fluidNodes = cfg.nodes.filter((n) => n.type === "internal");
-  for (const n of fluidNodes) {
+  const segL = SCHUMANN_GEOMETRY.L / spec.N;
+  fluidNodes.forEach((n, j) => {
+    const frac = j === 0 || j === spec.N ? 0.5 : 1;
     dEfluid +=
-      rhoF * n.volume! * cF * (res.nodes[n.id].temperature[last] - Tw0);
-  }
+      rhoF *
+      p.Af *
+      segL *
+      frac *
+      cF *
+      (res.nodes[n.id].temperature[last] - Tw0);
+  });
   const outId = fluidNodes[fluidNodes.length - 1].id;
   let flowIn = 0;
   for (let k = 1; k <= last; k++) {

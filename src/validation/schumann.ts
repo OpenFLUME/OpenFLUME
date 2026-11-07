@@ -22,9 +22,10 @@
  *   θ_w = J(τ, ζ),     θ_f = 1 − J(ζ, τ),
  *   J(a, b) = 1 − ∫₀ᵃ e^{−(b+ξ)} I₀(2√(bξ)) dξ.
  *
- * J is the Marshall–Pigford function and equals the Marcum Q-function
- * Q₁(√(2b), √(2a)), i.e. the survival function of a non-central chi-square
- * variable with two degrees of freedom, P(χ'²₂(λ = 2b) > 2a).
+ * J is the standard function of the Anzelius–Schumann solution and equals
+ * the Marcum Q-function Q₁(√(2b), √(2a)), i.e. the survival function of a
+ * non-central chi-square variable with two degrees of freedom,
+ * P(χ'²₂(λ = 2b) > 2a).
  *
  * Evaluation.  Q₁ is a Poisson mixture of regularised upper incomplete gamma
  * functions, and for integer shape those are Poisson distribution functions,
@@ -70,15 +71,15 @@ export function lnGamma(x: number): number {
 }
 
 /**
- * Marshall–Pigford J function, J(a, b) = Q₁(√(2b), √(2a)).
+ * J function of the Anzelius–Schumann solution, J(a, b) = Q₁(√(2b), √(2a)).
  *
  * Domain a ≥ 0, b ≥ 0.  Limits: J(0, b) = 1, J(a, 0) = e^{−a}, J → 0 as
  * a → ∞, J → 1 as b → ∞.  Returns a value in [0, 1].
  */
-export function marshallPigfordJ(a: number, b: number): number {
+export function schumannJ(a: number, b: number): number {
   if (!(a >= 0) || !(b >= 0) || !Number.isFinite(a) || !Number.isFinite(b)) {
     throw new RangeError(
-      `marshallPigfordJ: need finite a, b >= 0, got a=${a}, b=${b}`,
+      `schumannJ: need finite a, b >= 0, got a=${a}, b=${b}`,
     );
   }
   if (a === 0) return 1;
@@ -121,7 +122,7 @@ export function marshallPigfordJ(a: number, b: number): number {
  */
 export function schumannWallTheta(zeta: number, tau: number): number {
   if (!(tau > 0)) return 1;
-  return marshallPigfordJ(tau, zeta);
+  return schumannJ(tau, zeta);
 }
 
 /**
@@ -131,7 +132,7 @@ export function schumannWallTheta(zeta: number, tau: number): number {
  */
 export function schumannFluidTheta(zeta: number, tau: number): number {
   if (tau < 0) return 1;
-  return 1 - marshallPigfordJ(zeta, tau);
+  return 1 - schumannJ(zeta, tau);
 }
 
 /** Dimensional parameters of the Anzelius–Schumann problem. */
