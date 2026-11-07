@@ -167,8 +167,30 @@ describe("examples library: validation, convergence, and physics", () => {
               res.branches["leg2_v"].mdot +
               res.branches["leg3_v"].mdot;
             const mRet = res.branches["ret1"].mdot + res.branches["ret2"].mdot;
-            const maxM = Math.max(Math.abs(mLegs), Math.abs(mRet), 1e-12);
-            expect(Math.abs(mLegs - mRet) / maxM).toBeLessThan(1e-6);
+            const maxM2 = Math.max(Math.abs(mLegs), Math.abs(mRet), 1e-12);
+            expect(Math.abs(mLegs - mRet) / maxM2).toBeLessThan(1e-6);
+          }
+
+          if (name === "Pressure-fed propellant feed system") {
+            // Single series path: regulator, feed line, valve and injector
+            // all carry the same mass flow, set by the ~700 kPa injector
+            // drop (hand check: ~9 kg/s, order of magnitude 3-15).
+            const ids = ["regulator", "feedLine", "shutoff", "injector"];
+            for (const bid of ids) {
+              expect(res.branches[bid].mdot).toBeGreaterThan(3);
+              expect(res.branches[bid].mdot).toBeLessThan(15);
+            }
+            const m0 = res.branches["regulator"].mdot;
+            for (const bid of ids.slice(1)) {
+              expect(
+                Math.abs(res.branches[bid].mdot - m0) / m0,
+                bid,
+              ).toBeLessThan(1e-6);
+            }
+            // Chamber sees the injector flow; tank pressure is between
+            // pressurant and chamber pressures.
+            expect(res.nodes["tank"].pressure).toBeLessThan(1_600_000);
+            expect(res.nodes["tank"].pressure).toBeGreaterThan(500_000);
           }
 
           if (name === "Spacecraft radiator panel (ammonia loop heat pipe)") {
