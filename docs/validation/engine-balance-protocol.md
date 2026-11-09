@@ -154,4 +154,4 @@ It is a design-point example of a hypothetical engine, so the comparison is with
 
 ## Amendments
 
-None.
+2026-11-09. Correction of two hand-arithmetic values in the observations on the book, made after the first model run but from the printed book data alone, so no model result is involved. Observation 4 gave 27144 hp for equations 6-18 and 6-19 with 58.2 percent and the printed gas state. The script recomputes it as 27123 hp (0.06 percent below the printed 27140). Observation 3 gave 11785 hp for the fuel pump and the script gives 11784. No modelling choice, tolerance or comparison set was changed.
