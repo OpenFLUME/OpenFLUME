@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">Pressure budget from pump discharge to injector end</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0</text>
+<line x1="192" y1="46" x2="192" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="192" y="390" text-anchor="middle" font-size="11">1</text>
+<line x1="308" y1="46" x2="308" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="308" y="390" text-anchor="middle" font-size="11">2</text>
+<line x1="424" y1="46" x2="424" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="424" y="390" text-anchor="middle" font-size="11">3</text>
+<line x1="540" y1="46" x2="540" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="540" y="390" text-anchor="middle" font-size="11">4</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">5</text>
+<line x1="76" y1="305.96113809027077" x2="656" y2="305.96113809027077" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="309.96113809027077" text-anchor="end" font-size="11">1200</text>
+<line x1="76" y1="213.43813581323545" x2="656" y2="213.43813581323545" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="217.43813581323545" text-anchor="end" font-size="11">1400</text>
+<line x1="76" y1="120.91513353620016" x2="656" y2="120.91513353620016" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="124.91513353620016" text-anchor="end" font-size="11">1600</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Station along the feed line (0 is the pump discharge)</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Pressure [psia]</text>
+<path d="M76.0,164.9 L192.0,176.4 L308.0,192.6 L424.0,262.0 L540.0,354.5" fill="none" stroke="#000000" stroke-width="1.8"/>
+<circle cx="76" cy="162.33194330310926" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="192" cy="173.67382719099263" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="308" cy="189.5524646340294" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="424" cy="257.6037679613301" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="540" cy="348.3388390643977" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,65.4 L192.0,70.0 L308.0,77.0 L424.0,127.9 L540.0,262.0 L656.0,354.5" fill="none" stroke="#7f8c8d" stroke-width="1.8" stroke-dasharray="5 3"/>
+<rect x="72.6" y="60.064285714285724" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="188.6" y="64.6222785678876" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="304.6" y="71.45926784829024" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="420.6" y="121.59718923791002" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="536.6" y="253.77898199236185" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="652.6" y="344.9388390643977" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="84" y="282" width="192" height="82" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="92" y1="292" x2="114" y2="292" stroke="#000000" stroke-width="1.8"/>
+<text x="120" y="296" font-size="11">LOX, book</text>
+<circle cx="103" cy="310" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="120" y="314" font-size="11">LOX, model at 7000 rpm</text>
+<line x1="92" y1="328" x2="114" y2="328" stroke="#7f8c8d" stroke-width="1.8" stroke-dasharray="5 3"/>
+<text x="120" y="332" font-size="11">Fuel, book</text>
+<rect x="99.6" y="342.6" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<text x="120" y="350" font-size="11">Fuel, model at 7000 rpm</text>
+</svg>
