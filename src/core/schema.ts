@@ -412,6 +412,14 @@ export type FluidModelKind = (typeof FLUID_MODELS)[number];
 export interface FluidSpec {
   model: FluidModelKind;
   preset?: "water" | "air" | "waterExpandable";
+  /**
+   * Model parameters.  `realFluid` takes `fluidName`, and optionally
+   * `transport: "external"` for a catalogue fluid that has no built-in
+   * viscosity or conductivity (for example R21).  The declaration says the
+   * network carries its own transport: validation then accepts the fluid and
+   * rejects any branch component or convection conductor that would need the
+   * missing viscosity or conductivity (core/validate/externalTransport.ts).
+   */
   params?: Record<string, number | string>;
 }
 

@@ -6,6 +6,7 @@
 import type { ResolvedNetworkConfig, FluidSpec } from "../schema";
 import { FLUID_MODELS } from "../schema";
 import { SUPPORTED_REAL_FLUIDS } from "../fluids/realFluid";
+import { EXTERNAL_TRANSPORT } from "./externalTransport";
 import {
   canonicalizeFluidName,
   fluidHasConductivityModel,
@@ -47,7 +48,8 @@ function validateFluidSpec(spec: FluidSpec, named?: string): string[] {
     );
   } else if (
     !fluidHasViscosityModel(canonical) &&
-    !isCuratedRealFluid(canonical)
+    !isCuratedRealFluid(canonical) &&
+    spec.params?.transport !== EXTERNAL_TRANSPORT
   ) {
     const entry = getFluidCatalogueEntry(canonical);
     const condNote =
@@ -57,7 +59,17 @@ function validateFluidSpec(spec: FluidSpec, named?: string): string[] {
     errors.push(
       `${subject} has no viscosity${condNote} model in the shipped CoolProp HEOS build, ` +
         `so a solve would silently use zero transport (no friction / no convection). ` +
-        `Pick a fluid with transport models in Settings (no-transport fluids are marked with ⚠).`,
+        `Pick a fluid with transport models in Settings (no-transport fluids are marked with ⚠). ` +
+        `A flowSource-driven thermal network that carries its own viscosity and conductivity in a ` +
+        `custom convection expression may declare params.transport = "${EXTERNAL_TRANSPORT}" instead.`,
+    );
+  }
+  if (
+    spec.params?.transport !== undefined &&
+    spec.params.transport !== EXTERNAL_TRANSPORT
+  ) {
+    errors.push(
+      `${label}: params.transport must be "${EXTERNAL_TRANSPORT}" when present, got ${JSON.stringify(spec.params.transport)}`,
     );
   }
   return errors;
