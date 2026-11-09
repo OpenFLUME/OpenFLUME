@@ -704,8 +704,10 @@ panels of a chain.
 
 ## Protocol
 
-The protocol was committed with the data before any OpenFLUME run. The choices
-below are used unchanged.
+The comparison set, exclusions, modeling choices, and metrics were committed with
+the data before any OpenFLUME run. The two points above were selected later, on
+cost alone, after an earlier campaign had run the model on the primary points. The
+choices below are used unchanged.
 
 - Main bank only. The prime tube is not modeled and each panel outlet is the
   main outlet, as in the 1973 model. The mixed main outlet is the flow-weighted
