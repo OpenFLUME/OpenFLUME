@@ -276,7 +276,7 @@ def main():
     ap.add_argument("--split-exponent", type=float, default=0.0, help="tube flow weight is length**p (0 means equal)")
     ap.add_argument("--laminar-nu", type=float, default=3.66)
     ap.add_argument("--h-scale", type=float, default=1.0)
-    ap.add_argument("--segments", type=int, default=24)
+    ap.add_argument("--segments", type=int, default=96, help="march segments per tube (the explicit march converges from below, 24 gives 0.3 F error on a tube)")
     ap.add_argument("--two-sided-factor", type=float, default=None, help="total effective area factor for two-sided points (default 1.67)")
     args = ap.parse_args()
 

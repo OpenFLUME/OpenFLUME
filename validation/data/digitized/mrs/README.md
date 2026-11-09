@@ -120,6 +120,10 @@ Cross-checks that were possible.
 - A NASA Tech Brief (B72-10651) gives the liquid conductivity at 77 F as 0.063 Btu per hour foot F (26.02e-5 cal per second centimetre C at 25 C), which is 0.109 W per metre per kelvin. The model value is 0.1006, so the Tech Brief is 8 percent higher. This is outside the stated 5 percent model uncertainty and is the reason the protocol uses a 15 percent conductivity sensitivity.
 - The viscosity and conductivity are used only in the fluid-side Nusselt number through Re = 4 mdot / (pi D mu) and h = Nu k / D. The sensitivity of the result to viscosity plus and minus 25 percent and conductivity plus and minus 15 percent is reported with the results.
 
+## OpenFLUME results
+
+The OpenFLUME results are not stored here. They are computed by `scripts/mrs-validation-report.ts` (through `scripts/mrs-validation-run.ts`) from the model in `src/validation/mrsRadiator.ts` and written into `docs/validation/mrs-report.md`.
+
 ## Hand calculation
 
 `scripts/reference/mrs_hand_calc.py` is the independent first-principles comparator. It reads the registry, the panel outlet file and the transport table, uses CoolProp for R21 density, specific heat and enthalpy, and does not use OpenFLUME. Install with `pip install -r scripts/reference/requirements-mrs.txt` and run `python scripts/reference/mrs_hand_calc.py --set all --out validation/data/digitized/mrs/mrs_hand_calc_results.csv`. The run takes about 30 seconds. `mrs_hand_calc_results.csv` and `mrs_hand_calc_results_system.csv` are computed output and are labelled by the `set` column.

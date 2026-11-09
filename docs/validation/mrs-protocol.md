@@ -129,3 +129,5 @@ This case is a high-level system test of the tool, not a research campaign, so t
 ## Amendments
 
 2026-11-09. Wording correction in the paragraph on the primary traces, made after the 4 and 8 segment OpenFLUME runs had been looked at, and based only on the tabulated 1973 model values in the registry. The first version said TP54 had the largest 1973 model error of the cheap points, which is not so (TP55 and TP59 are larger). No modelling choice or comparison set was changed.
+
+2026-11-09. The hand calculation marches at 96 segments per tube instead of 24, because its explicit march converges from below and 24 segments leave 0.3 F on one tube. This is a numerical convergence correction of the comparator, made after earlier OpenFLUME runs existed, and no physical input changed. The committed hand calculation output is the 96 segment run.
