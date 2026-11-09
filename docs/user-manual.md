@@ -3366,6 +3366,21 @@ independent hand calculation. The case verifies conduction, radiation,
 convection to the fluid and the series and parallel bookkeeping of imposed
 flows. It does not verify hydraulics, and the flows are imposed.
 
+The [A-1 engine balance report](validation/engine-balance-report.md) is a basic
+code-to-code check against a published design example, the 750 klbf LOX/RP-1
+gas-generator-cycle A-1 stage engine of NASA SP-125 (Table 3-2). The network has
+square-law feed-line restrictions sized from the printed pressure drops, two
+pumps with a stated head-flow shape, a reacting junction chamber with a choked
+throat and a choked turbine orifice with the book's gas state. OpenFLUME has no
+turbine component and no shaft speed unknown, so the turbine power, pump powers
+and balance residual are post-processed and the power balance is closed by a
+script-level iteration on the shaft speed. The case is nested, not a
+simultaneous solve. The flows and station pressures at the design point are
+reproduced largely by the sizing of effective areas, so the case verifies the
+bookkeeping of the pressure budgets and the post-processed power balance. It
+does not verify turbomachinery physics, the gas generator thermochemistry (the
+CEA tables do not reach its mixture ratio) or any measured engine behavior.
+
 ## 8.5 Correlation Status
 
 | Correlation              | Source                                                     | Status                                                                                                                      |

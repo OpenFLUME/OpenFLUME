@@ -1,6 +1,6 @@
 ---
 title: Verification and validation
-description: How OpenFLUME is checked — analytic verification, code-to-code benchmarks, and validation against experiment, with twelve reports generated from live solves.
+description: How OpenFLUME is checked — analytic verification, code-to-code benchmarks, and validation against experiment, with thirteen reports generated from live solves.
 ---
 
 # Verification and validation
@@ -34,7 +34,7 @@ says so and gives no agreement figure for it
 
 ## How the reports are generated
 
-Each of the twelve reports below is written by a script in
+Each of the thirteen reports below is written by a script in
 [`scripts/`](../../scripts/), which builds the cases, runs the current
 solver, computes the reference solutions, and writes the Markdown and SVG
 figures. None of the numbers are typed in by hand.
@@ -51,7 +51,8 @@ figures. None of the numbers are typed in by hand.
 | [Cryogenic chilldown](chilldown-report.md) | `scripts/chilldown-validation-report.ts` | `src/ui/tests/chilldownBaseline.test.ts` (slow tier), `nbsTraceCorpus.test.ts`, `traceBaseline.test.ts` |
 | [Choked flow and cavitation](choked-flow-report.md) | `scripts/choked-flow-validation-report.ts` | `src/validation/__tests__/chokedFlow.test.ts`, `cavitationHord.test.ts`, `experimentalData.test.ts` |
 | [Tank self-pressurization](tank-self-pressurization-report.md) | `scripts/tank-pressurization-validation-report.ts` | `src/validation/__tests__/tankSelfPressurization.test.ts` |
-| [Shuttle Modular Radiator System](mrs-report.md): LTV T169-28, NASA CR-140269 | 2 measured test points (TP1A and TP54, 16 panel outlets), a high-level system test of the thermal network | Measured panel outlet temperatures; the 1973 model's tabulated predictions; an independent first-principles hand calculation | Panel outlet error against the test, N = 8 segments per tube, over 16 outlets: RMS 5.21 F, max 7.71 F, bias +4.97 F (1973 model RMS 3.77 F, hand calculation 3.47 F). Agreement with the hand calculation 2.61 F RMS at N = 8, with a first-order discretization error removed by extrapolation. A 5 % change of the absorbed flux moves the TP1A outlets by about 5 F, the size of the offset to the test. Thermal network only, flows imposed, no hydraulic claim |
+| [Shuttle Modular Radiator System](mrs-report.md) | `scripts/mrs-validation-report.ts` (solves run by `scripts/mrs-validation-run.ts`) | `src/validation/__tests__/mrsRadiator.test.ts`, `externalTransport.test.ts` |
+| [A-1 engine balance](engine-balance-report.md) | `scripts/engine-balance-report.ts` | `src/validation/__tests__/a1Engine.test.ts` |
 | [Code-to-code benchmarks](benchmarks-report.md) | `scripts/benchmarks-report.ts` | `src/ui/tests/gfssp-benchmarks.test.ts`, `leeMartin.test.ts`, `lh2StorageTank.test.ts`, `nureth.test.ts` |
 
 To regenerate a report from a clone:
@@ -86,7 +87,7 @@ The test tiers are described in
 [§8.6](../user-manual.md#_8-6-test-tiers) and
 [`testing-slow.md`](../testing-slow.md).
 
-## The twelve reports
+## The thirteen reports
 
 The headline figures below are copied from each report's abstract or summary
 table. Each report gives the definitions, normalizations, and excluded
@@ -104,6 +105,8 @@ stations behind its figures. Read those before quoting a number.
 | [Cryogenic chilldown](chilldown-report.md): NBS Report 9264 | All 18 Table-6 cases (LN₂ and LH₂, saturated and subcooled; 14 trusted, 4 diagnostic by record QC), four-case refinement N = 3–30 and time-step study, 7 trusted trace runs | Measured chilldown times and digitized wall traces; GFSSP's published predictions | Mean absolute error over the 18 rows 19.3 % (N = 3; signed mean +6.3 %, 6 late) against 7.6 % for GFSSP (+7.3 %, 16 late); correlation of errors −0.07. Without the 3 flagged (unconverged) rows 19.7 %, and without the subcooled LN₂ rows as well 10.1 % over 11 rows (GFSSP 8.7 %). Subset at N = 30 (GFSSP's resolution): 13.5 % over the 3 cases that reach the knee against 4.6 %; saturated LN₂ +8.1 % (GFSSP +7.7 %). Subcooled LN₂ (+29 % to +57 % at N = 3) depends on the outlet pressure and on GFSSP's unpublished exit restriction (not quoted). Trace RMSE 23–72 K (N = 6); the modeled front is 3–4 times broader than measured |
 | [Choked flow and cavitation](choked-flow-report.md): NASA TP-1484, TM X-71760, CR-2054 | 326 nozzle and 26 orifice points (N₂, CH₄), 32 LH₂ venturi cavities | Measured maximum mass flux; measured cavity pressures; HEM as a reference model | Subcooled-liquid nozzle inlets: median +4.5 % (−3.4 % to +17.1 %). Gas: −5.6 % to +4.7 %. Near-saturated liquid under-predicted (down to 0.15×); supercritical over-predicted (median +30 %) by the frozen-κ expansibility closure. Sharp-edged orifice at measured back pressure, C_d = 0.61: −6.1 % to +1.3 % (subcooled). Venturi leading-edge cavity pressure 6–55 % below P_v(T₀) |
 | [Tank self-pressurization](tank-self-pressurization-report.md): NASA TM-103804 | 3 heat fluxes, 4.89 m³ LH₂ tank | Measured rise rates; the paper's homogeneous model; analytic homogeneous reference | Lumped tank equals the analytic homogeneous rate to 0.15 % and the paper's model to −3.9 % to +5.6 %. Measured rise 1.07, 2.47 and 3.05 times faster (stratification, not represented) |
+| [Shuttle Modular Radiator System](mrs-report.md): LTV T169-28, NASA CR-140269 | 2 measured test points (TP1A and TP54, 16 panel outlets), a high-level system test of the thermal network | Measured panel outlet temperatures; the 1973 model's tabulated predictions; an independent first-principles hand calculation | Panel outlet error against the test, N = 8 segments per tube, over 16 outlets: RMS 5.21 F, max 7.71 F, bias +4.97 F (1973 model RMS 3.77 F, hand calculation 3.47 F). Agreement with the hand calculation 2.61 F RMS at N = 8, with a first-order discretization error removed by extrapolation. A 5 % change of the absorbed flux moves the TP1A outlets by about 5 F, the size of the offset to the test. Thermal network only, flows imposed, no hydraulic claim |
+| [A-1 engine balance](engine-balance-report.md): NASA SP-125 design example | 1 design-point engine (750 klbf LOX/RP-1 gas-generator cycle), 31 published balance numbers compared, a nested pump and turbine power balance with the pressure budgets | The printed design values of Table 3-2 and the book's own power equations | See the report. Code-to-code against a published design example, not a measurement. Flows and station pressures at the design point are reproduced largely by the sizing of effective areas. At 7000 rpm the balance residual is the output (209 bhp, 0.77 % of the turbine power) and the nested iteration closes it at a shaft speed 0.47 % from 7000. Pc is +1.22 % and c* +2.16 % from the book through the CEA table. No turbine component, no shaft unknown, gas generator state imposed |
 | [Code-to-code benchmarks](benchmarks-report.md): GFSSP and SINDA/FLUINT problems | 6 benchmarks (manual §8.3) | GFSSP output, SINDA/FLUINT output, analytic (fin solution, ε-NTU), independent RK4 | Achieved errors against each reference, with the gate alongside; see the table below |
 
 Most of these reports are analytic verification. The compressible report
