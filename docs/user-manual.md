@@ -3355,6 +3355,17 @@ NASA TM-103804. The lumped tank matches an analytic homogeneous calculation to
 0.15 % and the paper's homogeneous model to −3.9 % to +5.6 %; the measured rise
 is 1.07, 2.47 and 3.05 times faster, because the real tank stratifies.
 
+The [Shuttle radiator report](validation/mrs-report.md) is a small system-level
+check of the thermal network. It recreates two measured series chains of the
+1973 Modular Radiator System thermal-vacuum test (LTV T169-28, NASA CR-140269)
+with a resolved panel model built before the run, with the Freon-21 coolant
+declared `transport = "external"` so that its viscosity and conductivity come
+from the model rather than from the fluid library. Panel outlet temperatures are
+compared with the test, the 1973 model's tabulated predictions and an
+independent hand calculation. The case verifies conduction, radiation,
+convection to the fluid and the series and parallel bookkeeping of imposed
+flows. It does not verify hydraulics, and the flows are imposed.
+
 ## 8.5 Correlation Status
 
 | Correlation              | Source                                                     | Status                                                                                                                      |

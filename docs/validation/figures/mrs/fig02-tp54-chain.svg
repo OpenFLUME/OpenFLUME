@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="430" viewBox="0 0 680 430" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="430" fill="white"/>
+<text x="340" y="24" text-anchor="middle" font-size="15" font-weight="bold">MRS test point 54, outlet temperature along 4 chains of 2 panels</text>
+<line x1="76" y1="46" x2="76" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="76" y="390" text-anchor="middle" font-size="11">0.0</text>
+<line x1="221" y1="46" x2="221" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="221" y="390" text-anchor="middle" font-size="11">0.5</text>
+<line x1="366" y1="46" x2="366" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="366" y="390" text-anchor="middle" font-size="11">1.0</text>
+<line x1="511" y1="46" x2="511" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="511" y="390" text-anchor="middle" font-size="11">1.5</text>
+<line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
+<text x="656" y="390" text-anchor="middle" font-size="11">2.0</text>
+<line x1="76" y1="340.1680769868923" x2="656" y2="340.1680769868923" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="344.1680769868923" text-anchor="end" font-size="11">0</text>
+<line x1="76" y1="255.65256346441015" x2="656" y2="255.65256346441015" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="259.65256346441015" text-anchor="end" font-size="11">50</text>
+<line x1="76" y1="171.13704994192798" x2="656" y2="171.13704994192798" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="175.13704994192798" text-anchor="end" font-size="11">100</text>
+<line x1="76" y1="86.62153641944582" x2="656" y2="86.62153641944582" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="90.62153641944582" text-anchor="end" font-size="11">150</text>
+<rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
+<text x="366" y="416" text-anchor="middle" font-size="12.5">Panels from the chain inlet (0 is the main inlet)</text>
+<text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Panel main outlet temperature [F]</text>
+<path d="M76.0,63.5 L366.0,168.7 L656.0,230.3" fill="none" stroke="#9db8d8" stroke-width="1.8" stroke-dasharray="4 3"/>
+<path d="M76.0,63.5 L366.0,172.1 L656.0,234.0" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
+<circle cx="76" cy="63.464285714285666" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="366" cy="172.07945867136877" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="233.97614505964543" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="76" cy="63.464285714285666" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="366" cy="175.48080805267023" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="237.79849321872584" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="76" cy="63.464285714285666" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="366" cy="233.21552616912865" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="340.4807446141909" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="76" cy="63.464285714285666" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="366" cy="230.11688358863537" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="336.3983513053862" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<path d="M76.0,63.5 L366.0,176.3 L656.0,238.5" fill="none" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="76,60.06428571428567 72.6,66.86428571428567 79.4,66.86428571428567" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="366,172.94320557491284 362.6,179.74320557491285 369.4,179.74320557491285" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,235.12972042475522 652.6,241.92972042475523 659.4,241.92972042475523" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="76,60.06428571428567 72.6,66.86428571428567 79.4,66.86428571428567" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="366,176.52666334826608 362.6,183.3266633482661 369.4,183.3266633482661" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,239.0681433549029 652.6,245.8681433549029 659.4,245.8681433549029" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="76,60.06428571428567 72.6,66.86428571428567 79.4,66.86428571428567" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="366,236.36364692218348 362.6,243.1636469221835 369.4,243.1636469221835" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,344.81395387423265 652.6,351.6139538742326 659.4,351.6139538742326" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="76,60.06428571428567 72.6,66.86428571428567 79.4,66.86428571428567" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="366,233.08444499751118 362.6,239.8844449975112 369.4,239.8844449975112" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,340.571275095404 652.6,347.371275095404 659.4,347.371275095404" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<path d="M76.0,63.5 L366.0,187.9 L656.0,253.5" fill="none" stroke="#d68910" stroke-width="1.8" stroke-dasharray="6 3"/>
+<rect x="72.6" y="60.06428571428567" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="362.6" y="184.47112161937943" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="652.6" y="250.05516011282558" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="72.6" y="60.06428571428567" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="362.6" y="185.48530778164923" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="652.6" y="250.56225319396052" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="72.6" y="60.06428571428567" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="362.6" y="241.9416708146673" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="652.6" y="351.1357142857143" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="72.6" y="60.06428571428567" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="362.6" y="241.60360876057737" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<rect x="652.6" y="350.9666832586693" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<polygon points="366,179.56922183507547 369.4,182.96922183507547 366,186.36922183507548 362.6,182.96922183507547" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="656,239.74426746308276 659.4,243.14426746308277 656,246.54426746308278 652.6,243.14426746308277" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="366,176.1886012941762 369.4,179.58860129417621 366,182.98860129417622 362.6,179.58860129417621" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="656,238.05395719263313 659.4,241.45395719263314 656,244.85395719263315 652.6,241.45395719263314" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="366,236.19461589513853 369.4,239.59461589513853 366,242.99461589513854 362.6,239.59461589513853" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="656,341.1628836900614 659.4,344.56288369006137 656,347.96288369006135 652.6,344.56288369006137" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="366,239.74426746308276 369.4,243.14426746308277 366,246.54426746308278 362.6,243.14426746308277" fill="none" stroke="#000000" stroke-width="1.4"/>
+<polygon points="656,343.022224987556 659.4,346.422224987556 656,349.82222498755596 652.6,346.422224987556" fill="none" stroke="#000000" stroke-width="1.4"/>
+<rect x="501" y="54" width="147" height="100" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
+<line x1="509" y1="64" x2="531" y2="64" stroke="#9db8d8" stroke-width="1.8" stroke-dasharray="4 3"/>
+<text x="537" y="68" font-size="11">OpenFLUME N=4</text>
+<line x1="509" y1="82" x2="531" y2="82" stroke="#1f5fa8" stroke-width="1.8"/>
+<circle cx="520" cy="82" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<text x="537" y="86" font-size="11">OpenFLUME N=8</text>
+<line x1="509" y1="100" x2="531" y2="100" stroke="#1e8449" stroke-width="1.8"/>
+<polygon points="520,96.6 516.6,103.4 523.4,103.4" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<text x="537" y="104" font-size="11">Hand calculation</text>
+<line x1="509" y1="118" x2="531" y2="118" stroke="#d68910" stroke-width="1.8" stroke-dasharray="6 3"/>
+<rect x="516.6" y="114.6" width="6.8" height="6.8" fill="none" stroke="#d68910" stroke-width="1.4"/>
+<text x="537" y="122" font-size="11">1973 model</text>
+<polygon points="520,132.6 523.4,136 520,139.4 516.6,136" fill="none" stroke="#000000" stroke-width="1.4"/>
+<text x="537" y="140" font-size="11">Test</text>
+</svg>

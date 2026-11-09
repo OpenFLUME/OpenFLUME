@@ -30,7 +30,7 @@ features:
   - title: Real fluids, two-phase, compressible
     details: A 124-fluid CoolProp HEOS catalogue and a homogeneous-equilibrium two-phase model. Opt-in quasi-1-D compressible flow with Fanno/Rayleigh choking and converging–diverging nozzles.
   - title: Generated verification reports
-    details: Eleven validation reports are generated from live solves, each labeled analytic, code-to-code, or experimental. CI reruns the full scientific suite weekly.
+    details: Twelve validation reports are generated from live solves, each labeled analytic, code-to-code, or experimental. CI reruns the full scientific suite weekly.
   - title: Scriptable from Python
     details: pip install openflume drives the same solver core from Python, with sweeps, NumPy/pandas output, and a CLI. Save a model from the app and solve it in a notebook.
   - title: MIT licensed and auditable

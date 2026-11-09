@@ -1,6 +1,6 @@
 ---
 title: Verification and validation
-description: How OpenFLUME is checked — analytic verification, code-to-code benchmarks, and validation against experiment, with eleven reports generated from live solves.
+description: How OpenFLUME is checked — analytic verification, code-to-code benchmarks, and validation against experiment, with twelve reports generated from live solves.
 ---
 
 # Verification and validation
@@ -34,7 +34,7 @@ says so and gives no agreement figure for it
 
 ## How the reports are generated
 
-Each of the eleven reports below is written by a script in
+Each of the twelve reports below is written by a script in
 [`scripts/`](../../scripts/), which builds the cases, runs the current
 solver, computes the reference solutions, and writes the Markdown and SVG
 figures. None of the numbers are typed in by hand.
@@ -51,6 +51,7 @@ figures. None of the numbers are typed in by hand.
 | [Cryogenic chilldown](chilldown-report.md) | `scripts/chilldown-validation-report.ts` | `src/ui/tests/chilldownBaseline.test.ts` (slow tier), `nbsTraceCorpus.test.ts`, `traceBaseline.test.ts` |
 | [Choked flow and cavitation](choked-flow-report.md) | `scripts/choked-flow-validation-report.ts` | `src/validation/__tests__/chokedFlow.test.ts`, `cavitationHord.test.ts`, `experimentalData.test.ts` |
 | [Tank self-pressurization](tank-self-pressurization-report.md) | `scripts/tank-pressurization-validation-report.ts` | `src/validation/__tests__/tankSelfPressurization.test.ts` |
+| [Shuttle Modular Radiator System](mrs-report.md): LTV T169-28, NASA CR-140269 | 2 measured test points (TP1A and TP54, 16 panel outlets), a high-level system test of the thermal network | Measured panel outlet temperatures; the 1973 model's tabulated predictions; an independent first-principles hand calculation | Panel outlet error against the test, N = 8 segments per tube, over 16 outlets: RMS 5.21 F, max 7.71 F, bias +4.97 F (1973 model RMS 3.77 F, hand calculation 3.47 F). Agreement with the hand calculation 2.61 F RMS at N = 8, with a first-order discretization error removed by extrapolation. A 5 % change of the absorbed flux moves the TP1A outlets by about 5 F, the size of the offset to the test. Thermal network only, flows imposed, no hydraulic claim |
 | [Code-to-code benchmarks](benchmarks-report.md) | `scripts/benchmarks-report.ts` | `src/ui/tests/gfssp-benchmarks.test.ts`, `leeMartin.test.ts`, `lh2StorageTank.test.ts`, `nureth.test.ts` |
 
 To regenerate a report from a clone:
@@ -85,7 +86,7 @@ The test tiers are described in
 [§8.6](../user-manual.md#_8-6-test-tiers) and
 [`testing-slow.md`](../testing-slow.md).
 
-## The eleven reports
+## The twelve reports
 
 The headline figures below are copied from each report's abstract or summary
 table. Each report gives the definitions, normalizations, and excluded
@@ -107,9 +108,10 @@ stations behind its figures. Read those before quoting a number.
 
 Most of these reports are analytic verification. The compressible report
 recreates a code-to-code study case for case, but its references are
-analytic. The chilldown, choked-flow, and tank self-pressurization reports
-are validation against experiment; each reports its disagreements as
-findings. The benchmarks report states the reference type of every row: two
+analytic. The chilldown, choked-flow, tank self-pressurization, and
+Shuttle radiator reports are validation against experiment; each reports its
+disagreements as findings. The Shuttle radiator report is a deliberately small
+system-level check of two measured traces and not a campaign. The benchmarks report states the reference type of every row: two
 of its benchmarks are gated wholly or partly against analytic references,
 and the SINDA/FLUINT sample problem is reproduced only through a logic-rule
 emulation. Part B of the microfluidics report mixes classes: COMSOL values are
