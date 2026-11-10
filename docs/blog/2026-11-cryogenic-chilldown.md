@@ -1,13 +1,13 @@
 ---
 title: "Cryogenic line chilldown: modeling it and checking it against NBS 9264"
 description: How OpenFLUME models cryogenic transfer-line chilldown with HEM two-phase flow and Miropolskii film boiling, and how it compares with NBS Report 9264.
-date: 2026-12-08
+date: 2026-11-24
 author: John Rising
 ---
 
 # Cryogenic line chilldown: modeling it and checking it against NBS 9264
 
-_John Rising · 2026-12-08_
+_John Rising · 2026-11-24_
 
 Cryogenic liquid entering a warm transfer line boils violently on the wall. The vapor runs ahead and pre-cools the line, and a quench front moves downstream until the wall can carry liquid. The time and boil-off this costs drive cryogenic propulsion and ground-system design. For a network code it is a hard case: two-phase real-fluid flow, a moving front, strongly temperature-dependent wall properties, and a boiling correlation all interact. Quantitative claims below come from [user manual §8.4](../user-manual.md#_8-4-validation-against-experiment) and the files named inline.
 

@@ -1,13 +1,13 @@
 ---
 title: Six published microfluidic networks, rebuilt and checked
 description: OpenFLUME 0.3.0 added rectangular microchannels and capillary-driven flow. Six published microfluidic designs rebuilt from their papers, and where they disagree.
-date: 2026-12-01
+date: 2026-11-17
 author: John Rising
 ---
 
 # Six published microfluidic networks, rebuilt and checked
 
-_John Rising · 2026-12-01_
+_John Rising · 2026-11-17_
 
 OpenFLUME was built for rocket feed systems and cryogenic lines, but a microfluidic chip is the same kind of network: nodes, branches, mass balance, and a pressure–flow law per branch. Only the regime differs. Flows run from nanolitres to microlitres per minute through rectangular channels tens of micrometres deep, often driven by capillarity alone.
 

@@ -1,13 +1,13 @@
 ---
 title: Building OpenFLUME with AI
 description: I couldn't have done it as well without AI. I would have let AI do it all, if it could. It couldn't.
-date: 2026-11-24
+date: 2026-11-04
 author: John Rising
 ---
 
 # Building OpenFLUME with AI
 
-_John Rising · 2026-11-24_
+_John Rising · 2026-11-04_
 
 Earlier this month I was getting OpenFLUME ready to launch, and I had an AI agent help me draft the docs, the blog, and a preprint. It was fast. It was also full of sentences like "Here is my honest one-paragraph version" and "Convergence is reported rather than assumed."
 

@@ -104,7 +104,7 @@ export default defineConfig({
   },
 
   markdown: {
-    math: false,
+    math: true,
     config(md) {
       // Rewrite relative links that escape docs/ into GitHub URLs.
       const defaultRender =

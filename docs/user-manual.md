@@ -57,11 +57,12 @@ Four equation-of-state classes are supported: constant-density incompressible
 liquid, ideal gas with user-settable gas constants, thermal-expansion liquids (for
 buoyancy-driven circulation), and real fluid through a CoolProp WebAssembly
 sidecar.
-Seventeen branch component
+Nineteen branch component
 types model momentum sources and sinks: pipe, orifice, cavitating venturi,
 generic resistance, valve, check valve, dynamic check valve, relief valve, pump,
 bend, area change, flow source, pressure regulator, heated pipe, tabulated
-pressure drop, Reynolds-dependent custom resistance, and user-authored components.
+pressure drop, Reynolds-dependent custom resistance, rectangular channel,
+capillary channel, and user-authored components.
 Conjugate heat transfer is available through solid lumped
 masses and ambient reservoirs linked by conduction, convection, and radiation
 conductors, with a temperature-dependent material catalogue and five
@@ -1495,8 +1496,8 @@ $\Delta P/P\to 0$, so the incompressible Bernoulli inversion
 $$\Delta P = \frac{\dot m |\dot m|}{2\rho\left(C_d A\right)^2}$$
 
 is recovered automatically. When $r$ falls below the critical ratio
-$r__=(2/(\kappa+1))^{\kappa/(\kappa-1)}$ the same formula is evaluated at
-$r__$ and mass flow no longer depends on further back-pressure drop
+$r_\ast=(2/(\kappa+1))^{\kappa/(\kappa-1)}$ the same formula is evaluated at
+$r_\ast$ and mass flow no longer depends on further back-pressure drop
 (choked). Legacy models authored as `orificeCompressible` load as this
 component. $\kappa$ is evaluated once, at the upstream state, so the closure is
 an ideal-gas isentrope with that exponent. That is accurate for gases, but for a
