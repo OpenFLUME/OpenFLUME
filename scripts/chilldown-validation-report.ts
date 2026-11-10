@@ -33,9 +33,9 @@
  * and at the documented 12.05 psia outlet pressure (N = 3; the subcooled LN2
  * case also at N = 30); the seven trusted trace runs at N = 6.  N = 60 is not
  * run, and N = 30 only for the four subset cases.  Each solve is a child
- * process limited to 420 s (stopped 30 s before and listed with its partial
+ * process limited to 1200 s (stopped 30 s before and listed with its partial
  * histories, not dropped),
- * four at a time.  Expected runtime: about 15 minutes on four cores (about
+ * four at a time.  Expected runtime: about 20 minutes on four cores (about
  * 170 solves, most of them seconds long; the N = 30 solves dominate).
  * CHILLDOWN_CACHE=<file> stores the solve histories of a run and re-reads
  * them, for editing the report text only.
@@ -163,7 +163,7 @@ const GRID_NS = [3, 6, 12, 30]; // refinement ladder of the representative subse
 const TRACE_N = 6; // the trace-test plan: all trusted runs
 const DT_LEVELS_CI = [2, 1, 0.5, 0.25]; // multiples of the fluid's step, N = 3
 const DT_LEVELS_PRIMARY = [2, 1, 0.5]; // N = 30 (a quarter step is too costly)
-const SOLVE_TIMEOUT_S = 420;
+const SOLVE_TIMEOUT_S = 1200;
 const WORKERS = 4;
 /** The representative subset solved at GFSSP's resolution: a saturated and a
  *  subcooled case of each fluid (all four have a trusted digitized run). */
