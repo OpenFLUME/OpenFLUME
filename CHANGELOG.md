@@ -9,6 +9,8 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-10
+
 ### Added
 
 - Catalogue fluids with no built-in viscosity or conductivity (for example R21, the Shuttle radiator coolant) can now be used in a network that carries its own transport. Declare `fluid.params.transport = "external"` on a `realFluid`. Density, specific heat and enthalpy still come from CoolProp, imposed-flow (`flowSource`) branches need no viscosity, and a `custom` convection expression supplies its own mu(T) and k(T). Validation protects the promise (`src/core/validate/externalTransport.ts`). On such a fluid every branch component that reads viscosity (`pipe`, `heatedPipe`, `bend`, `rectChannel`, `capillaryChannel`, `customResistance`, `userComponent`) is rejected, a named convection model is rejected, and a custom expression that reads the absent `mu`, `k`, `Pr` or `Re` is rejected, each with a message that says why. Fluids without the declaration behave exactly as before and are still rejected with a zero-transport error that now names the opt-in. Used by the MRS radiator validation case (`src/validation/mrsRadiator.ts`).
@@ -760,7 +762,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.1...v0.2.2

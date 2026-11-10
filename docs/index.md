@@ -56,6 +56,6 @@ All 14 built-in models are in the [examples gallery](./examples.md).
 
 ## Where it stands
 
-OpenFLUME is **alpha** software (v0.3.1): a lumped-parameter network code (not CFD) with no shock capture, no method-of-characteristics water hammer, and HEM-only two-phase flow. The [scope boundaries](./user-manual.md#_1-7-scope-boundaries) list every limitation. If it disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the details; well-documented disagreements are the most useful contributions.
+OpenFLUME is **alpha** software (v0.4.0): a lumped-parameter network code (not CFD) with no shock capture, no method-of-characteristics water hammer, and HEM-only two-phase flow. The [scope boundaries](./user-manual.md#_1-7-scope-boundaries) list every limitation. If it disagrees with a reference you trust, [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose) with the details; well-documented disagreements are the most useful contributions.
 
 New here? Start with the [5-minute guide](./guides/getting-started.md). Coming from GFSSP or SINDA/FLUINT? Read [the migration notes](./guides/from-gfssp.md). Teaching a course? See the [educator kit](./teach/index.md).

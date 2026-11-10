@@ -6,9 +6,9 @@ type: software
 authors:
   - family-names: Rising
     given-names: John
-version: 0.3.1
+version: 0.4.0
 doi: 10.5281/zenodo.22051608
-date-released: "2026-11-03"
+date-released: "2026-11-10"
 license: MIT
 repository-code: "https://github.com/OpenFLUME/OpenFLUME"
 keywords:
