@@ -44,7 +44,7 @@ current features, licensing, and pricing.
 - **Open source, MIT licensed.** The equations, closures, tolerances, and
   tests are public, so a reviewer can trace any result to the code that
   produced it.
-- **Published verification.** Seven reports are
+- **Published verification.** Thirteen reports are
   [generated from live solves](../validation/index.md) by scripts in the
   repository, and their gate tests run in CI.
 - **Scriptable.** `pip install openflume` drives the same core from Python,

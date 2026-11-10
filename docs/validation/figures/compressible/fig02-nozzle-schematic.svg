@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="680" height="300" viewBox="0 0 680 300" font-family="Helvetica, Arial, sans-serif">
-<rect width="680" height="300" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="252" viewBox="0 0 680 252" font-family="Helvetica, Arial, sans-serif">
+<rect width="680" height="252" fill="white"/>
 <text x="340" y="26" text-anchor="middle" font-size="15" font-weight="bold">Converging-diverging nozzle (cases 4–5)</text>
 <polygon points="120,100 296,110 560,104 560,176 296,170 120,180" fill="#eef4fb" stroke="#333" stroke-width="1.6"/>
 <line x1="120" y1="140" x2="560" y2="140" stroke="#999" stroke-width="0.8" stroke-dasharray="6 4"/>
@@ -14,5 +14,4 @@
 <line x1="120" y1="208" x2="120" y2="220" stroke="#666" stroke-width="1"/>
 <line x1="560" y1="208" x2="560" y2="220" stroke="#666" stroke-width="1"/>
 <text x="340" y="232" text-anchor="middle" font-size="12">L = 30 in, linearly varying diameter</text>
-<text x="340" y="288" text-anchor="middle" font-size="12">Figure 2. Schematic of the converging-diverging nozzle (dimensions chosen for this study; the paper's are arbitrary).</text>
 </svg>

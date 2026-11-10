@@ -33,6 +33,12 @@ import {
   violationScore,
 } from "./admissibility";
 
+/** Cap on re-seeded re-solves after an inadmissible root.  Each retry must
+ *  shrink the total defect by 10 %; in a constant-area duct a re-seed
+ *  typically moves a jump one cell downstream, so a 40-segment Fanno duct
+ *  needed six retries from a cold start. */
+const MAX_ADMISSIBILITY_RETRIES = 12;
+
 /**
  * Solve a steady-state thermal-fluid network to convergence.
  *
@@ -112,7 +118,7 @@ export function solveSteady(
   // (subsonic) states and re-solves the SAME unmodified system — root
   // selection, never residual modification, so an admissible solve is
   // bit-identical with the audit on or off.  A retry is accepted only if
-  // it converges and strictly shrinks the total entropy defect; otherwise
+  // it converges and shrinks the total defect by 10 %; otherwise
   // the original root stands and the violations surface as `warnings`.
   // Only meaningful where the inadmissible roots live: steady momentum-flux
   // solves with a γ-carrying (ideal-gas) branch under the CENTRAL scheme.
@@ -131,7 +137,11 @@ export function solveSteady(
     );
   if (auditOn && res.converged && !res.aborted) {
     let violations = auditSecondLaw(ctx, res.state);
-    for (let attempt = 0; violations.length > 0 && attempt < 2; attempt++) {
+    for (
+      let attempt = 0;
+      violations.length > 0 && attempt < MAX_ADMISSIBILITY_RETRIES;
+      attempt++
+    ) {
       const seeded = reseedInadmissible(ctx, res.state, violations);
       const retry = solveStateStep(ctx, seeded, {
         ...stepOptions,
@@ -151,9 +161,13 @@ export function solveSteady(
     if (violations.length > 0) {
       warnings = violations.map(
         (v) =>
-          `second-law violation on branch ${v.branchId} (${v.donor} \u2192 ${v.downwind}): ` +
-          `\u0394s = ${v.deltaS.toFixed(1)} J/(kg\u00b7K) vs allowance ${v.allowance.toFixed(1)} ` +
-          `\u2212 tolerance ${v.tolerance.toFixed(1)} \u2014 the converged root is likely a ` +
+          (v.kind === "entropy"
+            ? `second-law violation on branch ${v.branchId} (${v.donor} \u2192 ${v.downwind}): ` +
+              `\u0394s = ${v.deltaS.toFixed(1)} J/(kg\u00b7K) vs allowance ${v.allowance.toFixed(1)} ` +
+              `\u2212 tolerance ${v.tolerance.toFixed(1)}`
+            : `subsonic-to-supersonic jump on branch ${v.branchId} (${v.donor} \u2192 ${v.downwind}): ` +
+              `M ${v.machDonor.toFixed(3)} \u2192 ${v.machDownwind.toFixed(3)} away from an area minimum`) +
+          ` \u2014 the converged root is likely a ` +
           `nonphysical transonic branch jump near these nodes (re-seeded re-solves did not ` +
           `find an admissible root; try a warm start on the subsonic branch)`,
       );

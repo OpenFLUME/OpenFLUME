@@ -4,7 +4,7 @@
  * and its SVG figures (docs/validation/figures/thermal/), following the
  * structure of scripts/compressible-validation-report.ts.
  *
- * Five benchmark cases, each with a closed-form (or in-script root-solved /
+ * Six benchmark cases, each with a closed-form (or in-script root-solved /
  * marched) analytic reference:
  *
  *   1. Steady composite plane wall (convection–conduction–conduction–
@@ -17,6 +17,10 @@
  *      T(x) = T_w − (T_w − T_in)·exp(−UA·x/(ṁ·cp·L)).
  *   5. Counterflow heat exchanger, two water streams wall-coupled through
  *      solid nodes and convection conductors, vs the ε–NTU closed form.
+ *   6. Anzelius–Schumann transient conjugate chilldown of a tube (constant h,
+ *      constant properties, constant mass flow) vs its closed form, with an
+ *      N × Δt refinement study (src/validation/schumann.ts and
+ *      src/validation/schumannConjugate.ts, shared with the CI gates).
  *
  * All numbers and figures come from live solves — rerun after solver changes:
  *
@@ -24,13 +28,25 @@
  *
  * The physics/setup helpers mirror src/core/__tests__/thermal.test.ts and
  * src/core/__tests__/solidThermalTransient.test.ts (the CI gates; this script
- * is the human-readable artifact).
+ * is the human-readable artifact).  Case 6 reuses the builder of
+ * src/validation/__tests__/schumannConjugate.test.ts directly.
  */
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { solveSteady, solveTransient, validateNetwork } from "../src/core";
 import type { NetworkConfig, SteadyResult, TransientResult } from "../src/core";
+import { schumannWallTemperature } from "../src/validation/schumann";
+import {
+  observedOrders,
+  runSchumannCase,
+  SCHUMANN_A,
+  SCHUMANN_GEOMETRY,
+  SCHUMANN_PROPERTIES,
+  SCHUMANN_STATIONS_M,
+  schumannParameters,
+  type SchumannRun,
+} from "../src/validation/schumannConjugate";
 
 /* ==========================================================================
  * Constants (SI)
@@ -1018,12 +1034,104 @@ console.log(
 );
 
 /* ==========================================================================
+ * Case 6: Anzelius–Schumann transient conjugate chilldown (analytic)
+ * ==========================================================================
+ * Constant-h, constant-property tube with constant mass flow: θ_w = J(τ, ζ)
+ * (src/validation/schumann.ts).  Sweep N × Δt for two NTU-per-length values
+ * b = hP/(ṁ c_f); the metric is max over three stations and t ≤ 150 s of
+ * |T_w − T_w,analytic| / (T_w0 − T_f0).  The builder is shared with the CI
+ * gates (src/validation/schumannConjugate.ts).
+ * ========================================================================== */
+
+console.log("Case 6 — Anzelius–Schumann conjugate chilldown");
+
+const SCH_BS = [0.94, 4] as const;
+const SCH_NS = [10, 20, 40] as const;
+const SCH_DTS = [2, 1, 0.5, 0.25, 0.125, 0.0625, 0.03125] as const;
+const SCH_DT_FINE = SCH_DTS[SCH_DTS.length - 1];
+const SCH_N_FINE = SCH_NS[SCH_NS.length - 1];
+
+const schRuns = new Map<string, SchumannRun>();
+const schKey = (b: number, N: number, dt: number) => `${b}|${N}|${dt}`;
+const schT0 = Date.now();
+for (const b of SCH_BS) {
+  for (const N of SCH_NS) {
+    for (const dt of SCH_DTS) {
+      const r = runSchumannCase({ N, dt, b });
+      if (!r.converged || r.stalledSteps > 0) {
+        throw new Error(
+          `Schumann b=${b} N=${N} dt=${dt}: converged=${r.converged}, stalled steps=${r.stalledSteps}`,
+        );
+      }
+      schRuns.set(schKey(b, N, dt), r);
+    }
+  }
+}
+const schSweepSeconds = (Date.now() - schT0) / 1000;
+const schRun = (b: number, N: number, dt: number): SchumannRun =>
+  schRuns.get(schKey(b, N, dt))!;
+const schErr = (b: number, N: number, dt: number) => schRun(b, N, dt).maxError;
+const sci = (x: number) => x.toExponential(2);
+const ord = (x: number) => x.toFixed(2);
+
+/** Observed orders of the three refinement sequences, per b. */
+function schOrders(b: number) {
+  const joint = (pairs: Array<[number, number]>) => {
+    const series = pairs.map(([N, dt]) => ({
+      h: 1 / N,
+      error: schErr(b, N, dt),
+    }));
+    return { series, orders: observedOrders(series) };
+  };
+  return {
+    jointA: joint([
+      [10, 1],
+      [20, 0.5],
+      [40, 0.25],
+    ]),
+    jointB: joint([
+      [10, 0.5],
+      [20, 0.25],
+      [40, 0.125],
+    ]),
+    spatial: observedOrders(
+      SCH_NS.map((N) => ({ h: 1 / N, error: schErr(b, N, SCH_DT_FINE) })),
+    ),
+    temporal: observedOrders(
+      SCH_DTS.map((dt) => ({ h: dt, error: schErr(b, SCH_N_FINE, dt) })),
+    ),
+  };
+}
+const schOrd = Object.fromEntries(
+  SCH_BS.map((b) => [b, schOrders(b)]),
+) as Record<number, ReturnType<typeof schOrders>>;
+const schPar = Object.fromEntries(
+  SCH_BS.map((b) => [b, schumannParameters({ N: 10, dt: 1, b })]),
+) as Record<number, ReturnType<typeof schumannParameters>>;
+const schAll = [...schRuns.values()];
+const schEnergyMax = Math.max(...schAll.map((r) => r.energyClosure));
+const schStalledTotal = schAll.reduce((s, r) => s + r.stalledSteps, 0);
+// CI gate configuration (N = 20, dt = 0.25 s)
+const schGateErr = Object.fromEntries(
+  SCH_BS.map((b) => [b, schErr(b, 20, 0.25)]),
+) as Record<number, number>;
+for (const b of SCH_BS) {
+  const o = schOrd[b];
+  console.log(
+    `  b=${b}: N=40,dt=${SCH_DT_FINE} err=${sci(schErr(b, 40, SCH_DT_FINE))}  joint orders (10,1)->(40,.25): ${o.jointA.orders.map(ord).join(", ")}  (10,.5)->(40,.125): ${o.jointB.orders.map(ord).join(", ")}  spatial: ${o.spatial.map(ord).join(", ")}`,
+  );
+}
+console.log(
+  `  sweep: ${schAll.length} solves in ${schSweepSeconds.toFixed(1)} s, stalled steps ${schStalledTotal}, worst energy closure ${schEnergyMax.toExponential(1)}`,
+);
+
+/* ==========================================================================
  * Schematic figures
  * ========================================================================== */
 
 function fig1WallSchematic(): string {
   const W = 720;
-  const H = 330;
+  const H = 290;
   const yTop = 90;
   const wallH = 150;
   const xA = 250;
@@ -1058,13 +1166,12 @@ function fig1WallSchematic(): string {
 <text x="${xA}" y="${yTop - 20}" text-anchor="middle" font-size="11">s1</text>
 <text x="${xA + wA}" y="${yTop - 20}" text-anchor="middle" font-size="11">s2</text>
 <text x="${xA + wA + wB}" y="${yTop - 20}" text-anchor="middle" font-size="11">s3</text>
-<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 1. Composite wall: three solid nodes (surfaces and interface), two conduction and two convection conductors.</text>
 </svg>`;
 }
 
 function fig2HxSchematic(): string {
   const W = 720;
-  const H = 340;
+  const H = 296;
   const x0 = 110;
   const chW = 480;
   const chH = 42;
@@ -1098,7 +1205,6 @@ ${cells.join("\n")}
 <text x="${x0 - 12}" y="${yHot - 10}" text-anchor="start" font-size="12">hot: ṁ = ${HX.mdotH} kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = ${HX.ThIn} K</tspan></text>
 <text x="${x0 + chW + 12}" y="${yCold + chH + 24}" text-anchor="end" font-size="12">cold: ṁ = ${HX.mdotC} kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = ${HX.TcIn} K</tspan></text>
 <text x="${x0 + chW / 2}" y="${yWall + 34}" text-anchor="middle" font-size="12">wall solid nodes w<tspan font-size="9" dy="3">i</tspan><tspan dy="-3">; convection hA</tspan><tspan font-size="9" dy="3">seg</tspan><tspan dy="-3"> on each side (h = ${HX.h} W/m²K, ΣA = ${HX.Atot} m² per side)</tspan></text>
-<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 2. Counterflow HX: two water streams exchanging through per-segment wall nodes (${nShow} of N segments drawn).</text>
 </svg>`;
 }
 
@@ -1373,6 +1479,51 @@ writeFig(
   }),
 );
 
+/* --- Figures 9 and 10: Anzelius–Schumann wall temperature vs time --- */
+const SCH_COLORS = [C.blue, C.red, C.green];
+const SCH_MARKERS: MarkerShape[] = ["circle", "square", "triangle"];
+function schumannFigure(b: number): string {
+  const run = schRun(b, SCH_N_FINE, SCH_DT_FINE);
+  const p = schPar[b].closedForm;
+  const tEnd = run.times[run.times.length - 1];
+  const dense: number[] = [];
+  for (let t = 0; t <= tEnd + 1e-9; t += 0.5) dense.push(t);
+  // One marker every 5 s from the solver trace
+  const every = Math.round(5 / SCH_DT_FINE);
+  const series: Series[] = [];
+  run.stations.forEach((st, i) => {
+    series.push({
+      label: `z = ${(st.z * 100).toFixed(2)} cm, closed form`,
+      pts: dense.map((t): [number, number] => [
+        t,
+        schumannWallTemperature(p, st.z, t),
+      ]),
+      color: SCH_COLORS[i],
+      mode: "line",
+    });
+  });
+  run.stations.forEach((st, i) => {
+    series.push({
+      label: `z = ${(st.z * 100).toFixed(2)} cm, OpenFLUME`,
+      pts: run.times
+        .map((t, k): [number, number] => [t, st.numeric[k]])
+        .filter((_, k) => k % every === 0),
+      color: SCH_COLORS[i],
+      mode: "markers",
+      marker: SCH_MARKERS[i],
+    });
+  });
+  return lineChart({
+    title: `Anzelius–Schumann chilldown: wall temperature (b = ${b} 1/m)`,
+    xLabel: "Time [s]",
+    yLabel: "Wall temperature [K]",
+    legend: "top-right",
+    series,
+  });
+}
+writeFig(9, "schumann-wall-b0.94", schumannFigure(0.94));
+writeFig(10, "schumann-wall-b4", schumannFigure(4));
+
 /* ==========================================================================
  * Report markdown
  * ========================================================================== */
@@ -1394,27 +1545,82 @@ const hxRows = hxRuns
   )
   .join("\n");
 
+const schErrTable = (b: number) =>
+  [
+    `| N \\ Δt [s] | ${SCH_DTS.join(" | ")} |`,
+    `| ${["---", ...SCH_DTS.map(() => "---")].join(" | ")} |`,
+    ...SCH_NS.map(
+      (N) =>
+        `| ${N} | ${SCH_DTS.map((dt) => sci(schErr(b, N, dt))).join(" | ")} |`,
+    ),
+  ].join("\n");
+const schOrderRows = SCH_BS.map((b) => {
+  const o = schOrd[b];
+  return `| ${b} | ${o.jointA.orders.map(ord).join(", ")} | ${o.jointB.orders.map(ord).join(", ")} | ${o.spatial.map(ord).join(", ")} | ${o.temporal.map(ord).join(", ")} |`;
+}).join("\n");
+const schStationRows = SCH_BS.flatMap((b) =>
+  schRun(b, SCH_N_FINE, SCH_DT_FINE).stations.map(
+    (st) =>
+      `| ${b} | ${(st.z * 100).toFixed(2)} | ${sci(st.maxError)} | ${sci(st.rmsError)} |`,
+  ),
+).join("\n");
+const schParamRows = (
+  [
+    ["a = hP/(ρ_w c_w A_w) [1/s]", (b: number) => `${schPar[b].a}`],
+    ["b = hP/(ṁ c_f) [1/m]", (b: number) => `${b}`],
+    ["film coefficient h [W/m²K]", (b: number) => schPar[b].h.toFixed(1)],
+    ["mass flow ṁ [kg/s]", (b: number) => sci(schPar[b].mdot)],
+    ["fluid velocity u [m/s]", (b: number) => schPar[b].u.toFixed(2)],
+    [
+      "transit time L/u [s]",
+      (b: number) => (SCHUMANN_GEOMETRY.L / schPar[b].u).toFixed(2),
+    ],
+    ["total NTU, bL", (b: number) => (b * SCHUMANN_GEOMETRY.L).toFixed(2)],
+  ] as Array<[string, (b: number) => string]>
+)
+  .map(([name, f]) => `| ${name} | ${f(0.94)} | ${f(4)} |`)
+  .join("\n");
+const schAw =
+  (Math.PI / 4) * (SCHUMANN_GEOMETRY.OD ** 2 - SCHUMANN_GEOMETRY.ID ** 2);
+const schAf = (Math.PI / 4) * SCHUMANN_GEOMETRY.ID ** 2;
+const schCapRatio =
+  (SCHUMANN_PROPERTIES.rhoF * schAf * SCHUMANN_PROPERTIES.cF) /
+  (SCHUMANN_PROPERTIES.rhoW * schAw * SCHUMANN_PROPERTIES.cW);
+const schJointAll = SCH_BS.flatMap((b) => [
+  ...schOrd[b].jointA.orders,
+  ...schOrd[b].jointB.orders,
+]);
+const schSpatialAll = SCH_BS.flatMap((b) => schOrd[b].spatial);
+const schJointMin = Math.min(...schJointAll);
+const schJointMax = Math.max(...schJointAll);
+const schSpatialMin = Math.min(...schSpatialAll);
+const schSpatialMax = Math.max(...schSpatialAll);
+const schSta = SCHUMANN_STATIONS_M.map((z) => (z * 100).toFixed(2));
+
 const report = `# Thermal Network and Conjugate Heat Transfer Validation of OpenFLUME
 
-**Analytic verification of the solid-node thermal system — conduction, convection, and radiation conductors — and of its conjugate coupling to the fluid network**
+**Analytic verification of the solid-node thermal system (conduction, convection, and radiation conductors) and of its conjugate coupling to the fluid network**
 
-Generated by \`scripts/thermal-validation-report.ts\` — all numbers and figures
+Generated by \`scripts/thermal-validation-report.ts\`. All numbers and figures
 come from live solves of the current solver. The corresponding CI gates are
-\`src/core/__tests__/thermal.test.ts\` and
-\`src/core/__tests__/solidThermalTransient.test.ts\`.
+\`src/core/__tests__/thermal.test.ts\`,
+\`src/core/__tests__/solidThermalTransient.test.ts\`, and, for case 6,
+\`src/validation/__tests__/schumann.test.ts\` and
+\`src/validation/__tests__/schumannConjugate.test.ts\`.
 
 ## Abstract
 
 This report verifies the conjugate thermal capability of the OpenFLUME
-solver — a pressure-based node-and-branch network code in the same family as
-NASA's GFSSP — against classical closed-form heat-transfer solutions. Five
+solver (a pressure-based node-and-branch network code in the same family as
+NASA's GFSSP) against classical closed-form heat-transfer solutions. Six
 benchmark cases exercise every conductor kind and both coupling directions
 between the solid and fluid systems: a steady composite plane wall (series
 thermal-resistance network), the nonlinear radiation–convection equilibrium of
 a heated solid node, the lumped-capacitance transient cooldown, a heated pipe
-approaching a constant wall temperature, and — the flagship case — a
-counterflow heat exchanger of two water streams wall-coupled through solid
-nodes, compared against the ε–NTU closed form. The steady resistance-network
+approaching a constant wall temperature, a counterflow heat exchanger of two
+water streams wall-coupled through solid nodes compared against the ε–NTU
+closed form (the flagship steady case), and the transient chilldown of a tube
+compared against the Anzelius–Schumann closed form. The steady resistance-network
 cases reproduce the analytic solutions to near machine precision
 (composite-wall heat flow within ${pct(wallQerr)}, radiation equilibrium
 temperatures within ${pct(radErrMax)}); the transient cooldown follows the
@@ -1426,17 +1632,24 @@ ${pct(hpErrMaxRel)}; and the ${hxMain.nSeg}-segment heat exchanger predicts
 effectiveness within ${pct(hxMain.epsErr)} and both outlet temperatures within
 ${fmtK(Math.max(hxMain.ThOutErrK, hxMain.TcOutErrK), 3)} K of the ε–NTU
 solution, with the residual discrepancy shown to be finite-segmentation error
-that vanishes monotonically as the wall discretization is refined.
+that vanishes monotonically as the wall discretization is refined. The
+Anzelius–Schumann case, in which a wall initially at 300 K is chilled by a
+constant flow of cold fluid, is reproduced to ${sci(schErr(0.94, SCH_N_FINE, SCH_DT_FINE))} and ${sci(schErr(4, SCH_N_FINE, SCH_DT_FINE))} of the initial wall–inlet
+temperature difference at N = ${SCH_N_FINE} segments and Δt = ${SCH_DT_FINE} s
+(b = 0.94 and 4 1/m), with an observed convergence order of
+${ord(schOrd[0.94].jointA.orders[1])} and ${ord(schOrd[4].jointA.orders[1])}
+when segments and time step are refined together, which is the first order
+expected of an implicit upwind scheme with backward Euler.
 
 ## Introduction
 
 Fluid-network codes that carry only fluid unknowns cannot represent hardware
-thermal mass, structural conduction paths, or radiation sinks — all of which
+thermal mass, structural conduction paths, or radiation sinks, all of which
 dominate problems like cryogenic line chilldown, heat-exchanger sizing, and
 thermal protection. OpenFLUME therefore carries a second, thermal network
 alongside the fluid one: solid nodes with optional thermal capacitance
 (mass × cp) and prescribed heat inputs, ambient nodes at fixed temperature,
-and conductors of three kinds — conduction (kA/L), convection (hA, attaching
+and conductors of three kinds, which are conduction (kA/L), convection (hA, attaching
 a solid to a fluid node), and radiation (σεAF between solid/ambient nodes).
 Heated-pipe branches provide a complementary lightweight fluid heating path
 against a prescribed wall temperature. The purpose of this report is to
@@ -1447,9 +1660,9 @@ in this document interpolated from those solves.
 
 ## Problem Description
 
-Five cases cover the three conductor kinds, both steady and transient solid
+Six cases cover the three conductor kinds, both steady and transient solid
 physics, and both directions of conjugate coupling (fluid heating a wall,
-walls heating a fluid):
+walls heating a fluid, and a wall being chilled by a fluid):
 
 | Case | Description | Reference |
 | ---- | ----------- | --------- |
@@ -1458,6 +1671,7 @@ walls heating a fluid):
 | 3 | Lumped-capacitance transient cooldown by convection, two time steps | T(t) = T∞ + (T₀−T∞)e^(−t/τ) |
 | 4 | Heated pipe: ${HP.n} constant-wall-temperature segments in series | Exponential axial approach |
 | 5 | Counterflow heat exchanger: two water streams wall-coupled per segment | ε–NTU closed form |
+| 6 | Transient chilldown of an aluminum tube by a constant cold flow, N × Δt refinement | Anzelius–Schumann closed form |
 
 ### Composite Wall
 
@@ -1486,6 +1700,29 @@ deliberately unequal (C_r = ${hxCr.toFixed(4)}) to exercise the general
 ε–NTU form rather than the degenerate balanced case.
 
 ${fig(2, "Counterflow heat exchanger: per-segment wall solid nodes with convection conductors to both streams, mirroring GFSSP Example 5.")}
+
+### Transient Chilldown of a Tube
+
+Case 6 is the setting of Cross, Majumdar, Bennett and Malla (2002), model 1,
+which they solved analytically to check their numerical chilldown model. An
+aluminum tube 26 in (${toCm(SCHUMANN_GEOMETRY.L).toFixed(2)} cm) long, 3/16 in inside diameter and 1/2 in outside
+diameter, initially at ${SCHUMANN_PROPERTIES.Tw0} K, is chilled by a constant
+flow of fluid entering at ${SCHUMANN_PROPERTIES.Tf0} K. Everything the closed
+form assumes is imposed on the network. The film coefficient is a constant h
+on a convection conductor with no correlation attached. The fluid is
+incompressible with ρ = ${SCHUMANN_PROPERTIES.rhoF} kg/m³ and
+c_p = ${SCHUMANN_PROPERTIES.cF} J/kg·K. The wall has constant properties
+(ρ = ${SCHUMANN_PROPERTIES.rhoW} kg/m³, c = ${SCHUMANN_PROPERTIES.cW} J/kg·K)
+and an axial conductivity of 10⁻⁹ W/m·K, which is effectively zero. The mass
+flow comes from a flow source at the inlet and the exit is a pressure
+boundary. Two flow rates are run, given through b = hP/(ṁc_f), at the same
+wall time constant. The wall temperature is compared at
+z = ${schSta.join(", ")} cm (the stations of the original figure) for
+0 ≤ t ≤ 150 s.
+
+| Quantity | b = 0.94 | b = 4 |
+| -------- | -------- | ----- |
+${schParamRows}
 
 ## Benchmark Solutions
 
@@ -1516,7 +1753,7 @@ $$m c \\frac{dT}{dt} = -hA\\,(T - T_\\infty) \\;\\Rightarrow\\; T(t) = T_\\infty
 For the physical problem this classical solution requires a small Biot number
 (Bi = hL_c/k ≲ 0.1) so the solid is spatially isothermal; for the network
 model the comparison is exact by construction, because a solid node *is* a
-lumped capacitance with no internal resistance — which makes this a pure test
+lumped capacitance with no internal resistance, which makes this a pure test
 of the time integrator.
 
 **Heated pipe with constant wall temperature (case 4).** A fluid stream ṁcp
@@ -1544,6 +1781,35 @@ the ε–NTU outlet states (cross-checked in-script to 10⁻⁹ K). With the cas
 numbers, NTU = ${hxNTU.toFixed(4)}, C_r = ${hxCr.toFixed(4)}, and
 ε = ${hxEpsAn.toFixed(4)}.
 
+**Anzelius–Schumann transient conjugate heat transfer (case 6).** A fluid of
+constant properties and constant mass flow ṁ enters a tube at T_f0. The wall,
+initially at T_w0, exchanges heat with the fluid through a constant film
+coefficient h over the wetted perimeter P, with no axial conduction in the
+wall or the fluid and no fluid heat storage. With
+
+$$\\zeta = \\frac{hP\\,z}{\\dot m c_f}, \\qquad \\tau_w = \\frac{hP}{\\rho_w c_w A_w}\\left(t - \\frac{z}{u}\\right), \\qquad \\theta = \\frac{T - T_{f0}}{T_{w0} - T_{f0}},$$
+
+where z/u is the fluid transit time, the fluid and wall energy balances
+reduce to
+
+$$\\frac{\\partial \\theta_f}{\\partial \\zeta} = -(\\theta_f - \\theta_w), \\qquad \\frac{\\partial \\theta_w}{\\partial \\tau_w} = \\theta_f - \\theta_w, \\qquad \\theta_f(\\zeta = 0) = 0, \\quad \\theta_w(\\tau_w = 0) = 1,$$
+
+which Anzelius (1926) and Schumann (1929) solved in closed form. The wall and
+fluid temperatures are
+
+$$\\theta_w = J(\\tau_w, \\zeta), \\qquad \\theta_f = 1 - J(\\zeta, \\tau_w), \\qquad J(a, b) = 1 - \\int_0^a e^{-(b + \\xi)}\\, I_0\\!\\left(2\\sqrt{b\\xi}\\right) d\\xi = Q_1\\!\\left(\\sqrt{2b}, \\sqrt{2a}\\right),$$
+
+where I₀ is the modified Bessel function and Q₁ the Marcum Q function. Cross
+et al. (2002) apply this solution to cryogenic chilldown with constant h. The
+reference here is evaluated in TypeScript (\`src/validation/schumann.ts\`) as
+the Poisson mixture J(a, b) = P(M ≤ K) with independent Poisson variables of
+means a and b. Every term of the series is positive, so there is no
+cancellation, and the unit tests hold it to 10⁻¹⁰ relative against an
+80-digit decimal evaluation and scipy over arguments from 10⁻³ to 10³ and
+results from 10⁻⁵⁴ to 1. The limits are checked too, with θ_w = e^(−τ_w) as
+ζ → 0 and θ_w = 1 as τ_w → 0. Ahead of the front, for t < z/u, the wall is
+at T_w0.
+
 ## Numerical Modeling
 
 The thermal network adds one temperature unknown per solid node. Each solid
@@ -1553,12 +1819,12 @@ heat input,
 $$m c_p \\frac{dT_i}{dt} = \\sum_j \\dot Q_{ji} + \\dot Q_{input,i},$$
 
 with the storage term dropped in steady mode (and the backward-Euler form
-m c_p (T_i^{n+1} − T_i^n)/Δt in transient mode — first-order in time). The
+m c_p (T_i^{n+1} − T_i^n)/Δt in transient mode, first-order in time). The
 conductor heat rates take the three classical forms: conduction
 Q̇ = (kA/L)(T_i − T_j), convection Q̇ = hA(T_s − T_f) against a fluid-node
 temperature, and radiation Q̇ = σεAF(T_i⁴ − T_j⁴) between solid/ambient
 nodes. The solid temperatures are solved as a segregated thermal subsystem by
-a Newton iteration with an exact analytic Jacobian — including the 4σεAFT³
+a Newton iteration with an exact analytic Jacobian, including the 4σεAFT³
 radiation derivative, which is what lets the strongly nonlinear case-2
 balance converge from a cold start (the Jacobian is verified entry-by-entry
 against central finite differences in
@@ -1579,9 +1845,24 @@ CI heat-exchanger test).
 
 In the segmented heat-exchanger model each stream's internal node holds its
 cell-outlet state (an implicit upwind discretization of the counterflow
-ODEs), so hot node i is plotted at x = i/N and cold node i — flowing right to
-left — at x = (i−1)/N. The scheme is first-order in the segment width, which
+ODEs), so hot node i is plotted at x = i/N and cold node i (flowing right to
+left) at x = (i−1)/N. The scheme is first-order in the segment width, which
 is the discretization error the segment sweep of Figure 8 quantifies.
+
+Case 6 divides the tube into N segments with N + 1 fluid nodes and N + 1 wall
+solid nodes at z = jL/N, the two end nodes carrying half a segment of volume
+and mass. Each fluid node is joined to its wall node by a constant-h
+convection conductor over the wetted area of its control volume, and
+neighbouring wall nodes by a conduction conductor of negligible conductivity.
+The fluid energy balance is the implicit upwind form, so each node holds its
+cell-outlet state, the same discretization as in the segmented heat exchanger.
+Time integration is backward Euler with a fixed step. The scheme is therefore
+first order in both 1/N and Δt, and the case is a test of the advective
+wall–fluid coupling, the time integrator and the upwind discretization
+together. The closed form neglects the fluid heat capacity, which here is
+${pct(schCapRatio, 1)} of the wall heat capacity per unit length, so a
+discrepancy of that relative size between model and reference is not a solver
+error. No boiling or any other closure is involved.
 
 ## Results and Discussion
 
@@ -1594,17 +1875,19 @@ is the discretization error the segment sweep of Figure 8 quantifies.
 | 3 — lumped transient (dt = τ/100) | T(t) vs exponential | ${pct(lumpedMax2)} of span | error ratio ${lumpedRatio.toFixed(2)} vs 4 expected |
 | 4 — heated pipe (${HP.n} segments) | axial T profile, ${HP.n} nodes | ${pct(hpErrMaxRel)} | outlet within ${hpOutletErrK.toExponential(2)} K |
 | 5 — counterflow HX (N = ${hxMain.nSeg}) | effectiveness ε | ${pct(hxMain.epsErr)} | outlets within ${fmtK(Math.max(hxMain.ThOutErrK, hxMain.TcOutErrK), 3)} K; segmentation error, first order in 1/N |
+| 6 — Anzelius–Schumann (b = 0.94, N = ${SCH_N_FINE}, Δt = ${SCH_DT_FINE} s) | wall T at 3 stations, t ≤ 150 s | ${sci(schErr(0.94, SCH_N_FINE, SCH_DT_FINE))} of ΔT₀ | first order, observed ${ord(schOrd[0.94].jointA.orders[1])} |
+| 6 — Anzelius–Schumann (b = 4, N = ${SCH_N_FINE}, Δt = ${SCH_DT_FINE} s) | wall T at 3 stations, t ≤ 150 s | ${sci(schErr(4, SCH_N_FINE, SCH_DT_FINE))} of ΔT₀ | first order, observed ${ord(schOrd[4].jointA.orders[1])} |
 
 ### Case 1: Composite Plane Wall
 
 The solver reproduces the series-resistance solution essentially exactly:
 Q̇ = ${wallQnum.toFixed(4)} W against the analytic ${wallQan.toFixed(4)} W
 (${pct(wallQerr)}), with the same heat flow through all four elements of the
-chain to ${pct(wallQspread)} — the discrete statement that the steady
+chain to ${pct(wallQspread)}, which is the discrete statement that the steady
 resistances are truly in series. The hot-surface, interface, and cold-surface
 temperatures are ${fmtK(wallTnum.s1)} K, ${fmtK(wallTnum.s2)} K, and
 ${fmtK(wallTnum.s3)} K against analytic values of ${fmtK(wallTan.s1)} K,
-${fmtK(wallTan.s2)} K, and ${fmtK(wallTan.s3)} K — a worst deviation of
+${fmtK(wallTan.s2)} K, and ${fmtK(wallTan.s3)} K, a worst deviation of
 ${wallTerrMaxK.toExponential(2)} K (Figure 3). The insulation layer carries
 ${pct(wallR.condB / wallRtot, 1)} of the total resistance and correspondingly
 almost the entire temperature drop, a useful visual check that each conductor
@@ -1621,7 +1904,7 @@ ${R2.Tinf} K ambient. Sweeping q from ${radQs[0]} to
 ${radQs[radQs.length - 1]} W moves the equilibrium from
 ${fmtK(radPoints[0].Tnum, 1)} K to ${fmtK(radTopPoint.Tnum, 1)} K, across
 which the radiated share of the load grows from
-${pct(radFracBottom, 1)} to ${pct(radFracTop, 1)} — the sweep genuinely
+${pct(radFracBottom, 1)} to ${pct(radFracTop, 1)}, so the sweep genuinely
 crosses from convection-dominated to radiation-dominated territory. The
 solver matches the Newton reference within ${pct(radErrMax)} at every point
 (Figure 4, Table below), and substituting the solver temperatures back into
@@ -1645,7 +1928,7 @@ exponential by at most ${pct(lumpedMax1)} of the ${lumpedSpan} K span
 (|ΔT| = ${lumpedStats.errTau1.toFixed(3)} K at τ,
 ${lumpedStats.err3Tau1.toFixed(3)} K at 3τ); refining to
 dt = τ/100 = ${lumpedDt2} s reduces the 3τ error to
-${lumpedStats.err3Tau2.toFixed(4)} K — a ratio of ${lumpedRatio.toFixed(2)}
+${lumpedStats.err3Tau2.toFixed(4)} K, a ratio of ${lumpedRatio.toFixed(2)}
 for a 4× step refinement, consistent with the first-order accuracy of
 backward Euler (Figure 5). The integrator is unconditionally stable and
 monotone here, so the choice of dt is purely an accuracy trade, not a
@@ -1664,8 +1947,8 @@ NTU = ${hpNTUtot.toFixed(3)} and an expected outlet approach of
 axial profile follows the analytic exponential at all ${HP.n} nodes to within
 ${pct(hpErrMaxRel)}, with the outlet at ${fmtK(hpOutlet.Tnum, 3)} K against
 the analytic ${fmtK(hpOutlet.Tan, 3)} K (Figure 6). Agreement at this level
-is expected rather than remarkable — the branch model applies the same
-per-segment effectiveness relation the analytic solution composes — but it
+is expected rather than remarkable (the branch model applies the same
+per-segment effectiveness relation the analytic solution composes), but it
 verifies the heat-delivery path into the downstream node energy balance and
 the coupled solve of flow rate and temperature, with the reference evaluated
 at the solved ṁ exactly as in the CI test.
@@ -1675,8 +1958,8 @@ ${fig(6, "Heated pipe: analytic exponential approach to the wall temperature and
 ### Case 5: Counterflow Heat Exchanger (flagship)
 
 The ${hxMain.nSeg}-segment exchanger predicts ε = ${hxMain.eps.toFixed(4)}
-against the ε–NTU value of ${hxEpsAn.toFixed(4)} — a deviation of
-${pct(hxMain.epsErr)} — with outlet temperatures of
+against the ε–NTU value of ${hxEpsAn.toFixed(4)}, a deviation of
+${pct(hxMain.epsErr)}, with outlet temperatures of
 ${fmtK(hxMain.ThOut)} K (hot) and ${fmtK(hxMain.TcOut)} K (cold) against
 analytic values of ${fmtK(hxThOutAn)} K and ${fmtK(hxTcOutAn)} K
 (deviations of ${fmtK(hxMain.ThOutErrK, 3)} K and
@@ -1706,11 +1989,74 @@ ${fig(7, "Counterflow HX axial temperature profiles at N = 20: analytic (lines) 
 
 ${fig(8, "Effectiveness vs segment count at fixed total UA: monotone first-order approach of the segmented wall model to the ε–NTU closed form.")}
 
+### Case 6: Anzelius–Schumann Transient Conjugate Chilldown (analytic)
+
+The metric is the largest wall-temperature deviation from the closed form over
+the three stations and over 0 ≤ t ≤ 150 s, divided by the initial wall–inlet
+difference ΔT₀ = ${SCHUMANN_PROPERTIES.Tw0 - SCHUMANN_PROPERTIES.Tf0} K. The
+wall temperature at a station is interpolated linearly between the two
+neighbouring wall nodes. All ${schAll.length} solves of the sweep converged
+with ${schStalledTotal} stalled steps, and the global energy balance (change of
+wall and fluid enthalpy against the enthalpy carried out of the tube) closed to
+at most ${schEnergyMax.toExponential(1)} in relative terms. The sweep of
+${schAll.length} solves takes about ${Math.round(schSweepSeconds)} s in total.
+
+Maximum error, b = 0.94 1/m (total NTU ${(0.94 * SCHUMANN_GEOMETRY.L).toFixed(2)})
+
+${schErrTable(0.94)}
+
+Maximum error, b = 4 1/m (total NTU ${(4 * SCHUMANN_GEOMETRY.L).toFixed(2)})
+
+${schErrTable(4)}
+
+Each row is a segment count and each column a time step. The errors fall in
+both directions and flatten along a row once the time-step error drops below
+the spatial one, which is why the spatial error alone is read from the
+Δt = ${SCH_DT_FINE} s column and the temporal error alone is not a clean
+first-order sequence at fixed N. The table below gives the observed orders
+p = ln(e₁/e₂)/ln(h₁/h₂). The two joint columns refine N and Δt together by a
+factor of two per step, and that sequence is the one gated in CI.
+
+| b [1/m] | Joint, (N, Δt) = (10, 1), (20, 0.5), (40, 0.25) | Joint, (10, 0.5), (20, 0.25), (40, 0.125) | Spatial at Δt = ${SCH_DT_FINE} s, N = 10, 20, 40 | Temporal at N = ${SCH_N_FINE}, Δt = 2 down to ${SCH_DT_FINE} s |
+| ------- | ----- | ----- | ----- | ----- |
+${schOrderRows}
+
+Refined together, the error halves with each doubling of resolution, so both
+flow rates sit on first order (${ord(schJointMin)} to ${ord(schJointMax)} for
+the joint sequences, ${ord(schSpatialMin)} to ${ord(schSpatialMax)} spatially).
+The temporal order at N = ${SCH_N_FINE} decays toward zero for the smallest
+steps because the spatial error then dominates, as the flat rows of the
+tables show. The b = 4 case has about four times the NTU per unit length,
+so the wall temperature changes faster along the tube and the same grid gives
+a larger error. At the finest corner the per-station errors are as follows,
+with the largest at the station nearest the inlet, where the axial gradient of
+the wall temperature is steepest.
+
+| b [1/m] | z [cm] | max error [of ΔT₀] | rms error [of ΔT₀] |
+| ------- | ------ | ------------------ | ------------------ |
+${schStationRows}
+
+Figures 9 and 10 show the closed-form wall temperatures and the OpenFLUME
+solution at the finest corner (N = ${SCH_N_FINE}, Δt = ${SCH_DT_FINE} s). The
+curves and the markers nearly coincide at plotting scale. The three stations
+cool in order of distance from the inlet, and the delay before the cooling starts is the fluid transit time
+(${(SCHUMANN_GEOMETRY.L / schPar[0.94].u).toFixed(2)} s over the full tube at
+b = 0.94 and ${(SCHUMANN_GEOMETRY.L / schPar[4].u).toFixed(2)} s at b = 4),
+which is short against the wall time constant 1/a = ${(1 / SCHUMANN_A).toFixed(1)} s.
+
+The CI gate runs N = 20 and Δt = 0.25 s. It measures
+${sci(schGateErr[0.94])} (b = 0.94) and ${sci(schGateErr[4])} (b = 4) and gates
+at 1.5 times those values.
+
+${fig(9, "Anzelius–Schumann chilldown, b = 0.94 1/m: wall temperature at three stations, closed form (lines) and OpenFLUME at N = 40, Δt = 0.03125 s (markers, one per 5 s).")}
+
+${fig(10, "Anzelius–Schumann chilldown, b = 4 1/m: wall temperature at three stations, closed form (lines) and OpenFLUME at N = 40, Δt = 0.03125 s (markers, one per 5 s).")}
+
 ## Conclusions
 
-The thermal-network machinery of OpenFLUME — solid and ambient nodes,
+The thermal-network machinery of OpenFLUME (solid and ambient nodes,
 conduction, convection, and radiation conductors, heated-pipe branches, and
-the segregated exact-Jacobian thermal Newton subsystem — reproduces the five
+the segregated exact-Jacobian thermal Newton subsystem) reproduces the six
 classical benchmarks. Steady resistance-network problems solve to near
 machine precision (${pct(wallQerr)} on composite-wall heat flow,
 ${pct(radErrMax)} on radiation–convection equilibria across a q sweep that
@@ -1728,6 +2074,23 @@ transient accuracy is first order in Δt, and segmented heat-exchanger duty
 converges from below at first order in 1/N, so segment count should be
 chosen against the NTU per segment rather than by habit.
 
+The transient conjugate case adds an analytic check of the advective coupling
+between a chilled fluid stream and a wall that stores heat, which none of the
+steady cases or the lumped cooldown exercises. Against the Anzelius–Schumann
+closed form the wall temperature at three stations is reproduced to
+${sci(schErr(0.94, SCH_N_FINE, SCH_DT_FINE))} (b = 0.94) and
+${sci(schErr(4, SCH_N_FINE, SCH_DT_FINE))} (b = 4) of the initial
+wall–inlet difference at the finest resolution, and the error falls at the
+first order of the scheme (observed ${ord(schJointMin)} to ${ord(schJointMax)})
+when segments and time step are refined together. This verifies the advective
+wall–fluid coupling, the time integration and the upwind discretization. It
+does not verify any boiling closure, since the film coefficient is a constant,
+and it does not extend to the two-phase chilldown of the NBS data, which is
+treated separately in the chilldown report. The scheme is first order, so the
+error at practical resolutions (${pct(schErr(0.94, 10, SCH_DT_FINE), 1)} to ${pct(schErr(4, 10, SCH_DT_FINE), 1)} of the initial difference at
+N = 10) is discretization error to be reduced by refinement, and the closed
+form itself neglects the fluid heat capacity and axial conduction.
+
 ## References
 
 1. Incropera, F. P., DeWitt, D. P., Bergman, T. L., and Lavine, A. S.,
@@ -1739,18 +2102,31 @@ chosen against the NTU per segment rather than by habit.
    *Generalized Fluid System Simulation Program, Version 6.0*,
    NASA/TM-2013-217492, 2013 (Example 5: water–water counterflow heat
    exchanger; conjugate solid–fluid formulation).
+4. Anzelius, A., "Über Erwärmung vermittels durchströmender Medien,"
+   *Zeitschrift für Angewandte Mathematik und Mechanik*, Vol. 6, No. 4, 1926,
+   pp. 291–294 (case 6 closed form).
+5. Schumann, T. E. W., "Heat Transfer: A Liquid Flowing Through a Porous
+   Prism," *Journal of the Franklin Institute*, Vol. 208, No. 3, 1929,
+   pp. 405–416 (case 6 closed form).
+6. Cross, M. F., Majumdar, A. K., Bennett, J. C., Jr., and Malla, R. B.,
+   "Modeling of Chill Down in Cryogenic Transfer Lines," *Journal of
+   Spacecraft and Rockets*, Vol. 39, No. 2, 2002, pp. 284–289 (analytic
+   chilldown model and the 26 in tube geometry of case 6).
 
 ## Nomenclature
 
 | Symbol | Meaning |
 | ------ | ------- |
 | A | heat-transfer area |
+| a | inverse wall time constant hP/(ρ_w c_w A_w) [1/s] (case 6) |
+| b | fluid NTU per unit length hP/(ṁc_f) [1/m] (case 6) |
 | Bi | Biot number hL_c/k |
 | C | capacity rate ṁc_p |
 | C_r | capacity ratio C_min/C_max |
 | c_p | specific heat |
 | F | radiation view factor |
 | h | convective film coefficient |
+| J(a, b) | Anzelius–Schumann function, Marcum Q₁(√(2b), √(2a)) |
 | k | thermal conductivity |
 | L | thickness / length |
 | m | solid node mass |
@@ -1760,10 +2136,15 @@ chosen against the NTU per segment rather than by habit.
 | R | thermal resistance |
 | T | temperature |
 | T∞ | reservoir (fluid or ambient) temperature |
+| u | fluid velocity (case 6) |
+| z | axial position |
 | UA | overall conductance |
 | ε | heat-exchanger effectiveness; radiation emissivity |
 | σ | Stefan–Boltzmann constant |
 | τ | lumped-capacitance time constant mc_p/hA |
+| τ_w | dimensionless time since the fluid front, a(t − z/u) (case 6) |
+| ζ | dimensionless distance hPz/(ṁc_f) (case 6) |
+| θ | dimensionless temperature (T − T_f0)/(T_w0 − T_f0) (case 6) |
 
 `;
 

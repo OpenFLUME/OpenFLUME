@@ -45,7 +45,7 @@ Y  = 1 − 0.1 (ρ_f/ρ_g − 1)^0.4 (1 − x)^0.4
 
 Vapor properties are taken at saturation, and quality is clamped to [0.01, 0.99]. On single-phase nodes it falls back to Dittus–Boelter, so it works through a chilldown as nodes cross the dome. The correlation table lists it as "As used by GFSSP for chilldown" ([§8.5](../user-manual.md#_8-5-correlation-status)).
 
-**The wall** uses sourced, temperature-dependent properties. OFHC copper specific heat falls from about 385 J/(kg·K) at 300 K to about 90 at 80 K, and to order 1 near 20 K, so the wall accelerates its own cooldown and a constant specific heat materially over-predicts the cold-end time.
+**The wall** uses sourced, temperature-dependent properties. OFHC copper specific heat falls from about 385 J/(kg·K) at 300 K to about 90 at 80 K, and to order 1 near 20 K, so the wall accelerates its own cooldown. Every wall node exchanges heat with a solved fluid node, as in GFSSP's model of the line: the inlet wall with the first internal node rather than the fixed inlet state, and the two end wall nodes carry half a segment, so the wall's total mass and wetted area are the line's.
 
 ## The example you can run
 
@@ -65,15 +65,17 @@ The example's automated test is structural: every wall chills below 300 K, wall 
 | 74.97 psia       | 150 s        | 160 s           |
 | 86.73 psia       | 130 s        | 140 s           |
 
-- **CI gate.** Every pull request runs one case (saturated, 74.97 psia, experiment 150 s). The station-4 time must fall within 0.5×–1.6× of experiment; measured values have been about 128–160 s across solver versions. The band catches gross regressions, such as a missing crossing or a factor-of-two drift, "without pretending the coarse-N model is exact."
-- **Slow suite.** On `main` and weekly, all three points run at N = 3. The recorded mean absolute error is 12.8 %; the suite asserts under 25 % as a regression sentinel.
-- **Trends.** Chilldown time strictly decreases with driving pressure, and at a matched 74.97 psia subcooling shortens it.
+- **CI gate.** Every pull request runs one case (saturated, 74.97 psia, experiment 150 s). The station-4 time must fall within 0.5×–1.6× of experiment; the current value is 129.4 s. The band catches gross regressions, such as a missing crossing or a factor-of-two drift, "without pretending the coarse-N model is exact."
+- **Slow suite.** On `main` and weekly, all three points run at N = 3. The recorded mean absolute error is 7.8 % (all three early, by 4–14 %), against 8.8 % for GFSSP's predictions; the suite asserts under 25 % as a regression sentinel.
+- **Trends.** Chilldown time strictly decreases with driving pressure. Subcooling does not shorten it at a matched 74.97 psia in this model (149.4 s subcooled against 129.4 s saturated, where the measurement is 100 s against 150 s), so the suite no longer asserts that ordering and the report states the deficiency.
 - **Curve shape.** At four segments the two-phase model reproduces the published wall-temperature curves (`chilldownTwoPhase.test.ts`): plateau then plunge downstream, completion gaps that shrink as the front accelerates, a common asymptote near saturation, and downstream steepening. That last feature, a steeper maximum dT/dt at the last station than the first, cannot occur in a single-phase gas model.
 - **Conservation.** Two-phase chilldown energy balances close within 10 %, and the subcooled flashing case's global enthalpy balance closes within 12 %.
 
 ## Disagreements and trust levels
 
-**Subcooled runs.** The trace corpus is split by trust level in code. The four saturated runs (sixteen traces) are **trusted**, calibration-grade. The seven subcooled runs are **diagnostic only**: at coarse axial discretization their errors reach +80 %, and the corpus validator throws if one is not marked that way. In the slow suite, the subcooled LN₂ point at 74.97 psia comes out at 128.1 s against a measured 100 s: shorter than saturated, as it should be, but well off.
+**Trust levels.** The trace corpus is split by trust level in code, assigned from the experimental record alone. Four subcooled hydrogen runs (Figs. 3, 4, 6, 7) are **diagnostic only**: their cold tails overlap so that they cannot be assigned to stations, or the valve opened before the chart's zero time. The other seven runs (twenty-eight traces) are **trusted**. All eighteen Table-6 rows are solved and reported; their mean absolute error is 19.3 % at N = 3, against 7.6 % for GFSSP. The knee uses one definition for the model and for the digitized traces, and each run starts from the initial wall temperature measured in its traces (271–307 K).
+
+**Subcooled runs.** Subcooled LN₂ is the weakest case: late by 29–57 % at three segments, and it depends on an input GFSSP never published (the knee waits on the outlet node turning liquid, and at the documented 12.05 psia outlet without GFSSP's exit restriction it stays two-phase and the 61.74 psia case goes from +49 % to +102 %). At GFSSP's 30 segments the three subset cases that reach the knee have a mean absolute error of 13.5 %, against 4.6 % for GFSSP; saturated LN₂ is +8.1 % and hydrogen is about 16 % early.
 
 **Single-phase surrogate.** A separate builder replaces the boiling liquid with cold nitrogen vapor. It reproduces the plateau-then-plunge shape but not absolute times, so its tests assert trends only.
 
@@ -89,6 +91,6 @@ The example's automated test is structural: every wall chills below 300 K, wall 
 
 ## Summary
 
-On saturated LN₂ at coarse discretization, OpenFLUME's station-4 chilldown time has a recorded 12.8 % mean absolute error against NBS 9264, with the correct pressure trend and curve structure. Subcooled cases are labeled diagnostic so they cannot be quoted as agreement, and the LH₂ example is a physics demonstration only.
+On a three-segment line OpenFLUME's station-4 chilldown time has a recorded 19.3 % mean absolute error against NBS 9264 over all eighteen Table-6 rows (7.6 % for GFSSP), with the correct pressure trend. At GFSSP's 30 segments saturated LN₂ is within 9 % and three subset cases are at 13.5 % (GFSSP 4.6 %). Subcooled LN₂ depends on an unpublished GFSSP input and cannot be quoted, and the LH₂ example is a physics demonstration only.
 
 If you have chilldown data with clear provenance, or think one of these comparisons is set up wrong, please [open an issue](https://github.com/OpenFLUME/OpenFLUME/issues/new/choose).

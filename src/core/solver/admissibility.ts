@@ -41,6 +41,22 @@
  *     (the only place a physical sonic transition — and its smearing — can
  *     live; friction shifts the crossing at most into the adjacent cell).
  *
+ * The entropy test alone is too weak in CONSTANT-AREA ducts.  There the
+ * expansion-shock jump sits on the Fanno line close to its sonic point, so
+ * its entropy defect is small (measured −0.017·R … −0.008·R on a 20-segment
+ * Fanno duct), and once the branch's own friction is included it can even
+ * be positive (+0.007·R measured for a M 0.75 → 1.27 jump).  A second,
+ * kinematic test therefore flags any branch whose donor endpoint is
+ * subsonic and whose downwind endpoint is supersonic, unless the branch
+ * touches the near-sonic neighborhood of a strict area minimum, the
+ * downwind node is cooled (cooling against friction can legitimately
+ * carry a constant-area duct through M = 1), or the downwind node opens
+ * into a wider passage (its Mach number in this branch's area is then not
+ * the flow's Mach number).  Quasi-1-D flow with friction ≥ 0 and heating
+ * ≥ 0 can cross M = 1 only where dA/dx ≥ 0 just past an area minimum
+ * (Shapiro's influence coefficients), so such a crossing elsewhere is an
+ * expansion shock regardless of its entropy balance.
+ *
  * The audit never touches the residuals: it is ROOT SELECTION, not root
  * destruction.  steady.ts re-seeds a violating root (downwind node pulled
  * onto its donor's state — the subsonic side) and re-solves the SAME
@@ -69,6 +85,15 @@ export interface AdmissibilityViolation {
   allowance: number;
   /** Tolerance applied [J/(kg·K)] (> 0). */
   tolerance: number;
+  /** Which test failed: the entropy balance, or a subsonic → supersonic
+   *  crossing away from an area minimum (see module header). */
+  kind: "entropy" | "sonicCrossing";
+  /** Mach numbers at the donor and downwind endpoints (branch areas). */
+  machDonor: number;
+  machDownwind: number;
+  /** Root-selection defect [J/(kg·K)] (> 0): the entropy shortfall beyond
+   *  tolerance (if any) plus R·ln(M_dwn/M_don) for a sonic crossing. */
+  defect: number;
 }
 
 /** Entropy-defect tolerances in units of the gas constant R (the natural
@@ -83,8 +108,30 @@ const MDOT_FLOOR = 1e-9;
  *  score (smaller is more admissible; 0 = fully admissible). */
 export function violationScore(violations: AdmissibilityViolation[]): number {
   let s = 0;
-  for (const v of violations) s += v.allowance - v.tolerance - v.deltaS;
+  for (const v of violations) s += v.defect;
   return s;
+}
+
+/** Flow area of an areal branch at one of its endpoints [m²]. */
+function areaAt(
+  b: { from: string; component: { area?: number; areaOut?: number } },
+  node: string,
+): number | undefined {
+  const a = b.component.area;
+  if (a === undefined) return undefined;
+  return node === b.from ? a : (b.component.areaOut ?? a);
+}
+
+/** Nodes where at least one incident areal branch is wider at the node
+ *  than `area` — a sudden expansion, where a branch-area Mach number does
+ *  not describe the flow downstream. */
+function opensWider(ctx: SolverContext, node: string, area: number): boolean {
+  for (const b of ctx.branches) {
+    if (b.from !== node && b.to !== node) continue;
+    const a = areaAt(b, node);
+    if (a !== undefined && a > area * (1 + 1e-9)) return true;
+  }
+  return false;
 }
 
 /** Nodes where a physical sonic transition can live: static area minima of
@@ -113,8 +160,15 @@ function nearSonicNodes(ctx: SolverContext): Set<string> {
   }
   const near = new Set<string>();
   for (const [n, list] of incident) {
-    // Strict local minimum: no incident branch widens toward the node.
-    if (list.length >= 2 && list.every((e) => e.atNode <= e.far)) {
+    // Strict local minimum: no incident branch narrows away from the node
+    // and at least one widens away from it.  Without the second condition
+    // every node of a constant-area duct counted as a minimum, which put
+    // the whole duct in the relaxed near-sonic band.
+    if (
+      list.length >= 2 &&
+      list.every((e) => e.atNode <= e.far) &&
+      list.some((e) => e.atNode < e.far * (1 - 1e-9))
+    ) {
       near.add(n);
       for (const nb of neighbors.get(n) ?? []) near.add(nb);
     }
@@ -204,18 +258,46 @@ export function auditSecondLaw(
     const deltaS = cp * Math.log(tDwn / tDon) - R * Math.log(pDwn / pDon);
     const allowance =
       Math.min(nodeQ.get(dwn) ?? 0, 0) / (Math.abs(mdot) * tDwn);
-    const tolerance =
-      (nearSonic.has(donor) || nearSonic.has(dwn)
-        ? TOL_NEAR_SONIC_R
-        : TOL_BASE_R) * R;
-    if (deltaS < allowance - tolerance) {
+    const touchesThroat = nearSonic.has(donor) || nearSonic.has(dwn);
+    const tolerance = (touchesThroat ? TOL_NEAR_SONIC_R : TOL_BASE_R) * R;
+
+    // Endpoint Mach numbers in this branch's own endpoint areas.
+    const aDon = areaAt(b, donor)!;
+    const aDwn = areaAt(b, dwn)!;
+    const rhoDon = state.nodeRho.get(donor) ?? pDon / (R * tDon);
+    const rhoDwn = state.nodeRho.get(dwn) ?? pDwn / (R * tDwn);
+    const machDonor =
+      Math.abs(mdot) / (rhoDon * aDon * Math.sqrt(gamma * R * tDon));
+    const machDownwind =
+      Math.abs(mdot) / (rhoDwn * aDwn * Math.sqrt(gamma * R * tDwn));
+
+    const base = {
+      branchId: b.id,
+      donor,
+      downwind: dwn,
+      deltaS,
+      allowance,
+      tolerance,
+      machDonor,
+      machDownwind,
+    };
+    const entropyShort = allowance - tolerance - deltaS;
+    const crossing =
+      machDonor < 1 &&
+      machDownwind > 1 &&
+      !touchesThroat &&
+      allowance === 0 &&
+      !opensWider(ctx, dwn, aDwn);
+    if (entropyShort > 0 || crossing) {
+      // One commensurate defect for root selection: the entropy shortfall
+      // plus, for a crossing, R·ln(M_dwn/M_don) — so a retry that moves a
+      // jump without removing it is compared on the same scale.
       violations.push({
-        branchId: b.id,
-        donor,
-        downwind: dwn,
-        deltaS,
-        allowance,
-        tolerance,
+        ...base,
+        kind: crossing ? "sonicCrossing" : "entropy",
+        defect:
+          Math.max(entropyShort, 0) +
+          (crossing ? R * Math.log(machDownwind / machDonor) : 0),
       });
     }
   }

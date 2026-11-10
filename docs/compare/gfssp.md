@@ -74,8 +74,7 @@ compressible-flow ODE, cross-checked against Fanno and Rayleigh closed forms.
 | 4 — Nozzle, friction (65 clustered)        | 0.38 %                    | 0.6 %                      | 0.03 %             |
 | 5 — Nozzle, friction + heat (65 clustered) | 0.36 %                    | 0.6 %                      | 0.01 %             |
 
-The original study gives 1.7–5 % for GFSSP's own first-order upwind
-discretization. As in that study, the last station before a choked exit is
+The original study reports agreement within 5 % for its Rayleigh case. As in that study, the last station before a choked exit is
 excluded from the profile statistics; the error is largest at the choking
 cell. Shock capture remains out of scope.
 
@@ -91,12 +90,12 @@ _Mach number along the TFAWS-2007 nozzle, from the
 case. Tolerances are the test tolerances (manual
 [§8.3](../user-manual.md#_8-3-code-to-code-benchmarks)):
 
-| Benchmark                                        | Source                                     | What is checked                                                                                                                                                                  |
-| ------------------------------------------------ | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GFSSP Example 13, conduction rod with convection | NASA/TM-2011-216470 §6.13                  | Solid temperatures within 3.0 K of analytical; end conduction heat flows within 7 %; global energy balance within 0.5 %; transient end state matches a steady solve within 0.5 % |
-| GFSSP-style N₂–N₂ counterflow HX                 | Majumdar & LeClair, JANNAF 2024            | Duty within 5 % of ε–NTU; outlets within 2.5 K; hot/cold duty balance within 1 %                                                                                                 |
-| GFSSP Example 5, water-water counterflow HX      | GFSSP v5 manual                            | Hot outlet 295.67 ± 1.0 K; cold outlet 290.94 ± 0.5 K; duty ≈ 25.6 kW within 3 %; outlets move toward the published values as segments go 4 → 8 → 12                             |
-| Lee & Martin entrapped air (GFSSP Figure 10)     | GFSSP manual; independent RK4 rigid column | First peak within 15 %; trace within 8 % of RK4 at a refined step                                                                                                                |
+| Benchmark                                        | Source                                                                     | What is checked                                                                                                                                                                  |
+| ------------------------------------------------ | -------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GFSSP Example 13, conduction rod with convection | NASA/TM-2013-217492 §6.13 (Example 11, §5.11 of the v5 Educational manual) | Solid temperatures within 3.0 K of analytical; end conduction heat flows within 7 %; global energy balance within 0.5 %; transient end state matches a steady solve within 0.5 % |
+| GFSSP-style N₂–N₂ counterflow HX                 | Majumdar & LeClair, JANNAF 2024                                            | Duty within 5 % of ε–NTU; outlets within 2.5 K; hot/cold duty balance within 1 %                                                                                                 |
+| GFSSP Example 5, water-water counterflow HX      | GFSSP v5 manual                                                            | Hot outlet 295.67 ± 1.0 K; cold outlet 290.94 ± 0.5 K; duty ≈ 25.6 kW within 3 %; outlets move toward the published values as segments go 4 → 8 → 12                             |
+| Lee & Martin entrapped air (GFSSP Figure 10)     | GFSSP manual; independent RK4 rigid column                                 | First peak within 15 %; trace within 8 % of RK4 at a refined step                                                                                                                |
 
 At the shipped twelve-pass discretization, Example 5 outlets are within
 0.44 K (hot) and 0.19 K (cold) of the published GFSSP values

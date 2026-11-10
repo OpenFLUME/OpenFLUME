@@ -43,7 +43,12 @@ import {
 import { solveDense, norm2, dot, matVec, matVecTrans } from "./linalg";
 import { RealFluid, clampToValidPH, getFluidLimits } from "../fluids/realFluid";
 import { IdealGas } from "../fluids";
-import { FlowSource, CavitatingVenturi } from "../components";
+import {
+  FlowSource,
+  CavitatingVenturi,
+  Orifice,
+  kineticEndArea,
+} from "../components";
 import { integrateBDF1 } from "../stiffOde";
 import { makeChemistryRHS } from "../chemistry";
 import { getSolverDiagnostics } from "../diagnostics";
@@ -140,6 +145,22 @@ const OUTER_PROGRESS_PATIENCE = 14;
 /** Relative improvement of the certifying scaled residual that counts as
  *  outer progress. */
 const OUTER_PROGRESS_IMPROVE_FACTOR = 0.98;
+/**
+ * Steady Newton: largest fractional DROP, per iteration, of the pressure of
+ * a gas node on a compressible-orifice branch (the 20 % the compressible
+ * kineticEnergy mode allows every pressure step).  A steady mass row has no
+ * storage term, so nothing in the linear model bounds a pressure step, and
+ * the orifice row's Newton target can lie far below zero: on its choked
+ * branch it linearises as ṁ ∝ P_up (zero flow only at P_up = 0), and the
+ * ṁ|ṁ| tangent of a flow guess that must reverse overshoots by
+ * ṁ₀²/(2ρ(C_dA)²), ~1 MPa for a gas.  The 1 Pa positivity clamp then puts
+ * the node where the orifice chokes INTO it and no residual depends on its
+ * pressure.  Bounding the decrease keeps the pressure positive by damping
+ * rather than by clamping (in a transient the storage term ∝ ∂ρ/∂P/dt does
+ * so implicitly); increases are left free — they approach no boundary.
+ * Pure damping: the root is unchanged.
+ */
+const STEADY_ORIFICE_MAX_P_DROP = 0.2;
 
 export interface SolveStepOptions {
   dt?: number;
@@ -630,7 +651,7 @@ function updateLegacyNode(
   ): number => {
     if (!ctx.kineticEnergy) return 0;
     const comp = branches[branchIdx].component;
-    const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+    const A = kineticEndArea(comp, end);
     if (A === undefined || !(A > 0) || !(rho > 0)) return 0;
     const v = mdot / (rho * A);
     return 0.5 * v * v;
@@ -736,6 +757,8 @@ function updateLegacyNode(
   }
 
   let sumOut = 0;
+  let sumIn = 0;
+  let branchHeatIn = false;
   let hSum = 0;
   // Kinetic energy leaving with the outflows, ṁ·V²/2 per branch at THIS
   // node's state — subtracted from the enthalpy balance so the solved h is
@@ -745,11 +768,13 @@ function updateLegacyNode(
     const b = branches[j];
     const mdot = X[nInt + j];
     if (b.to === nodeId && mdot > 0) {
+      sumIn += mdot;
       const Tup = state.nodeT.get(b.from)!;
       hSum += mdot * enthalpyAt(b.from, state.nodeP.get(b.from)!, Tup);
       hSum +=
         mdot * kineticEnergyAt(j, "from", mdot, state.nodeRho.get(b.from)!);
     } else if (b.from === nodeId && mdot < 0) {
+      sumIn += -mdot;
       const Tup = state.nodeT.get(b.to)!;
       hSum += -mdot * enthalpyAt(b.to, state.nodeP.get(b.to)!, Tup);
       hSum += -mdot * kineticEnergyAt(j, "to", mdot, state.nodeRho.get(b.to)!);
@@ -775,11 +800,22 @@ function updateLegacyNode(
         const Tup = state.nodeT.get(upNode)!;
         const Pup = state.nodeP.get(upNode)!;
         const cpUp = branchFluid.cp(Pup, Tup);
-        hSum += b.component.getBranchHeat(mdot, Tup, cpUp, branchFluid, Pup);
+        const qb = b.component.getBranchHeat(mdot, Tup, cpUp, branchFluid, Pup);
+        hSum += qb;
+        if (qb !== 0) branchHeatIn = true;
       }
     }
   }
   const Q = heatInputOf(ctx, node);
+  // No enthalpy enters the node at all — no inflow, no heat, no
+  // convection — so the steady balance does not determine its T: with only
+  // an outflow it returns h = −keOut/ṁ_out ≤ 0, i.e. T ≈ 0 K.  That is what
+  // a dead end at its zero-flow root sees once a round-off ṁ ~ 1e-14 kg/s
+  // happens to leave it (the next outer then evaluates ρ(P, 0 K) = ∞).
+  // Hold T instead.
+  if (sumIn === 0 && Q === 0 && !branchHeatIn && convCoeff === 0) {
+    return 0;
+  }
   const denom = sumOut * cp + convCoeff;
   if (denom > 1e-12) {
     let hNode = (hSum + Q + convRhs - keOut) / (sumOut + convCoeff / cp);
@@ -1420,13 +1456,45 @@ function solveStateStepAttemptInner(
     // left untouched so easy problems keep their fast Newton path.
     // The shift goes into a COPY: `Jscaled` is reused by the next retry, and
     // the threshold is judged on the UNSHIFTED diagonal.
+    //
+    // Sign: a mass row is Σṁ_in − d(ρV)/dt, so the storage it lacks in a
+    // steady solve enters its P diagonal NEGATIVELY (−V ∂ρ/∂P / Δτ).  That
+    // is the pseudo-time sign for the mass rows: net inflow raises the
+    // node pressure.  A positive shift there runs pseudo-time backwards —
+    // net inflow LOWERS P — and drives a node fed by a choked orifice to
+    // the pressure floor.  The other rows keep the historical +1/Δτ.
     let Jsc = Jscaled;
+    const copyOnce = (): void => {
+      if (Jsc === Jscaled) Jsc = Jscaled.map((row) => [...row]);
+    };
     if (ptcTau !== undefined && ptcTau > 0) {
-      Jsc = Jscaled.map((row) => [...row]);
+      copyOnce();
       for (let i = 0; i < nVar; i++) {
         if (Math.abs(Jscaled[i][i]) < 1.0) {
-          Jsc[i][i] += 1.0 / ptcTau;
+          Jsc[i][i] += (dof.kindOf(i) === "P" ? -1.0 : 1.0) / ptcTau;
         }
+      }
+    }
+    // A pressure column with no entry at all: no residual depends on this
+    // node's pressure (a node whose every incident branch is a compressible
+    // orifice choked INTO it — downstream pressure has no effect on choked
+    // flow).  The steady Jacobian is then exactly singular, and the dense
+    // solver's 1e-14 pivot fixes the step's direction by the sign of
+    // round-off; with a positive pivot it is the backwards-pseudo-time
+    // direction above.  Give the mass row a unit pseudo-storage of the
+    // physical sign instead, so the node pressure moves with its net
+    // inflow (by at most ~one column scale per iteration).  Only a column
+    // the solver would hit as a zero pivot anyway is touched.
+    for (let k = 0; k < nVar; k++) {
+      if (dof.kindOf(k) !== "P") continue;
+      let colMax = 0;
+      for (let i = 0; i < nVar; i++) {
+        const v = Math.abs(Jscaled[i][k]);
+        if (v > colMax) colMax = v;
+      }
+      if (colMax < 1e-14) {
+        copyOnce();
+        Jsc[k][k] = -1.0;
       }
     }
     const dXscaled = solveDense(
@@ -1438,12 +1506,42 @@ function solveStateStepAttemptInner(
     return { dX, dY, Jsc };
   }
 
+  // Steady solves: internal nodes on a compressible-orifice branch — the
+  // nodes whose pressure steps STEADY_ORIFICE_MAX_P_DROP limits.  A liquid
+  // node is skipped at use (no pressure-dependent density, Bernoulli row).
+  const orificeNodes: string[] = [];
+  if (dt === undefined) {
+    const seen = new Set<string>();
+    for (const b of ctx.branches) {
+      if (!(b.component instanceof Orifice)) continue;
+      for (const id of [b.from, b.to]) {
+        if (!seen.has(id) && dof.pressureCol(id) !== undefined) {
+          seen.add(id);
+          orificeNodes.push(id);
+        }
+      }
+    }
+  }
+  function boundOrificePressureDrop(Xt: number[]): void {
+    for (const id of orificeNodes) {
+      const f = ctx.fluidAssignment.node(id);
+      const gas =
+        f instanceof IdealGas ||
+        (f instanceof RealFluid && state.nodePhase?.get(id) !== "liquid");
+      if (!gas) continue;
+      const c = dof.pressureCol(id)!;
+      const floor = (1 - STEADY_ORIFICE_MAX_P_DROP) * X[c];
+      if (Xt[c] < floor) Xt[c] = floor;
+    }
+  }
+
   // Project a trial iterate back into the physically admissible box:
   // positive pressures, bounded mass flows, and — for nodes whose energy
   // unknown is an enthalpy — a state inside the fluid's valid P–h
   // envelope.  Shared by the backtracking line search and the
   // trust-region trial so both enforce identical bounds.
   function clampTrialToBounds(Xt: number[]): void {
+    boundOrificePressureDrop(Xt);
     for (const id of internalIds) {
       const c = dof.pressureCol(id)!;
       Xt[c] = Math.max(1.0, Math.min(1e9, Xt[c]));
@@ -1505,6 +1603,7 @@ function solveStateStepAttemptInner(
         }
         Xt[k] += step;
       }
+      boundOrificePressureDrop(Xt);
       for (const id of internalIds) {
         const c = dof.pressureCol(id)!;
         Xt[c] = Math.max(1.0, Math.min(1e9, Xt[c]));

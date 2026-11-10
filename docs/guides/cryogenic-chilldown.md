@@ -84,9 +84,7 @@ for chilldown", citing Cross, Majumdar et al. (2002).
 
 Copper's specific heat drops steeply on cooling. The header comment quotes
 about 385 J/(kg·K) at 300 K, about 90 at 80 K, and order 1 near 20 K, so each
-segment cools faster the colder it gets. Per the same comment, a constant
-385 J/(kg·K) "materially over-predicts the cold-end cooldown time". The
-material catalogue and its validity ranges are in
+segment cools faster the colder it gets. The material catalogue and its validity ranges are in
 [solid-properties-results.md](../solid-properties-results.md).
 
 The comment also notes that for hydrogen most of the cooling comes from the
@@ -122,18 +120,31 @@ is sequential and the inlet reaches cryogenic temperature.
 ## Comparison with the experiment
 
 - **The shipped example demonstrates the NBS Figure 2 configuration.** The
-  manual (§7.11) says chilldown time at the instrumented station "is compared
-  with the NBS experiment and with GFSSP predictions in the validation suite".
-  That comparison runs in the slow test tier on the repository's chilldown
-  builders, not as a pass/fail on this exact model.
-- **Validation corpus and trust levels** (manual §8.4). From NBS Report 9264,
-  Table 6 provides eighteen chilldown-time points for saturated and subcooled
-  hydrogen and nitrogen, and eleven digitized oscillograph figures provide 44
-  station traces (10 195 samples).
-  - **Trusted (calibration grade):** four saturated runs, sixteen traces.
-  - **Diagnostic only:** seven subcooled runs. Their errors reach +80 % at
-    coarse axial discretization, so they can inform a diagnosis but cannot be
-    quoted as agreement.
+  NBS 9264 comparison of chilldown times with the experiment and with GFSSP's
+  predictions (manual §8.4) uses a separate, coarser two-phase line model
+  (`buildChilldownTwoPhase`) in the slow test tier and the
+  [chilldown report](../validation/chilldown-report.md), not this exact
+  model.
+- **Validation corpus and trust levels** (manual §8.4). Table 6 of the GFSSP
+  Version 6 paper (AIAA 2015-3850) tabulates eighteen chilldown times from NBS
+  Report 9264 for saturated and subcooled hydrogen and nitrogen, and eleven
+  digitized oscillograph figures of the report provide 44 station traces
+  (10 195 samples).
+  - **Trust comes from the experimental record alone.** Seven runs
+    (twenty-eight traces, saturated and subcooled) are **trusted**. Four
+    subcooled hydrogen runs are **diagnostic only** because their records are
+    compromised (overlapping cold tails, or a valve opened before the chart's
+    zero time). Every Table-6 row is solved and reported.
+  - **Chilldown-time results** ([report](../validation/chilldown-report.md)).
+    Over the eighteen rows at three segments the mean absolute error is
+    19.3 % against 7.6 % for GFSSP (10.1 % against 8.7 % over the eleven
+    unflagged rows other than subcooled nitrogen); at GFSSP's 30 segments the
+    three subset cases that reach the knee are at 13.5 % against 4.6 %.
+    Saturated nitrogen at 30 segments is +8.1 % and the hydrogen cases are
+    16–17 % early. Subcooled nitrogen depends on the outlet pressure and on
+    GFSSP's unpublished exit restriction and is not quoted as a prediction. The knee
+    uses one definition for model and data and each run starts from its
+    measured initial wall temperature.
   - **CI acceptance band:** computed chilldown time at the instrumented
     station within a factor of 1.6 of experiment, with mean absolute error
     under 25 % across the four-case slow suite. Two-phase chilldown energy and
@@ -150,8 +161,8 @@ is sequential and the inlet reaches cryogenic temperature.
   [`src/validation/nbsChilldown.ts`](../../src/validation/nbsChilldown.ts)).
   In this model, wall 20 sits at x = 61 m and is the nearest station.
 
-Together these support a factor-of-1.6 engineering band on trusted saturated
-runs, short of a precision prediction.
+Together these support a factor-of-1.6 engineering band on the nitrogen and
+hydrogen rows that converge, short of a precision prediction.
 
 ## Things to try
 

@@ -431,8 +431,8 @@ describe("GFSSP TFAWS-2007 case 1 — Fanno flow", () => {
 
   it("mass flow matches the analytical choked flow rate (upwind: scheme accuracy; central: <1%)", () => {
     // Default limited-upwind momentum faces are first-order at the choking
-    // cell — GFSSP-class accuracy (the TFAWS-2007 paper reports 1.7–5% on
-    // these cases).  Measured here: 2.1%.
+    // cell — GFSSP-class accuracy (the TFAWS-2007 paper reports agreement within
+    // 5% for its Rayleigh case).  Measured here: 2.1%.
     const mdot = res.branches["b0"].mdot;
     expect(
       Math.abs(mdot - analyticMdot(duct)) / analyticMdot(duct),
@@ -483,6 +483,40 @@ describe("GFSSP TFAWS-2007 case 1 — Fanno flow", () => {
     expect(machs[0]).toBeGreaterThan(0.45);
     expect(machs[0]).toBeLessThan(0.55);
     expect(machs[machs.length - 1]).toBeGreaterThan(0.8);
+  });
+
+  // Regression: a uniform 20-segment Fanno duct solved with the CENTRAL
+  // momentum faces from a cold start (linear pressure ramp, inlet
+  // temperature, no flow guess) converged at relaxation 0.5 onto an
+  // expansion-shock root — n17 → n18 jumped from M 0.70 to M 1.40 and the
+  // last internal node sat at 122 kPa, M 1.25 — and reported "converged"
+  // with no warning.  The jump's entropy defect (−0.017·R) fell inside the
+  // relaxed near-sonic tolerance because every node of a constant-area
+  // duct counted as an "area minimum", and a jump with friction can even
+  // raise entropy.  The audit now requires a strict area minimum and also
+  // rejects subsonic → supersonic crossings away from one; re-seeding then
+  // walks the jump out of the duct onto the physical root.
+  it("cold-start central solve does not stop on an expansion-shock root", () => {
+    const xsU = Array.from({ length: 21 }, (_, i) => (Lstar * i) / 20);
+    for (const relaxation of [0.5, 0.7, 0.9, 1.0]) {
+      const cold = buildDuctNetwork(duct, xsU, { exitP, exitT, relaxation });
+      cold.settings.momentumFluxScheme = "central";
+      const r = solveDuct(cold);
+      expect(r.warnings).toBeUndefined();
+      const mdot = r.branches["b0"].mdot;
+      expect(
+        Math.abs(mdot - analyticMdot(duct)) / analyticMdot(duct),
+      ).toBeLessThan(0.002);
+      // Subsonic everywhere inside the duct, Mach rising monotonically.
+      let prev = 0;
+      for (let i = 1; i < 20; i++) {
+        const n = r.nodes[`n${i}`];
+        const M = nodeMach(mdot, n.density, n.temperature, D_PIPE);
+        expect(M).toBeLessThan(1);
+        expect(M).toBeGreaterThan(prev);
+        prev = M;
+      }
+    }
   });
 });
 

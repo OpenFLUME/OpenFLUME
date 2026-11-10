@@ -1,7 +1,7 @@
 /**
  * Trace-baseline plumbing — the PRE-FIT, NO-TUNING comparison of
  * model-predicted wall-temperature traces against the trusted NBS-9264
- * digitized corpus (NBS_TRUSTED_SATURATED_TRACE_RUNS), per the binding
+ * digitized corpus (NBS_TRUSTED_TRACE_RUNS), per the binding
  * protocol (§6–§7) and
  * the data-side trace policy.
  *
@@ -17,8 +17,8 @@
  *   - the morphology feature extraction with corpus QC gating;
  *   - guarded front-arrival ordering (the final-sample-interval guard of
  *     extractTraceFeatures applied to the ordering problem);
- *   - the pre-registered solve plan for the 4 trusted runs (discretization
- *     per protocol §3.1.6 — NOT tuned here).
+ *   - the solve plan for the 7 trusted runs (discretization per protocol
+ *     §3.1.6 — NOT tuned here).
  *
  * NOTHING is fitted.  No closure constants, no nuisance parameters, no
  * numerics knobs are adjusted anywhere in this study.
@@ -26,14 +26,20 @@
  * ============================================================================
  * CONVENTIONS (binding)
  * ============================================================================
- * 1. KNEE THRESHOLD: the data corpus has no pressure record, so the shared
- *    model+data knee threshold is the DATA-NATIVE convention of
- *    nbsTraceCorpus.test.ts: T_knee = inletLiquidTempK + 15 K (for these
- *    saturated runs inletLiquidTempK = Tsat(P_drive)).  The protocol's
- *    primary scalar chilldown time (station 4, Tsat_local + 15 K, smooth)
- *    is ADDITIONALLY computed for the model by the measurement driver and
- *    reported separately for Table-6 comparability — the two definitions
- *    differ by the along-line pressure fall (documented mismatch).
+ * 1. KNEE THRESHOLD: ONE definition for the Table-6 chilldown time and for
+ *    the trace comparison, applied to the model AND to the digitized trace:
+ *    T_knee(station) = T_sat(P_local,late(station)) + 15 K, with P_local,late
+ *    the late-time pressure at that station of the model solve of the run
+ *    at its driving pressure (chilldownMetric.localSaturationThreshold).
+ *    The digitized corpus has no pressure record, so the model solve
+ *    supplies the pressure; the resulting temperature is the same number for
+ *    model and data, so the two knees are compared like for like (a data
+ *    trace that never reaches the threshold has no knee under this
+ *    definition, and says so).  The earlier convention, T_inlet + 15 K,
+ *    sits 15–19 K above this threshold for saturated nitrogen and gave the
+ *    opposite sign of the error for the same run; it is kept only as a
+ *    sensitivity (dataNativeKneeThresholdK) and as the fallback of
+ *    compareRunTraces when a model history carries no pressure.
  * 2. ONSET: 'belowThreshold' 290 K when the trace's first sample is above
  *    290 K (all model traces start at 300 K), otherwise 'dropFromStart'
  *    5 K — exactly the documented intent of TraceFeatureOptions.onset
@@ -53,6 +59,7 @@
  */
 
 import { stationXM } from "./nbsChilldown";
+import { localSaturationThreshold } from "./chilldownMetric";
 import { interpolateTraceToStation } from "./stationInterp";
 import {
   adaptiveHalfWindowS,
@@ -72,7 +79,7 @@ import {
 import type { CorpusWallTempTrace, TraceRun } from "./nbsTraceCorpus";
 
 // ---------------------------------------------------------------------------
-// Pre-registered solve plan for the trusted saturated runs (protocol §3.1.6)
+// Solve plan for the trusted runs (protocol §3.1.6)
 // ---------------------------------------------------------------------------
 
 export type TraceBaselineClosure = "miropolskii" | "darrHartwig";
@@ -94,13 +101,23 @@ export interface TrustedRunSolveSpec {
 }
 
 /**
- * THE pre-registered discretizations (protocol §3.1.6: saturated LN2 at
- * N=6, dt=10; saturated LH2 at N=6, dt=2.5 fixed, ParaHydrogen).  These
- * are inputs, not fitted outputs.
+ * THE discretizations (protocol §3.1.6: LN2 at N=6, dt=10; LH2 at N=6,
+ * dt=2.5 fixed, ParaHydrogen).  These are inputs, not fitted outputs.  The
+ * four saturated entries were pre-registered; the three subcooled runs
+ * (figs 05, 13, 14) joined the trusted set when trust levels were made a
+ * function of the record's QC alone, and follow the same rule unchanged.
+ * Subcooled runs are solved with inletTemperature = run.inletLiquidTempK.
  */
 export const TRACE_BASELINE_SOLVE_PLAN: readonly TrustedRunSolveSpec[] = [
   {
     runId: "nbs9264-fig02",
+    fluidName: "ParaHydrogen",
+    segments: 6,
+    dtS: 2.5,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig05",
     fluidName: "ParaHydrogen",
     segments: 6,
     dtS: 2.5,
@@ -122,6 +139,20 @@ export const TRACE_BASELINE_SOLVE_PLAN: readonly TrustedRunSolveSpec[] = [
   },
   {
     runId: "nbs9264-fig12",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig13",
+    fluidName: "Nitrogen",
+    segments: 6,
+    dtS: 10,
+    endTimeS: 300,
+  },
+  {
+    runId: "nbs9264-fig14",
     fluidName: "Nitrogen",
     segments: 6,
     dtS: 10,
@@ -151,6 +182,14 @@ export interface ModelWallHistory {
   wallXM: number[];
   /** wallTracesK[j][k]: wall T (K) of solid node j at time index k. */
   wallTracesK: number[][];
+  /**
+   * Fluid-node axial positions (m, ascending) and pressure histories
+   * (pressureTracesPa[j][k], Pa).  Optional: with them compareRunTraces
+   * applies the unified local-saturation knee threshold; without them it
+   * falls back to the data-native T_inlet + 15 K.
+   */
+  fluidXM?: number[];
+  pressureTracesPa?: number[][];
 }
 
 /**
@@ -216,6 +255,8 @@ export function runRateHalfWindowS(
 
 export interface StationTraceComparison {
   station: 1 | 2 | 3 | 4;
+  /** Knee threshold (K) applied to model and data at this station. */
+  kneeThresholdK: number;
   /** QC carried from the corpus trace. */
   qualityWeight: number;
   coldTailUsable: boolean;
@@ -263,6 +304,7 @@ export function compareStationTrace(
   });
   return {
     station: data.station,
+    kneeThresholdK: opts.kneeThresholdK,
     qualityWeight: data.qualityWeight,
     coldTailUsable: data.qc.coldTailUsable,
     qcFlags: [...data.qc.flags],
@@ -313,7 +355,13 @@ export interface FrontOrderingComparison {
 
 export interface RunTraceComparison {
   runId: string;
+  /** Station-4 knee threshold (K). */
   kneeThresholdK: number;
+  /** Per-station knee thresholds (K), stations 1–4. */
+  kneeThresholdsK: number[];
+  /** 'localSaturation': unified definition (needs model pressures);
+   *  'dataNative': T_inlet + 15 K fallback. */
+  kneeDefinition: "localSaturation" | "dataNative";
   rateHalfWindowS: number;
   stations: StationTraceComparison[];
   /** Within-run pooled metrics (quality-weighted) — protocol §6.3. */
@@ -328,6 +376,13 @@ export interface RunTraceComparison {
 export function compareRunTraces(
   run: TraceRun,
   model: ModelWallHistory,
+  opts?: {
+    /** Margin above the local saturation temperature (default 15 K). */
+    kneeMarginK?: number;
+    /** Saturation temperature (K) at a pressure (Pa) — required for the
+     *  unified definition. */
+    saturationTemperatureK?: (pPa: number) => number;
+  },
 ): RunTraceComparison {
   const modelTraces = run.traces.map((tr) =>
     extractModelStationTrace(model, tr.station),
@@ -336,10 +391,28 @@ export function compareRunTraces(
     modelTraces,
     run.traces.map((tr) => ({ timesS: tr.timesS, valuesK: tr.wallTempsK })),
   );
-  const kneeThresholdK = dataNativeKneeThresholdK(run);
+  const unified =
+    model.fluidXM !== undefined &&
+    model.pressureTracesPa !== undefined &&
+    opts?.saturationTemperatureK !== undefined;
+  const marginK = opts?.kneeMarginK ?? 15;
+  const kneeThresholdsK = run.traces.map((tr) =>
+    unified
+      ? localSaturationThreshold(
+          {
+            fluidXM: model.fluidXM!,
+            pressureTracesPa: model.pressureTracesPa!,
+            saturationTemperatureK: opts!.saturationTemperatureK!,
+          },
+          tr.station,
+          marginK,
+        ).thresholdK
+      : dataNativeKneeThresholdK(run),
+  );
+  const kneeThresholdK = kneeThresholdsK[kneeThresholdsK.length - 1];
   const stations = run.traces.map((tr, i) =>
     compareStationTrace(modelTraces[i], tr, {
-      kneeThresholdK,
+      kneeThresholdK: kneeThresholdsK[i],
       rateHalfWindowS,
     }),
   );
@@ -361,6 +434,8 @@ export function compareRunTraces(
   return {
     runId: run.runId,
     kneeThresholdK,
+    kneeThresholdsK,
+    kneeDefinition: unified ? "localSaturation" : "dataNative",
     rateHalfWindowS,
     stations,
     pooled,

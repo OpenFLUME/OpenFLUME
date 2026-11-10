@@ -23,13 +23,17 @@ const scientificAndSlowFiles = [
   "src/ui/tests/cavitatingVenturi.test.ts",
   "src/ui/tests/chilldown.test.ts",
   "src/ui/tests/chilldownBaseline.test.ts",
+  "src/ui/tests/chilldownFlowModel.test.ts",
   "src/ui/tests/chilldownTwoPhase.test.ts",
   "src/ui/tests/gfssp-benchmarks.test.ts",
   "src/ui/tests/leeMartin.test.ts",
   "src/ui/tests/nureth.test.ts",
   "src/ui/tests/examples.test.ts",
   "src/ui/tests/sanity-examples.test.ts",
+  "src/validation/__tests__/cavitationHord.test.ts",
+  "src/validation/__tests__/chokedFlow.test.ts",
   "src/validation/__tests__/microfluidics.test.ts",
+  "src/validation/__tests__/tankSelfPressurization.test.ts",
 ];
 
 export default defineConfig({

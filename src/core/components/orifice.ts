@@ -21,6 +21,10 @@ export function expansibilityY(r: number, kappa?: number): number {
   return Math.sqrt(((kappa / (kappa - 1)) * term) / omr);
 }
 
+/** Zero-flow linearisation threshold [kg/s] for the orifice momentum row —
+ *  the same value as solver/pressureDrop.ts ZERO_FLOW_THRESHOLD. */
+const ORIFICE_ZERO_FLOW = 1e-7;
+
 /** Critical (choking) pressure ratio r* = (2/(κ+1))^{κ/(κ−1)}. */
 export function criticalPressureRatio(kappa: number): number {
   return Math.pow(2 / (kappa + 1), kappa / (kappa - 1));
@@ -127,6 +131,39 @@ export class Orifice implements BranchComponent {
     const dP = pUp * (1 - r);
     if (!(dP > 0) || !(Y > 0)) return 0;
     return this.cd * this.area * Y * Math.sqrt(2 * rho * dP);
+  }
+
+  /**
+   * Momentum-row residual for the Y-factor closure, in pressure units:
+   *
+   *   R = [ sgn(P_from − P_to) · ṁ_exp² − q(ṁ) ] / (2 ρ_hi (C_d A)²)
+   *     = sgn · Y² ΔP_eff − q(ṁ) / (2 ρ_hi (C_d A)²)
+   *
+   * with ṁ_exp = massFlowFromState(P_hi, P_lo, ρ_hi, κ) evaluated at the
+   * pressure-upstream (high) node and q(ṁ) = ṁ|ṁ|, replaced by its secant
+   * m₀·ṁ below m₀ = 1e-7 kg/s (the zero-flow linearisation every ΔP-form
+   * row uses, solver/pressureDrop.ts).  Its root is ṁ = sgn · ṁ_exp, for
+   * either flow direction.  The ṁ-form ṁ − sgn · ṁ_exp has the same root
+   * but an unbounded slope ∂/∂P ∝ 1/√ΔP at ΔP → 0, on which Newton cycles
+   * (ΔP → −ΔP) at a zero-flow (dead-end) orifice; in pressure units the
+   * row is smooth in P through ΔP = 0, like the liquid Bernoulli row.
+   */
+  residualPa(
+    mdot: number,
+    pFrom: number,
+    pTo: number,
+    rhoHi: number,
+    kappa?: number,
+  ): number {
+    const fromIsHigh = pFrom >= pTo;
+    const pHi = fromIsHigh ? pFrom : pTo;
+    const pLo = fromIsHigh ? pTo : pFrom;
+    const mExp = this.massFlowFromState(pHi, pLo, rhoHi, kappa);
+    const absM = Math.abs(mdot);
+    const q = absM > ORIFICE_ZERO_FLOW ? mdot * absM : ORIFICE_ZERO_FLOW * mdot;
+    const cdA = this.cd * this.area;
+    const rho = rhoHi > 0 ? rhoHi : 1;
+    return ((fromIsHigh ? 1 : -1) * mExp * mExp - q) / (2 * rho * cdA * cdA);
   }
 
   /**

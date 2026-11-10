@@ -275,7 +275,13 @@ describe("Network solve consistency: hybrid vs pure-FD", () => {
     }
   });
 
-  it("ideal-gas blowdown", () => {
+  it("ideal-gas orifices, unchoked and choked", () => {
+    // Supply → orifice → tank → orifice → ambient: the first orifice runs
+    // unchoked, the second choked, so both regimes of the FD-patched
+    // compressible orifice row are compared.  (A steady dead-end tank
+    // behind a single orifice has the trivial root P_tank = P_out at zero
+    // flow; it used to "converge" anywhere below P_out because the closure
+    // returned zero flow against the pressure gradient.)
     const config: NetworkConfig = {
       meta: { name: "test", version: 2 },
       settings: {
@@ -287,23 +293,37 @@ describe("Network solve consistency: hybrid vs pure-FD", () => {
       fluid: { model: "idealGas", preset: "air" },
       nodes: [
         {
-          id: "tank",
-          type: "internal",
+          id: "supply",
+          type: "boundary",
           x: 0,
           y: 0,
           pressure: 500000,
           temperature: 300,
         },
         {
+          id: "tank",
+          type: "internal",
+          x: 1,
+          y: 0,
+          pressure: 300000,
+          temperature: 300,
+        },
+        {
           id: "out",
           type: "boundary",
-          x: 1,
+          x: 2,
           y: 0,
           pressure: 101325,
           temperature: 300,
         },
       ],
       branches: [
+        {
+          id: "o0",
+          from: "supply",
+          to: "tank",
+          component: { type: "orifice", area: 0.0001, cd: 0.6 },
+        },
         {
           id: "o1",
           from: "tank",
@@ -327,6 +347,10 @@ describe("Network solve consistency: hybrid vs pure-FD", () => {
     ).toBeLessThan(1e-6);
     expect(
       Math.abs(hybrid.branches.o1.mdot - fd.branches.o1.mdot),
+    ).toBeLessThan(1e-9);
+    expect(hybrid.branches.o1.mdot).toBeGreaterThan(0);
+    expect(
+      Math.abs(hybrid.branches.o0.mdot - hybrid.branches.o1.mdot),
     ).toBeLessThan(1e-9);
   });
 

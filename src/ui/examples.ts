@@ -1,4 +1,5 @@
 import { NetworkConfig } from "./types";
+import type { SolidPropertySpec } from "../core";
 import { extensionAdvancedExample } from "./extensionAdvancedExample";
 import { lh2StorageTankNoVentFill } from "./lh2StorageTank";
 import { thrusterCombustor } from "./thrusterCombustor";
@@ -938,7 +939,8 @@ export const heatedPipeRadiatingWall: NetworkConfig = {
 /**
  * Benchmark A — GFSSP Ex.13: Conduction rod with convection (steady)
  *
- * Source: NASA/TM-2011-216470 §6.13 + Majumdar TFAWS-2004.
+ * Source: NASA/TM-2013-217492 §6.13 (Example 11, §5.11 of the v5 Educational
+ * manual, NASA/TM-2011-216470) + Majumdar TFAWS-2004.
  * Rod: L=0.6096 m, D=0.0508 m, k=16.27 W/(m·K), A_cs=2.028e-3 m², P=0.1596 m.
  * Ends held at 273.15 K and 373.15 K; convection h=6.47 W/(m²·K) to air at 294.26 K.
  * Discretized with N=5 solid segment nodes (masses for transient-validity).
@@ -3548,6 +3550,43 @@ export function buildChilldownTwoPhase(options?: {
    */
   outletWallCoupling?: "boundary" | "upwind";
   /**
+   * Which fluid node the INLET wall node (s0, at x = 0) convects to.
+   * 'boundary' (default, legacy — bit-identical configs): the fixed inlet
+   * boundary node f0.  For a saturated inlet that state is saturated
+   * liquid at zero quality, where the Miropolskii film-boiling coefficient
+   * (vapor Reynolds number scaled by x + (ρv/ρl)(1 − x), quality clamped
+   * at 0.01) is far smaller than at any solved node, so s0 chills late;
+   * for a subcooled inlet the same wall instead sees single-phase liquid
+   * Dittus–Boelter.  Either way s0 exchanges heat with a reservoir whose
+   * state the wall cannot change.
+   * 'downwind': the first INTERNAL fluid node (f1) — the solved state of
+   * the fluid that has absorbed the inlet wall's heat.  With
+   * outletWallCoupling 'upwind' every wall node then convects to a solved
+   * fluid node and none to a boundary node, as in GFSSP's NBS line model
+   * (AIAA 2015-3850 §4.3: solid nodes on the 31 internal fluid nodes only;
+   * boundary nodes 1 and 33 carry none) and its short-pipeline chilldown
+   * example (NASA/TM-2013-217492 §6.14: walls on internal nodes 2–29).
+   */
+  inletWallCoupling?: "boundary" | "downwind";
+  /**
+   * Mass and wetted (convective) area of the two END wall nodes s0 and sN.
+   * 'fullSegment' (default, legacy — bit-identical configs): every one of
+   * the N + 1 wall nodes carries a full segment (segL) of copper and
+   * wetted area, so the model line holds (N + 1)/N times the real wall
+   * mass and area (+33 % at N = 3, +17 % at N = 6).  With the inlet wall
+   * on the boundary reservoir the surplus at s0 was absorbed by the
+   * reservoir; once every wall convects to a solved fluid node it loads
+   * the fluid.
+   * 'halfSegment': the end nodes sit at x = 0 and x = L and own the half
+   * cells [0, segL/2] and [L − segL/2, L], so they carry half a segment's
+   * mass and wetted area (vertex-centred lumping; the axial conductors,
+   * of length segL between node centres, are unchanged).  The total wall
+   * mass and wetted area then equal the line's, as in GFSSP, which
+   * distributes the TOTAL line mass over its solid nodes (AIAA 2015-3850
+   * §4.3).
+   */
+  endWallLumping?: "fullSegment" | "halfSegment";
+  /**
    * Initial temperature (K) of the line wall and internal fluid nodes.
    * Default: outletTemperature (legacy — the two were previously coupled,
    * which confounds "warm initial line" with "warm outlet boundary").
@@ -3590,6 +3629,72 @@ export function buildChilldownTwoPhase(options?: {
    * the front moves at the conservation speed of the accepted flow.
    */
   fluidFront?: boolean;
+  /**
+   * Copper wall properties.  'constant' (default, legacy — bit-identical
+   * configs): cp = 385 J/(kg·K) and k = 400 W/(m·K), the room-temperature
+   * values.  'ofhc-copper': the temperature-dependent NIST OFHC-copper
+   * cp(T) and k(T) (named material, core/solidProperties.ts; 4–300 K,
+   * RRR 100).  cp falls from ~390 J/(kg·K) at 300 K to ~205 at 80 K and
+   * ~8 at 20 K, so the constant value overstates the wall's stored energy
+   * between 300 K and the liquid temperature (by 12 % to 90 K, 32 % to
+   * 25 K).  The NBS 9264 validation solves use 'ofhc-copper' (as does
+   * the shipped 20-segment cryogenic line cooldown example, which is built
+   * separately — sindaFluintCryoLineCooldown).
+   */
+  wallMaterial?: "constant" | "ofhc-copper";
+  /**
+   * Where the line's end wall nodes find their fluid.
+   * 'boundary' (default, legacy — bit-identical configs): the line is N
+   * segments between the inlet and outlet BOUNDARY nodes f0 and fN, with
+   * N − 1 internal fluid nodes; the end wall nodes (x = 0 and x = L) have no
+   * fluid node of their own and borrow a neighbour (inletWallCoupling /
+   * outletWallCoupling), so the outlet wall that defines station 4 is
+   * chilled by fluid a distance L/N upstream of it.
+   * 'internal': GFSSP's layout of this line (AIAA 2015-3850 §4.3: N pipe
+   * segments between N + 1 INTERNAL fluid nodes, each with its own solid
+   * node, and the dewar and the ambient outlet as boundary nodes attached to
+   * the two end fluid nodes by short branches).  Fluid nodes f1 … f(N+1) sit
+   * at x = 0 … L with the wall nodes s0 … sN on them (no coupling offset
+   * anywhere); the inlet boundary f0 and the outlet boundary f(N+2) join
+   * f1 and f(N+1) through `endBranchLength` pipes; the end fluid nodes hold
+   * half a segment of volume.  inletWallCoupling and outletWallCoupling do
+   * not apply.
+   */
+  endNodeLayout?: "boundary" | "internal";
+  /** Length (m) of the two short branches joining the boundary nodes to the
+   *  end fluid nodes when endNodeLayout is 'internal' (negligible friction;
+   *  default 0.05 m). */
+  endBranchLength?: number;
+  /**
+   * Longitudinal inertia: turns on the solver's momentum-flux term
+   * (settings.momentumFlux) and the kinetic energy carried in the nodal
+   * energy balance (settings.kineticEnergy).  Default false (legacy,
+   * bit-identical configs: the shipped example keeps its baseline).
+   * GFSSP's chilldown formulation includes the longitudinal inertia term in
+   * its momentum equation (Cross, Majumdar, Bennett and Malla, J. Spacecraft
+   * Rockets 39(2), 2002, Eq. 17).  Without it the vapor-filled line
+   * accelerates the flow past the speed of sound at the outlet node (peak
+   * Mach 1.27–1.93 in the four NBS cases of the report at N = 30; at most
+   * 0.72 with it), which a heated constant-area duct cannot do.  The
+   * NBS 9264 validation solves turn it on (NBS_LINE_FLOW_MODEL,
+   * src/validation/nbsChilldown.ts).
+   */
+  longitudinalInertia?: boolean;
+  /**
+   * Inlet restriction: replaces the short inlet branch (dewar → first fluid
+   * node, endNodeLayout 'internal' only) with a K-factor resistance
+   * ΔP = K ṁ|ṁ| / (2 ρ A²) on the line's flow area.  Default undefined
+   * (legacy: a 0.05 m pipe of negligible friction).  It represents the valve
+   * and entrance between the dewar and the line, which GFSSP models as a
+   * restriction branch (AIAA 2015-3850 Fig. 14) with an unpublished
+   * coefficient.  Without it the first fluid node is pinned at the dewar
+   * pressure, where a subcooled inlet flips it between liquid and two-phase
+   * from step to step (Dittus–Boelter ↔ Miropolskii, two orders of magnitude
+   * in h) and the Newton iteration stalls.  A K-factor resistance is used
+   * rather than an `orifice` component, whose compressible branch aborts
+   * inside CoolProp-wasm for some real-fluid states.
+   */
+  inletRestrictionK?: number;
   dt?: number;
   endTime?: number;
   timeStepping?: "fixed" | "adaptive";
@@ -3601,6 +3706,15 @@ export function buildChilldownTwoPhase(options?: {
   const T_out = options?.outletTemperature ?? 300;
   const T_inlet = options?.inletTemperature;
   const outletWallCoupling = options?.outletWallCoupling ?? "boundary";
+  const inletWallCoupling = options?.inletWallCoupling ?? "boundary";
+  if (inletWallCoupling === "downwind" && N < 2) {
+    throw new Error(
+      "buildChilldownTwoPhase: inletWallCoupling 'downwind' needs at least " +
+        "2 segments (an internal fluid node f1)",
+    );
+  }
+  const endWallFraction =
+    (options?.endWallLumping ?? "fullSegment") === "halfSegment" ? 0.5 : 1;
   const T_init = options?.initialTemperature ?? T_out;
   const dt = options?.dt ?? 0.5;
   const endTime = options?.endTime ?? 100;
@@ -3619,8 +3733,9 @@ export function buildChilldownTwoPhase(options?: {
   const OD = 0.01905;
   const roughness = 1.5e-6;
   const rhoCu = 8960;
-  const cpCu = 385;
-  const kCu = 400;
+  const ofhc = options?.wallMaterial === "ofhc-copper";
+  const cpCu: SolidPropertySpec = ofhc ? { material: "ofhc-copper" } : 385;
+  const kCu: SolidPropertySpec = ofhc ? { material: "ofhc-copper" } : 400;
   const segL = L / N;
   const A_fluid = (Math.PI / 4) * D * D;
   const A_metal = (Math.PI / 4) * (OD * OD - D * D);
@@ -3632,6 +3747,200 @@ export function buildChilldownTwoPhase(options?: {
     y,
     position: metres(i * segL),
   });
+  const corrFor = (i: number) =>
+    correlationModel === "darrHartwig"
+      ? {
+          model: "darrHartwig" as const,
+          diameter: D,
+          flowArea: A_fluid,
+          axialPosition: i * segL,
+        }
+      : correlationModel === "ttWf"
+        ? {
+            model: "ttWf" as const,
+            diameter: D,
+            flowArea: A_fluid,
+            axialPosition: i * segL,
+            segmentLength: segL,
+            ...(fluidFront ? { fluidFront: true as const } : {}),
+          }
+        : {
+            model: "miropolskii" as const,
+            diameter: D,
+            flowArea: A_fluid,
+          };
+
+  const inletK = options?.inletRestrictionK;
+  if (
+    inletK !== undefined &&
+    (options?.endNodeLayout ?? "boundary") !== "internal"
+  ) {
+    throw new Error(
+      "buildChilldownTwoPhase: inletRestrictionK needs endNodeLayout " +
+        "'internal' (the restriction replaces the short inlet branch)",
+    );
+  }
+  if (inletK !== undefined && !(inletK >= 0 && Number.isFinite(inletK))) {
+    throw new Error(
+      `buildChilldownTwoPhase: inletRestrictionK must be a finite K ≥ 0; got ${inletK}`,
+    );
+  }
+
+  const settings: NetworkConfig["settings"] = {
+    mode: "transient",
+    tolerance: 1e-5,
+    maxIterations: 200,
+    relaxation: 0.7,
+    ...(options?.longitudinalInertia
+      ? { momentumFlux: true, kineticEnergy: true }
+      : {}),
+    endTime,
+    ...(timeStepping === "fixed"
+      ? { dt, timeStepping: "fixed" as const }
+      : {
+          timeStepping: "adaptive" as const,
+          adaptive: {
+            dtInitial: dt,
+            dtMin: 0.2,
+            dtMax: 15,
+            relTol: 5e-2,
+            absTolP: 5000,
+            absTolT: 2.0,
+            safety: 0.9,
+          },
+        }),
+  };
+
+  if ((options?.endNodeLayout ?? "boundary") === "internal") {
+    // GFSSP's layout (see the endNodeLayout option): N + 1 internal fluid
+    // nodes f1 … f(N+1) at x = 0 … L, each with a wall node s(i−1) on it,
+    // and the boundary nodes f0 / f(N+2) on short end branches.
+    const lb = options?.endBranchLength ?? 0.05;
+    const nInt = N + 1;
+    const intNodes: NetworkConfig["nodes"] = [];
+    const walls: NetworkConfig["solidNodes"] = [];
+    const conds: NetworkConfig["conductors"] = [];
+    const brs: NetworkConfig["branches"] = [];
+    const bnd = (
+      id: string,
+      x: number,
+      P: number,
+    ): NetworkConfig["nodes"][0] =>
+      id === "f0"
+        ? {
+            id,
+            type: "boundary",
+            x: 0,
+            y: 0,
+            position: metres(x),
+            pressure: P,
+            ...(T_inlet === undefined
+              ? { quality: 0 }
+              : { temperature: T_inlet }),
+            label: "Inlet",
+          }
+        : {
+            id,
+            type: "boundary",
+            x: (nInt + 1) * 170,
+            y: 0,
+            position: metres(x),
+            pressure: P,
+            temperature: T_out,
+            label: "Outlet",
+          };
+    intNodes.push(bnd("f0", -lb, P_in));
+    for (let j = 0; j <= N; j++) {
+      const frac = j === 0 || j === N ? endWallFraction : 1;
+      const p0 = P_in - (P_in - P_out) * (j / N);
+      intNodes.push({
+        id: `f${j + 1}`,
+        type: "internal",
+        ...at(j + 1, 0),
+        position: metres(j * segL),
+        pressure: p0,
+        temperature: T_init,
+        volume: vol * frac,
+        label: `Node ${j}`,
+      });
+      walls.push({
+        id: `s${j}`,
+        type: "solid",
+        ...at(j + 1, 80),
+        position: metres(j * segL),
+        temperature: T_init,
+        mass: mass_solid * frac,
+        cp: cpCu,
+        label: j === 0 ? "Wall inlet" : j === N ? "Wall outlet" : `Wall ${j}`,
+      });
+      conds.push({
+        id: `conv${j}`,
+        from: `f${j + 1}`,
+        to: `s${j}`,
+        type: {
+          kind: "convection",
+          area: convArea * frac,
+          correlation: corrFor(j),
+        },
+        label: `Conv ${j}`,
+      });
+    }
+    intNodes.push(bnd(`f${N + 2}`, L + lb, P_out));
+    for (let j = 0; j < N; j++) {
+      conds.push({
+        id: `cond${j}`,
+        from: `s${j}`,
+        to: `s${j + 1}`,
+        type: { kind: "conduction", k: kCu, area: A_metal, length: segL },
+        label: `Cond ${j}`,
+      });
+    }
+    const pipeOf = (len: number) => ({
+      type: "pipe" as const,
+      length: len,
+      diameter: D,
+      roughness,
+    });
+    // pipe0: inlet boundary → f1; pipe1 … pipeN: f1 … f(N+1); pipe(N+1): → outlet.
+    brs.push({
+      id: "pipe0",
+      from: "f0",
+      to: "f1",
+      component:
+        inletK === undefined
+          ? pipeOf(lb)
+          : { type: "resistance" as const, k: inletK, area: A_fluid },
+      label: inletK === undefined ? "Inlet branch" : "Inlet restriction",
+    });
+    for (let j = 1; j <= N; j++)
+      brs.push({
+        id: `pipe${j}`,
+        from: `f${j}`,
+        to: `f${j + 1}`,
+        component: pipeOf(segL),
+        label: `Pipe ${j}`,
+      });
+    brs.push({
+      id: `pipe${N + 1}`,
+      from: `f${N + 1}`,
+      to: `f${N + 2}`,
+      component: pipeOf(lb),
+      label: "Outlet branch",
+    });
+    if (fluidFront) intNodes[0].fluidFrontInlet = 1;
+    return {
+      meta: {
+        name: `Cryogenic chilldown — two-phase ${fluidName} (NBS/GFSSP Fig.14)`,
+        version: 2,
+      },
+      settings,
+      fluid: { model: "realFluid", params: { fluidName } },
+      nodes: intNodes,
+      solidNodes: walls,
+      conductors: conds,
+      branches: brs,
+    };
+  }
 
   const nodes: NetworkConfig["nodes"] = [
     T_inlet === undefined
@@ -3661,7 +3970,7 @@ export function buildChilldownTwoPhase(options?: {
       type: "solid",
       ...at(0, 80),
       temperature: T_init,
-      mass: mass_solid,
+      mass: mass_solid * endWallFraction,
       cp: cpCu,
       label: "Wall inlet",
     },
@@ -3704,7 +4013,7 @@ export function buildChilldownTwoPhase(options?: {
     type: "solid",
     ...at(N, 80),
     temperature: T_init,
-    mass: mass_solid,
+    mass: mass_solid * endWallFraction,
     cp: cpCu,
     label: "Wall outlet",
   });
@@ -3712,33 +4021,17 @@ export function buildChilldownTwoPhase(options?: {
   for (let i = 0; i <= N; i++) {
     conductors.push({
       id: `conv${i}`,
-      from: i === N && outletWallCoupling === "upwind" ? `f${N - 1}` : `f${i}`,
+      from:
+        i === N && outletWallCoupling === "upwind"
+          ? `f${N - 1}`
+          : i === 0 && inletWallCoupling === "downwind"
+            ? "f1"
+            : `f${i}`,
       to: `s${i}`,
       type: {
         kind: "convection",
-        area: convArea,
-        correlation:
-          correlationModel === "darrHartwig"
-            ? {
-                model: "darrHartwig" as const,
-                diameter: D,
-                flowArea: A_fluid,
-                axialPosition: i * segL,
-              }
-            : correlationModel === "ttWf"
-              ? {
-                  model: "ttWf" as const,
-                  diameter: D,
-                  flowArea: A_fluid,
-                  axialPosition: i * segL,
-                  segmentLength: segL,
-                  ...(fluidFront ? { fluidFront: true as const } : {}),
-                }
-              : {
-                  model: "miropolskii" as const,
-                  diameter: D,
-                  flowArea: A_fluid,
-                },
+        area: i === 0 || i === N ? convArea * endWallFraction : convArea,
+        correlation: corrFor(i),
       },
       label: `Conv ${i}`,
     });
@@ -3763,28 +4056,6 @@ export function buildChilldownTwoPhase(options?: {
       label: `Pipe ${i}`,
     });
   }
-
-  const settings: NetworkConfig["settings"] = {
-    mode: "transient",
-    tolerance: 1e-5,
-    maxIterations: 200,
-    relaxation: 0.7,
-    endTime,
-    ...(timeStepping === "fixed"
-      ? { dt, timeStepping: "fixed" as const }
-      : {
-          timeStepping: "adaptive" as const,
-          adaptive: {
-            dtInitial: dt,
-            dtMin: 0.2,
-            dtMax: 15,
-            relTol: 5e-2,
-            absTolP: 5000,
-            absTolT: 2.0,
-            safety: 0.9,
-          },
-        }),
-  };
 
   return {
     meta: {

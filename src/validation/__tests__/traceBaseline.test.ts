@@ -24,10 +24,7 @@ import {
   TRACE_BASELINE_SOLVE_PLAN,
   type ModelWallHistory,
 } from "../traceBaseline";
-import {
-  getTraceRun,
-  NBS_TRUSTED_SATURATED_TRACE_RUNS,
-} from "../nbsTraceCorpus";
+import { getTraceRun, NBS_TRUSTED_TRACE_RUNS } from "../nbsTraceCorpus";
 import { NBS_CHILLDOWN_RIG } from "../nbsChilldown";
 
 // ---------------------------------------------------------------------------
@@ -80,21 +77,27 @@ describe("extractModelStationTrace: exact NBS station positions", () => {
 // Solve-plan mapping (the pre-registered discretization, protocol §3.1.6)
 // ---------------------------------------------------------------------------
 
-describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted run", () => {
-  it("covers exactly the 4 trusted saturated corpus runs", () => {
+describe("TRACE_BASELINE_SOLVE_PLAN: discretization per trusted run", () => {
+  it("covers exactly the 7 trusted corpus runs", () => {
     const planIds = TRACE_BASELINE_SOLVE_PLAN.map((s) => s.runId).sort();
-    const trustedIds = NBS_TRUSTED_SATURATED_TRACE_RUNS.map(
-      (r) => r.runId,
-    ).sort();
+    const trustedIds = NBS_TRUSTED_TRACE_RUNS.map((r) => r.runId).sort();
     expect(planIds).toEqual(trustedIds);
   });
 
-  it("fig02 (sat LH2) → ParaHydrogen, N=6, dt=2.5 fixed; LN2 runs → Nitrogen, N=6, dt=10", () => {
-    const fig02 = solveSpecForRun("nbs9264-fig02");
-    expect(fig02.fluidName).toBe("ParaHydrogen");
-    expect(fig02.dtS).toBe(2.5);
-    expect(fig02.segments).toBe(6);
-    for (const id of ["nbs9264-fig10", "nbs9264-fig11", "nbs9264-fig12"]) {
+  it("LH2 runs (figs 02, 05) → ParaHydrogen, N=6, dt=2.5 fixed; LN2 runs → Nitrogen, N=6, dt=10", () => {
+    for (const id of ["nbs9264-fig02", "nbs9264-fig05"]) {
+      const spec = solveSpecForRun(id);
+      expect(spec.fluidName).toBe("ParaHydrogen");
+      expect(spec.dtS).toBe(2.5);
+      expect(spec.segments).toBe(6);
+    }
+    for (const id of [
+      "nbs9264-fig10",
+      "nbs9264-fig11",
+      "nbs9264-fig12",
+      "nbs9264-fig13",
+      "nbs9264-fig14",
+    ]) {
       const spec = solveSpecForRun(id);
       expect(spec.fluidName).toBe("Nitrogen");
       expect(spec.dtS).toBe(10);
@@ -109,7 +112,7 @@ describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted r
     }
   });
 
-  it("rejects non-trusted (subcooled, diagnosticOnly) runs", () => {
+  it("rejects diagnosticOnly runs", () => {
     expect(() => solveSpecForRun("nbs9264-fig03")).toThrow(/not a trusted/);
   });
 });
@@ -120,7 +123,7 @@ describe("TRACE_BASELINE_SOLVE_PLAN: pre-registered discretization per trusted r
 
 describe("compareRunTraces plumbing on real corpus metadata", () => {
   it('per-station identity: a "model" equal to the data gives exactly zero error', () => {
-    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+    for (const run of NBS_TRUSTED_TRACE_RUNS) {
       for (const tr of run.traces) {
         const cmp = compareStationTrace(
           { timesS: tr.timesS, valuesK: tr.wallTempsK },
@@ -135,7 +138,7 @@ describe("compareRunTraces plumbing on real corpus metadata", () => {
   });
 
   it("compareRunTraces on a spatially-exact interpolated model reproduces the data within interpolation error", () => {
-    for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
+    for (const run of NBS_TRUSTED_TRACE_RUNS) {
       // Shared uniform 1 s model grid over the figure span; each wall
       // "node" sits exactly at a station and carries that station's data
       // linearly interpolated onto the grid.
@@ -290,5 +293,77 @@ describe("feature conventions", () => {
     expect(cmp.metrics.nrmse).toBeCloseTo(5 / cmp.scaleK, 9);
     expect(cmp.modelFeatures.crossing150KS.available).toBe(true);
     expect(cmp.dataFeatures.crossing150KS.available).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The unified knee definition (local saturation + 15 K, model AND data)
+// ---------------------------------------------------------------------------
+
+describe("compareRunTraces: one knee definition for model and data", () => {
+  const run = NBS_TRUSTED_TRACE_RUNS.find((r) => r.runId === "nbs9264-fig12")!;
+  const timesS = [0, 10, 20, 30];
+  const base = syntheticModel(timesS);
+  // Pressure falls linearly from 4 bar at the inlet to 1.1 bar at the exit.
+  const fluidXM = [0, 30.48, 60.96];
+  const pressureTracesPa = fluidXM.map((x) =>
+    timesS.map(() => 4e5 - ((4e5 - 1.1e5) * x) / 60.96),
+  );
+  const tsat = (p: number) => 60 + 2e-4 * p; // monotone stand-in for Tsat(P)
+
+  it("with model pressures the threshold is T_sat(P_local) + 15 K at each station, the same for model and data", () => {
+    const cmp = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat },
+    );
+    expect(cmp.kneeDefinition).toBe("localSaturation");
+    cmp.stations.forEach((s, i) => {
+      const x = NBS_CHILLDOWN_RIG.stations[i].xM;
+      const p = 4e5 - ((4e5 - 1.1e5) * x) / 60.96;
+      expect(s.kneeThresholdK).toBeCloseTo(tsat(p) + 15, 9);
+      expect(cmp.kneeThresholdsK[i]).toBe(s.kneeThresholdK);
+    });
+    expect(cmp.kneeThresholdK).toBe(cmp.kneeThresholdsK[3]);
+    // Upstream stations are at higher pressure, hence a higher threshold.
+    expect(cmp.kneeThresholdsK[0]).toBeGreaterThan(cmp.kneeThresholdsK[3]);
+  });
+
+  it("the data knee uses the identical threshold (a trace that never reaches it has none)", () => {
+    const hiP = fluidXM.map(() => timesS.map(() => 8e5));
+    const cmp = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa: hiP },
+      { saturationTemperatureK: tsat },
+    );
+    for (const s of cmp.stations) {
+      if (s.coldTailUsable && s.dataFeatures.kneeTimeS.available) {
+        const tr = run.traces[s.station - 1];
+        expect(Math.min(...tr.wallTempsK)).toBeLessThan(s.kneeThresholdK);
+      }
+    }
+  });
+
+  it("without model pressures it falls back to the data-native T_inlet + 15 K", () => {
+    const cmp = compareRunTraces(run, base);
+    expect(cmp.kneeDefinition).toBe("dataNative");
+    for (const k of cmp.kneeThresholdsK)
+      expect(k).toBeCloseTo(dataNativeKneeThresholdK(run), 12);
+  });
+
+  it("the margin is a parameter", () => {
+    const a = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat, kneeMarginK: 30 },
+    );
+    const b = compareRunTraces(
+      run,
+      { ...base, fluidXM, pressureTracesPa },
+      { saturationTemperatureK: tsat },
+    );
+    a.kneeThresholdsK.forEach((k, i) =>
+      expect(k - b.kneeThresholdsK[i]).toBeCloseTo(15, 9),
+    );
   });
 });

@@ -84,15 +84,18 @@
  * `Tsat_local(station 4) + marginK` from above, where Tsat_local uses the
  * late-time local pressure at the station (the wall's physical asymptote
  * is the LOCAL saturation temperature, not the inlet one — pressure falls
- * along the line).  This is defensible
- * because the knee region is STEEP (the wall drops of order 100 K within
- * seconds of front passage), so any threshold inside the knee band
- * recovers nearly the same time; the residual sensitivity to `marginK`
- * (and to the threshold mode) is QUANTIFIED in the chilldown baseline
+ * along the line).  This ONE definition is used for the Table-6 times and,
+ * with the same threshold temperature taken from the model solve of the
+ * run at its driving pressure, for the knees of the digitized traces
+ * (src/validation/traceBaseline.ts), so the model's and the data's knees
+ * are compared like for like.  The digitized record carries no pressure,
+ * which is why the model supplies it; a data trace that never reaches the
+ * threshold has no knee under the definition.  The knee region is STEEP
+ * (the wall drops of order 100 K within seconds of front passage), so any
+ * threshold inside the knee band recovers nearly the same time; the
+ * residual sensitivity to `marginK` is QUANTIFIED in the chilldown report
  * rather than hidden.  Because the paper's definition is graphical, the
- * definition is kept CONFIGURABLE — sensitivity to it is a first-class
- * output of the baseline, and a later calibration must report objective
- * values under the same definition family.
+ * definition is kept CONFIGURABLE.
  *
  * Alternatives considered and rejected:
  *   - "First sample with T < threshold" (the repo's old convention):
@@ -125,13 +128,14 @@
  *     charts at a visual knee ⇒ reading error of order seconds.
  *   [Later re-analysis, passed-down context — CRTech digitization study]
  *     Dominant modeling unknowns: initial liquid temperature not
- *     recorded; ortho/para hydrogen fraction unknown (LH2 cases);
+ *     recorded (the initial WALL temperature is: the digitized traces start
+ *     at 269–307 K, see nbsInitialTemperature.ts); ortho/para hydrogen fraction unknown (LH2 cases);
  *     copper-alloy heat capacity unknown; ±1 % tube-ID tolerance
  *     identified as a dominant sensitivity.
- *   [This module] GFSSP's "predicted" times are MODEL OUTPUT (33-node
- *     network, Miropolskii film-boiling correlation), kept alongside the
- *     measurements as the published baseline to beat — never treat them
- *     as data.
+ *   [This module] GFSSP's "predicted" times are MODEL OUTPUT (a 33-node
+ *     network: 31 fluid nodes plus the two boundary nodes; Miropolskii
+ *     film-boiling correlation), kept alongside the measurements as the
+ *     published baseline to beat — never treat them as data.
  */
 
 // ---------------------------------------------------------------------------
@@ -203,6 +207,116 @@ export const NBS_CHILLDOWN_RIG = {
     underlyingExperiment: "NBS-9264 / NASA-CR-81338 (NTRS 19670007291)",
   },
 } as const;
+
+/**
+ * Wall discretization of every NBS 9264 validation solve (options of
+ * buildChilldownTwoPhase, src/ui/examples.ts) — single source of truth for
+ * the report, the CI gate and the manual N sweep.
+ *
+ * GFSSP's layout of this line (AIAA 2015-3850 §4.3): 30 pipe segments of
+ * 80 in between 31 INTERNAL fluid nodes, each with its own solid node
+ * ("the total mass is distributed to 31 solid nodes"), and the dewar and the
+ * ambient outlet as boundary nodes 1 and 33.  OpenFLUME reproduces it with
+ * `endNodeLayout: 'internal'`: N segments between N + 1 internal fluid
+ * nodes at x = 0 … L, a wall node on each (so every wall node convects to a
+ * solved fluid node at its own position and none to a boundary node), and
+ * the boundary nodes on short, negligible-friction end branches; N = 30
+ * is GFSSP's resolution.
+ *
+ * The earlier layout ('boundary': N segments between the boundary nodes, the
+ * end wall nodes borrowing a neighbour) tied the outlet wall — the wall that
+ * defines the station-4 chilldown time — to the fluid a segment length
+ * L/N upstream of it.  That offset is 20 m at N = 3, and it chilled the
+ * outlet wall early by roughly the front's transit time over it, so the
+ * knee time depended on N through the layout alone (docs/validation/
+ * chilldown-report.md, "Layout").
+ *
+ *   - The end wall nodes carry half a segment of copper and wetted area
+ *     ('halfSegment') and the end fluid nodes half a segment of volume, so
+ *     the total wall mass, wetted area and fluid volume equal the line's, as
+ *     GFSSP distributes the total line mass over its solid nodes.
+ *   - Temperature-dependent NIST OFHC-copper cp(T) and k(T).
+ */
+export const NBS_LINE_WALL_MODEL = {
+  endNodeLayout: "internal",
+  endWallLumping: "halfSegment",
+  wallMaterial: "ofhc-copper",
+} as const;
+
+/**
+ * Loss coefficient K of the inlet restriction (dewar → line) of the NBS 9264
+ * validation solves, on the line's flow area.  GFSSP's model of this line
+ * has a restriction branch at the inlet (AIAA 2015-3850 Fig. 14) whose
+ * coefficient is not published, so the value is set from a physical
+ * argument and never fitted to the data or to GFSSP: a sharp-edged entrance
+ * from the dewar (K ≈ 0.5) plus a fully open valve (K of order 1 for a
+ * full-port valve), i.e. K = 2.  The report quotes K = 1 and K = 5 as the
+ * sensitivity (docs/validation/chilldown-report.md, "Inlet restriction").
+ */
+export const NBS_INLET_RESTRICTION_K = 2;
+/** The two K values of the inlet-restriction sensitivity study. */
+export const NBS_INLET_RESTRICTION_K_SENSITIVITY = [1, 5] as const;
+
+/**
+ * Flow model of every NBS 9264 validation solve (options of
+ * buildChilldownTwoPhase), applied together with NBS_LINE_WALL_MODEL.
+ *
+ *   - Longitudinal inertia (momentum flux and kinetic energy) on: GFSSP's
+ *     chilldown formulation includes it (Cross, Majumdar, Bennett and Malla,
+ *     J. Spacecraft Rockets 39(2), 2002, Eq. 17); without it the outlet flow
+ *     of the vapor-filled line is supersonic (peak outlet-node Mach number
+ *     1.27–1.93 in the four representative cases at N = 30, at most 0.72
+ *     with it; docs/validation/chilldown-report.md, "Longitudinal inertia").
+ *   - An inlet restriction of K = NBS_INLET_RESTRICTION_K in place of the
+ *     negligible-friction inlet branch, standing for GFSSP's inlet valve
+ *     branch; without it the first fluid node sits at the dewar pressure
+ *     and a subcooled inlet flips it between liquid and two-phase, which
+ *     stalls the Newton iteration.
+ *
+ * The outlet stays at 101325 Pa.  NBS and GFSSP give 12.05 psia (83.08 kPa)
+ * at the outlet, but GFSSP's model also has an exit restriction whose
+ * coefficient is not published; at 83.08 kPa without it the subcooled-LN2
+ * outlet node stays two-phase and station 4 never reaches the knee
+ * (report, "Outlet pressure and the exit restriction").
+ */
+export const NBS_LINE_FLOW_MODEL = {
+  longitudinalInertia: true,
+  inletRestrictionK: NBS_INLET_RESTRICTION_K,
+} as const;
+
+/** Outlet (ambient) pressure of the NBS 9264 validation solves [Pa]. */
+export const NBS_OUTLET_PRESSURE_PA = 101325;
+/** Outlet pressure documented by NBS 9264 / GFSSP (12.05 psia) [Pa]; used
+ *  only for the outlet-pressure sensitivity. */
+export const NBS_DOCUMENTED_OUTLET_PRESSURE_PA = 83082;
+
+/** The pre-GFSSP-layout wall model (end walls borrowing a neighbour), kept
+ *  to quantify the layout effect and as a reference for older results. */
+export const NBS_LINE_WALL_MODEL_LEGACY = {
+  endNodeLayout: "boundary",
+  inletWallCoupling: "downwind",
+  outletWallCoupling: "upwind",
+  endWallLumping: "halfSegment",
+  wallMaterial: "ofhc-copper",
+} as const;
+
+/**
+ * Fixed backward-Euler step of the NBS 9264 validation solves, per fluid [s].
+ * Chosen from the time-step study of the report (docs/validation/
+ * chilldown-report.md, "Time step"), which solves a saturated and a subcooled
+ * case of each fluid at N = 3 and N = 30 with the step doubled and halved.
+ */
+export const NBS_TIME_STEP_S = { LN2: 5, LH2: 1.25 } as const;
+
+/**
+ * Solve horizon [s] of a Table-6 row: three times the measured chilldown
+ * time (at least 300 s), so a model that is late by a factor of two still
+ * crosses its knee inside the record and the late-time pressure that sets
+ * the local saturation temperature is a settled value.
+ */
+export function chilldownHorizonS(experimentalChilldownTimeS: number): number {
+  return Math.max(300, Math.ceil((3 * experimentalChilldownTimeS) / 10) * 10);
+}
 
 // ---------------------------------------------------------------------------
 // Chilldown-time definition (see the long comment at the top of this file).
@@ -406,7 +520,7 @@ export const NBS_CHILLDOWN_UNCERTAINTY_NOTES: string[] = [
     "temperature, unknown ortho/para hydrogen fraction (LH2), unknown " +
     "copper-alloy cp, and ±1% tube-ID tolerance sensitivity.",
   'This module: GFSSP "predicted" times are a 33-node-network model ' +
-    "output (Miropolskii film-boiling correlation) — the published " +
+    "output (31 fluid nodes plus the two boundary nodes; Miropolskii film-boiling correlation) — the published " +
     "baseline to compare against, NOT experimental data.",
   "This module: chilldown-time operationalization (station-4 knee as a " +
     "configurable threshold crossing) contributes a definitional " +

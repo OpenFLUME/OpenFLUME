@@ -48,6 +48,15 @@ export interface BranchComponent {
    *  Read by the momentum-flux and kinetic-energy terms so acceleration
    *  from area change is captured endpoint-consistently. */
   areaOut?: number;
+  /**
+   * End flow areas for the kinetic-energy (stagnation-enthalpy) terms when
+   * they differ from the momentum-flux areas `area`/`areaOut`.  AreaChange
+   * sets this: its pressureDrop already carries the reversible
+   * area-change ΔP, so it exposes no `areaOut` (the momentum-flux term
+   * must not add a second area-change acceleration), while its endpoint
+   * velocities are still ṁ/(ρ A_in) and ṁ/(ρ A_out).
+   */
+  endAreas?: { from: number; to: number };
   elevationChange?: number;
   getBranchHeat?(
     mdot: number,
@@ -88,6 +97,17 @@ export interface BranchComponent {
    * the error controller cannot see the motion it is failing to resolve.
    */
   dynamicState?(): number[];
+}
+
+/** Flow area at a branch endpoint for kinetic-energy (v²/2) bookkeeping:
+ *  `endAreas` when the component declares them, otherwise the
+ *  momentum-flux areas (`areaOut` at the `to` end of a taper). */
+export function kineticEndArea(
+  comp: Pick<BranchComponent, "area" | "areaOut" | "endAreas">,
+  end: "from" | "to",
+): number | undefined {
+  if (comp.endAreas) return comp.endAreas[end];
+  return end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
 }
 
 export function interpolateSchedule(

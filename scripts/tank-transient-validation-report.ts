@@ -436,7 +436,7 @@ function linePts(
 
 function fig1TankSchematic(): string {
   const W = 720;
-  const H = 300;
+  const H = 284;
   const tx = 110;
   const ty = 92;
   const tw = 150;
@@ -464,13 +464,12 @@ function fig1TankSchematic(): string {
 <text x="${tx}" y="${ty + th + 34}" font-size="12">Cases 1–2 (blowdown): P₀ = 10 bar, T₀ = 300 K → orifice (compressible) C<tspan font-size="9" dy="3">d</tspan><tspan dy="-3">A = 6.0×10⁻⁵ m² → 1 bar boundary</tspan></text>
 <text x="${tx}" y="${ty + th + 52}" font-size="12">Case 4 (charge): 5 bar / 300 K supply boundary → resistance (K = 10, A = 10⁻³ m²) → tank initially at 1 bar</text>
 <text x="${tx}" y="${ty + th + 70}" font-size="12">Case 5 (schedule): tank at 5 bar → valve (position ramps 0 → 1 over 2 s) → orifice → 1 bar boundary</text>
-<text x="${W / 2}" y="${H - 8}" text-anchor="middle" font-size="12">Figure 1. Lumped tank connected to a pressure boundary through a flow component.</text>
 </svg>`;
 }
 
 function fig2TwoTankSchematic(): string {
   const W = 720;
-  const H = 270;
+  const H = 200;
   const t1x = 100;
   const t2x = 470;
   const ty = 80;
@@ -497,7 +496,6 @@ function fig2TwoTankSchematic(): string {
 <line x1="${ox + 22}" y1="${yc}" x2="${t2x}" y2="${yc}" stroke="#1f5fa8" stroke-width="2.2"/>
 <line x1="${t1x + tw / 2}" y1="${ty}" x2="${t1x + tw / 2}" y2="${ty - 28}" stroke="#999" stroke-width="1.4" stroke-dasharray="5 4"/>
 <text x="${t1x + tw / 2 + 8}" y="${ty - 16}" font-size="11">closed valve to 1 bar boundary (position = 0; the network requires one boundary node)</text>
-<text x="${W / 2}" y="${H - 12}" text-anchor="middle" font-size="12">Figure 2. Two rigid tanks joined by an orifice; the smaller high-pressure tank discharges into the larger one.</text>
 </svg>`;
 }
 
@@ -892,7 +890,8 @@ const ttM1_0 = (TT.P1_0 * TT.V1) / (R_AIR * TT.T0);
 const ttM2_0 = (TT.P2_0 * TT.V2) / (R_AIR * TT.T0);
 
 /* Coupled 4-ODE RK4 reference: y = [m1, U1, m2, U2].  The orifice model is
- * the solver's incompressible orifice with upstream density. */
+ * the isentropic (choking) mass flux the solver applies to a gas orifice —
+ * the script's own isentropicMdot, from the high-pressure tank. */
 const ttOde = (_t: number, y: number[]): number[] => {
   const [m1, U1, m2, U2] = y;
   const T1 = U1 / (m1 * CV);
@@ -901,8 +900,9 @@ const ttOde = (_t: number, y: number[]): number[] => {
   const P2 = (m2 * R_AIR * T2) / TT.V2;
   const dp = P1 - P2;
   const Tup = dp > 0 ? T1 : T2;
-  const rhoUp = Math.max(P1, P2) / (R_AIR * Tup);
-  const md = TT.Cd * TT.A * Math.sqrt(2 * rhoUp * Math.abs(dp)) * Math.sign(dp);
+  const md =
+    isentropicMdot(TT.Cd * TT.A, Math.max(P1, P2), Math.min(P1, P2), Tup) *
+    Math.sign(dp);
   return [-md, -md * CP * Tup, +md, +md * CP * Tup];
 };
 const TT_HREF = 5e-4;
@@ -1327,24 +1327,22 @@ const VS_CdAo = VS.Cd * VS.Aorifice;
 const vsPos = (t: number) => (t <= VS.rampEnd ? t / VS.rampEnd : 1.0);
 
 /** Series valve+orifice quasi-steady flow at tank state (P, T) and valve
- *  position pos — bisection on the intermediate pressure (mirrors B6). */
+ *  position pos — bisection on the intermediate pressure P_mid.  The valve
+ *  is the square law at the tank (upstream) density; the orifice is the
+ *  isentropic (choking) mass flux the solver applies to a gas orifice, from
+ *  P_mid at the tank temperature (the valve throttles an ideal gas at
+ *  constant enthalpy, hence constant temperature) to ambient. */
 function vsMdotFromPT(P_tank: number, T_tank: number, pos: number): number {
   if (P_tank <= VS.Pamb) return 0;
   const rhoTank = P_tank / (R_AIR * T_tank);
   const effCdAv = Math.max(VS_CdAv * pos, 1e-9);
-  const residual = (m: number) => {
-    const disc =
-      VS.Pamb * VS.Pamb + (2 * m * m * R_AIR * T_tank) / (VS_CdAo * VS_CdAo);
-    const P_mid = (VS.Pamb + Math.sqrt(disc)) / 2;
-    const dpValve = (m * m) / (2 * rhoTank * effCdAv * effCdAv);
-    return P_tank - P_mid - dpValve;
+  const orificeMdot = (pMid: number) =>
+    isentropicMdot(VS_CdAo, pMid, VS.Pamb, T_tank);
+  const residual = (pMid: number) => {
+    const m = orificeMdot(pMid);
+    return P_tank - pMid - (m * m) / (2 * rhoTank * effCdAv * effCdAv);
   };
-  let hi = effCdAv * Math.sqrt(2 * rhoTank * (P_tank - VS.Pamb));
-  for (let e = 0; e < 60; e++) {
-    if (residual(hi) <= 0) break;
-    hi *= 2;
-  }
-  return bisection(residual, 0, hi, 1e-12);
+  return orificeMdot(bisection(residual, VS.Pamb, P_tank, 1e-9));
 }
 
 const vsM0 = (VS.P0 * VS.V) / (R_AIR * VS.T0);
@@ -1557,12 +1555,14 @@ lumped-parameter ODEs and against classical closed-form results: the choked
 adiabatic blowdown solution and its cooling law T/T₀ = (m/m₀)^(γ−1), the
 two-tank equalization equilibrium pressure from energy conservation, and the
 adiabatic fill-heating limit T → γT_supply. Five cases are run: choked
-blowdown through a compressible orifice, a four-level time-step convergence
+blowdown through a gas \`orifice\` (ISO/AGA expansibility, choking at $r_*$), a four-level time-step convergence
 study of that blowdown, equalization of two unequal tanks through an orifice,
 charging of a tank from a constant-pressure supply, and blowdown through a
 valve whose area follows a prescribed opening schedule. At the working time
-step (dt = 0.05 s) every trace agrees with its analytical reference to within
-${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)},
+step (dt = 0.05 s) every pressure and temperature trace agrees with its
+analytical reference to within
+${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
+(the scheduled-valve flow trace within ${pct(vsMaxMdot, 1)} of its peak),
 the time-step study confirms the expected first-order convergence of the
 backward-Euler integrator, and global mass conservation holds to
 ${pct(Math.max(bdFine.stats.cons, flStats.cons, vsStats.cons, ttStats.cons), 3)} or better in every case.
@@ -1594,7 +1594,7 @@ closed forms hold exactly). Five cases are studied:
 
 | Case | Description |
 | ---- | ----------- |
-| 1 | Adiabatic blowdown of a ${BD.V} m³ tank from ${toBar(BD.P0).toFixed(0)} bar through a choked compressible orifice |
+| 1 | Adiabatic blowdown of a ${BD.V} m³ tank from ${toBar(BD.P0).toFixed(0)} bar through a choked gas \`orifice\` |
 | 2 | Time-step convergence study of case 1 at dt = ${BD_DTS.join(" / ")} s |
 | 3 | Pressure equalization of two tanks (${TT.V1} m³ at ${toBar(TT.P1_0).toFixed(0)} bar, ${TT.V2} m³ at ${toBar(TT.P2_0).toFixed(0)} bar) through an orifice |
 | 4 | Adiabatic charging of a ${FL.V} m³ tank at ${toBar(FL.P0).toFixed(0)} bar from a ${toBar(FL.Psup).toFixed(0)} bar constant-pressure supply (fill heating) |
@@ -1604,8 +1604,7 @@ closed forms hold exactly). Five cases are studied:
 
 Cases 1, 2, 4, and 5 use one tank — an internal node with volume — connected
 to a pressure boundary through a flow component (Figure 1). Case 1 vents
-through an \`orifice\` on an ideal-gas fluid (isentropic mass flux with
-choking, applied automatically — see [orifice.ts](../../src/core/components/orifice.ts), C_d =
+through an \`orifice\` (expansibility $Y(r,\\kappa)$ with choking, C_d =
 ${BD.Cd}, A = 10⁻⁴ m²) to a ${toBar(BD.Pout).toFixed(0)} bar boundary; the
 pressure ratio stays below the critical value ${CRIT_PR.toFixed(4)} for the
 whole ${BD.endTime} s transient (the final tank pressure is
@@ -1648,7 +1647,7 @@ error is negligible against the deviations being measured.
 
 ### Choked Orifice Mass Flux
 
-The compressible orifice passes the isentropic mass flux
+The gas \`orifice\` ($Y(r,\\kappa)$ with choking) passes the isentropic mass flux
 
 $$\\dot m = C_d A\\, P_u \\sqrt{\\tfrac{\\gamma}{R T_u}} \\left(\\tfrac{2}{\\gamma+1}\\right)^{\\frac{\\gamma+1}{2(\\gamma-1)}} \\quad \\text{for } P_d/P_u \\le \\left(\\tfrac{2}{\\gamma+1}\\right)^{\\frac{\\gamma}{\\gamma-1}} = ${CRIT_PR.toFixed(4)},$$
 
@@ -1707,8 +1706,7 @@ every internal node with volume — is solved simultaneously with the branch
 momentum relations by a coupled Newton-Raphson iteration on the
 end-of-step state. A tank is therefore nothing special: it is an internal
 node whose \`volume\` field activates the storage terms. Branch closures are
-quasi-steady and evaluated at end-of-step conditions: the compressible
-orifice imposes ṁ = ṁ_isentropic(P_u, P_d, T_u), the incompressible orifice
+quasi-steady and evaluated at end-of-step conditions: a gas \`orifice\` imposes ṁ = ṁ_isentropic(P_u, P_d, T_u) via $Y(r,\\kappa)$, a liquid \`orifice\`
 and resistance impose ΔP = K ṁ²/(2ρ_up C_dA²)-type square laws with upstream
 density, and scheduled valves interpolate their position at the end-of-step
 time. Backward Euler is unconditionally stable and first-order accurate: its
@@ -1879,9 +1877,9 @@ T/T₀ = (m/m₀)^(γ−1) cooling law; two-tank equalization lands on the exact
 energy-conservation equilibrium pressure to ${pctSmart(ttStats.finalP)}; adiabatic
 charging reproduces the fill-heating closed form to ${pctSmart(flTfClosedErr)};
 and a scheduled valve demonstrates time-varying component handling against an
-RK4 reference with time-varying area. All traces agree with their references
-to within ${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
-at dt = 0.05 s, deviations decay at the expected first order in dt
+RK4 reference with time-varying area. All pressure and temperature traces
+agree with their references to within ${pct(Math.max(bdFine.stats.maxP, bdFine.stats.maxT, ttStats.maxP, ttStats.maxT, flStats.maxP, flStats.maxT, vsStats.maxP, vsStats.maxT), 1)}
+at dt = 0.05 s (the scheduled-valve flow trace within ${pct(vsMaxMdot, 1)} of its peak), deviations decay at the expected first order in dt
 (observed orders ${bdOrders.map((o) => o.toFixed(2)).join(", ")}), and global
 mass conservation closes to ${pct(Math.max(bdFine.stats.cons, flStats.cons, vsStats.cons, ttStats.cons), 3)}
 or better. The dominant error is the first-order temporal truncation of

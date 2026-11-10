@@ -546,7 +546,7 @@ function lineChart(opts: {
 
 function fig1PipeSchematic(): string {
   const W = 720;
-  const H = 300;
+  const H = 252;
   const px = 150;
   const py = 118;
   const pw = 440;
@@ -569,7 +569,6 @@ function fig1PipeSchematic(): string {
 <line x1="${px}" y1="${py + ph + 34}" x2="${px}" y2="${py + ph + 46}" stroke="#666" stroke-width="1"/>
 <line x1="${px + pw}" y1="${py + ph + 34}" x2="${px + pw}" y2="${py + ph + 46}" stroke="#666" stroke-width="1"/>
 <text x="${px + pw / 2}" y="${py + ph + 62}" text-anchor="middle" font-size="12">L = 3207 in (81.46 m)</text>
-<text x="${W / 2}" y="${H - 14}" text-anchor="middle" font-size="12">Figure 1. Schematic of the constant-area pipe.</text>
 </svg>`;
 }
 
@@ -583,7 +582,7 @@ const NOZZLE = {
 
 function fig2NozzleSchematic(): string {
   const W = 680;
-  const H = 300;
+  const H = 252;
   // Geometry in inches → px
   const x0 = 120;
   const scaleX = 440 / 30; // 30 in long
@@ -610,13 +609,12 @@ function fig2NozzleSchematic(): string {
 <line x1="${x0}" y1="${yc + rIn + 28}" x2="${x0}" y2="${yc + rIn + 40}" stroke="#666" stroke-width="1"/>
 <line x1="${xEx}" y1="${yc + rIn + 28}" x2="${xEx}" y2="${yc + rIn + 40}" stroke="#666" stroke-width="1"/>
 <text x="${(x0 + xEx) / 2}" y="${yc + rIn + 52}" text-anchor="middle" font-size="12">L = 30 in, linearly varying diameter</text>
-<text x="${W / 2}" y="${H - 12}" text-anchor="middle" font-size="12">Figure 2. Schematic of the converging-diverging nozzle (dimensions chosen for this study; the paper's are arbitrary).</text>
 </svg>`;
 }
 
 function fig3GridSchematic(xsIn: number[]): string {
   const W = 680;
-  const H = 170;
+  const H = 128;
   const x0 = 60;
   const x1 = 620;
   const L = xsIn[xsIn.length - 1];
@@ -634,7 +632,6 @@ function fig3GridSchematic(xsIn: number[]): string {
 ${dots}
 <text x="${x0}" y="${y + 28}" font-size="12">x = 0</text>
 <text x="${x1}" y="${y + 28}" text-anchor="end" font-size="12">x = L</text>
-<text x="${W / 2}" y="${H - 12}" text-anchor="middle" font-size="12">Figure 3. Non-uniform node distribution for the constant-area duct: nodes cluster at the inlet and the choked exit.</text>
 </svg>`;
 }
 
@@ -748,9 +745,9 @@ writeFig(
   4,
   "fanno-pressure",
   lineChart({
-    title: "Fanno flow: pressure ratio p/p✻ along the pipe",
+    title: "Fanno flow: pressure ratio p/p* along the pipe",
     xLabel: "Axial distance x [in]",
-    yLabel: "p / p✻",
+    yLabel: "p / p*",
     series: [
       {
         label: "Analytical (RK4)",
@@ -1535,8 +1532,8 @@ The table above uses \`momentumFluxScheme: "central"\`. The solver's default,
 \`"upwind"\`, trades a few percent of choked-flow accuracy for transonic
 robustness (no spurious sonic-crossing roots; cold-start convergence — see
 the compressible-duct and real-fluid transonic tests). Re-running the same cases under the
-default gives GFSSP-class agreement — the original study reports 1.7–5 % on
-its own first-order upwind discretization:
+default gives GFSSP-class agreement — the original study reports agreement within
+5 % for its Rayleigh case:
 
 | Case | ṁ error | max ΔM/M | stations compared |
 | ---- | ------- | -------- | ----------------- |

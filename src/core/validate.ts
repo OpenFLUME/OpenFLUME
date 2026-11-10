@@ -19,6 +19,8 @@
  *   validate/controllers.ts      PID/register controller reference/range checks
  *   validate/junctions.ts        Reacting-junction reference/type/fluid checks
  *   validate/componentLibrary.ts Declarative component-library syntax checks
+ *   validate/externalTransport.ts Consumers of fluids declared with
+ *                                 params.transport = "external"
  *   validate/expressions.ts      Shared checkExpression() parse-only helper
  *
  * Every validator returns `string[]` (empty = no errors from that section);
@@ -40,6 +42,7 @@ import { validateRegistersAndLogic } from "./validate/logic";
 import { validateControllers } from "./validate/controllers";
 import { validateJunctions } from "./validate/junctions";
 import { validateComponentLibrary } from "./validate/componentLibrary";
+import { validateExternalTransport } from "./validate/externalTransport";
 
 /**
  * Semantically validate a decoded network configuration.
@@ -139,6 +142,8 @@ function validateResolvedNetwork(config: ResolvedNetworkConfig): string[] {
   );
 
   errors.push(...validateComponentLibrary(config));
+
+  errors.push(...validateExternalTransport(config));
 
   if (config.closureParams !== undefined) {
     errors.push(...validateClosureParams(config.closureParams));

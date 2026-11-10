@@ -1,0 +1,19 @@
+test_point,load,environment,sides_printed,flow_config,Tin_main_F,Tin_prime_F,flow_main_lbhr,flow_prime_lbhr,env_panel1_Btuhr_ft2,env_panel2_Btuhr_ft2,env_panel3_Btuhr_ft2,env_panel4_Btuhr_ft2,env_panel5_Btuhr_ft2,env_panel6_Btuhr_ft2,env_panel7_Btuhr_ft2,env_panel8_Btuhr_ft2,transcription_notes
+1A,High,Hot,1,alpha,178.3,91.5,1094,13.2,135.0,136.6,133.6,135.6,136.4,136.6,135.4,135.5,
+45,High,Hot,1,epsilon,150.8,128.7,2198,16,129.4,129.0,130.1,128.9,128.3,127.2,129.3,128.1,"Tin main printed 150.8; Fig 16 map prints 160.8(160.8); energy balance (Table 4 test heat 29,229 Btu/hr at 2198 lb/hr) supports ~160.8 -> Table 2 digit likely misprint; Vol II Table 4 gives 162.7"
+32,High,Hot,1,gamma,165.25,111.5,2223,47.1,130.5,129.3,130.8,130.2,129.1,128.5,130.8,129.6,Fig 17 map prints 165.3
+4,High,Hot,1,alpha,116.0,86.0,1106,13.4,132.6,140.5,135.5,134.7,134.5,139.5,134.9,134.4,App. A prints P6 139.4; Table 2 139.5 (read A) -> 0.1 mismatch
+10,High,Cold,1,1/2 alpha,163.6,161.8,283,268,45.1,,34.8,30.0,,,32.6,,"only panels 1,3,4,7 in flow path"
+51,High,Cold,1,gamma,159.0,158.5,1379,884,16.5,16.8,8.8,9.2,16.0,16.3,9.0,9.1,"SIDES: Vol III Table 2 prints 1; Vol II Table 14 ""SUMMARY OF SET POINT CHANGES (TWO-SIDED RADIATION)"" lists TP51 -> almost certainly 2-sided"
+17,Low,Cold,1,1/2 alpha,55.3,53.2,17.1,549,28.8,,26.6,21.2,,,21.8,,
+17A,Low,Cold,1,beta,51.6,52.6,11.6,1169,26.4,5.1,25.1,3.4,22.0,,21.7,,"Appendix A shows P5 blank and P8 4.2 -> ""22.0"" under P5 is unverified"
+36,Low,Cold,1,gamma,57.7,53.5,52,1053,,4.8,,2.9,4.8,4.6,3.0,3.1,"App. A: P1 113.4, P3 119.6 (panels 1,3 not flowing/blank here)"
+53,High,Skewed,2,gamma,164.1,134.25,974,1268.9,126.5,125.7,120.7,114.2,14.0,14.0,7.4,7.2,
+54,High,Skewed,2,gamma,,,,,130.2,128.6,124.1,123.4,17.5,17.6,10.7,10.6,inlets/flows blank in table (same as TP53 by ditto?); maps give 163/155.7/1856.4/364.4
+55,High,Skewed,2,gamma,,,,,129.9,128.2,123.7,123.8,17.6,18.2,10.5,10.5,maps give 163.1/161.7/1643.6/582.7
+56,High,Skewed,2,gamma,,,,,124.8,124.8,119.8,121.5,13.9,13.7,7.3,7.0,maps give 163/134.3/986.6/1243.4
+59,High,Skewed,2,gamma,,,,,130.2,128.6,124.1,123.4,17.5,17.6,10.7,10.6,"Table 2 row repeats TP54; Vol II App. A TP59 = 129.3,128.7,124.9,124.1,17.3,18.7,11.1,11.1 (use App. A)"
+49,High,Skewed,1,gamma,100.0,89.5,2161,44.8,127.5,128.4,29.5,29.5,128.8,129.3,78.2,75.0,
+27,High,Skewed,2,gamma,164.6,114.5,2200,16.4,170.0,170.0,172.0,174.0,66.0,67.0,68.8,67.0,
+14,Low,Skewed,1,alpha,18.4,152.4,1615,626,30.0,180.0,30.0,180.0,30.0,30.0,30.0,30.0,inlet main 18.4 / prime 152.4 confirmed by Fig 32 map
+47,Low,Skewed,1,alpha,49.5,51.5,111,988,126.2,126.6,125.0,129.6,5.8,2.8,3.5,2.95,"map (Fig 33, pdf p.77) not read"

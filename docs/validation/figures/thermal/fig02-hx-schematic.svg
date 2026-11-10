@@ -1,5 +1,5 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="720" height="340" viewBox="0 0 720 340" font-family="Helvetica, Arial, sans-serif">
-<rect width="720" height="340" fill="white"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="296" viewBox="0 0 720 296" font-family="Helvetica, Arial, sans-serif">
+<rect width="720" height="296" fill="white"/>
 <text x="360" y="24" text-anchor="middle" font-size="15" font-weight="bold">Counterflow heat exchanger (case 5)</text>
 <rect x="110" y="90" width="480" height="42" fill="#fdeaea" stroke="#333" stroke-width="1.6"/>
 <rect x="110" y="210" width="480" height="42" fill="#e8f0fa" stroke="#333" stroke-width="1.6"/>
@@ -32,5 +32,4 @@
 <text x="98" y="80" text-anchor="start" font-size="12">hot: ṁ = 0.2 kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = 400 K</tspan></text>
 <text x="602" y="276" text-anchor="end" font-size="12">cold: ṁ = 0.3 kg/s, T<tspan font-size="9" dy="3">in</tspan><tspan dy="-3"> = 300 K</tspan></text>
 <text x="350" y="205" text-anchor="middle" font-size="12">wall solid nodes w<tspan font-size="9" dy="3">i</tspan><tspan dy="-3">; convection hA</tspan><tspan font-size="9" dy="3">seg</tspan><tspan dy="-3"> on each side (h = 500 W/m²K, ΣA = 5 m² per side)</tspan></text>
-<text x="360" y="326" text-anchor="middle" font-size="12">Figure 2. Counterflow HX: two water streams exchanging through per-segment wall nodes (6 of N segments drawn).</text>
 </svg>

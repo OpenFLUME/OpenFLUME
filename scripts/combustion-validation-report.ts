@@ -364,7 +364,7 @@ writeFig(
   lineChart({
     title: "LOX/RP-1 product isentropic exponent (CEA equilibrium)",
     xLabel: "Mixture ratio O/F",
-    yLabel: "gamma_s",
+    yLabel: "γs",
     series: gammaSeries,
     legend: "top-right",
   }),
@@ -887,7 +887,7 @@ function profileFig(
 ) {
   const series: Series[] = [
     {
-      label: "frozen-gamma isentropic (geometric A/At)",
+      label: "frozen γ isentropic (geometric A/At)",
       pts: isentropic.map((s) => [s.z, pickIsen(s)]),
       color: C.analytic,
       mode: "line",
@@ -1579,7 +1579,7 @@ the larger error and is not visible here. The drift is grid-convergent — it
 is the documented cost of the scheme that removes the wrong-branch
 transonic roots (see [docs/combustion.md](../combustion.md)).
 
-Note that both legs now run closer to the sonic cell than the fixed station
+Both legs now run closer to the sonic cell than the fixed station
 names used before this revision did (M = ${SUB_LEG_MAX_M} and
 M = ${SUP_LEG_MIN_M}, against roughly 0.53 and 1.19), and each spans more of
 the nozzle, so the two rows are not directly comparable with the figures in

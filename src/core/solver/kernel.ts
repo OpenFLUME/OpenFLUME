@@ -52,6 +52,7 @@ import {
   CavitatingVenturi,
 } from "../components";
 import { orificeKappa } from "../components/orifice";
+import { kineticEndArea } from "../components/branchComponent";
 import { FALLBACK_H_FLOOR } from "../correlations";
 import type { Dual } from "../dual";
 import { constant, add, sub, mul, div, pow, neg, abs } from "../dual";
@@ -834,30 +835,60 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // (γ for ideal gas / species mix; a²ρ/P for real fluid). No κ →
       // fall through to the Bernoulli ΔP path (Y = 1, analytic Jacobian).
       if (b.component instanceof Orifice) {
-        const bf = fluidOf(upNode);
-        const downP = mdot >= 0 ? pTo : pFrom;
-        let rhoUp: number;
+        // The closure is evaluated at the PRESSURE-upstream node and the
+        // expected flow is signed by sgn(P_from − P_to); the row's root is
+        //   ṁ = sgn(P_from − P_to) · ṁ_exp(P_hi, P_lo, ρ_hi, κ_hi)
+        // (written in pressure units by Orifice.residualPa).  Choosing the
+        // pair by sgn(ṁ) instead leaves no root at ṁ < 0 (ṁ_exp ≥ 0) and,
+        // for ṁ ≥ 0 against the pressure gradient, ṁ_exp = 0 — an orifice
+        // declared against the flow would converge to zero flow.  At a
+        // converged state sgn(ṁ) = sgn(ΔP), so the pressure-upstream node
+        // is the ṁ-upstream node and its ρ is the one evaluated above.
+        const fromIsHigh = pFrom >= pTo;
+        const hiNode = fromIsHigh ? b.from : b.to;
+        const pHi = fromIsHigh ? pFrom : pTo;
+        let hiRho = rhoUpstream;
+        let hiT = upT;
+        if (hiNode !== upNode) {
+          if (usePHFor(hiNode)) {
+            const ph = safeStatePH(
+              fluidOf(hiNode),
+              pHi,
+              nodeHFromX(hiNode, x),
+              `branch ${b.id} orifice upstream`,
+            );
+            hiRho = ph.rho;
+            hiT = ph.T;
+          } else {
+            hiT = state.nodeT.get(hiNode)!;
+            hiRho =
+              ctx.hasSpecies && ctx.mixtureFluid && state.nodeY
+                ? ctx.mixtureFluid.densityMix(
+                    pHi,
+                    hiT,
+                    state.nodeY.get(hiNode)!,
+                  )
+                : fluidOf(hiNode).density(pHi, hiT);
+          }
+        }
         let kappa: number | undefined;
         if (ctx.hasSpecies && ctx.mixtureFluid && state.nodeY) {
-          const Yup = state.nodeY.get(upNode)!;
-          rhoUp = ctx.mixtureFluid.densityMix(upP, upT, Yup);
-          kappa = ctx.mixtureFluid.gammaMix(upP, upT, Yup);
+          kappa = ctx.mixtureFluid.gammaMix(pHi, hiT, state.nodeY.get(hiNode)!);
         } else {
-          // Use the branch ρ already evaluated above. A PT flash at Tsat
-          // throws inside the two-phase dome; that ρ is the HEM mixture
-          // density, which is also the Bernoulli fallback's density.
-          // Two-phase nodes keep Y = 1: a(P, Tsat) is a saturation-line
-          // endpoint, not a mixture isentropic exponent.
-          rhoUp = rhoUpstream;
-          const q = state.nodeQuality?.get(upNode);
+          // ρ is the branch ρ evaluated above (or the high-pressure node's
+          // when it differs). A PT flash at Tsat throws inside the
+          // two-phase dome; that ρ is the HEM mixture density, which is
+          // also the Bernoulli fallback's density. Two-phase nodes keep
+          // Y = 1: a(P, Tsat) is a saturation-line endpoint, not a
+          // mixture isentropic exponent.
+          const q = state.nodeQuality?.get(hiNode);
           kappa =
             q !== undefined && q > 0 && q < 1
               ? undefined
-              : orificeKappa(bf, upP, upT, rhoUp);
+              : orificeKappa(fluidOf(hiNode), pHi, hiT, hiRho);
         }
         if (kappa !== undefined) {
-          R[nInt + j] =
-            mdot - b.component.massFlowFromState(upP, downP, rhoUp, kappa);
+          R[nInt + j] = b.component.residualPa(mdot, pFrom, pTo, hiRho, kappa);
           continue;
         }
       }
@@ -1015,7 +1046,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       ): number => {
         if (!ctx.kineticEnergy) return 0;
         const comp = branches[j].component;
-        const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+        const A = kineticEndArea(comp, end);
         if (A === undefined || !(A > 0) || !(rho > 0)) return 0;
         const v = mdotBranch / (rho * A);
         return 0.5 * v * v;
@@ -1722,30 +1753,46 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       // without κ fall through to the analytic Bernoulli dual path; gases
       // and real fluids get the value-only closure with FD patches.
       if (b.component instanceof Orifice) {
-        const bf = fluidOf(upNode);
-        const downP = mdot.v >= 0 ? pTo : pFrom;
-        let rhoUp: number;
+        // Pressure-upstream evaluation, signed by sgn(P_from − P_to) —
+        // mirrors the scalar residual (see the comment there).
+        const fromIsHigh = pFrom.v >= pTo.v;
+        const hiNode = fromIsHigh ? b.from : b.to;
+        const pHi = fromIsHigh ? pFrom.v : pTo.v;
+        let hiRho = rhoUpstream;
+        let hiT = upT;
+        if (hiNode !== upNode) {
+          if (usePHFor(hiNode)) {
+            const st = nodeStateDual(hiNode);
+            hiRho = st.rho.v;
+            hiT = st.T.v;
+          } else {
+            hiT = state.nodeT.get(hiNode)!;
+            hiRho =
+              ctx.hasSpecies && ctx.mixtureFluid && state.nodeY
+                ? ctx.mixtureFluid.densityMix(
+                    pHi,
+                    hiT,
+                    state.nodeY.get(hiNode)!,
+                  )
+                : fluidOf(hiNode).density(pHi, hiT);
+          }
+        }
         let kappa: number | undefined;
         if (ctx.hasSpecies && ctx.mixtureFluid && state.nodeY) {
-          const Yup = state.nodeY.get(upNode)!;
-          rhoUp = ctx.mixtureFluid.densityMix(upP.v, upT, Yup);
-          kappa = ctx.mixtureFluid.gammaMix(upP.v, upT, Yup);
+          const Yhi = state.nodeY.get(hiNode)!;
+          hiRho = ctx.mixtureFluid.densityMix(pHi, hiT, Yhi);
+          kappa = ctx.mixtureFluid.gammaMix(pHi, hiT, Yhi);
         } else {
-          rhoUp = rhoUpstream;
-          const q = state.nodeQuality?.get(upNode);
+          const q = state.nodeQuality?.get(hiNode);
           kappa =
             q !== undefined && q > 0 && q < 1
               ? undefined
-              : orificeKappa(bf, upP.v, upT, rhoUp);
+              : orificeKappa(fluidOf(hiNode), pHi, hiT, hiRho);
         }
         if (kappa !== undefined) {
-          const expectedMdot = b.component.massFlowFromState(
-            upP.v,
-            downP.v,
-            rhoUp,
-            kappa,
+          R[nInt + j] = constant(
+            b.component.residualPa(mdot.v, pFrom.v, pTo.v, hiRho, kappa),
           );
-          R[nInt + j] = sub(mdot, constant(expectedMdot));
           markFd(nInt + j, [
             nInt + j,
             ...colsForNode(b.from, usePHFor(b.from)),
@@ -1916,7 +1963,7 @@ export function makeKernel(env: NewtonKernelEnv): NewtonKernel {
       ): Dual => {
         if (!ctx.kineticEnergy) return constant(0);
         const comp = branches[j].component;
-        const A = end === "to" ? (comp.areaOut ?? comp.area) : comp.area;
+        const A = kineticEndArea(comp, end);
         if (A === undefined || !(A > 0) || !(rho.v > 0)) return constant(0);
         const v = div(mdotBranch, mul(rho, constant(A)));
         return mul(constant(0.5), mul(v, v));

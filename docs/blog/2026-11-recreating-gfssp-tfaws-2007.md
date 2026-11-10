@@ -100,7 +100,7 @@ All the numbers above use `momentumFluxScheme: "central"`, the exact endpoint (i
 | 4 — Nozzle, friction        | 0.38 %  | 0.6 %    |
 | 5 — Nozzle, friction + heat | 0.36 %  | 0.6 %    |
 
-The paper reports 1.7–5 % for its own first-order upwind discretization, and the default lands in that band. The error concentrates at the choking cell, where the limiter falls back to first order; refining the Fanno grid from 21 to 41 nodes halves it. Robustness, below, is why the less accurate scheme is the default.
+The paper reports agreement within 5 % for its Rayleigh case, and the default stays inside that on every case. The error concentrates at the choking cell, where the limiter falls back to first order; refining the Fanno grid from 21 to 41 nodes halves it. Robustness, below, is why the less accurate scheme is the default.
 
 ## What was hard
 

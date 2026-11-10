@@ -118,19 +118,23 @@ Verification evidence is split into three deliberately distinct classes, and eve
 2. **Code-to-code benchmarking** — agreement with GFSSP or SINDA/FLUINT, which inherits the other code's assumptions.
 3. **Validation against experiment** — comparison to digitized published test data.
 
-Seven validation reports are regenerated from live solves, not transcribed:
+Eleven validation reports are regenerated from live solves, not transcribed:
 
-| Report                                                                           | Contents                                                                                               |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point             |
-| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                               |
-| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers                   |
-| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                     |
-| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                   |
-| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack            |
-| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers |
+| Report                                                                           | Contents                                                                                                          |
+| -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [Incompressible hydraulics](docs/validation/incompressible-hydraulics-report.md) | Hagen–Poiseuille, Darcy–Weisbach, parallel splits, Hardy-Cross loops, pump operating point                        |
+| [Compressible flow](docs/validation/compressible-report.md)                      | Case-for-case recreation of the NASA GFSSP TFAWS-2007 verification paper                                          |
+| [Thermal network](docs/validation/thermal-network-report.md)                     | Composite walls, radiation–convection equilibrium, lumped cooldown, ε–NTU exchangers, Anzelius–Schumann chilldown |
+| [Fluid transient](docs/validation/fluid-transient-report.md)                     | Rigid-column surge, gas-spring oscillation, polytropic compression                                                |
+| [Tank transient](docs/validation/tank-transient-report.md)                       | Choked blowdown, dt convergence, two-tank equalization, fill heating                                              |
+| [Combustion](docs/validation/combustion-report.md)                               | CEA identities, frozen c, injector and chamber balances, quasi-1-D nozzle, regen wall stack                       |
+| [Microfluidics](docs/validation/microfluidics-report.md)                         | Rectangular-duct and capillary closures; six published microfluidic networks rebuilt from their papers            |
+| [Code-to-code benchmarks](docs/validation/benchmarks-report.md)                  | GFSSP and SINDA/FLUINT problems: reference type, achieved error, and CI gate for each                             |
+| [Chilldown](docs/validation/chilldown-report.md)                                 | NBS 9264 LN₂/LH₂ transfer-line chilldown: experiment, GFSSP's published predictions, and OpenFLUME                |
+| [Choked flow](docs/validation/choked-flow-report.md)                             | Cryogenic nozzle and orifice critical flow (NASA TP-1484, TM X-71760); Hord LH₂ venturi cavitation                |
+| [Tank self-pressurization](docs/validation/tank-self-pressurization-report.md)   | Heated 4.89 m³ LH₂ tank (NASA TM-103804) against the lumped homogeneous tank                                      |
 
-Experimental validation currently uses digitized NBS Report 9264 cryogenic chilldown data, with per-corpus trust levels stated explicitly — calibration-grade runs are separated from diagnostic-only runs that may not be quoted as agreement. The digitized Hord cavitation series (`validation/data/digitized/choked_flow_cavitation/`) and NASA tank-pressurization tests (`validation/data/digitized/tank_pressurization/`) are archived for future validation; no test, script, or report compares against them yet. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
+The last three reports are validation against experiment, using digitized data with cited provenance: NBS Report 9264 cryogenic chilldown, NASA critical-flow measurements for nitrogen and methane, Hord's liquid-hydrogen venturi cavitation data, and a NASA liquid-hydrogen tank self-pressurization test. Each states per-dataset trust levels, assigned from the quality of the experimental record rather than from the model's error — trusted runs are separated from diagnostic-only runs — and reports disagreements as findings, including the regimes where a closure does not apply. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 
 Continuous integration reruns the complete scientific validation suite weekly.
 

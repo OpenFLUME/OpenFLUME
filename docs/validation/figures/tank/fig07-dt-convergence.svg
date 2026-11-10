@@ -9,28 +9,28 @@
 <text x="490.28571428571433" y="390" text-anchor="middle" font-size="11">0.3</text>
 <line x1="656" y1="46" x2="656" y2="372" stroke="#e0e0e0" stroke-width="1"/>
 <text x="656" y="390" text-anchor="middle" font-size="11">0.4</text>
-<line x1="76" y1="259.36182157930904" x2="656" y2="259.36182157930904" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="263.36182157930904" text-anchor="end" font-size="11">0.5</text>
-<line x1="76" y1="128.49861105573603" x2="656" y2="128.49861105573603" stroke="#e0e0e0" stroke-width="1"/>
-<text x="68" y="132.49861105573603" text-anchor="end" font-size="11">1.0</text>
+<line x1="76" y1="259.36180451831206" x2="656" y2="259.36180451831206" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="263.36180451831206" text-anchor="end" font-size="11">0.5</text>
+<line x1="76" y1="128.4985527038306" x2="656" y2="128.4985527038306" stroke="#e0e0e0" stroke-width="1"/>
+<text x="68" y="132.4985527038306" text-anchor="end" font-size="11">1.0</text>
 <rect x="76" y="46" width="580" height="326" fill="none" stroke="#333" stroke-width="1.2"/>
 <text x="366" y="416" text-anchor="middle" font-size="12.5">Time step dt [s]</text>
 <text x="20" y="209" text-anchor="middle" font-size="12.5" transform="rotate(-90 20 209)">Deviation [% of P₀ / T₀]</text>
 <path d="M656.0,109.9 L324.6,248.6 L158.9,319.0 L76.0,354.5" fill="none" stroke="#1f5fa8" stroke-width="1.8"/>
-<circle cx="656" cy="109.89576966305503" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<circle cx="324.57142857142856" cy="248.59903775073693" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
-<circle cx="158.85714285714283" cy="319.0401310075948" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="656" cy="109.89564923673544" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="324.57142857142856" cy="248.5991061774348" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
+<circle cx="158.85714285714283" cy="319.0402159870888" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <circle cx="76" cy="354.5357142857143" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>
 <path d="M656.0,87.6 L324.6,236.6 L158.9,312.8 L76.0,351.4" fill="none" stroke="#c0392b" stroke-width="1.8"/>
-<rect x="652.6" y="84.20897724286212" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="321.1714285714286" y="233.17303405423726" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="155.45714285714283" y="309.4093640707804" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
-<rect x="72.6" y="347.96526214887734" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="652.6" y="84.20887321166956" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="321.1714285714286" y="233.17307235871033" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="155.45714285714283" y="309.40942201755706" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
+<rect x="72.6" y="347.9652870046502" width="6.8" height="6.8" fill="none" stroke="#c0392b" stroke-width="1.4"/>
 <path d="M656.0,63.5 L324.6,223.4 L158.9,305.9 L76.0,347.8" fill="none" stroke="#1e8449" stroke-width="1.8"/>
-<polygon points="656,60.064285714285724 652.6,66.86428571428573 659.4,66.86428571428573" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="324.57142857142856,219.9717490739877 321.1714285714286,226.7717490739877 327.97142857142853,226.7717490739877" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="158.85714285714283,302.50247150775976 155.45714285714283,309.3024715077597 162.25714285714284,309.3024715077597" fill="none" stroke="#1e8449" stroke-width="1.4"/>
-<polygon points="76,344.436082086554 72.6,351.23608208655395 79.4,351.23608208655395" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="656,60.06428571428567 652.6,66.86428571428567 659.4,66.86428571428567" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="324.57142857142856,219.97162716261096 321.1714285714286,226.77162716261097 327.97142857142853,226.77162716261097" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="158.85714285714283,302.50239466683405 155.45714285714283,309.302394666834 162.25714285714284,309.302394666834" fill="none" stroke="#1e8449" stroke-width="1.4"/>
+<polygon points="76,344.43615710062215 72.6,351.2361571006221 79.4,351.2361571006221" fill="none" stroke="#1e8449" stroke-width="1.4"/>
 <rect x="84" y="54" width="210.4" height="64" fill="white" fill-opacity="0.88" stroke="#999" stroke-width="0.8"/>
 <line x1="92" y1="64" x2="114" y2="64" stroke="#1f5fa8" stroke-width="1.8"/>
 <circle cx="103" cy="64" r="3.4" fill="none" stroke="#1f5fa8" stroke-width="1.4"/>

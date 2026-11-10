@@ -412,6 +412,14 @@ export type FluidModelKind = (typeof FLUID_MODELS)[number];
 export interface FluidSpec {
   model: FluidModelKind;
   preset?: "water" | "air" | "waterExpandable";
+  /**
+   * Model parameters.  `realFluid` takes `fluidName`, and optionally
+   * `transport: "external"` for a catalogue fluid that has no built-in
+   * viscosity or conductivity (for example R21).  The declaration says the
+   * network carries its own transport: validation then accepts the fluid and
+   * rejects any branch component or convection conductor that would need the
+   * missing viscosity or conductivity (core/validate/externalTransport.ts).
+   */
   params?: Record<string, number | string>;
 }
 
@@ -675,6 +683,11 @@ export interface NetworkConfig {
      * Δs = cp·ln(T_dwn/T_don) − R·ln(P_dwn/P_don) must not fall below the
      * heat-extraction allowance (Q̇_in<0 at the downwind node permits
      * Δs ≥ Q̇/(ṁ·T)); adiabatic frictional flow can only generate entropy.
+     * In constant-area ducts the jump's entropy defect can be smaller than
+     * the tolerance (or, with the branch's own friction, positive), so a
+     * branch whose donor endpoint is subsonic and downwind endpoint
+     * supersonic is also flagged unless it touches a strict area minimum,
+     * the downwind node is cooled, or the passage widens there.
      * A violating branch marks an inadmissible root: the solver re-seeds
      * the downwind node onto the donor's (subsonic) state and re-solves,
      * selecting the physical root of the SAME unmodified equations — the

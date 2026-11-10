@@ -39,7 +39,7 @@ is anchored at a solved station, so those figures are *local* truncation.
 The dominant error is separate and integral: the sonic cell chokes at a
 slightly large effective throat state, biasing the mass flow by
 3.01 % and offsetting the entire Mach profile by about
-as much (§2). Wall temperatures agree to 2.3e-13 K. The
+as much (§2). Wall temperatures agree to 3.4e-13 K. The
 transient startup ramp tracks its quasi-static reference to
 7.8e-5 % on chamber pressure and
 adiabatic temperature after the 1 s ramp and 1 s hold (§5).
@@ -250,7 +250,7 @@ the larger error and is not visible here. The drift is grid-convergent — it
 is the documented cost of the scheme that removes the wrong-branch
 transonic roots (see [docs/combustion.md](../combustion.md)).
 
-Note that both legs now run closer to the sonic cell than the fixed station
+Both legs now run closer to the sonic cell than the fixed station
 names used before this revision did (M = 0.8 and
 M = 1.2, against roughly 0.53 and 1.19), and each spans more of
 the nozzle, so the two rows are not directly comparable with the figures in
@@ -292,7 +292,7 @@ linear system per station, iterating the OFHC-copper conductivity at the
 endpoint-mean temperatures exactly as the solver's thermal subsystem does.
 
 Across all 42 stations the solver matches the network to
-**2.3e-13 K** worst-case on the three layer
+**3.4e-13 K** worst-case on the three layer
 temperatures and **2.7e-14 %** on the gas-side heat rate —
 machine-level agreement, confirming the solid Newton subsystem solves the
 conduction/convection network exactly (Figures 7–8, table below).
@@ -435,7 +435,7 @@ analytical references:
   station so the figures are local truncation, grid-convergent, and the cost
   of a scheme with no wrong-branch transonic roots;
 - the three-layer regenerative wall stack matches the exact resistance
-  network to 2.3e-13 K and closes the coolant energy
+  network to 3.4e-13 K and closes the coolant energy
   balance to 0.05 %;
 - the transient startup ramp tracks its quasi-static reference (a steady
   solve at the fully-ramped feed pressure) to

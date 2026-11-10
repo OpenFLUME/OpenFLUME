@@ -85,7 +85,9 @@ specific heat and Miropolskii film boiling
 ([§7.11](../user-manual.md#_7-11-cryogenic-line-cooldown)). Agreement with
 experiment is modest: the CI baseline holds chilldown time within a factor
 of 1.6 of experiment, with mean absolute error under 25 % across the slow
-suite. Only saturated runs are trusted; subcooled runs are diagnostic only
+suite. Trust levels come from the quality of the experimental record, and
+every Table-6 case is reported, including the subcooled cases the model
+over-predicts
 ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
 
 ### Thermal network verification
@@ -97,7 +99,9 @@ to 1.2e-14 %. Lumped cooldown is within 0.18 % of the temperature span at
 dt = τ/100, with first-order time convergence (error ratio 4.01 for a 4×
 step refinement). A 20-segment counterflow heat exchanger has effectiveness
 within 2.62 % and outlets within 1.730 K of ε–NTU; the remaining error is
-shown to be segmentation error.
+shown to be segmentation error. A transient chilldown of an aluminum tube
+matches the Anzelius–Schumann closed form to 3.0e-3 of the initial wall–inlet
+temperature difference (b = 0.94 1/m) with first-order convergence.
 
 ![Radiation–convection equilibrium temperature of a heated solid node against the analytic solution](../validation/figures/thermal/fig04-radiation-convection-equilibrium.svg)
 

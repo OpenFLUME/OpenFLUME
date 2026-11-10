@@ -42,7 +42,10 @@ import {
   NBS_TRACE_DATASET,
   NBS_TRACE_RUNS,
   NBS_TRUSTED_SATURATED_TRACE_RUNS,
-  NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS,
+  NBS_TRUSTED_TRACE_RUNS,
+  NBS_DIAGNOSTIC_TRACE_RUNS,
+  RUN_COMPROMISING_QC_FLAGS,
+  runTierFromQc,
   NBS_TRACE_CORPUS_BLOCKED_SOURCES,
   SPARSE_MARKER_THRESHOLD,
   coldTailUsableTraces,
@@ -144,37 +147,51 @@ describe("corpus load: runs / traces / samples", () => {
   });
 });
 
-describe("trusted vs diagnostic subsets (protocol §3.2)", () => {
-  it("trusted = the 4 saturated runs (fig02 LH2, figs 10–12 LN2)", () => {
+describe("trusted vs diagnostic subsets (record QC only)", () => {
+  it("trust is a function of the run's QC flags, never of the inlet condition", () => {
+    for (const run of NBS_TRACE_RUNS) {
+      const compromised = run.traces.some((t) =>
+        t.qc.flags.some((f) => RUN_COMPROMISING_QC_FLAGS.includes(f)),
+      );
+      expect(run.calibrationTier).toBe(
+        compromised ? "diagnosticOnly" : "trusted",
+      );
+      expect(runTierFromQc(run.traces)).toBe(run.calibrationTier);
+    }
+  });
+
+  it("trusted = figs 02, 05, 10–14 (saturated and subcooled)", () => {
+    expect(NBS_TRUSTED_TRACE_RUNS.map((r) => r.runId).sort()).toEqual([
+      "nbs9264-fig02",
+      "nbs9264-fig05",
+      "nbs9264-fig10",
+      "nbs9264-fig11",
+      "nbs9264-fig12",
+      "nbs9264-fig13",
+      "nbs9264-fig14",
+    ]);
     expect(NBS_TRUSTED_SATURATED_TRACE_RUNS.map((r) => r.runId).sort()).toEqual(
       ["nbs9264-fig02", "nbs9264-fig10", "nbs9264-fig11", "nbs9264-fig12"],
     );
     for (const run of NBS_TRUSTED_SATURATED_TRACE_RUNS) {
       expect(run.inletCondition).toBe("saturated");
-      expect(run.calibrationTier).toBe("trustedSaturated");
+      expect(run.calibrationTier).toBe("trusted");
     }
   });
 
-  it("all 7 subcooled runs are diagnosticOnly by default", () => {
-    expect(
-      NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS.map((r) => r.runId).sort(),
-    ).toEqual([
+  it("diagnosticOnly = the runs with overlapping cold tails or a pre-t=0 valve opening (figs 03, 04, 06, 07)", () => {
+    expect(NBS_DIAGNOSTIC_TRACE_RUNS.map((r) => r.runId).sort()).toEqual([
       "nbs9264-fig03",
       "nbs9264-fig04",
-      "nbs9264-fig05",
       "nbs9264-fig06",
       "nbs9264-fig07",
-      "nbs9264-fig13",
-      "nbs9264-fig14",
     ]);
-    for (const run of NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS) {
-      expect(run.inletCondition).toBe("subcooled");
+    for (const run of NBS_DIAGNOSTIC_TRACE_RUNS) {
       expect(run.calibrationTier).toBe("diagnosticOnly");
     }
     // Trusted + diagnostic partition the corpus.
     expect(
-      NBS_TRUSTED_SATURATED_TRACE_RUNS.length +
-        NBS_DIAGNOSTIC_SUBCOOLED_TRACE_RUNS.length,
+      NBS_TRUSTED_TRACE_RUNS.length + NBS_DIAGNOSTIC_TRACE_RUNS.length,
     ).toBe(NBS_TRACE_RUNS.length);
   });
 });
