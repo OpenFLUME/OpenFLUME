@@ -296,14 +296,14 @@ describeSlow(
       // The measurement is sub 100 s < sat 150 s (GFSSP: 100 s < 160 s).
       // With the GFSSP layout, the measured initial wall temperature and
       // the report's time step this model's N = 3 subcooled time is LONGER
-      // than its saturated one (149.4 s against 129.4 s): the outlet wall
+      // than its saturated one (149.6 s against 129.4 s): the outlet wall
       // sits on a Miropolskii shelf at near-zero quality, and whether the
       // outlet node turns liquid depends on the outlet pressure and on
       // GFSSP's unpublished exit restriction (docs/validation/
       // chilldown-report.md, "Outlet pressure and the exit restriction").
       // The gate therefore does not assert the ordering; it keeps the
       // subcooled time inside the same wide regression band as the
-      // saturated ones (1.6 × 100 s; measured 149.4 s), and the report
+      // saturated ones (1.6 × 100 s; measured 149.6 s), and the report
       // states the deficiency.
       const exp = cases[3].point.experimentalChilldownTimeS;
       expect(sub).toBeGreaterThan(exp * 0.5);

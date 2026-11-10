@@ -137,11 +137,11 @@ is sequential and the inlet reaches cryogenic temperature.
     zero time). Every Table-6 row is solved and reported.
   - **Chilldown-time results** ([report](../validation/chilldown-report.md)).
     Over the eighteen rows at three segments the mean absolute error is
-    19.3 % against 7.6 % for GFSSP (10.1 % against 8.7 % over the eleven
-    unflagged rows other than subcooled nitrogen); at GFSSP's 30 segments the
-    three subset cases that reach the knee are at 13.5 % against 4.6 %.
-    Saturated nitrogen at 30 segments is +8.1 % and the hydrogen cases are
-    16–17 % early. Subcooled nitrogen depends on the outlet pressure and on
+    20.0 % against 7.6 % for GFSSP (10.2 % against 8.3 % over the thirteen
+    rows other than subcooled nitrogen; no row is flagged); at GFSSP's 30
+    segments the four subset cases are at 25.5 % against 5.6 %. Saturated
+    nitrogen at 30 segments is +8.1 %, the hydrogen cases are 16–17 % early,
+    and subcooled nitrogen is +62 % with one stalled step. Subcooled nitrogen depends on the outlet pressure and on
     GFSSP's unpublished exit restriction and is not quoted as a prediction. The knee
     uses one definition for model and data and each run starts from its
     measured initial wall temperature.

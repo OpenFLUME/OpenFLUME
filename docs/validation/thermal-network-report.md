@@ -434,7 +434,7 @@ neighbouring wall nodes. All 42 solves of the sweep converged
 with 0 stalled steps, and the global energy balance (change of
 wall and fluid enthalpy against the enthalpy carried out of the tube) closed to
 at most 1.2e-11 in relative terms. The sweep of
-42 solves takes about 23 s in total.
+42 solves takes about 26 s in total.
 
 Maximum error, b = 0.94 1/m (total NTU 0.62)
 
