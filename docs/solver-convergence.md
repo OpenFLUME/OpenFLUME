@@ -43,6 +43,18 @@ The reference norm is read from a per-iteration history of the best norm, so the
 
 Scope: extended system only, and it is a stopping rule, never an accept path — the outer loop still restores the best-known iterate before continuing.
 
+### 3.2 Inner-loop round-off floor (transient, every system)
+
+The bails above are gated to iterates still more than 100 × `tol` from the bar, so a near-converged iterate is left to finish. That leaves the band `tol ≤ ‖R‖₂ < 100 tol` without an exit. If the raw norm settles on a floating-point floor inside that band, Newton cannot improve it, and the loop used to run to `maxIterations` on every outer iteration and then certify the step on the scaled residual (test C) anyway (#54). The Anzelius–Schumann network at N = 60 and `tol` = 1e-10 settles at 1.1e-10 raw and 1.1e-14 scaled, and spent 500 Jacobian evaluations per step that way.
+
+In a transient step the inner loop now stops when all of the following hold:
+
+- two consecutive iterations improved the best norm by less than 1e-4 relative (the no-progress counter above);
+- the best norm is inside the band;
+- the certifying scaled residual at the best iterate is below `tol` itself, 1000 times under the certification bar. Here the mass rows are judged against 0.1 kg/s divided by the low-flow mass-row weight, so that a microfluidic network cannot pass on an absolute mass floor.
+
+The norm at which the loop stopped is remembered for the rest of the step. A later outer iteration that starts no higher than that norm, with the same scaled test met, is accepted without iterating. The iterate does not move while the loop grinds, so stopping early returns the same state. The Schumann trajectories at N = 20 to 80 are bit-identical with and without the exit, and the 20 steps at N = 60 drop from 39 s to 0.24 s. Steady solves are not affected. The per-step cost is reported in `TransientResult.stepNewtonIterations` (fixed stepping).
+
 ## 4. Limitations
 
 - The check is opt-in and off by default. The default path retains the pre-coupling certification-lag artifact (§1).

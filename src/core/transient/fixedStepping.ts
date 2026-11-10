@@ -57,6 +57,7 @@ export function runFixedTimeStepping(
   let allConverged = true;
   const stepResiduals: number[] = [];
   const stepResidualsScaled: number[] = [];
+  const stepNewtonIterations: number[] = [];
 
   for (let step = 1; step <= steps; step++) {
     if (options?.shouldAbort && options.shouldAbort()) {
@@ -101,6 +102,7 @@ export function runFixedTimeStepping(
     }
     stepResiduals.push(res.residual);
     stepResidualsScaled.push(res.residualScaled ?? res.residual);
+    stepNewtonIterations.push(res.newtonIterations ?? 0);
 
     recordTransientStep(ctx, config, acc, t, state, prevState, dt);
 
@@ -146,6 +148,7 @@ export function runFixedTimeStepping(
         ...partial(step, allConverged),
         stepResiduals,
         stepResidualsScaled,
+        stepNewtonIterations,
         ...run.runtimeFields(),
       };
     }
@@ -188,6 +191,7 @@ export function runFixedTimeStepping(
     capillary: history.capillaryResultField(),
     stepResiduals,
     stepResidualsScaled,
+    stepNewtonIterations,
     ...run.runtimeFields(),
   };
 }

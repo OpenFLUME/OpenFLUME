@@ -1954,7 +1954,9 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
    equations. Every step is appended to the trajectory even
    if the Newton did not converge; those steps are flagged `converged: false`
    and the per-step residual series `stepResiduals` / `stepResidualsScaled`
-   record the raw and scaled norm that was achieved. Unlike adaptive stepping,
+   record the raw and scaled norm that was achieved; `stepNewtonIterations`
+   records each step's inner Newton iterations (Jacobian evaluations) over
+   all its outer iterations. Unlike adaptive stepping,
    fixed stepping never retries with a smaller $\Delta t$.
 
 ### 4.6.3 Transient — Adaptive Step
