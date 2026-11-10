@@ -189,6 +189,10 @@ export interface SolveStepOptions {
   globalization?: "trustRegion" | "lineSearch";
   jacobian?: "hybrid" | "fd";
   certifyAfterCoupling?: boolean;
+  /** Internal (retry cascade): enthalpy warm start for selected nodes of the
+   *  extended system, replacing the explicit predictor there — see
+   *  domeExitWarmStart. */
+  energyWarmStart?: ReadonlyMap<string, number>;
 }
 
 export interface SolveStepResult {
@@ -300,10 +304,75 @@ export function solveStateStep(
       bestState = cloneStepState(state);
     }
   }
+  // Dome-exit restart.  The tiers above differ only in step control and all
+  // start from the same predictor, so they share its basin of attraction.
+  // At a dome edge that basin can hold a spurious local minimum of the
+  // residual norm: ρ(P, h) has a kink at the saturation line (∂ρ/∂h|_P jumps
+  // by orders of magnitude), and a node whose step solution lies just
+  // OUTSIDE the dome (a quench front sweeping a low-quality node back to
+  // liquid) is held inside it by the steep mixture branch — Newton, line
+  // search, trust region and Levenberg–Marquardt all stall there with the
+  // gradient of ‖R‖ at zero and R ≠ 0, while a start on the other side of
+  // the edge converges quadratically.  One more attempt therefore starts
+  // every node the best attempt left inside the dome just outside its
+  // nearer saturation edge.
+  const flip = domeExitWarmStart(ctx, bestState!);
+  if (flip.size > 0) {
+    copyStepStateInto(state, entry);
+    const res = solveStateStepAttempt(ctx, state, {
+      ...options,
+      maxIterations: Math.min(options.maxIterations, 35),
+      maxOuter: Math.min(options.maxOuter ?? 1000, 6),
+      ...uniqueTiers[0],
+      energyWarmStart: flip,
+    });
+    cascadeNewtonIters += res.newtonIterations ?? 0;
+    if (res.converged) {
+      return { ...res, newtonIterations: cascadeNewtonIters };
+    }
+    if (res.residual < best!.residual) {
+      best = res;
+      bestState = cloneStepState(state);
+    }
+  }
   // No tier converged: restore the best attempt's state and return it with
   // converged = false.
   copyStepStateInto(state, bestState!);
   return { ...best!, newtonIterations: cascadeNewtonIters };
+}
+
+/** Fraction of the latent heat h_g − h_f by which domeExitWarmStart places a
+ *  node outside the dome: far enough that the first Jacobian is the
+ *  single-phase one (the FD columns of a node within a few J/kg of the edge
+ *  straddle the kink), close enough to stay in the basin of a solution just
+ *  past the edge. */
+const DOME_EXIT_MARGIN = 0.05;
+/** Nodes above this fraction of the critical pressure are left alone: the
+ *  dome closes there and the two edges are no longer distinct branches. */
+const DOME_EXIT_MAX_P_RATIO = 0.95;
+
+/** Enthalpy warm start for the dome-exit restart of the retry cascade: every
+ *  real-fluid internal node that `state` holds inside the two-phase dome
+ *  (well below the critical pressure) is placed just outside its nearer
+ *  saturation edge — liquid side for quality < 0.5, vapour side otherwise. */
+function domeExitWarmStart(
+  ctx: SolverContext,
+  state: StepState,
+): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const id of ctx.internalIds) {
+    if (state.nodePhase?.get(id) !== "twoPhase") continue;
+    const f = ctx.fluidAssignment.node(id);
+    if (!(f instanceof RealFluid)) continue;
+    const P = state.nodeP.get(id)!;
+    if (!(P > 0) || P >= DOME_EXIT_MAX_P_RATIO * f.criticalPressure()) continue;
+    const { hf, hg } = f.saturationProperties(P);
+    const q = state.nodeQuality?.get(id);
+    const x = q ?? (state.nodeH!.get(id)! - hf) / (hg - hf);
+    const margin = DOME_EXIT_MARGIN * (hg - hf);
+    out.set(id, x < 0.5 ? hf - margin : hg + margin);
+  }
+  return out;
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1319,6 +1388,18 @@ function solveStateStepAttemptInner(
     // method correct mdot from the momentum balance directly.
     // (The mdot variables were already initialised from state.mdots at the
     // warm-start above, so no further action is needed here.)
+    if (options.energyWarmStart) {
+      for (const [nodeId, h] of options.energyWarmStart) {
+        const col = dof.energyCol(nodeId);
+        if (col === undefined || dof.energyKind(nodeId) !== "h") continue;
+        const [, clampedH] = clampToValidPHFor(
+          ctx.fluidAssignment.node(nodeId),
+          X[dof.pressureCol(nodeId)!],
+          h,
+        );
+        X[col] = clampedH;
+      }
+    }
   }
 
   // The residual evaluator and Jacobian builders for this attempt (see

@@ -9,7 +9,10 @@
  *     solution, and the solve with it converges;
  *   - the subcooled-LN2 row at 61.74 psia, whose first fluid node stalled
  *     without the restriction (docs/validation/chilldown-report.md, "Inlet
- *     restriction"), converges over its first minute with it.
+ *     restriction"), converges over its first minute with it;
+ *   - the subcooled-LN2 row at 74.97 psia converges through t = 85 s, where
+ *     a node at the dome edge used to stall every tier of the retry cascade
+ *     (on Node 22; the dome-exit restart in solveStateStep).
  *
  * Each solve is N = 3 over the first 60 s (seconds of wall time).
  */
@@ -31,6 +34,7 @@ const A = (Math.PI / 4) * 0.015875 ** 2;
 function rowConfig(
   id: string,
   flow: Partial<{ longitudinalInertia: boolean; inletRestrictionK: number }>,
+  endTime = 60,
 ): NetworkConfig {
   const p = NBS_CHILLDOWN_DATA.find((x) => x.id === id)!;
   return buildChilldownTwoPhase({
@@ -46,7 +50,7 @@ function rowConfig(
     ...flow,
     initialTemperature: initialWallTemperatureForPoint(p).K,
     dt: NBS_TIME_STEP_S[p.fluid],
-    endTime: 60,
+    endTime,
     timeStepping: "fixed",
   });
 }
@@ -98,6 +102,15 @@ describe("NBS line flow model: real-fluid solves", () => {
 
   it("subcooled LN2 61.74 psia: no stalled step with the inlet restriction", () => {
     const res = solveTransient(rowConfig("subLN2-P61.74", NBS_LINE_FLOW_MODEL));
+    expect(res.converged).toBe(true);
+    const sr = res.stepResidualsScaled ?? [];
+    expect(sr.filter((x) => x > 0.01)).toHaveLength(0);
+  }, 60_000);
+
+  it("subcooled LN2 74.97 psia: the dome-edge step at t = 85 s converges", () => {
+    const res = solveTransient(
+      rowConfig("subLN2-P74.97", NBS_LINE_FLOW_MODEL, 100),
+    );
     expect(res.converged).toBe(true);
     const sr = res.stepResidualsScaled ?? [];
     expect(sr.filter((x) => x > 0.01)).toHaveLength(0);

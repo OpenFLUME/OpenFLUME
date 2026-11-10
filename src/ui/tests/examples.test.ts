@@ -476,7 +476,10 @@ describe("examples library: validation, convergence, and physics", () => {
             expect(last(jn.gas.T0)).toBeGreaterThan(3000);
             expect(last(jn.of!)).toBeGreaterThan(0);
           }
-        });
+          // The LOX/RP-1 transient startup takes ~90 s locally and ~240 s on
+          // the CI runners, too close to the 300 s default; the others take
+          // seconds.  See #58.
+        }, 600_000);
       }
     });
   }

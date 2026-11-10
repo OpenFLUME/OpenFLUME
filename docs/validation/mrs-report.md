@@ -177,14 +177,14 @@ disagree with the enthalpy balance through the leg flow inconsistency.
 
 | Point | Panel solves | All converged | Max energy imbalance of a panel | Heat rejected less absorbed [W] | Fluid enthalpy drop [W] | Max mass imbalance | Max pressure offset [Pa] | Solve time [s] |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| TP1A | 8 | yes | 3.4e-4 | 6350.0 | 6351.7 | 4.0e-16 | 23.0 | 55.9 |
-| TP54 | 8 | yes | 1.4e-4 | 19171.3 | 19173.0 | 2.3e-16 | 18.4 | 66.4 |
+| TP1A | 8 | yes | 3.4e-4 | 6350.0 | 6351.7 | 4.0e-16 | 23.0 | 64.5 |
+| TP54 | 8 | yes | 1.4e-4 | 19171.3 | 19173.0 | 2.3e-16 | 18.4 | 78.3 |
 
 Heat rejected less absorbed is the sum of the radiation conductor heat rates
 less the absorbed flux over the panels of the point. The fluid enthalpy drop is
 the imposed flow times the CoolProp enthalpy change between panel inlet and
 outlet. The ratio is the energy closure. The 16 panel solves of the
-baseline took 122.3 s of solver time in total on one core.
+baseline took 142.8 s of solver time in total on one core.
 
 ### Pooled over the 16 panel outlets
 

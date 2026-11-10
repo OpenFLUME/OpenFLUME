@@ -25,7 +25,7 @@ startup and decay traces match the closed forms within
 oscillator period matches the linearized prediction within
 0.2 % and the RK4 reference within
 0.1 %, and the compression trace holds P·V_g^n constant
-to 4.7e-14 %. The backward-Euler integrator's first-order
+to 5.9e-14 %. The backward-Euler integrator's first-order
 numerical damping of the oscillation amplitude is quantified and shown to
 shrink in proportion to the time step. Method-of-characteristics acoustic
 waterhammer is explicitly out of scope: the rigid-column model is valid for
@@ -313,7 +313,7 @@ trace RMS against RK4 is 1.4 %.
 Figure 7 shows the monotonic pressurization of the trapped gas under a
 constant 1 kg/s inflow. This case isolates the cushion model from the
 inertia term (the branch is a flow source). The solved pressure holds the
-polytropic invariant P·V_g^n = const to within 4.7e-14 % at
+polytropic invariant P·V_g^n = const to within 5.9e-14 % at
 every step, the final pressure of
 204.8 kPa
 is within 9.6e-6 % of the analytic
@@ -343,7 +343,7 @@ its amplitude decay separates cleanly into physical friction (present
 identically in the RK4 reference) and backward-Euler numerical damping that
 matches the exp(−πωΔt) prediction and shrinks proportionally with dt.
 Quasi-static cushion compression holds the polytropic invariant to
-4.7e-14 %. The multi-segment Lee & Martin entrapped-air
+5.9e-14 %. The multi-segment Lee & Martin entrapped-air
 benchmark (GFSSP Figure 10) combines both models at engineering scale and is
 exercised separately as a shipped example (user manual §7.10); it is not
 repeated here. Acoustic waterhammer — wave propagation, Joukowsky pressure

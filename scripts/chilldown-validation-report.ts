@@ -33,9 +33,9 @@
  * and at the documented 12.05 psia outlet pressure (N = 3; the subcooled LN2
  * case also at N = 30); the seven trusted trace runs at N = 6.  N = 60 is not
  * run, and N = 30 only for the four subset cases.  Each solve is a child
- * process limited to 420 s (stopped 30 s before and listed with its partial
+ * process limited to 1200 s (stopped 30 s before and listed with its partial
  * histories, not dropped),
- * four at a time.  Expected runtime: about 15 minutes on four cores (about
+ * four at a time.  Expected runtime: about 20 minutes on four cores (about
  * 170 solves, most of them seconds long; the N = 30 solves dominate).
  * CHILLDOWN_CACHE=<file> stores the solve histories of a run and re-reads
  * them, for editing the report text only.
@@ -113,6 +113,9 @@ const fmt = (x: number | undefined, d = 1) =>
   x === undefined || !Number.isFinite(x) ? "—" : x.toFixed(d);
 const signedPct = (x: number, d = 1) =>
   Number.isFinite(x) ? `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)} %` : "—";
+/** "a–b", or "a" when the two agree at d decimals. */
+const fmtSpan = (a: number | undefined, b: number | undefined, d = 1) =>
+  fmt(a, d) === fmt(b, d) ? fmt(a, d) : `${fmt(a, d)}–${fmt(b, d)}`;
 const signedSec = (x: number, d = 1) =>
   Number.isFinite(x) ? `${x >= 0 ? "+" : "−"}${Math.abs(x).toFixed(d)} s` : "—";
 const range = (xs: number[], d = 1, f = signedPct) => {
@@ -163,7 +166,7 @@ const GRID_NS = [3, 6, 12, 30]; // refinement ladder of the representative subse
 const TRACE_N = 6; // the trace-test plan: all trusted runs
 const DT_LEVELS_CI = [2, 1, 0.5, 0.25]; // multiples of the fluid's step, N = 3
 const DT_LEVELS_PRIMARY = [2, 1, 0.5]; // N = 30 (a quarter step is too costly)
-const SOLVE_TIMEOUT_S = 420;
+const SOLVE_TIMEOUT_S = 1200;
 const WORKERS = 4;
 /** The representative subset solved at GFSSP's resolution: a saturated and a
  *  subcooled case of each fluid (all four have a trusted digitized run). */
@@ -343,6 +346,19 @@ const fluidFor = (name: string) => {
   return fluidObjs.get(name)!;
 };
 const usable = (o: SolveOut) => !o.failed && o.timesS.length > 1;
+/** Table marker of a solve: † failed or stopped at the time limit, * stalled
+ *  steps accepted, nothing when it completed and converged. */
+const markOf = (o: SolveOut) =>
+  o.failed || o.stoppedAtS !== undefined ? "†" : o.converged ? "" : "*";
+/** Figure-legend note of a solve that did not complete or converge. */
+const noteOf = (o: SolveOut) =>
+  o.failed
+    ? " (failed)"
+    : o.stoppedAtS !== undefined
+      ? ` (stopped at t = ${Math.round(o.stoppedAtS)} s)`
+      : o.converged
+        ? ""
+        : ` (${o.stalledSteps.length} stalled step${o.stalledSteps.length === 1 ? "" : "s"})`;
 
 function metricInput(o: SolveOut): ChilldownMetricInput {
   const c = specConditions(o.spec);
@@ -395,6 +411,8 @@ interface Row {
   err: number;
   ok: boolean; // converged and completed
   failed?: string;
+  /** Stopped at the time limit at this simulated time [s]. */
+  stoppedAtS?: number;
   /** Steps accepted with a scaled residual above 0.01 (stalled). */
   stalled: number;
   /** Fluid energy gain over wall energy removed, minus one [%]. */
@@ -413,6 +431,7 @@ function rowOf(p: ChilldownDataPoint, N: number, v: Variant): Row {
     err: errPct(t, p.experimentalChilldownTimeS),
     ok: o.converged && !o.failed,
     failed: o.failed,
+    stoppedAtS: o.stoppedAtS,
     stalled: o.stalledSteps.length,
     closurePct: closureOf(o),
   };
@@ -568,6 +587,7 @@ interface DtRow {
   converged: boolean[];
   failed: (string | undefined)[];
   notRun: boolean[];
+  outs: (SolveOut | undefined)[];
 }
 const DT_LEVELS = DT_LEVELS_CI; // column order: x2, x1 (used), x1/2, x1/4
 const dtRows: DtRow[] = REPS.flatMap((p) =>
@@ -587,6 +607,7 @@ const dtRows: DtRow[] = REPS.flatMap((p) =>
       converged: os.map((o) => (o ? o.converged : true)),
       failed: os.map((o) => o?.failed),
       notRun: os.map((o) => o === undefined),
+      outs: os,
     };
   }),
 );
@@ -954,7 +975,7 @@ const FIG_END = TRACE_FIG0 + TS.n6.length;
           const o = out(diagKey(id, N));
           const w = usable(o) ? interpolateStation4(o) : [];
           return {
-            label: `Model, N = ${N}, Δt = ${diagDt(N)} s${o.converged ? "" : " (not converged)"}`,
+            label: `Model, N = ${N}, Δt = ${diagDt(N)} s${noteOf(o)}`,
             pts: w.map((T, k): [number, number] => [o.timesS[k], T]),
             color: [C.blue, C.green, C.orange, C.red][i],
             mode: "line",
@@ -984,7 +1005,7 @@ const FIG_POUT = FIG_END + 1;
     const o = out(jkey("t6", p.id, N, v));
     const w = usable(o) ? interpolateStation4(o) : [];
     return {
-      label: `N = ${N}, outlet ${v === "P83" ? "83.08" : "101.325"} kPa${o.converged ? "" : " (not converged)"}`,
+      label: `N = ${N}, outlet ${v === "P83" ? "83.08" : "101.325"} kPa${noteOf(o)}`,
       pts: w.map((T, k): [number, number] => [o.timesS[k], T]),
       color,
       mode: "line" as const,
@@ -1023,7 +1044,8 @@ const FIG_POUT = FIG_END + 1;
  * Report markdown — derived quantities
  * ========================================================================== */
 
-const flag = (r: Row) => (r.failed ? "†" : r.ok ? "" : "*");
+const flag = (r: Row) =>
+  r.failed || r.stoppedAtS !== undefined ? "†" : r.ok ? "" : "*";
 const cell = (r: Row | undefined) =>
   r === undefined
     ? "—"
@@ -1130,10 +1152,10 @@ const trendFacts = (() => {
     if ((sub.t ?? NaN) < (sat.t ?? NaN)) sOk++;
     else
       sWrong.push(
-        `${fluidLabel(sat.p)} ${sat.p.drivingPressure.psia} psia (saturated ${fmt(sat.t)} s, subcooled ${fmt(sub.t)} s; measured ${sat.p.experimentalChilldownTimeS} s and ${sub.p.experimentalChilldownTimeS} s)`,
+        `${fluidLabel(sat.p)} ${sat.p.drivingPressure.psia} psia: saturated ${fmt(sat.t)} s, subcooled ${fmt(sub.t)} s, measured ${sat.p.experimentalChilldownTimeS} s and ${sub.p.experimentalChilldownTimeS} s`,
       );
   }
-  return `Chilldown time falls with driving pressure in ${ok} of ${pairs} adjacent pairs of rows within a group${wrong.length ? ` (exceptions: ${wrong.join("; ")})` : ""}. At matched pressure the subcooled time is shorter than the saturated one in ${sOk} of ${sPairs} pairs${sWrong.length ? `; the exceptions are ${sWrong.join("; ")}` : ""}, where the measured subcooled time is the shorter in ${measShorter} of the ${sPairs} pairs${measEqual ? ` and equal in ${measEqual}` : ""}.`;
+  return `Chilldown time falls with driving pressure in ${ok} of ${pairs} adjacent pairs of rows within a group${wrong.length ? ` (exceptions: ${wrong.join("; ")})` : ""}. At matched pressure the subcooled time is shorter than the saturated one in ${sOk === 0 ? `none of the ${sPairs} pairs (${sWrong.join("; ")})` : `${sOk} of ${sPairs} pairs${sWrong.length ? `; the exceptions are ${sWrong.join("; ")}` : ""}`}, where the measured subcooled time is the shorter in ${measShorter} of the ${sPairs} pairs${measEqual ? ` and equal in ${measEqual}` : ""}.`;
 })();
 
 // The representative subset: OpenFLUME at each N against GFSSP's published values.
@@ -1201,6 +1223,38 @@ const kSpread = REPS.map((p) => {
   return { p, spread: Math.max(...ts) - Math.min(...ts) };
 });
 const nFlaggedNoK = R.NOK3.filter((r) => !r.ok).length;
+const nFlaggedNoI = R.NOI3.filter((r) => !r.ok).length;
+/** "no row is", "1 row is", "n rows are". */
+const rowsAre = (n: number) =>
+  n === 0 ? "no row is" : n === 1 ? "1 row is" : `${n} rows are`;
+// The N = 30 subset: which cases enter its statistics, and which of them stalled.
+const s30 = subsetStat(PRIMARY_N);
+const subset30Cases =
+  s30.n === REPS.length
+    ? `all ${s30.n} cases`
+    : `the ${s30.n} cases whose station 4 reaches the knee`;
+const flagged30 = flaggedNames(
+  R.grid[PRIMARY_N].filter((r) => Number.isFinite(r.err)),
+);
+const flagged30Note = flagged30.length
+  ? ` (${flagged30.join("; ")} with stalled steps)`
+  : "";
+// Summary sentences that depend on whether any Table-6 row is flagged.
+const flaggedAbstract =
+  nFlagged > 0
+    ? `${nFlagged} rows accepted
+steps that did not converge and are flagged; over the other ${sU.n} the mean
+absolute error is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and without the subcooled LN₂ rows
+${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).`
+    : `No row accepted a step
+that did not converge; without the subcooled LN₂ rows the mean absolute error is
+${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).`;
+const flaggedConclusion =
+  nFlagged > 0
+    ? `Without the ${nFlagged} flagged rows it is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and
+without the subcooled LN₂ rows as well ${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).`
+    : `No row is flagged; without the subcooled LN₂ rows it is
+${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).`;
 const p83Rows = REPS.map((p) => {
   const a = rowFor(R.P3, p);
   const b = rowFor(R.P83, p);
@@ -1268,10 +1322,33 @@ const poutRows = ([CI_N, PRIMARY_N] as const)
       const o = out(jkey("t6", P83_CASE, N, v));
       const t = timeOf(o);
       const on = outletNodeOf(o);
-      return `| ${N} | ${v === "P83" ? "83.08 (12.05 psia)" : "101.325"} | ${t === undefined ? `not reached in ${fmt(on?.endS, 0)} s` : `${fmt(t)} (${signedPct(errPct(t, p83Case.experimentalChilldownTimeS))})`}${o.converged ? "" : "*"} | ${on?.firstLiquidS === undefined ? "never" : fmt(on.firstLiquidS)} | ${on?.lastPhase ?? "—"}${on?.tailMaxQuality !== undefined ? `, x = ${fmt(on.tailMinQuality, 3)}–${fmt(on.tailMaxQuality, 3)}` : ""} |`;
+      return `| ${N} | ${v === "P83" ? "83.08 (12.05 psia)" : "101.325"} | ${t === undefined ? `not reached in ${fmt(on?.endS, 0)} s` : `${fmt(t)} (${signedPct(errPct(t, p83Case.experimentalChilldownTimeS))})`}${markOf(o)} | ${on?.firstLiquidS === undefined ? "never" : fmt(on.firstLiquidS)} | ${on?.lastPhase ?? "—"}${on?.tailMaxQuality !== undefined ? `, x = ${fmtSpan(on.tailMinQuality, on.tailMaxQuality, 3)}` : ""} |`;
     }),
   )
   .join("\n");
+
+// What the two N = 30 solves of the outlet-pressure case give.
+const pout30 = (["P", "P83"] as const)
+  .map((v) => {
+    const o = out(jkey("t6", P83_CASE, PRIMARY_N, v));
+    const t = timeOf(o);
+    const st = o.stalledSteps.length;
+    const cl = closureOf(o);
+    const what = o.failed
+      ? `the solve failed (${o.failed})`
+      : t !== undefined
+        ? `station 4 reaches the knee at ${fmt(t)} s (${signedPct(errPct(t, p83Case.experimentalChilldownTimeS))})`
+        : o.stoppedAtS !== undefined
+          ? `the solve was stopped at the time limit at t = ${fmt(o.stoppedAtS, 0)} s, before station 4 reached the knee`
+          : "station 4 does not reach the knee within the horizon";
+    const stalled = st
+      ? `, with ${st} stalled step${st === 1 ? "" : "s"}`
+      : o.failed
+        ? ""
+        : ", without stalled steps";
+    return `with the outlet at ${v === "P83" ? "83.08" : "101.325"} kPa ${what}${stalled}${cl === undefined ? "" : ` (energy closure ${fmt(cl, 0)} %)`}`;
+  })
+  .join("; ");
 
 const initRows = ALL_POINTS.map((p) => {
   const ini = initialWallTemperatureForPoint(p);
@@ -1335,7 +1412,7 @@ const dtFailed = dtRows.flatMap((r) =>
   DT_LEVELS.flatMap((m, i) =>
     r.failed[i] || !r.converged[i]
       ? [
-          `${fluidLabel(r.p)} ${r.p.inletCondition} ${r.p.drivingPressure.psia} psia, N = ${r.N}, Δt = ${fmt(r.dts[i], 3)} s: ${r.failed[i] ? r.failed[i] : "not converged"}`,
+          `${fluidLabel(r.p)} ${r.p.inletCondition} ${r.p.drivingPressure.psia} psia, N = ${r.N}, Δt = ${fmt(r.dts[i], 3)} s: ${r.failed[i] ? r.failed[i] : r.outs[i]?.stoppedAtS !== undefined ? `stopped at the time limit at t = ${fmt(r.outs[i]!.stoppedAtS)} s` : `${r.outs[i]?.stalledSteps.length ?? 0} stalled step(s)`}`,
         ]
       : [],
   ),
@@ -1346,7 +1423,7 @@ const dtCell = (r: DtRow, i: number) =>
     ? "not run"
     : r.failed[i]
       ? `failed† (${r.failed[i]})`
-      : `${fmt(r.times[i])}${r.converged[i] ? "" : "*"}`;
+      : `${fmt(r.times[i])}${r.outs[i] ? markOf(r.outs[i]!) : ""}`;
 const dtTable = dtRows
   .map(
     (r) =>
@@ -1363,7 +1440,7 @@ const diagRow = (c: DiagCase) => {
   const closure = d
     ? `${((d.fluidEnthalpyGainJ / d.wallEnergyRemovedJ - 1) * 100).toFixed(1)} %`
     : "—";
-  return `| ${c.id} | ${c.N}${c.o.converged ? "" : "*"} | ${diagDt(c.N)} | ${fmt(c.t250)} | ${fmt(c.t150)} | ${fmt(c.knee)} | ${c.tKneeLiquid === undefined ? "never" : fmt(c.tKneeLiquid)} | ${c.minQuality === undefined ? "—" : fmt(c.minQuality, 3)} | ${fmt(c.shelfMinH, 0)} | ${c.hLiquid === undefined ? "—" : fmt(c.hLiquid, 0)} | ${share("vapor")} / ${share("twoPhase")} / ${share("liquid")} | ${closure} |`;
+  return `| ${c.id} | ${c.N}${markOf(c.o)} | ${diagDt(c.N)} | ${fmt(c.t250)} | ${fmt(c.t150)} | ${fmt(c.knee)} | ${c.tKneeLiquid === undefined ? "never" : fmt(c.tKneeLiquid)} | ${c.minQuality === undefined ? "—" : fmt(c.minQuality, 3)} | ${fmt(c.shelfMinH, 0)} | ${c.hLiquid === undefined ? "—" : fmt(c.hLiquid, 0)} | ${share("vapor")} / ${share("twoPhase")} / ${share("liquid")} | ${closure} |`;
 };
 const diagRows = diagCases
   .filter((c) => usable(c.o))
@@ -1379,7 +1456,7 @@ const dSat = DIAG_NS.map((N) => diagOf("satLN2-P86.73", N)).filter((c) =>
 const minMax = (xs: number[], d = 0) =>
   xs.length === 0
     ? "—"
-    : Math.min(...xs) === Math.max(...xs)
+    : Math.min(...xs).toFixed(d) === Math.max(...xs).toFixed(d)
       ? Math.min(...xs).toFixed(d)
       : `${Math.min(...xs).toFixed(d)}–${Math.max(...xs).toFixed(d)}`;
 const fin = (xs: (number | undefined)[]) =>
@@ -1508,18 +1585,15 @@ term of GFSSP's chilldown formulation (without it the outlet flow is
 supersonic) and an inlet restriction for the dewar valve and entrance. Over
 the eighteen rows the mean absolute error is ${s3.mae.toFixed(1)} % for OpenFLUME (signed mean
 ${signedPct(s3.signed)}, ${s3.late} of 18 late) and ${g18.mae.toFixed(1)} % for GFSSP's published 30-segment
-predictions (signed mean ${signedPct(g18.signed)}, ${g18.late} of 18 late). ${nFlagged} rows accepted
-steps that did not converge and are flagged; over the other ${sU.n} the mean
-absolute error is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and without the subcooled LN₂ rows
-${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %). The subcooled LN₂ rows are late by
+predictions (signed mean ${signedPct(g18.signed)}, ${g18.late} of 18 late). ${flaggedAbstract} The subcooled LN₂ rows are late by
 ${range(sel(R.P3, isSubLN2).map((r) => r.err))}: their outlet wall sits on a film-boiling shelf at near-zero quality
 until the outlet node turns liquid, and that node's phase depends on the
 outlet pressure and on an exit restriction that GFSSP's model has and whose
 coefficient is not published, so they are reported as sensitive to that
 input rather than as point values. A representative subset (saturated and subcooled LN₂ and LH₂) is
 also solved at GFSSP's 30 segments: its mean absolute error is
-${subsetStat(3).mae.toFixed(1)} % at N = 3 and, over the ${subsetStat(PRIMARY_N).n} cases whose station 4 reaches the knee at
-N = ${PRIMARY_N}, ${subsetStat(PRIMARY_N).mae.toFixed(1)} % against ${subsetG.mae.toFixed(1)} % for GFSSP.
+${subsetStat(3).mae.toFixed(1)} % at N = 3 and, over ${subset30Cases} at
+N = ${PRIMARY_N}${flagged30Note}, ${s30.mae.toFixed(1)} % against ${subsetG.mae.toFixed(1)} % for GFSSP.
 Cryogenic chilldown is the least mature area of the code;
 the numbers below are the evidence for that statement.
 
@@ -1681,14 +1755,18 @@ ${t6Rows}
 OpenFLUME errors are relative to experiment. N = ${CI_N} for all eighteen rows; N = ${PRIMARY_N} only for the
 four representative rows (— : not solved). Station-4 knee as defined above.
 ᵃ: mean initial wall temperature of the eleven runs (no digitized run of this
-test). * : the solve accepted stalled steps (flagged). † : the solve failed or timed out.
+test). * : the solve accepted stalled steps (flagged). † : the solve failed or was stopped at the time limit.
 Energy closure: fluid energy gain over wall energy removed, minus one, at N = ${CI_N}.
 
 ${STAT_HEAD}
 ${groupStatRows(R.P3)}
 
-OpenFLUME at N = ${CI_N}. Flagged rows (${flaggedNames(R.P3).join("; ") || "none"}) are excluded
-from the second and fourth lines. The correlation is the Pearson correlation between OpenFLUME's
+OpenFLUME at N = ${CI_N}. ${
+  nFlagged > 0
+    ? `Flagged rows (${flaggedNames(R.P3).join("; ")}) are excluded
+from the second and fourth lines.`
+    : "No row is flagged, so the second and fourth lines equal the first and third."
+} The correlation is the Pearson correlation between OpenFLUME's
 and GFSSP's relative errors over the rows. "Late" counts rows whose predicted time exceeds the measured one.
 ${trendFacts} ${failedList.length === 0 && nonConvList.length === 0 ? "All solves of the report converged." : "Solves that failed or did not converge are listed at the end of this section."}
 
@@ -1719,7 +1797,7 @@ on the four representative cases at N = ${CI_N} (also quartered) and at N = ${PR
 ${dtHead}
 ${dtTable}
 
-(* : the solve did not converge; † : failed or timed out.) Between Δt and Δt/2 the
+(* : the solve accepted stalled steps; † : failed or stopped at the time limit.) Between Δt and Δt/2 the
 chilldown time moves by at most ${fmt(dtMaxResid(CI_N))} s at N = ${CI_N} and ${fmt(dtMaxResid(PRIMARY_N))} s at N = ${PRIMARY_N}
 over the cases where both completed.${dtFailed.length ? `\n\nNot completed or not converged:\n\n${dtFailed.map((x) => `- ${x}`).join("\n")}` : ""}
 
@@ -1740,7 +1818,7 @@ ${machRows}
 
 Over all eighteen rows at N = ${CI_N} the mean absolute error is ${noiS3.mae.toFixed(1)} % without the inertia
 terms and ${s3.mae.toFixed(1)} % with them (${noiS3x.mae.toFixed(1)} % and ${pS3x.mae.toFixed(1)} % without the subcooled LN₂ rows); the
-terms move the predicted time by ${range(inertiaShift3, 1, signedSec)}. Without inertia ${R.NOI3.filter((r) => !r.ok).length} rows are flagged.
+terms move the predicted time by ${range(inertiaShift3, 1, signedSec)}. Without inertia ${rowsAre(nFlaggedNoI)} flagged.
 
 ### Inlet restriction
 
@@ -1752,11 +1830,11 @@ Chilldown time of the subset at N = ${CI_N} against the inlet loss coefficient K
 ${kRows}
 
 Between K = ${kOrder[0]} and K = ${kOrder[2]} the chilldown time moves by ${kSpread.map((k) => `${fmt(k.spread)} s (${fluidLabel(k.p)} ${k.p.inletCondition})`).join(", ")}.
-Over all eighteen rows at N = ${CI_N}, ${nFlaggedNoK} rows are flagged without the restriction and ${nFlagged} with K = ${NBS_INLET_RESTRICTION_K}.
+Over all eighteen rows at N = ${CI_N}, ${nFlaggedNoK === 0 && nFlagged === 0 ? `no row is flagged with or without the restriction` : `${rowsAre(nFlaggedNoK)} flagged without the restriction and ${nFlagged} with K = ${NBS_INLET_RESTRICTION_K}`}.
 Without it the first fluid node is held at the dewar pressure, where a subcooled inlet
 switches it between liquid and two-phase from one iteration to the next; the
 convection coefficient then jumps between Dittus–Boelter (of order 10³ W/m²K) and
-Miropolskii at low quality (of order 10 W/m²K), and the Newton iteration stalls.
+Miropolskii at low quality (of order 10 W/m²K)${nFlaggedNoK > nFlagged ? ", and the Newton iteration stalls" : nFlaggedNoK === 0 ? ". At N = " + CI_N + " this no longer leaves a stalled step on any row" : ""}.
 
 ### Outlet pressure and the exit restriction
 
@@ -1784,8 +1862,7 @@ instead of turning liquid (Dittus–Boelter, of order 10³ W/m²K). An exit rest
 raises the outlet node's pressure above the boundary's; GFSSP's model has one, and its
 subcooled-LN₂ times are finite at 12.05 psia, which is consistent with a restriction that
 keeps that node liquid, but its coefficient is not published and this is not established
-here. At N = ${PRIMARY_N} neither outlet pressure gives a usable time: both solves accept stalled
-steps and station 4 does not reach the knee within the horizon (energy closure ${["P", "P83"].map((v) => fmt(closureOf(out(jkey("t6", P83_CASE, PRIMARY_N, v as Variant))), 0) + " %").join(" and ")}). The subcooled LN₂ rows therefore depend on an unpublished input of GFSSP's model and
+here. At N = ${PRIMARY_N}, ${pout30}. The subcooled LN₂ rows therefore depend on an unpublished input of GFSSP's model and
 are not quoted as point values.
 
 ${figLink(FIG_POUT, `Subcooled LN₂ at ${p83Case.drivingPressure.psia} psia: station-4 wall temperature at N = ${CI_N} and N = ${PRIMARY_N} with the outlet at 101.325 kPa (solid) and 83.08 kPa (dashed), no exit restriction, against the digitized trace.`)}
@@ -1862,23 +1939,23 @@ ${diagRows}
 
 ${figLink(FIG_END, `Subcooled LN₂ at 61.74 psia: station-4 wall temperature of the model at N = ${DIAG_NS.join(", ")} against the digitized Fig. 13 trace.`)}
 
-What the diagnostics show (a * on N marks a solve with stalled steps; its numbers are
-listed but not used in the statements below):
+What the diagnostics show (a * on N marks a solve with stalled steps, a † one stopped at the
+time limit; their numbers are listed but not used in the statements below):
 
 1. **Shelf and handoff.** ${
   dSub.length === 0
     ? "No subcooled diagnostic solve converged."
-    : `On the converged subcooled solves the outlet node's two-phase quality falls to
+    : `On the converged subcooled solves (N = ${dSub.map((c) => c.N).join(", ")}) the outlet node's two-phase quality falls to
    ${minMax(subMinQ, 3)} while the outlet wall is below 150 K (saturated case: ${minMax(satMinQ, 2)}). The Miropolskii coefficient
    falls with quality (\`src/core/correlations/miropolskii.ts\`): its minimum is ${minMax(subMinH)} W/m²K on the subcooled
    shelf against ${minMax(satMinH)} W/m²K in the saturated case. When the outlet node turns single-phase liquid the
-   conductor switches to Dittus–Boelter and h is ${minMax(subHLiq)} W/m²K at the first liquid step, which comes ${dSub.map((c) => signedSec((c.tKneeLiquid ?? NaN) - (c.knee ?? NaN), 0)).join(", ")} relative to the station-4 knee of these solves; in the saturated case the outlet node never turns liquid.`
+   conductor switches to Dittus–Boelter and h is ${minMax(subHLiq)} W/m²K at the first liquid step, which comes ${dSub.map((c) => `${signedSec((c.tKneeLiquid ?? NaN) - (c.knee ?? NaN), 0)} (N = ${c.N})`).join(", ")} relative to the station-4 knee of these solves; in the saturated case the outlet node never turns liquid.`
 }
 2. **The correlation as implemented is the documented one.** Its coefficients (0.023, exponents 0.8 and 0.4, and the factor Y with
    0.1, 0.4, 0.4) are those of Eq. 7h of the GFSSP manual, with Dittus–Boelter (Eq. 7g) on single-phase states, so the
    switch at the liquid boundary is the formulation's. Quality is clamped to [0.01, 0.99] inside the correlation. No change to the
    correlation was made.
-3. **Refinement.** The chilldown time of this case is ${dSubAll.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}; in the saturated case ${dSat.map((c) => `${fmt(c.knee)} s${c.o.converged ? "" : "*"} (N = ${c.N})`).join(", ")}.
+3. **Refinement.** The chilldown time of this case is ${dSubAll.map((c) => `${fmt(c.knee)} s${markOf(c.o)} (N = ${c.N})`).join(", ")}; in the saturated case ${dSat.map((c) => `${fmt(c.knee)} s${markOf(c.o)} (N = ${c.N})`).join(", ")}.
    The interval from the outlet wall's 150 K arrival to the knee is ${dSub.map((c) => `${fmt(shelfInterval(c))} s (N = ${c.N})`).join(", ")} for the subcooled case and ${dSat.map((c) => `${fmt(shelfInterval(c))} s`).join(", ")} for the saturated one.
 4. **Outlet pressure.** The outlet node's phase, and with it the coefficient of the outlet wall, depends on the outlet
    pressure and on GFSSP's unpublished exit restriction ("Outlet pressure and the exit restriction"). The subcooled
@@ -1929,10 +2006,9 @@ Over all eighteen NBS 9264 Table-6 chilldown times, OpenFLUME's untuned
 two-phase network model, with GFSSP's longitudinal inertia term and an inlet
 restriction, has a mean absolute error of ${s3.mae.toFixed(1)} % at the CI
 configuration (signed mean ${signedPct(s3.signed)}, ${s3.late} of 18 late), against ${g18.mae.toFixed(1)} % for GFSSP's published
-predictions (${signedPct(g18.signed)}, ${g18.late} late). Without the ${nFlagged} flagged rows it is ${sU.mae.toFixed(1)} % (GFSSP ${gU.mae.toFixed(1)} %), and
-without the subcooled LN₂ rows as well ${sNoSub.mae.toFixed(1)} % over ${sNoSub.n} rows (GFSSP ${gNoSub.mae.toFixed(1)} %).
-At GFSSP's resolution the ${subsetStat(PRIMARY_N).n} subset cases whose station 4 reaches the knee have a mean absolute error of
-${subsetStat(PRIMARY_N).mae.toFixed(1)} % (GFSSP ${subsetG.mae.toFixed(1)} %; the four cases at N = 3: ${subsetStat(3).mae.toFixed(1)} %). The subcooled liquid-nitrogen rows are late; their outlet wall
+predictions (${signedPct(g18.signed)}, ${g18.late} late). ${flaggedConclusion}
+At GFSSP's resolution the mean absolute error over ${subset30Cases} of the subset${flagged30Note} is
+${s30.mae.toFixed(1)} % (GFSSP ${subsetG.mae.toFixed(1)} %; the four cases at N = 3: ${subsetStat(3).mae.toFixed(1)} %). The subcooled liquid-nitrogen rows are late; their outlet wall
 waits on a near-zero-quality film-boiling shelf, and whether the outlet node turns liquid depends on the outlet pressure and
 on GFSSP's unpublished exit restriction. The remaining difference from GFSSP on the hydrogen rows is not explained here; GFSSP's
 unpublished inputs (the valve and exit-restriction coefficients, the wall roughness, the copper properties
