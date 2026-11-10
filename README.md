@@ -118,7 +118,7 @@ Verification evidence is split into three deliberately distinct classes, and eve
 2. **Code-to-code benchmarking** — agreement with GFSSP or SINDA/FLUINT, which inherits the other code's assumptions.
 3. **Validation against experiment** — comparison to digitized published test data.
 
-Eleven validation reports are regenerated from live solves, not transcribed:
+Thirteen validation reports are regenerated from live solves, not transcribed:
 
 | Report                                                                           | Contents                                                                                                          |
 | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -133,8 +133,10 @@ Eleven validation reports are regenerated from live solves, not transcribed:
 | [Chilldown](docs/validation/chilldown-report.md)                                 | NBS 9264 LN₂/LH₂ transfer-line chilldown: experiment, GFSSP's published predictions, and OpenFLUME                |
 | [Choked flow](docs/validation/choked-flow-report.md)                             | Cryogenic nozzle and orifice critical flow (NASA TP-1484, TM X-71760); Hord LH₂ venturi cavitation                |
 | [Tank self-pressurization](docs/validation/tank-self-pressurization-report.md)   | Heated 4.89 m³ LH₂ tank (NASA TM-103804) against the lumped homogeneous tank                                      |
+| [Shuttle Modular Radiator System](docs/validation/mrs-report.md)                 | Thermal-vacuum test points 1A and 54 (NASA CR-140269): 16 panel outlet temperatures, system level                 |
+| [A-1 engine balance](docs/validation/engine-balance-report.md)                   | 750 klbf LOX/RP-1 gas-generator engine balance (NASA SP-125 design example), system level                         |
 
-The last three reports are validation against experiment, using digitized data with cited provenance: NBS Report 9264 cryogenic chilldown, NASA critical-flow measurements for nitrogen and methane, Hord's liquid-hydrogen venturi cavitation data, and a NASA liquid-hydrogen tank self-pressurization test. Each states per-dataset trust levels, assigned from the quality of the experimental record rather than from the model's error — trusted runs are separated from diagnostic-only runs — and reports disagreements as findings, including the regimes where a closure does not apply. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
+The chilldown, choked-flow, tank self-pressurization and radiator reports are validation against experiment, using digitized data with cited provenance: NBS Report 9264 cryogenic chilldown, NASA critical-flow measurements for nitrogen and methane, Hord's liquid-hydrogen venturi cavitation data, a NASA liquid-hydrogen tank self-pressurization test, and the Shuttle radiator thermal-vacuum test. Each states per-dataset trust levels, assigned from the quality of the experimental record rather than from the model's error — trusted runs are separated from diagnostic-only runs — and reports disagreements as findings, including the regimes where a closure does not apply. See [§8 Verification and Validation](docs/user-manual.md#8-verification-and-validation) for the full record, tolerances, and the correlation status table.
 
 Continuous integration reruns the complete scientific validation suite weekly.
 
