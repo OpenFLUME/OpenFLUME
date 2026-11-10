@@ -1404,6 +1404,13 @@ export interface TransientResult {
   stepResiduals?: number[];
   stepResidualsScaled?: number[];
   /**
+   * Per-step inner Newton iterations (Jacobian evaluations) summed over the
+   * step's outer iterations — the cost of each step, which the residual
+   * series do not show (a step can certify after running every inner loop
+   * to maxIterations).  Present for fixed-stepping solves.
+   */
+  stepNewtonIterations?: number[];
+  /**
    * TT-WF accepted-step state histories, keyed by conductor id (present
    * only when the network configures ttWf conductors; optional and
    * backward-compatible).  See TtWfConductorHistory.

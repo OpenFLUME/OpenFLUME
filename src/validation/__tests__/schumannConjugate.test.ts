@@ -34,7 +34,7 @@ import {
   schumannParameters,
   type SchumannRun,
 } from "../schumannConjugate";
-import { validateNetwork } from "../../core";
+import { solveTransient, validateNetwork } from "../../core";
 
 describe("Anzelius–Schumann conjugate verification: fast configuration (N = 20, dt = 0.25 s)", () => {
   const runs: Record<string, SchumannRun> = {};
@@ -154,6 +154,33 @@ describe("Anzelius–Schumann conjugate verification: first-order convergence", 
         expect(p).toBeGreaterThan(0.8);
         expect(p).toBeLessThan(1.2);
       }
+    },
+  );
+});
+
+// Issue #54: at N ≥ 60 and tolerance 1e-10 the raw inner-Newton residual
+// sits on a floating-point floor of ~1.1e-10, just above tol, while the
+// certifying scaled residual is ~1e-14.  The inner loop used to run to
+// maxIterations on every outer iteration (500 Jacobians per step, 52 s for
+// these 20 steps at N = 60) before the step certified anyway.  The round-off
+// floor exit (INNER_FLOOR_STALL_ITERS in core/solver/step.ts) stops it after
+// two non-improving iterations; the trajectory is bit-identical, because the
+// iterate does not move while the loop grinds.
+describe("Anzelius–Schumann at N ≥ 60, tol 1e-10: inner Newton stops on its round-off floor (#54)", () => {
+  it.each([60, 80])(
+    "N = %s: 20 steps converge in a bounded number of Newton iterations",
+    (N) => {
+      const cfg = buildSchumannNetwork({ N, dt: 0.25, b: 0.94, tEnd: 5 });
+      expect(cfg.settings.tolerance).toBe(1e-10);
+      expect(cfg.settings.maxIterations).toBe(100);
+      const res = solveTransient(cfg);
+      expect(res.converged).toBe(true);
+      const iters = res.stepNewtonIterations!;
+      expect(iters).toHaveLength(20);
+      // Measured 43 over the 20 steps (5 on the first, 2 on each later one);
+      // 10 000 before the fix.
+      expect(iters.reduce((a, b) => a + b, 0)).toBeLessThanOrEqual(100);
+      expect(Math.max(...iters)).toBeLessThan(cfg.settings.maxIterations!);
     },
   );
 });

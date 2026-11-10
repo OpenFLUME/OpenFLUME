@@ -122,6 +122,19 @@ const INNER_BAIL_BAR_FACTOR = 100;
  *  relative improvement stayed below the bar. */
 const INNER_REL_IMPROVE_BAR = 1e-4;
 const INNER_NO_PROGRESS_LIMIT = 10;
+/**
+ * Round-off floor exit (transient only): after this many consecutive inner
+ * iterations without a relative improvement of INNER_REL_IMPROVE_BAR, with
+ * the raw norm inside the near-converged band [tol, tol·INNER_BAIL_BAR_FACTOR)
+ * and the CERTIFYING scaled residual at the best iterate below tol itself
+ * (1000× under the certification bar), the raw norm has reached its
+ * floating-point floor just above tol.  Newton cannot improve it, the
+ * no-progress bail above is gated off in this band, and without this exit
+ * the loop ran to maxIterations on every outer iteration of every step
+ * (issue #54: Anzelius–Schumann at N ≥ 60, tol 1e-10, 500 Jacobian builds
+ * per step) and then certified the step on the scaled residual anyway.
+ */
+const INNER_FLOOR_STALL_ITERS = 2;
 /** Hopeless inner grind: from `HOPELESS_INNER_MIN_ITER` on, an improvement of
  *  less than 10 % over the last `HOPELESS_INNER_WINDOW` iterations. */
 const HOPELESS_INNER_WINDOW = 20;
@@ -186,6 +199,9 @@ export interface SolveStepResult {
    */
   converged: boolean;
   iterations: number;
+  /** Inner Newton iterations (Jacobian evaluations) summed over the outer
+   *  iterations of this solve. */
+  newtonIterations?: number;
   residual: number;
   residualScaled?: number;
   aborted?: boolean;
@@ -242,6 +258,9 @@ export function solveStateStep(
   const entry = cloneStepState(state);
   let best: SolveStepResult | undefined;
   let bestState: StepState | undefined;
+  // Newton iterations over every tier tried, so the reported step cost
+  // includes the attempts that did not converge.
+  let cascadeNewtonIters = 0;
   // Adaptive tier ordering: hard dome-edge steps cluster within a run, and
   // the step-control that converged the previous hard step is likely to
   // converge the next one.  Try it first; on success, keep it first.  On
@@ -268,12 +287,13 @@ export function solveStateStep(
             maxOuter: Math.min(options.maxOuter ?? 1000, 6),
           };
     const res = solveStateStepAttempt(ctx, state, { ...budgeted, ...tier });
+    cascadeNewtonIters += res.newtonIterations ?? 0;
     if (res.converged) {
       ctx.lastGoodCascadeTier = tierIdx;
-      return res;
+      return { ...res, newtonIterations: cascadeNewtonIters };
     }
     if (options.shouldAbort && options.shouldAbort()) {
-      return { ...res, aborted: true };
+      return { ...res, newtonIterations: cascadeNewtonIters, aborted: true };
     }
     if (best === undefined || res.residual < best.residual) {
       best = res;
@@ -283,7 +303,7 @@ export function solveStateStep(
   // No tier converged: restore the best attempt's state and return it with
   // converged = false.
   copyStepStateInto(state, bestState!);
-  return best!;
+  return { ...best!, newtonIterations: cascadeNewtonIters };
 }
 
 // ──────────────────────────────────────────────────────────────────────────
@@ -1332,6 +1352,32 @@ function solveStateStepAttemptInner(
   let outerConverged = false;
   let finalResidual = 1e99;
   let totalIter = 0;
+  /** Inner Newton iterations (one Jacobian each) over every outer iteration
+   *  of this solve — the step's cost, reported as `newtonIterations`. */
+  let newtonIters = 0;
+  /** Raw merit norm at which an inner loop of THIS solve exited on the
+   *  round-off floor test (Infinity until one does).  A later outer
+   *  iteration that starts at or below it, with the certifying scaled
+   *  residual under tol, has nothing left for Newton to do (see
+   *  INNER_FLOOR_STALL_ITERS). */
+  let roundoffFloor = Infinity;
+  /** Certifying scaled norm for the round-off floor test.  Mass rows are
+   *  judged against CERTIFY_FLOOR_MASS / massRowWeight: with flow-scaled
+   *  mass rows (largest warm-start flow F < MASS_ROW_REF_FLOW) the 0.1 kg/s
+   *  floor would pass any imbalance of a microfluidic network, so the floor
+   *  shrinks with F exactly as the merit weight grows. */
+  const floorTestScaledNorm = (Rv: number[]): number => {
+    let acc = 0;
+    for (let i = 0; i < nVar; i++) {
+      const floor =
+        dof.kindOf(i) === "P"
+          ? CERTIFY_FLOOR_MASS / massRowWeight
+          : CERTIFY_FLOOR_POWER;
+      const v = Rv[i] / floor;
+      acc += v * v;
+    }
+    return Math.sqrt(acc);
+  };
   // Row-floor-scaled residual norm achieved by the MOST RECENT inner loop.
   // Unlike finalResidual (which is only updated when the inner loop meets
   // tol and otherwise stays at the 1e99 sentinel), this always reflects the
@@ -1849,6 +1895,29 @@ function solveStateStepAttemptInner(
     /** Best residual norm at the END of each inner iteration, indexed by
      *  iteration — the reference for the sliding-window grind test below. */
     const bestHistory: number[] = [];
+    /** Round-off floor test (see INNER_FLOOR_STALL_ITERS).  Evaluated only
+     *  every INNER_FLOOR_STALL_ITERS no-progress iterations inside the
+     *  near-converged band, so it costs one residual evaluation there and
+     *  nothing on any other path. */
+    const atRoundoffFloor = (): boolean => {
+      if (
+        dt === undefined ||
+        consecutiveNoProgress < INNER_FLOOR_STALL_ITERS ||
+        consecutiveNoProgress % INNER_FLOOR_STALL_ITERS !== 0 ||
+        !(bestResNorm < tol * INNER_BAIL_BAR_FACTOR)
+      ) {
+        return false;
+      }
+      let Rb: number[];
+      try {
+        Rb = computeResidual(bestX);
+      } catch {
+        return false;
+      }
+      if (!(floorTestScaledNorm(Rb) < tol)) return false;
+      roundoffFloor = Math.min(roundoffFloor, bestResNorm);
+      return true;
+    };
     pendingR = undefined;
     for (let iter = 0; iter < maxIterations; iter++) {
       if (pendingR !== undefined) {
@@ -1878,6 +1947,17 @@ function solveStateStepAttemptInner(
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
+      // An earlier inner loop of this solve exited on its round-off floor
+      // and this one starts no higher: accept without iterating.
+      if (
+        iter === 0 &&
+        dt !== undefined &&
+        Number.isFinite(roundoffFloor) &&
+        resNorm <= roundoffFloor * (1 + INNER_REL_IMPROVE_BAR) &&
+        floorTestScaledNorm(R) < tol
+      ) {
+        break;
+      }
       if (massRowWeight !== 1 && bestRawNorm < tol) {
         if (rawMetIter < 0) rawMetIter = iter;
         else if (iter - rawMetIter >= MASS_ROW_REFINE_ITERS) {
@@ -1885,6 +1965,7 @@ function solveStateStepAttemptInner(
           break;
         }
       }
+      newtonIters++;
       const useHybrid = (options.jacobian ?? "hybrid") === "hybrid";
       const J = useHybrid ? hybridJacobian(X, R) : numericalJacobian(X, R);
 
@@ -2051,6 +2132,10 @@ function solveStateStepAttemptInner(
             ) {
               break;
             }
+            if (atRoundoffFloor()) {
+              for (let k = 0; k < X.length; k++) X[k] = bestX[k];
+              break;
+            }
           }
         } else {
           consecutiveNoProgress++;
@@ -2059,6 +2144,10 @@ function solveStateStepAttemptInner(
             consecutiveNoProgress >= INNER_NO_PROGRESS_LIMIT &&
             bestResNorm > tol * INNER_BAIL_BAR_FACTOR
           ) {
+            break;
+          }
+          if (atRoundoffFloor()) {
+            for (let k = 0; k < X.length; k++) X[k] = bestX[k];
             break;
           }
         }
@@ -2408,6 +2497,7 @@ function solveStateStepAttemptInner(
         state,
         converged: outerConverged,
         iterations: totalIter,
+        newtonIterations: newtonIters,
         residual: returnResidual,
         residualScaled: lastInnerBestResScaled,
         aborted: true,
@@ -2542,6 +2632,7 @@ function solveStateStepAttemptInner(
     state,
     converged: outerConverged && chemistryFailed.length === 0,
     iterations: totalIter,
+    newtonIterations: newtonIters,
     residual: returnResidual < 1e99 ? returnResidual : finalResidual,
     residualScaled: lastInnerBestResScaled,
     ptcDeltaTau: ptcActive ? deltaTau : undefined,
