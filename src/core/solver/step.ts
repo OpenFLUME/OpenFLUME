@@ -36,6 +36,14 @@ import { createUniformDofMap } from "./dofMap";
 import { computeConductorHMap } from "./conductorH";
 import { solveThermalSubsystem } from "./thermal";
 import {
+  OuterCycleDetector,
+  OuterSnapshotBuilder,
+  outerCycleShortCircuitEnabled,
+  type OuterRecord,
+  type OuterSnapshot,
+} from "./outerCycle";
+import { recordOuterCycleShortCircuit } from "../perf";
+import {
   safeStatePH,
   safeInternalEnergyPH,
   clampToValidPHFor,
@@ -1935,7 +1943,65 @@ function solveStateStepAttemptInner(
     return false;
   }
 
+  // Exact limit-cycle detection (./outerCycle.ts).  Restricted to the
+  // configurations whose outer-to-outer carried state is fully captured by
+  // snapshotOuterCarry below: the transient real-fluid extended system with
+  // no species transport, no reacting junctions (their product-gas swap
+  // mutates ctx), no per-outer progress callback (it would be called fewer
+  // times) and the default pre-coupling certification bookkeeping.
+  const cycleDetector =
+    outerCycleShortCircuitEnabled() &&
+    useExtendedSystem &&
+    dt !== undefined &&
+    !ctx.hasSpecies &&
+    ctx.junctions.length === 0 &&
+    !checkAfterCoupling &&
+    options.onProgress === undefined
+      ? new OuterCycleDetector()
+      : undefined;
+  /** Per-outer bookkeeping needed to account for a replayed orbit exactly. */
+  const outerRecords: OuterRecord[] = [];
+  /** Set when an inner loop assigns the sticky finalResidual / totalIter
+   *  (reset at the top of every outer). */
+  let innerStopAssigned: boolean;
+  const snapshotOuterCarry = (): OuterSnapshot => {
+    const b = new OuterSnapshotBuilder()
+      .array(X)
+      .num(trustRegionDelta)
+      .num(deltaTau)
+      .num(roundoffFloor)
+      .num(stalledOuters)
+      .array(state.mdots)
+      .map("P", state.nodeP)
+      .map("T", state.nodeT)
+      .map("rho", state.nodeRho)
+      .map("mu", state.nodeMu)
+      .map("h", state.nodeH)
+      .map("x", state.nodeQuality)
+      .map("phase", state.nodePhase)
+      .map("Y", state.nodeY)
+      .map("solidT", state.solidT)
+      .map("hc", kernelEnv.conductorHMap);
+    if (tPicardDamp) {
+      for (const [id, d] of tPicardDamp) {
+        b.map(
+          `damp:${id}`,
+          new Map([
+            ["l", d.lastDelta],
+            ["r", d.relax],
+          ]),
+        );
+      }
+    }
+    return b.build();
+  };
+
   for (let outer = 0; outer < maxOuter; outer++) {
+    const newtonItersAtOuterStart = newtonIters;
+    const lastResortAtOuterStart = cycleDetector
+      ? getSolverDiagnostics().statePHFallbackCount.lastResort
+      : 0;
+    innerStopAssigned = false;
     // The compressible stagnation-T memo is valid only while the frozen
     // state maps are unchanged — drop it at each outer (the previous
     // outer's sync updated nodeT/nodeRho/mdots).
@@ -1970,6 +2036,7 @@ function solveStateStepAttemptInner(
       acceptedOnRawNorm = true;
       finalResidual = bestRawNorm;
       totalIter = iter;
+      innerStopAssigned = true;
       for (let k = 0; k < X.length; k++) X[k] = bestX[k];
     };
     let consecutiveNoProgress = 0;
@@ -2025,6 +2092,7 @@ function solveStateStepAttemptInner(
         // inner loop converged
         finalResidual = bestResNorm;
         totalIter = iter;
+        innerStopAssigned = true;
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
@@ -2245,6 +2313,7 @@ function solveStateStepAttemptInner(
         // inner loop converged
         finalResidual = bestResNorm;
         totalIter = iter;
+        innerStopAssigned = true;
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
@@ -2685,6 +2754,63 @@ function solveStateStepAttemptInner(
     ) {
       outerConverged = true;
       break;
+    }
+
+    // ── Exact limit-cycle short-circuit (see ./outerCycle.ts) ────────────
+    if (cycleDetector) {
+      outerRecords[outer] = {
+        newtonIters: newtonIters - newtonItersAtOuterStart,
+        innerStopAssigned,
+        finalResidual,
+        totalIter,
+        returnResidual,
+        lastInnerBestResScaled,
+        aboveBar: !(lastInnerBestResScaled <= tol * CERTIFY_SCALED_BAR_FACTOR),
+        lastResortDelta:
+          getSolverDiagnostics().statePHFallbackCount.lastResort -
+          lastResortAtOuterStart,
+      };
+      const j = cycleDetector.record(outer, snapshotOuterCarry());
+      if (j !== undefined) {
+        // The end-state of `outer` equals that of outer j: outers
+        // outer+1, outer+2, … would replay j+1 … outer verbatim until
+        // maxOuter.  Short-circuit only when that replay provably cannot
+        // change the outcome, i.e. when the orbit
+        //   • starts at j+1 ≥ 5, so the outer ≥ 5 soft-convergence test has
+        //     already been evaluated (and failed) on every orbit member;
+        //   • stays at or below the certifying bar throughout, so the
+        //     above-bar residual-trend detector (the only outer-index-
+        //     dependent exit) can never fire;
+        //   • recorded no last-resort property fallback (that global count
+        //     is reported per attempt as propertyFallbacks).
+        // The convergence test failed on every member, and no member can
+        // improve the best-outer bookkeeping again (strict <), so running on
+        // would end at maxOuter with the state restored from bestOuterState
+        // — exactly what the post-loop code below does after this break.
+        // Only the per-outer counters of the skipped replay remain; they are
+        // accumulated here so the reported values are identical too.
+        const period = outer - j;
+        let replayable = j + 1 >= 5 && bestOuterState !== undefined;
+        for (let m = j + 1; replayable && m <= outer; m++) {
+          const rec = outerRecords[m];
+          if (rec.aboveBar || rec.lastResortDelta !== 0) replayable = false;
+        }
+        if (replayable) {
+          for (let m = outer + 1; m < maxOuter; m++) {
+            const rec = outerRecords[j + 1 + ((m - j - 1) % period)];
+            newtonIters += rec.newtonIters;
+            if (rec.innerStopAssigned) {
+              finalResidual = rec.finalResidual;
+              totalIter = rec.totalIter;
+            }
+            returnResidual = rec.returnResidual;
+            lastInnerBestResScaled = rec.lastInnerBestResScaled;
+          }
+          recordOuterCycleShortCircuit(maxOuter - 1 - outer);
+          outerConverged = false;
+          break;
+        }
+      }
     }
   }
 
