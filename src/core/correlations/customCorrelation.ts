@@ -16,6 +16,7 @@ import type {
 } from "./types";
 import { FALLBACK_H_FLOOR } from "./types";
 import { massFluxAtNode, conductorFluid } from "./massFlux";
+import { perfEnabled, recordCustomH } from "../perf";
 
 /**
  * Every identifier the custom-h scope can expose — exactly the names
@@ -79,6 +80,25 @@ export const CUSTOM_H_SCOPE_IDENTIFIERS = [
  *   plus the expression builtins (min/max/sqrt/…/pi).
  */
 export function evaluateCustomCorrelationH(
+  cond: CorrelationConductor,
+  corr: Extract<ConvectionCorrelation, { model: "custom" }>,
+  ctx: CorrelationCtx,
+  state: CorrelationState,
+  fluidNodeId: string,
+  t: number | undefined,
+): number {
+  if (!perfEnabled) {
+    return evaluateCustomH(cond, corr, ctx, state, fluidNodeId, t);
+  }
+  const start = performance.now();
+  try {
+    return evaluateCustomH(cond, corr, ctx, state, fluidNodeId, t);
+  } finally {
+    recordCustomH(performance.now() - start);
+  }
+}
+
+function evaluateCustomH(
   cond: CorrelationConductor,
   corr: Extract<ConvectionCorrelation, { model: "custom" }>,
   ctx: CorrelationCtx,

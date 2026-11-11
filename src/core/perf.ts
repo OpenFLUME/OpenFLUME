@@ -46,6 +46,14 @@ export interface PerfSnapshot {
    */
   uniqueStatePH: number;
   uniqueInternalEnergyPH: number;
+  /** Custom-correlation h evaluations (evaluateCustomCorrelationH calls). */
+  customHEvals: number;
+  /** Inclusive wall of those evaluations (property calls included). */
+  customHMs: number;
+  /** Transient outer loops short-circuited on an exact limit cycle
+   *  (solver/outerCycle.ts), and the outer iterations that skipped. */
+  outerCycleShortCircuits: number;
+  outerItersSkipped: number;
 }
 
 const EMPTY_CALLS = (): Record<PropertyCallKind, number> => ({
@@ -81,11 +89,25 @@ let residualCallsInJacobian = 0;
 let jacobianHybrid = 0;
 let jacobianFd = 0;
 let jacobianDepth = 0;
+let customHEvals = 0;
+let customHMs = 0;
+let outerCycleShortCircuits = 0;
+let outerItersSkipped = 0;
 const statePHKeys = new Set<string>();
 const internalEnergyPHKeys = new Set<string>();
 
-export function setPerfEnabled(on: boolean): void {
+/** Whether recordPHKey keeps the exact-key sets behind uniqueStatePH /
+ *  uniqueInternalEnergyPH.  Those sets grow by one string per distinct
+ *  (P, h) — millions on a long transient, enough to drive the heap into GC
+ *  thrash — so long timing runs switch them off. */
+let trackUniqueKeys = true;
+
+export function setPerfEnabled(
+  on: boolean,
+  options?: { trackUniqueKeys?: boolean },
+): void {
   perfEnabled = on;
+  trackUniqueKeys = options?.trackUniqueKeys ?? true;
   resetPerf();
 }
 
@@ -102,6 +124,10 @@ export function resetPerf(): void {
   jacobianHybrid = 0;
   jacobianFd = 0;
   jacobianDepth = 0;
+  customHEvals = 0;
+  customHMs = 0;
+  outerCycleShortCircuits = 0;
+  outerItersSkipped = 0;
   statePHKeys.clear();
   internalEnergyPHKeys.clear();
 }
@@ -131,7 +157,7 @@ export function recordPHKey(
   P: number,
   h: number,
 ): void {
-  if (!perfEnabled) return;
+  if (!perfEnabled || !trackUniqueKeys) return;
   const key = `${fluidName}\0${P}\0${h}`;
   if (kind === "statePH") statePHKeys.add(key);
   else internalEnergyPHKeys.add(key);
@@ -169,6 +195,21 @@ export function leaveJacobian(): void {
   if (jacobianDepth > 0) jacobianDepth--;
 }
 
+/** Record one custom-h evaluation that took `ms` wall (inclusive). */
+export function recordCustomH(ms: number): void {
+  if (!perfEnabled) return;
+  customHEvals++;
+  customHMs += ms;
+}
+
+/** Record one exact limit-cycle short-circuit that skipped `skipped`
+ *  replayed outer iterations. */
+export function recordOuterCycleShortCircuit(skipped: number): void {
+  if (!perfEnabled) return;
+  outerCycleShortCircuits++;
+  outerItersSkipped += skipped;
+}
+
 export function getPerfSnapshot(): PerfSnapshot {
   return {
     propertyMs,
@@ -181,5 +222,9 @@ export function getPerfSnapshot(): PerfSnapshot {
     jacobianBuilds: { hybrid: jacobianHybrid, fd: jacobianFd },
     uniqueStatePH: statePHKeys.size,
     uniqueInternalEnergyPH: internalEnergyPHKeys.size,
+    customHEvals,
+    customHMs,
+    outerCycleShortCircuits,
+    outerItersSkipped,
   };
 }
