@@ -1,6 +1,6 @@
 # OpenFLUME
 
-> OpenFLUME (Open FLUid Model Environment) is an open-source (MIT), finite-volume thermo-fluid network solver in the class of NASA GFSSP and SINDA/FLUINT. It runs entirely in a web browser: the solver runs in a Web Worker, real-fluid properties come from CoolProp compiled to WebAssembly, and nothing is uploaded. It solves coupled mass, momentum, and energy equations on 1-D pipe-and-node networks with a Newton–Raphson steady solver and a backward-Euler transient solver. It is alpha software (v0.3.1).
+> OpenFLUME (Open FLUid Model Environment) is an open-source (MIT), finite-volume thermo-fluid network solver in the class of NASA GFSSP and SINDA/FLUINT. It runs entirely in a web browser: the solver runs in a Web Worker, real-fluid properties come from CoolProp compiled to WebAssembly, and nothing is uploaded. It solves coupled mass, momentum, and energy equations on 1-D pipe-and-node networks with a Newton–Raphson steady solver and a backward-Euler transient solver. It is alpha software (v0.4.0).
 
 Use it for preliminary design and analysis of propulsion feed systems, tank pressurization and blowdown, cryogenic line chilldown, spacecraft thermal/fluid loops, conjugate heat transfer, compressible duct flow (Fanno/Rayleigh, quasi-1-D nozzles), CEA-coupled combustion chambers, and microfluidic networks. It is not CFD. Out of scope: shock capture, method-of-characteristics water hammer, and separated-flow two-phase models (two-phase is homogeneous equilibrium only).
 

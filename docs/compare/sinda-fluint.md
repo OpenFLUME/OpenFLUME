@@ -10,7 +10,7 @@ with SINDA/FLUINT, reproduces some of its sample results, and falls short of
 it in several specific areas listed below.
 
 OpenFLUME is not affiliated with C&R Technologies. It is Alpha software
-(version 0.3.1).
+(version 0.4.0).
 
 ## About SINDA/FLUINT
 
