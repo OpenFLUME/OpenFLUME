@@ -985,31 +985,33 @@ specified in [`docs/parameter-bindings.md`](parameter-bindings.md).
 
 ## 3.11 Solver Settings
 
-| Field                     | Type                         | Required        | Default                     | Meaning                                                                                                                                                      |
-| ------------------------- | ---------------------------- | --------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mode`                    | `steady` / `transient`       | yes             | —                           | Solution mode                                                                                                                                                |
-| `tolerance`               | number                       | yes             | 1×10⁻⁶ (new network)        | Residual convergence threshold                                                                                                                               |
-| `maxIterations`           | number                       | yes             | 200 (new network)           | Newton iteration limit                                                                                                                                       |
-| `relaxation`              | number on (0,1]              | no              | 1.0 (0.9 for a new network) | Under-relaxation factor                                                                                                                                      |
-| `dt`                      | number                       | fixed transient | —                           | Time step, s                                                                                                                                                 |
-| `endTime`                 | number                       | transient       | —                           | Final time, s                                                                                                                                                |
-| `timeStepping`            | `fixed` / `adaptive`         | no              | `fixed`                     | Time-step control                                                                                                                                            |
-| `adaptive.dtMin`, `dtMax` | number                       | adaptive        | —                           | Step bounds, s; `dtMin` < `dtMax`                                                                                                                            |
-| `adaptive.relTol`         | number                       | adaptive        | —                           | Relative error tolerance                                                                                                                                     |
-| `adaptive.absTolP`        | number                       | no              | 100                         | Absolute pressure tolerance, Pa                                                                                                                              |
-| `adaptive.absTolT`        | number                       | no              | 0.01                        | Absolute temperature tolerance, K                                                                                                                            |
-| `adaptive.absTolMdot`     | number                       | no              | 1e-4                        | Absolute mass-flow tolerance for fluid-inertia branches, kg/s                                                                                                |
-| `adaptive.safety`         | number                       | no              | 0.9                         | Step-size safety factor                                                                                                                                      |
-| `adaptive.dtInitial`      | number                       | no              | derived                     | First step size, s                                                                                                                                           |
-| `steadySolver`            | `ptc` / `direct`             | no              | `ptc`                       | Real-fluid steady strategy                                                                                                                                   |
-| `globalization`           | `trustRegion` / `lineSearch` | no              | `trustRegion` (real fluid)  | Inner-loop globalization                                                                                                                                     |
-| `jacobian`                | `hybrid` / `fd`              | no              | `hybrid`                    | Analytic/FD or pure finite difference                                                                                                                        |
-| `momentumFlux`            | boolean                      | no              | `false`                     | Include convective acceleration term                                                                                                                         |
-| `kineticEnergy`           | boolean                      | no              | `false`                     | Stagnation-enthalpy transport (any fluid model; see section 4.1.4)                                                                                           |
-| `momentumFluxScheme`      | `upwind` / `central`         | no              | `upwind`                    | Momentum-flux face scheme for compressible branches: limited-upwind (seed-robust transonic) or exact endpoint form (section 4.1.2)                           |
-| `transonicAdmissibility`  | boolean                      | no              | `true`                      | Second-law audit + re-seed for central-scheme transonic roots, ideal-gas branches only (section 4.1.2; no effect unless `momentumFlux` is on with `central`) |
-| `gravity`                 | `{x,y,z}`                    | no              | `{0,0,−9.80665}`            | Gravity vector (see section 1.4)                                                                                                                             |
-| `certifyAfterCoupling`    | boolean                      | no              | `false`                     | Experimental: certify transient real-fluid steps on the post-coupling residual ([`solver-convergence.md`](solver-convergence.md) §1)                         |
+| Field                     | Type                         | Required        | Default                     | Meaning                                                                                                                                                                          |
+| ------------------------- | ---------------------------- | --------------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mode`                    | `steady` / `transient`       | yes             | —                           | Solution mode                                                                                                                                                                    |
+| `tolerance`               | number                       | yes             | 1×10⁻⁶ (new network)        | Residual convergence threshold                                                                                                                                                   |
+| `maxIterations`           | number                       | yes             | 200 (new network)           | Newton iteration limit                                                                                                                                                           |
+| `relaxation`              | number on (0,1]              | no              | 1.0 (0.9 for a new network) | Under-relaxation factor                                                                                                                                                          |
+| `dt`                      | number                       | fixed transient | —                           | Time step, s                                                                                                                                                                     |
+| `endTime`                 | number                       | transient       | —                           | Final time, s                                                                                                                                                                    |
+| `timeStepping`            | `fixed` / `adaptive`         | no              | `fixed`                     | Time-step control                                                                                                                                                                |
+| `adaptive.dtMin`, `dtMax` | number                       | adaptive        | —                           | Step bounds, s; `dtMin` < `dtMax`                                                                                                                                                |
+| `adaptive.relTol`         | number                       | adaptive        | —                           | Relative error tolerance                                                                                                                                                         |
+| `adaptive.absTolP`        | number                       | no              | 100                         | Absolute pressure tolerance, Pa                                                                                                                                                  |
+| `adaptive.absTolT`        | number                       | no              | 0.01                        | Absolute temperature tolerance, K                                                                                                                                                |
+| `adaptive.absTolMdot`     | number                       | no              | 1e-4                        | Absolute mass-flow tolerance for fluid-inertia branches, kg/s                                                                                                                    |
+| `adaptive.safety`         | number                       | no              | 0.9                         | Step-size safety factor                                                                                                                                                          |
+| `adaptive.dtInitial`      | number                       | no              | derived                     | First step size, s                                                                                                                                                               |
+| `steadySolver`            | `ptc` / `direct`             | no              | `ptc`                       | Real-fluid steady strategy                                                                                                                                                       |
+| `globalization`           | `trustRegion` / `lineSearch` | no              | `trustRegion` (real fluid)  | Inner-loop globalization                                                                                                                                                         |
+| `jacobian`                | `hybrid` / `fd`              | no              | `hybrid`                    | Analytic/FD or pure finite difference                                                                                                                                            |
+| `momentumFlux`            | boolean                      | no              | `false`                     | Include convective acceleration term                                                                                                                                             |
+| `kineticEnergy`           | boolean                      | no              | `false`                     | Stagnation-enthalpy transport (any fluid model; see section 4.1.4)                                                                                                               |
+| `momentumFluxScheme`      | `upwind` / `central`         | no              | `upwind`                    | Momentum-flux face scheme for compressible branches: limited-upwind (seed-robust transonic) or exact endpoint form (section 4.1.2)                                               |
+| `transonicAdmissibility`  | boolean                      | no              | `true`                      | Second-law audit + re-seed for central-scheme transonic roots, ideal-gas branches only (section 4.1.2; no effect unless `momentumFlux` is on with `central`)                     |
+| `gravity`                 | `{x,y,z}`                    | no              | `{0,0,−9.80665}`            | Gravity vector (see section 1.4)                                                                                                                                                 |
+| `certifyAfterCoupling`    | boolean                      | no              | `false`                     | Experimental: certify transient real-fluid steps on the post-coupling residual ([`solver-convergence.md`](solver-convergence.md) §1)                                             |
+| `closureFluidState`       | `current` / `lagged`         | no              | `current`                   | Transient: fluid state at which convection h correlations are evaluated — the current iterate, or the start of the step with the wall temperature still implicit (section 4.4.1) |
+| `maxOuterIterations`      | positive integer             | no              | 1000                        | Transient: cap on the outer coupling iterations of one step attempt; a safety net (section 4.4.1)                                                                                |
 
 ## 3.12 Presentation and Variant Records
 
@@ -1826,6 +1828,7 @@ entry; it is what the **Specified h** box stores when an equation is typed
 instead of a number.
 
 The coefficient is recomputed each outer iteration from the current node state
+(in transients, optionally from the start-of-step fluid state, section 4.4.1)
 and under-relaxed by a factor of 0.5 across outer loops, because an $h$ that
 jumps between iterations destabilizes the coupled solve. The value published as
 the `heatTransferCoeff` channel (and the `heatRate` derived from it) is
@@ -1836,6 +1839,68 @@ converged coupling. The reconstructed coefficient is
 $\dot Q_\text{series}/(A\Delta T_\text{solved})$ along a conduction path that
 shares the same $\Delta T$, not the reported $h$. See
 [`docs/solver-convergence.md`](solver-convergence.md) §4.
+
+### 4.4.1 Closure Fluid State in Transients
+
+In a transient step the outer coupling loop re-evaluates every correlation
+$h$ from the step's own current iterate (`settings.closureFluidState:
+"current"`, the default). When $h$ depends steeply on that iterate's fluid
+state, the loop can feed back on itself. An example is a custom expression
+with a dry-out taper such as `smoothstep(0.95, 1, quality)`: the node quality
+sets $h$, $h$ sets the wall heat flux, and the heat flux moves the quality
+across the taper. The iteration then swings between states instead of
+settling, runs to the outer-iteration cap, and returns its lowest-residual
+iterate.
+
+With `closureFluidState: "lagged"` every convection correlation (named models
+and custom expressions alike) reads its **fluid** inputs from the state at the
+start of the step, the last accepted state:
+
+- pressure and enthalpy, and everything derived from them: fluid temperature
+  `Tf`, `quality`, phase, `rho`, `mu`, `k`, `cp`, `Pr` and the saturation
+  properties a named model looks up;
+- the branch flows, and with them the mass flux `G` and `Re`.
+
+The **wall** temperature `Tw` stays the current iterate, so a regime switch
+on wall superheat (film to nucleate boiling, a rewet latch) is still
+implicit. Only the evaluation of $h$ changes. The conductor heat rate is
+still $\dot Q = hA\,(T_\text{wall} - T_\text{fluid})$ with both temperatures
+at the current iterate, exactly as in the default mode. For the Darr–Hartwig
+and TT-WF models, which return a secant coefficient
+$h = q(T_w, \text{fluid})/(T_w - T_f)$, the secant is formed with the
+start-of-step fluid temperature and then applied to the current difference.
+Within a step $h$ then depends only on the wall temperature, which removes
+the feedback through the fluid state. The coefficient is still under-relaxed
+between outer iterations and still frozen inside each inner Newton solve; no
+derivative of $h$ enters the Jacobian in either mode.
+
+The start-of-step state is the state the step's storage terms use: the
+initial state for the first step, the start of each half step under adaptive
+step doubling, and the same state for every retry of a step that does not
+converge at first. The `heatTransferCoeff` and `heatRate` histories are
+recorded with the same lagged fluid inputs. Steady solves ignore the setting.
+
+The price is an $O(\Delta t)$ lag in the response of $h$ to the fluid state,
+a first-order splitting error of the same order as the backward-Euler
+time discretization, and it can be the larger of the two. On a 7 m LN₂
+chilldown line (10 segments, a custom h with a dry-out taper) the
+wall-temperature histories of the lagged run differ from the default mode by
+0.53 K RMS at `dt` = 0.25 s and by 0.27 K at 0.125 s (largest 15 K and 7.2 K,
+at the inlet wall as the quench front passes), while halving `dt` in the
+default mode moves them by 0.09 K. Compare a lagged run at two step sizes
+before relying on it. The setting is a modelling choice, not a convergence aid to switch on
+by default: in the default mode a step that runs to the cap shows that the
+closure feeds back on the iterate, and the lagged mode accepts the lag in
+exchange for removing that feedback.
+
+`settings.maxOuterIterations` (default 1000, a positive integer) caps the
+outer coupling iterations of one step attempt. It is a safety net, not a
+tuning knob: a step that reaches it returns its lowest-residual outer iterate
+and is certified only if that iterate meets the convergence bar. Fixed-step
+results report the outer iterations of every step in `stepOuterIterations`
+(summed over the step's retry attempts, like `stepNewtonIterations`), and
+every transient result reports in `outerCapSteps` how many steps (adaptive:
+candidate solves) ran an attempt to the cap.
 
 ## 4.5 Transient Momentum and Trapped Gas
 
@@ -1956,7 +2021,8 @@ Marching from $t = 0$ to `endTime` in uniform steps of `dt`, each step:
    and the per-step residual series `stepResiduals` / `stepResidualsScaled`
    record the raw and scaled norm that was achieved; `stepNewtonIterations`
    records each step's inner Newton iterations (Jacobian evaluations) over
-   all its outer iterations. Unlike adaptive stepping,
+   all its outer iterations, and `stepOuterIterations` the outer coupling
+   iterations themselves (section 4.4.1). Unlike adaptive stepping,
    fixed stepping never retries with a smaller $\Delta t$.
 
 ### 4.6.3 Transient — Adaptive Step
