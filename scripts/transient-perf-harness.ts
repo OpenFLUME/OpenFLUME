@@ -4,7 +4,12 @@
  * Python bridge, python/bridge/server.ts).
  *
  *   npx tsx scripts/transient-perf-harness.ts <config.json> \
- *       [--end <s>] [--out <result.json>] [--quiet]
+ *       [--end <s>] [--out <result.json>] [--quiet] \
+ *       [--set <settingsKey>=<value> ...]
+ *
+ * --set overrides one top-level `settings` field (repeatable); the value is
+ * parsed as JSON when it parses, else taken as a string — e.g.
+ * `--set closureFluidState=lagged --set dt=0.125`.
  *
  * Prints, per step: simulated time, wall ms, Newton residual evaluations,
  * Jacobian builds, dense solves, custom-h expression evaluations, property
@@ -47,6 +52,23 @@ const t0 = performance.now();
 const raw = JSON.parse(readFileSync(file, "utf8")) as unknown;
 const config = decodeNetworkConfig(raw);
 if (endOverride !== undefined) config.settings.endTime = Number(endOverride);
+for (let i = 0; i < args.length; i++) {
+  if (args[i] !== "--set") continue;
+  const kv = args[i + 1] ?? "";
+  const eq = kv.indexOf("=");
+  if (eq <= 0) {
+    console.error(`--set expects key=value, got "${kv}"`);
+    process.exit(2);
+  }
+  const raw = kv.slice(eq + 1);
+  let value: unknown;
+  try {
+    value = JSON.parse(raw);
+  } catch {
+    value = raw;
+  }
+  (config.settings as Record<string, unknown>)[kv.slice(0, eq)] = value;
+}
 const tDecode = performance.now();
 const errors = validateNetwork(config);
 const tValidate = performance.now();
@@ -103,6 +125,17 @@ const result = solveTransient(config, {
   },
 });
 const solveEnd = performance.now();
+function outerSummary(xs: number[] | undefined) {
+  if (!xs || xs.length === 0) return undefined;
+  const sorted = [...xs].sort((a, b) => a - b);
+  const mid = sorted.length >> 1;
+  return {
+    max: sorted[sorted.length - 1],
+    median:
+      sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2,
+    total: xs.reduce((a, b) => a + b, 0),
+  };
+}
 const snap = getPerfSnapshot();
 setPerfEnabled(false);
 
@@ -113,6 +146,13 @@ console.log(
       endTime: config.settings.endTime,
       steps: result.times.length - 1,
       converged: result.converged,
+      settings: {
+        dt: config.settings.dt,
+        closureFluidState: config.settings.closureFluidState,
+        maxOuterIterations: config.settings.maxOuterIterations,
+      },
+      outerIterations: outerSummary(result.stepOuterIterations),
+      outerCapSteps: result.outerCapSteps,
       wallMs: {
         readDecode: Math.round(tDecode - t0),
         validate: Math.round(tValidate - tDecode),
