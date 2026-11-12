@@ -127,3 +127,25 @@ def test_nonfinite_numbers_survive_round_trip():
     with pytest.raises(of.ConfigDecodeError) as info:
         net.validate()
     assert info.value.path == "branches[0].component.area"
+
+
+def test_transient_solver_settings_pass_through():
+    # settings.closureFluidState / maxOuterIterations reach the core as-is:
+    # valid values solve (and the outer-iteration diagnostics come back),
+    # invalid ones are rejected by the core validator.
+    net = of.example("Tank blowdown")
+    net.settings["endTime"] = 0.2
+    net.settings["closureFluidState"] = "lagged"
+    net.settings["maxOuterIterations"] = 50
+    result = net.solve()
+    assert result.converged
+    outers = result["stepOuterIterations"]
+    assert len(outers) == len(result.times) - 1
+    assert all(1 <= n <= 50 for n in outers)
+    assert result["outerCapSteps"] == 0
+
+    net.settings["maxOuterIterations"] = 0
+    net.settings["closureFluidState"] = "sometimes"
+    errors = net.validate()
+    assert any("settings.maxOuterIterations" in e for e in errors)
+    assert any("settings.closureFluidState" in e for e in errors)
