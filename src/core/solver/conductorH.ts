@@ -53,18 +53,22 @@ function buildCorrelationCtx(
   };
 }
 
-/** Build the minimal state expected by the correlation evaluator. */
+/** Build the minimal state expected by the correlation evaluator.  With
+ *  `fluidState`, every FLUID input (node P, T, h, quality, phase, μ and the
+ *  branch flows) comes from it while the WALL temperatures stay those of
+ *  `state` — the lagged closure fluid state (settings.closureFluidState). */
 function buildCorrelationState(
   state: StepState,
+  fluidState: StepState = state,
 ): import("../correlations").CorrelationState {
   return {
-    nodeP: state.nodeP,
-    nodeT: state.nodeT,
-    nodeH: state.nodeH,
-    nodeQuality: state.nodeQuality,
-    nodePhase: state.nodePhase,
-    nodeMu: state.nodeMu,
-    mdots: state.mdots,
+    nodeP: fluidState.nodeP,
+    nodeT: fluidState.nodeT,
+    nodeH: fluidState.nodeH,
+    nodeQuality: fluidState.nodeQuality,
+    nodePhase: fluidState.nodePhase,
+    nodeMu: fluidState.nodeMu,
+    mdots: fluidState.mdots,
     solidT: state.solidT,
   };
 }
@@ -192,15 +196,23 @@ export function updateFluidFrontStates(
 
 /** Compute the effective h for every convection conductor from the current state.
  *  `t` is the solve time [s] exposed to custom-model h expressions (0 when
- *  omitted — steady solves and t = 0 recordings). */
+ *  omitted — steady solves and t = 0 recordings).
+ *
+ *  `laggedFluidState` (settings.closureFluidState = "lagged"; transient
+ *  steps only): the start-of-(sub)step state whose FLUID-node quantities
+ *  feed the correlations, while the wall temperatures still come from
+ *  `state` (the current iterate).  Only the h evaluation sees it — the
+ *  conductor heat rate h·(T_wall − T_fluid) is formed elsewhere from the
+ *  current iterate.  Omitted: every input is taken from `state`. */
 export function computeConductorHMap(
   ctx: SolverContext,
   state: StepState,
   prevMap?: Map<string, number>,
   t?: number,
+  laggedFluidState?: StepState,
 ): Map<string, number> {
   const corrCtx = buildCorrelationCtx(ctx);
-  const corrState = buildCorrelationState(state);
+  const corrState = buildCorrelationState(state, laggedFluidState);
   const map = new Map<string, number>();
   for (const cond of ctx.conductors) {
     if (cond.type.kind !== "convection") continue;

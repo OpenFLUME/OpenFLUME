@@ -58,6 +58,8 @@ export function runFixedTimeStepping(
   const stepResiduals: number[] = [];
   const stepResidualsScaled: number[] = [];
   const stepNewtonIterations: number[] = [];
+  const stepOuterIterations: number[] = [];
+  let outerCapSteps = 0;
 
   for (let step = 1; step <= steps; step++) {
     if (options?.shouldAbort && options.shouldAbort()) {
@@ -103,6 +105,8 @@ export function runFixedTimeStepping(
     stepResiduals.push(res.residual);
     stepResidualsScaled.push(res.residualScaled ?? res.residual);
     stepNewtonIterations.push(res.newtonIterations ?? 0);
+    stepOuterIterations.push(res.outerIterations ?? 0);
+    if (res.hitOuterCap) outerCapSteps++;
 
     recordTransientStep(ctx, config, acc, t, state, prevState, dt);
 
@@ -149,6 +153,8 @@ export function runFixedTimeStepping(
         stepResiduals,
         stepResidualsScaled,
         stepNewtonIterations,
+        stepOuterIterations,
+        outerCapSteps,
         ...run.runtimeFields(),
       };
     }
@@ -192,6 +198,8 @@ export function runFixedTimeStepping(
     stepResiduals,
     stepResidualsScaled,
     stepNewtonIterations,
+    stepOuterIterations,
+    outerCapSteps,
     ...run.runtimeFields(),
   };
 }
