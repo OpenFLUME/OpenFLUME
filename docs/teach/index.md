@@ -11,7 +11,7 @@ hand, build or open the matching model, run it, and explain the difference.
 Each lab ends with an answer key you can strip out before handing it to
 students.
 
-OpenFLUME is alpha software (version 0.4.0), written by one engineer with heavy
+OpenFLUME is alpha software (version 0.4.1), written by one engineer with heavy
 AI assistance (see "How This Was Built" in the README). The labs follow the
 project's motto, _check it rather than trust it_: the hand calculation comes
 first, and the solver result is something to verify.

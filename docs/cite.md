@@ -14,7 +14,7 @@ button reads.
 
 **APA**
 
-> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (Version 0.4.0) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22051608
+> Rising, J. (2026). _OpenFLUME: Open FLUid Model Environment_ (Version 0.4.1) [Computer software]. Zenodo. https://doi.org/10.5281/zenodo.22051608
 
 **BibTeX**
 
@@ -23,7 +23,7 @@ button reads.
   author    = {Rising, John},
   title     = "{OpenFLUME}: Open {FLUid} Model Environment",
   year      = {2026},
-  version   = {0.4.0},
+  version   = {0.4.1},
   publisher = {Zenodo},
   doi       = {10.5281/zenodo.22051608},
   url       = {https://doi.org/10.5281/zenodo.22051608},
@@ -38,7 +38,7 @@ change the entry type to `@misc` and keep the fields.
 ## Citing a specific version
 
 Results depend on the solver version, so cite the version you ran. The
-citation above is for 0.4.0. Zenodo archives each release, and the
+citation above is for 0.4.1. Zenodo archives each release, and the
 [Zenodo record](https://doi.org/10.5281/zenodo.22051608) lists the versions
 and their DOIs. For reproducible work, also record:
 
