@@ -267,4 +267,4 @@ cavitation only at venturi closure, turbomachinery as a pump curve only, no
 general junction mixing outside CEA reacting junctions, and homogeneous
 (HEM) two-phase flow only. Embedded user code is trusted, not sandboxed. A
 steady closed ideal-gas loop needs a pressure anchor. OpenFLUME is alpha
-software (0.4.0). The full list is in user manual §1.7.
+software (0.4.1). The full list is in user manual §1.7.

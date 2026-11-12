@@ -134,7 +134,7 @@ them against your model before rebuilding.
   or a transient run.
 - **No input-deck import** from either code.
 
-OpenFLUME is alpha software (0.4.0) by a single author, built with heavy AI
+OpenFLUME is alpha software (0.4.1) by a single author, built with heavy AI
 assistance. Every validation report is regenerated from live solves.
 
 ## Rebuilding a model

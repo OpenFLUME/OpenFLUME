@@ -713,6 +713,36 @@ export interface NetworkConfig {
      *  step.  Investigation flag only — do NOT enable by default until the
      *  dome-edge stall question is resolved. */
     certifyAfterCoupling?: boolean;
+    /**
+     * Fluid state at which transient convection-conductor h correlations
+     * (named models and `custom` expressions) are evaluated.  Transient
+     * solves only; steady solves ignore it.
+     *
+     *   "current" (default) — the current outer iterate of the step: h is
+     *     re-evaluated from the iterate's own fluid and wall state between
+     *     outer iterations (bit-identical to builds without the setting).
+     *   "lagged" — the FLUID-node inputs of every correlation (pressure,
+     *     enthalpy and everything derived from it: T, quality, phase,
+     *     density, viscosity, transport and saturation properties; branch
+     *     flows and mass flux G) are taken from the state at the start of
+     *     the (sub)step, i.e. the last accepted state.  The WALL (solid-node)
+     *     temperature stays the current iterate, so wall-driven regime
+     *     switches remain implicit.  Only the h evaluation changes: the
+     *     conductor heat rate is still h·(T_wall − T_fluid) with both
+     *     temperatures at the current iterate.  Introduces an O(dt) lag in
+     *     h's response to the fluid state; removes the outer-loop feedback
+     *     of a correlation that depends steeply on the iterate's own node
+     *     state (e.g. a dry-out taper in quality).
+     */
+    closureFluidState?: "current" | "lagged";
+    /**
+     * Cap on the outer (Picard) coupling iterations of one transient step
+     * attempt (default 1000).  A safety net: a step that reaches it returns
+     * its lowest-residual outer iterate; the count of steps that did is
+     * reported in `TransientResult.outerCapSteps`.  Positive integer.
+     * Transient solves only.
+     */
+    maxOuterIterations?: number;
     adaptive?: {
       dtInitial?: number;
       dtMin: number;
@@ -1410,6 +1440,19 @@ export interface TransientResult {
    * to maxIterations).  Present for fixed-stepping solves.
    */
   stepNewtonIterations?: number[];
+  /**
+   * Per-step outer (Picard) coupling iterations, summed over every attempt
+   * of the step's retry cascade (like stepNewtonIterations).  Present for
+   * fixed-stepping solves.
+   */
+  stepOuterIterations?: number[];
+  /**
+   * Number of solved steps (fixed stepping) or candidate solves (adaptive
+   * stepping) in which an attempt with the full configured budget ran to
+   * `settings.maxOuterIterations` without converging.  Such a step returns
+   * its lowest-residual outer iterate.  Present for transient solves.
+   */
+  outerCapSteps?: number;
   /**
    * TT-WF accepted-step state histories, keyed by conductor id (present
    * only when the network configures ttWf conductors; optional and

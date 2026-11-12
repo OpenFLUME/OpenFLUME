@@ -331,7 +331,18 @@ export function recordTransientStep(
   for (const sNode of config.solidNodes ?? []) {
     solidResults[sNode.id].temperature.push(state.solidT.get(sNode.id)!);
   }
-  const stepHMap = computeConductorHMap(ctx, state, undefined, t);
+  // Lagged closure fluid state: record h as the step evaluated it — fluid
+  // inputs from the start-of-step state the step was solved against
+  // (`prevState`), wall temperature from the accepted state.
+  const laggedFluidState =
+    config.settings.closureFluidState === "lagged" ? prevState : undefined;
+  const stepHMap = computeConductorHMap(
+    ctx,
+    state,
+    undefined,
+    t,
+    laggedFluidState,
+  );
   for (const cond of ctx.conductors) {
     const Tfrom =
       state.solidT.get(cond.from) ?? state.nodeT.get(cond.from) ?? 300;

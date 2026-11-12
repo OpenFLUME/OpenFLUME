@@ -546,6 +546,329 @@ function evalNode(node: ExprNode, scope: ExprScope | undefined): unknown {
 }
 
 /* ------------------------------------------------------------------ */
+/* Shared-subexpression evaluator                                      */
+/* ------------------------------------------------------------------ */
+//
+// Machine-generated expressions (e.g. a fitted boiling-curve correlation
+// pasted as a custom h) repeat the same subtrees massively: the 1 MB
+// chilldown h-expression that motivated this is a 143 573-node tree with
+// only 1 388 DISTINCT subtrees (log(clamp(P, …)) appears hundreds of times
+// inside nested Horner polynomials), so the tree walk above re-evaluates
+// each distinct subtree ~100× per call.
+//
+// compileExpression therefore hash-conses the AST into a DAG and evaluates
+// that, memoizing each node's value for the duration of ONE evaluation.  The
+// result is bit-identical to evalNode: every node is evaluated with exactly
+// the same operations in the same order the first time it is reached, and a
+// memoized node is only ever reused where the tree walk would have
+// re-evaluated a structurally identical subtree under the same scope, which
+// yields the same value because:
+//   • only "pure" nodes are memoized — no call to a non-builtin (scope-
+//     provided) function anywhere inside them.  Builtin names resolve to
+//     BUILTINS before the scope (see evalNode), and every builtin is a pure
+//     function of its arguments.
+//   • the memo is invalidated (epoch bump) after EVERY non-builtin call
+//     returns, so even a scope function that mutated scope state could not
+//     make a later read see a stale memoized value; a new evaluation (also
+//     a reentrant one from inside a scope function) starts a new epoch too.
+//   • a thrown error ends the evaluation (nothing is caught inside the
+//     evaluator), so failures are never memoized; short-circuit && / || and
+//     ?: still evaluate only the branch the tree walk would.
+
+type DagNode =
+  | { id: number; pure: boolean; type: "num"; value: number }
+  | { id: number; pure: boolean; type: "str"; value: string }
+  | { id: number; pure: boolean; type: "ident"; name: string }
+  | {
+      id: number;
+      pure: boolean;
+      type: "unary";
+      op: "-" | "+" | "!";
+      arg: DagNode;
+    }
+  | {
+      id: number;
+      pure: boolean;
+      type: "binary";
+      op: BinaryOp;
+      left: DagNode;
+      right: DagNode;
+    }
+  | {
+      id: number;
+      pure: boolean;
+      type: "cond";
+      cond: DagNode;
+      then: DagNode;
+      else: DagNode;
+    }
+  | {
+      id: number;
+      pure: boolean;
+      type: "call";
+      callee: DagNode;
+      args: DagNode[];
+      /** Callee is a builtin name (resolved before scope) — pure call. */
+      builtinCallee: boolean;
+    }
+  | { id: number; pure: boolean; type: "prop"; object: DagNode; name: string };
+
+/** Hash-cons `ast` into a DAG of structurally distinct subtrees. */
+function buildDag(ast: ExprNode): { root: DagNode; size: number } {
+  const interned = new Map<string, DagNode>();
+  let nextId = 0;
+  // Iterative post-order: generated expressions can nest deeply.
+  const out = new Map<ExprNode, DagNode>();
+  const stack: Array<[ExprNode, boolean]> = [[ast, false]];
+  const children = (n: ExprNode): ExprNode[] => {
+    switch (n.type) {
+      case "unary":
+        return [n.arg];
+      case "binary":
+        return [n.left, n.right];
+      case "cond":
+        return [n.cond, n.then, n.else];
+      case "call":
+        return [n.callee, ...n.args];
+      case "prop":
+        return [n.object];
+      default:
+        return [];
+    }
+  };
+  while (stack.length > 0) {
+    const [n, expanded] = stack.pop()!;
+    if (out.has(n)) continue;
+    if (!expanded) {
+      stack.push([n, true]);
+      for (const c of children(n)) if (!out.has(c)) stack.push([c, false]);
+      continue;
+    }
+    const d = (c: ExprNode): DagNode => out.get(c)!;
+    let key: string;
+    let make: (id: number) => DagNode;
+    switch (n.type) {
+      case "num":
+        key = `n${Object.is(n.value, -0) ? "-0" : String(n.value)}`;
+        make = (id) => ({ id, pure: true, type: "num", value: n.value });
+        break;
+      case "str":
+        key = `s${JSON.stringify(n.value)}`;
+        make = (id) => ({ id, pure: true, type: "str", value: n.value });
+        break;
+      case "ident":
+        key = `i${n.name}`;
+        make = (id) => ({ id, pure: true, type: "ident", name: n.name });
+        break;
+      case "unary": {
+        const arg = d(n.arg);
+        key = `u${n.op}${arg.id}`;
+        make = (id) => ({ id, pure: arg.pure, type: "unary", op: n.op, arg });
+        break;
+      }
+      case "binary": {
+        const left = d(n.left);
+        const right = d(n.right);
+        key = `b${n.op}|${left.id}|${right.id}`;
+        make = (id) => ({
+          id,
+          pure: left.pure && right.pure,
+          type: "binary",
+          op: n.op,
+          left,
+          right,
+        });
+        break;
+      }
+      case "cond": {
+        const c = d(n.cond);
+        const th = d(n.then);
+        const el = d(n.else);
+        key = `c${c.id}|${th.id}|${el.id}`;
+        make = (id) => ({
+          id,
+          pure: c.pure && th.pure && el.pure,
+          type: "cond",
+          cond: c,
+          then: th,
+          else: el,
+        });
+        break;
+      }
+      case "call": {
+        const callee = d(n.callee);
+        const args = n.args.map(d);
+        const builtinCallee =
+          callee.type === "ident" &&
+          Object.prototype.hasOwnProperty.call(BUILTINS, callee.name);
+        key = `f${callee.id}(${args.map((a) => a.id).join(",")})`;
+        make = (id) => ({
+          id,
+          pure: builtinCallee && args.every((a) => a.pure),
+          type: "call",
+          callee,
+          args,
+          builtinCallee,
+        });
+        break;
+      }
+      case "prop": {
+        const object = d(n.object);
+        key = `p${object.id}.${n.name}`;
+        make = (id) => ({
+          id,
+          pure: object.pure,
+          type: "prop",
+          object,
+          name: n.name,
+        });
+        break;
+      }
+    }
+    let node = interned.get(key);
+    if (node === undefined) {
+      node = make(nextId++);
+      interned.set(key, node);
+    }
+    out.set(n, node);
+  }
+  return { root: out.get(ast)!, size: nextId };
+}
+
+/** Per-compiled-expression memo for evalDag. */
+interface DagMemo {
+  values: unknown[];
+  stamps: Float64Array;
+  epoch: number;
+}
+
+function evalDag(
+  node: DagNode,
+  scope: ExprScope | undefined,
+  m: DagMemo,
+): unknown {
+  if (node.pure && m.stamps[node.id] === m.epoch) return m.values[node.id];
+  let v: unknown;
+  switch (node.type) {
+    case "num":
+    case "str":
+      return node.value;
+    case "ident": {
+      if (Object.prototype.hasOwnProperty.call(BUILTINS, node.name)) {
+        v = BUILTINS[node.name];
+        break;
+      }
+      if (
+        scope !== undefined &&
+        scope !== null &&
+        Object.prototype.hasOwnProperty.call(scope, node.name)
+      ) {
+        v = scope[node.name];
+        break;
+      }
+      throw new ExpressionError(
+        "evaluate",
+        `Unknown identifier "${node.name}"`,
+      );
+    }
+    case "unary": {
+      const a = evalDag(node.arg, scope, m);
+      if (node.op === "!") {
+        v = !truthy(a);
+        break;
+      }
+      const n = toNumber(a, `unary "${node.op}"`);
+      v = node.op === "-" ? -n : n;
+      break;
+    }
+    case "binary": {
+      if (node.op === "&&") {
+        const left = evalDag(node.left, scope, m);
+        v = truthy(left) ? truthy(evalDag(node.right, scope, m)) : false;
+        break;
+      }
+      if (node.op === "||") {
+        const left = evalDag(node.left, scope, m);
+        v = truthy(left) ? true : truthy(evalDag(node.right, scope, m));
+        break;
+      }
+      v = evalBinary(
+        node.op,
+        evalDag(node.left, scope, m),
+        evalDag(node.right, scope, m),
+      );
+      break;
+    }
+    case "cond":
+      v = truthy(evalDag(node.cond, scope, m))
+        ? evalDag(node.then, scope, m)
+        : evalDag(node.else, scope, m);
+      break;
+    case "prop": {
+      const obj = evalDag(node.object, scope, m);
+      if (BLOCKED_PROPS.has(node.name)) {
+        throw new ExpressionError(
+          "evaluate",
+          `Property "${node.name}" is not allowed`,
+        );
+      }
+      if (
+        obj === null ||
+        obj === undefined ||
+        (typeof obj !== "object" && typeof obj !== "function")
+      ) {
+        throw new ExpressionError(
+          "evaluate",
+          `Cannot read property "${node.name}" of ${describe(obj)}`,
+        );
+      }
+      if (!Object.prototype.hasOwnProperty.call(obj, node.name)) {
+        throw new ExpressionError(
+          "evaluate",
+          `Unknown property "${node.name}"`,
+        );
+      }
+      v = (obj as Record<string, unknown>)[node.name];
+      break;
+    }
+    case "call": {
+      const callee = evalDag(node.callee, scope, m);
+      if (typeof callee !== "function") {
+        throw new ExpressionError(
+          "evaluate",
+          `Attempted to call ${describe(callee)}`,
+        );
+      }
+      const args = node.args.map((a) => evalDag(a, scope, m));
+      v = (callee as (...a: unknown[]) => unknown)(...args);
+      // A scope-provided (non-builtin) function may have side effects:
+      // nothing memoized before it returned is reused after.
+      if (!node.builtinCallee) m.epoch++;
+      break;
+    }
+  }
+  if (node.pure) {
+    m.values[node.id] = v;
+    m.stamps[node.id] = m.epoch;
+  }
+  return v;
+}
+
+/** Evaluate a DAG with a fresh memo epoch (reentrancy-safe). */
+function makeDagEvaluator(ast: ExprNode): (scope?: ExprScope) => unknown {
+  const { root, size } = buildDag(ast);
+  const memo: DagMemo = {
+    values: new Array<unknown>(size),
+    stamps: new Float64Array(size), // 0 = never stamped; epochs start at 1
+    epoch: 0,
+  };
+  return (scope?: ExprScope): unknown => {
+    memo.epoch++;
+    return evalDag(root, scope, memo);
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /* Public API                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -566,11 +889,17 @@ export function compileExpression(source: string): CompiledExpression {
     throw new ExpressionError("parse", "Expression must be a non-empty string");
   }
   const ast = parseExpression(source);
+  // Shared-subexpression evaluator, built on first evaluation (compile-only
+  // callers — validation, UI introspection — never pay for it).  Results are
+  // bit-identical to the plain tree walk evalNode; see evalDag.
+  let run: ((scope?: ExprScope) => unknown) | undefined;
+  const evalRoot = (scope?: ExprScope): unknown =>
+    (run ??= makeDagEvaluator(ast))(scope);
   const compiled: CompiledExpression = {
     source,
     ast,
     evaluate(scope?: ExprScope): ExprValue {
-      const v = evalNode(ast, scope);
+      const v = evalRoot(scope);
       if (
         typeof v === "number" ||
         typeof v === "string" ||
@@ -583,13 +912,22 @@ export function compileExpression(source: string): CompiledExpression {
       );
     },
     evaluateNumber(scope?: ExprScope): number {
-      return toNumber(evalNode(ast, scope), "Expression result");
+      return toNumber(evalRoot(scope), "Expression result");
     },
     evaluateBoolean(scope?: ExprScope): boolean {
-      return truthy(evalNode(ast, scope));
+      return truthy(evalRoot(scope));
     },
   };
   return Object.freeze(compiled);
+}
+
+/**
+ * Reference tree-walk evaluation of a parsed AST (no subexpression sharing).
+ * CompiledExpression evaluates through the memoized DAG instead (bit-identical
+ * results); this stays exported as the semantic reference for tests.
+ */
+export function evaluateAst(ast: ExprNode, scope?: ExprScope): unknown {
+  return evalNode(ast, scope);
 }
 
 /** One-shot convenience: compile and evaluate. */

@@ -1,7 +1,8 @@
 /**
  * `settings.mode === 'transient'` requirements: `dt`/`endTime` for fixed
  * stepping, or the `adaptive` block (dtMin/dtMax/relTol/dtInitial) plus
- * `endTime` for adaptive stepping.
+ * `endTime` for adaptive stepping.  Also the transient solver controls
+ * `closureFluidState` and `maxOuterIterations` (checked in every mode).
  */
 import type { ResolvedNetworkConfig } from "../schema";
 
@@ -9,6 +10,30 @@ export function validateTransientSettings(
   config: ResolvedNetworkConfig,
 ): string[] {
   const errors: string[] = [];
+  // Transient-only solver controls: checked in every mode so a typo is
+  // reported even when the model is solved steady (where they are ignored).
+  const { closureFluidState, maxOuterIterations } = config.settings;
+  if (
+    closureFluidState !== undefined &&
+    closureFluidState !== "current" &&
+    closureFluidState !== "lagged"
+  ) {
+    errors.push(
+      `settings.closureFluidState must be "current" or "lagged" (got ${JSON.stringify(closureFluidState)})`,
+    );
+  }
+  if (
+    maxOuterIterations !== undefined &&
+    !(
+      typeof maxOuterIterations === "number" &&
+      Number.isInteger(maxOuterIterations) &&
+      maxOuterIterations >= 1
+    )
+  ) {
+    errors.push(
+      `settings.maxOuterIterations must be a positive integer (got ${JSON.stringify(maxOuterIterations)})`,
+    );
+  }
   if (config.settings.mode !== "transient") return errors;
 
   const isAdaptive = config.settings.timeStepping === "adaptive";

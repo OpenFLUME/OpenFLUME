@@ -618,6 +618,19 @@ describe("custom correlation: cadence, under-relaxation, compilation", () => {
     expect(ctx.customExpressions.get("conv1")).toBe(compiled);
   });
 
+  it("buildSolverContext parses a source shared by several conductors once", () => {
+    const config = flowConfig({ model: "custom", expression: "100 + G * 0" });
+    const conv1 = config.conductors!.find((c) => c.id === "conv1")!;
+    config.conductors!.push({ ...structuredClone(conv1), id: "conv1b" });
+    const ctx = buildSolverContext(config);
+    expect(ctx.customExpressions.size).toBe(2);
+    // One immutable compiled form shared by reference (a ~1 MB generated
+    // correlation repeated on every segment is parsed once, not N times).
+    expect(ctx.customExpressions.get("conv1b")).toBe(
+      ctx.customExpressions.get("conv1"),
+    );
+  });
+
   it("transient: recorded h tracks the step time t (reporting path is unrelaxed)", () => {
     const config: NetworkConfig = {
       meta: { name: "custom-transient", version: 2 },

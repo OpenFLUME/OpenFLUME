@@ -227,6 +227,10 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
   // compile here is simply absent from the cache and the runtime evaluates
   // it as the fallback h (evaluateCustomCorrelationH never throws).
   const customExpressions = new Map<string, CompiledExpression>();
+  // Conductors generated from one template share the same (possibly very
+  // large — ~1 MB fitted-correlation) source: parse each distinct source once
+  // and share the immutable compiled form.
+  const compiledBySource = new Map<string, CompiledExpression>();
   for (const c of config.conductors ?? []) {
     if (
       c.type.kind === "convection" &&
@@ -235,7 +239,12 @@ export function buildSolverContext(inputConfig: NetworkConfig): SolverContext {
       const source = c.type.correlation.expression;
       if (typeof source === "string" && source.trim().length > 0) {
         try {
-          customExpressions.set(c.id, compileExpression(source));
+          let compiled = compiledBySource.get(source);
+          if (compiled === undefined) {
+            compiled = compileExpression(source);
+            compiledBySource.set(source, compiled);
+          }
+          customExpressions.set(c.id, compiled);
         } catch {
           // validated upstream; runtime falls back to the h floor
         }

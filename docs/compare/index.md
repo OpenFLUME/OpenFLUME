@@ -11,7 +11,7 @@ attached. The best-known tools in this class are NASA's GFSSP and C&R
 Technologies' SINDA/FLUINT; several commercial 1-D system-simulation packages
 overlap with it.
 
-OpenFLUME is **Alpha software (version 0.4.0)**. The other tools have years or
+OpenFLUME is **Alpha software (version 0.4.1)**. The other tools have years or
 decades of production use behind them. OpenFLUME's case rests on access,
 transparency, and auditability.
 
@@ -58,7 +58,7 @@ unverified here, not that the capability is missing.
 
 The full list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries).
 
-- **Alpha.** Version 0.4.0. Interfaces and file formats may change. Results
+- **Alpha.** Version 0.4.1. Interfaces and file formats may change. Results
   have no program, flight, or certification heritage.
 - **No shock capture.** Quasi-1-D compressible duct flow (Fanno and Rayleigh
   choking, converging–diverging nozzles) is supported. Normal shocks,

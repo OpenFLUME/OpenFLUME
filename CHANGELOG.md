@@ -9,6 +9,22 @@ Dates follow [ISO 8601](https://www.iso.org/iso-8601-date-and-time-format.html)
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-11-11
+
+Transient performance fixes and two transient solver settings whose defaults keep the previous behavior. With default settings, solutions are bit-identical to 0.4.0; transient results gain the diagnostic fields `stepOuterIterations` and `outerCapSteps`.
+
+### Added
+
+- `settings.closureFluidState: "lagged"` (transient; default `"current"`, bit-identical to 0.4.0). Every convection correlation, named models and custom expressions alike, is evaluated with the fluid-node inputs of the start-of-step state: pressure, enthalpy and everything derived from them (T, quality, phase, density, transport and saturation properties), and the branch flows behind G and Re. The wall temperature stays the current iterate, so regime switches on wall superheat stay implicit, and the conductor heat rate is still h·A·(T_wall − T_fluid) at the current iterate. Within a step h then depends only on the wall temperature. This removes the outer-loop feedback of a correlation that depends steeply on the iterate's own fluid state, such as a custom h with a dry-out taper `smoothstep(0.95, 1, quality)`, where the iteration swung between a wet and a dry state, ran to the 1000-outer cap and returned its lowest-residual iterate. It costs an O(Δt) lag in h's response to the fluid state. Retries and adaptive half steps lag to the start of their own (sub)step, the recorded `heatTransferCoeff`/`heatRate` use the same inputs, and steady solves ignore the setting ([user manual §4.4.1](docs/user-manual.md), [`solver-convergence.md`](docs/solver-convergence.md) §3.3). On the 7 m LN₂ chilldown line (10 segments, dt = 0.25 s), 0 to 40 s takes 10 s instead of 208 s and no step reaches the cap (18 did; at most 32 outers per step, median 3); the full 200 s run takes 69 s. Wall-temperature histories differ from the default mode by 0.53 K RMS on average over the wall nodes (largest 15 K, at the inlet wall as the quench front passes); at dt = 0.125 s the difference halves (0.27 K, largest 7.2 K), as an O(Δt) lag should. On this line the lag is the larger time-step error: halving dt in the default mode moves the wall temperatures by 0.09 K RMS. On a 15-segment liquid-hydrogen line (0 to 2 s), 6.5 s instead of 37 s, no cap hit (1 before), wall temperatures within 1.6 K.
+- `settings.maxOuterIterations` (transient, positive integer, default 1000) exposes the cap on the outer coupling iterations of one step attempt, as a safety net. Fixed-step results report the outer iterations of each step in `stepOuterIterations` (summed over the retry attempts, like `stepNewtonIterations`), and every transient result reports `outerCapSteps`, the number of steps (adaptive stepping: candidate solves) in which an attempt ran to the cap. Both settings are validated in every mode and pass through the Python package's `settings` dict unchanged.
+- `scripts/transient-perf-harness.ts --set key=value` overrides a `settings` field for a run (for example `--set closureFluidState=lagged --set dt=0.125`) and prints the outer-iteration summary.
+
+### Performance
+
+- Transient real-fluid steps whose coupled outer iteration falls into an exact periodic orbit no longer grind to the 1000-outer cap. With a discontinuous custom h correlation (a liquid/vapour branch switch), every inner Newton certifies but the state swings between the same iterates forever, so neither the settle test nor the above-bar progress detector fires. The outer loop now snapshots the state it carries between outer iterations (`src/core/solver/outerCycle.ts`). When a snapshot repeats bit for bit, the remaining outers would replay the recorded ones exactly, so the loop stops and adds up their iteration counts. The returned state, every history and `stepNewtonIterations` are bit-identical to the full run. On a 7 m LN₂ chilldown line (10 segments, dt = 0.25 s, 200 s) 11 steps hit such an orbit; they took about 12 to 22 s each and now take 1.5 to 8 s. Orbits that repeat only up to round-off (113 steps of the same run, about 14 s each) are not detected and still run to the cap. With `settings.closureFluidState: "lagged"` (see Added) no step of that run reaches the cap.
+- Expressions (custom h correlations, logic rules, parameter formulas) are evaluated over a hash-consed DAG, and a repeated subexpression is computed once per evaluation instead of at every occurrence, with bit-identical results. Only subexpressions built from literals, variables and built-in functions are shared; one that calls a function supplied by the caller's scope is re-evaluated, and such a call clears the shared values. Generated correlations repeat subtrees heavily: the 1 MB chilldown h expression has 143,573 nodes but only 1,388 distinct subtrees, and the liquid branch now evaluates 17 to 43 times faster (0.5 to 1.7 ms down to 30 to 40 µs). `buildSolverContext` parses a custom h source that several conductors share once.
+- `scripts/transient-perf-harness.ts` prints per-step wall time, residual, Jacobian, linear-solve, custom-h and property-call counts for any transient `NetworkConfig`. `scripts/compare-transient-results.ts` compares two saved results element by element. `setPerfEnabled(true, { trackUniqueKeys: false })` turns off the exact-key sets, which grow without bound on long runs.
+
 ## [0.4.0] - 2026-11-10
 
 ### Added
@@ -763,7 +779,8 @@ Initial public release of OpenFLUME (Open FLUid Model Environment).
   results honor the display-unit preferences).
 - Parameter sweeps and convergence diaries are session-only (not persisted).
 
-[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/OpenFLUME/OpenFLUME/compare/v0.2.2...v0.3.0

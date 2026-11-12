@@ -18,6 +18,9 @@
  *    only for steady solves.
  *  - `certifyAfterCoupling` (re-measure the certifying residual after the
  *    segregated coupling update) exists only for transient steps.
+ *  - `maxOuter` (settings.maxOuterIterations) and `closureFluidState` are
+ *    transient-only: a steady solve keeps the built-in outer cap and always
+ *    evaluates h at the current iterate (there is no start-of-step state).
  */
 import type { NetworkConfig } from "../schema";
 import type { SolveStepOptions } from "./step";
@@ -35,6 +38,8 @@ export type StepControls = Pick<
   | "globalization"
   | "steadySolver"
   | "certifyAfterCoupling"
+  | "maxOuter"
+  | "closureFluidState"
 >;
 
 export function steadyStepControls(settings: Settings): StepControls {
@@ -56,5 +61,8 @@ export function transientStepControls(settings: Settings): StepControls {
     jacobian: settings.jacobian ?? "hybrid",
     globalization: settings.globalization ?? "lineSearch",
     certifyAfterCoupling: settings.certifyAfterCoupling === true,
+    // Undefined keeps the attempt's built-in default (1000 outers).
+    maxOuter: settings.maxOuterIterations,
+    closureFluidState: settings.closureFluidState ?? "current",
   };
 }

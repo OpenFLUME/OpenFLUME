@@ -10,7 +10,7 @@ script, and share. It reproduces several published GFSSP results; for work
 that needs GFSSP's features or heritage, GFSSP remains the right tool.
 
 OpenFLUME is not affiliated with or endorsed by NASA. It is Alpha software
-(version 0.4.0) with none of GFSSP's program heritage.
+(version 0.4.1) with none of GFSSP's program heritage.
 
 ## About GFSSP
 

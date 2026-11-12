@@ -33,7 +33,7 @@ These factors explain why the envelope distinguishes descent from stalling:
 - A limit cycle visits its envelope minimum once and never improves it afterwards, so it trips the detector ~14 outers after the minimum is first reached. Envelope stagnation represents the cycle signature, meaning no period detection is needed. Transient regime-flip bounces can span >3× in amplitude before plunging, so only patience separates them from true cycles.
 - A flat no-root grind (emergent-venturi class) trips it after 14 outers. This provides a bounded, acceptable cost.
 
-Scope: extended system only. Non-extended paths (incompressible / ideal-gas / steady) keep the legacy state-motion 3-strike stall test bit-for-bit. The iteration caps (maxOuter=1000, 200 inner), the retry-cascade tier budgets and all convergence-accept paths are unchanged.
+Scope: extended system only. Non-extended paths (incompressible / ideal-gas / steady) keep the legacy state-motion 3-strike stall test bit-for-bit. The iteration caps (maxOuter=1000 unless `settings.maxOuterIterations` is set, 200 inner), the retry-cascade tier budgets and all convergence-accept paths are unchanged.
 
 ### 3.1 Inner-loop hopeless-grind window
 
@@ -54,6 +54,16 @@ In a transient step the inner loop now stops when all of the following hold:
 - the certifying scaled residual at the best iterate is below `tol` itself, 1000 times under the certification bar. Here the mass rows are judged against 0.1 kg/s divided by the low-flow mass-row weight, so that a microfluidic network cannot pass on an absolute mass floor.
 
 The norm at which the loop stopped is remembered for the rest of the step. A later outer iteration that starts no higher than that norm, with the same scaled test met, is accepted without iterating. The iterate does not move while the loop grinds, so stopping early returns the same state. The Schumann trajectories at N = 20 to 80 are bit-identical with and without the exit, and the 20 steps at N = 60 drop from 39 s to 0.24 s. Steady solves are not affected. The per-step cost is reported in `TransientResult.stepNewtonIterations` (fixed stepping).
+
+### 3.3 Feedback of h through the fluid iterate (`closureFluidState`)
+
+The outer loop re-evaluates each correlation h from the current iterate and under-relaxes it by 0.5. When h depends steeply but continuously on the iterate's own fluid state, this fixed-point map can be expanding: a custom chilldown expression with a dry-out taper `smoothstep(0.95, 1, quality)` drops h by orders of magnitude over 5 % of quality, the wall heat flux moves the node quality across the taper, and the iteration swings between a wet and a dry iterate. Neither the settle test nor the residual-trend detector fires (the inner Newtons certify), so the step runs to the outer cap and returns its lowest-residual iterate, which then depends on where the orbit happened to be. On a 7 m LN₂ line with N = 10 at dt = 0.25 s, these steps were about 92 % of the run time; the exact-orbit short-circuit (`outerCycle.ts`) covers only orbits that repeat bit for bit.
+
+`settings.closureFluidState: "lagged"` evaluates every convection correlation with the fluid inputs of the start-of-step state (`prevState`: P, h and everything derived from them, branch flows and G) and the current wall temperature. Within the step h is then a function of T_w alone, which removes the feedback through the fluid state (feedback through T_w alone, such as a boiling curve, remains implicit and can in principle still fail to settle). The heat rate is still h·A·(T_w − T_f) at the current iterate in the fluid energy rows and in the wall solve, so only the h argument lags, by one step: an O(dt) splitting error. Named models are lagged as well as custom expressions; their quality, density and G dependence is the same feedback path, and a mode that lagged only some conductors would mix two time discretizations in one network. Retry tiers, the dome-exit restart and adaptive half steps all lag to the start of their own (sub)step, which is the state their storage terms use. Steady solves ignore the setting.
+
+Measured on that line (0 to 40 s): the default mode ran 18 steps to the cap (median 7 outers per step, 208 s); lagged, no step exceeded 32 outers (median 3, 10 s), and the full 200 s run took 69 s. The lagged wall temperatures differ from the default mode by 0.53 K RMS averaged over the wall nodes at dt = 0.25 s and by 0.27 K at 0.125 s, i.e. first order in dt; halving dt in the default mode moves them by only 0.09 K, so on this case the lag is the dominant time-step error.
+
+`settings.maxOuterIterations` (default 1000) exposes the cap. Per-step outer counts are reported in `TransientResult.stepOuterIterations` (fixed stepping, summed over retry attempts, outers skipped by the exact-orbit short-circuit counted as run) and the number of steps that ran an attempt with the full budget to the cap in `TransientResult.outerCapSteps`.
 
 ## 4. Limitations
 

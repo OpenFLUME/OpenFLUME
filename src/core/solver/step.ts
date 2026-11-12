@@ -36,6 +36,14 @@ import { createUniformDofMap } from "./dofMap";
 import { computeConductorHMap } from "./conductorH";
 import { solveThermalSubsystem } from "./thermal";
 import {
+  OuterCycleDetector,
+  OuterSnapshotBuilder,
+  outerCycleShortCircuitEnabled,
+  type OuterRecord,
+  type OuterSnapshot,
+} from "./outerCycle";
+import { recordOuterCycleShortCircuit } from "../perf";
+import {
   safeStatePH,
   safeInternalEnergyPH,
   clampToValidPHFor,
@@ -175,6 +183,10 @@ const OUTER_PROGRESS_IMPROVE_FACTOR = 0.98;
  */
 const STEADY_ORIFICE_MAX_P_DROP = 0.2;
 
+/** Default cap on the outer (Picard) coupling iterations of one step
+ *  attempt; settings.maxOuterIterations overrides it in transient solves. */
+const MAX_OUTER_DEFAULT = 1000;
+
 export interface SolveStepOptions {
   dt?: number;
   t?: number;
@@ -189,6 +201,11 @@ export interface SolveStepOptions {
   globalization?: "trustRegion" | "lineSearch";
   jacobian?: "hybrid" | "fd";
   certifyAfterCoupling?: boolean;
+  /** settings.closureFluidState: "lagged" evaluates convection h
+   *  correlations at the FLUID state of `prevState` (start of the
+   *  (sub)step) and the current wall temperature.  Transient only (needs
+   *  dt and prevState); "current"/undefined is the iterate-state default. */
+  closureFluidState?: "current" | "lagged";
   /** Internal (retry cascade): enthalpy warm start for selected nodes of the
    *  extended system, replacing the explicit predictor there — see
    *  domeExitWarmStart. */
@@ -206,6 +223,14 @@ export interface SolveStepResult {
   /** Inner Newton iterations (Jacobian evaluations) summed over the outer
    *  iterations of this solve. */
   newtonIterations?: number;
+  /** Outer (Picard) coupling iterations of this solve (summed over the
+   *  attempts of the retry cascade).  Outers skipped by the exact
+   *  limit-cycle short-circuit count as run (the result equals the full
+   *  grind). */
+  outerIterations?: number;
+  /** True when an attempt ran its outer budget to the configured cap
+   *  (`maxOuter`) without converging. */
+  hitOuterCap?: boolean;
   residual: number;
   residualScaled?: number;
   aborted?: boolean;
@@ -265,6 +290,23 @@ export function solveStateStep(
   // Newton iterations over every tier tried, so the reported step cost
   // includes the attempts that did not converge.
   let cascadeNewtonIters = 0;
+  let cascadeOuterIters = 0;
+  // A retry tier's outer budget is min(maxOuter, 6); it "hits the cap" only
+  // when that equals the configured cap (the attempt's own flag compares
+  // against its own budget).
+  const configuredMaxOuter = options.maxOuter ?? MAX_OUTER_DEFAULT;
+  let cascadeHitCap = false;
+  const tally = (res: SolveStepResult, budget: number): void => {
+    cascadeNewtonIters += res.newtonIterations ?? 0;
+    cascadeOuterIters += res.outerIterations ?? 0;
+    if (res.hitOuterCap && budget >= configuredMaxOuter) cascadeHitCap = true;
+  };
+  const withCascadeCounts = (res: SolveStepResult): SolveStepResult => ({
+    ...res,
+    newtonIterations: cascadeNewtonIters,
+    outerIterations: cascadeOuterIters,
+    hitOuterCap: cascadeHitCap,
+  });
   // Adaptive tier ordering: hard dome-edge steps cluster within a run, and
   // the step-control that converged the previous hard step is likely to
   // converge the next one.  Try it first; on success, keep it first.  On
@@ -288,16 +330,16 @@ export function solveStateStep(
         : {
             ...options,
             maxIterations: Math.min(options.maxIterations, 35),
-            maxOuter: Math.min(options.maxOuter ?? 1000, 6),
+            maxOuter: Math.min(configuredMaxOuter, 6),
           };
     const res = solveStateStepAttempt(ctx, state, { ...budgeted, ...tier });
-    cascadeNewtonIters += res.newtonIterations ?? 0;
+    tally(res, budgeted.maxOuter ?? MAX_OUTER_DEFAULT);
     if (res.converged) {
       ctx.lastGoodCascadeTier = tierIdx;
-      return { ...res, newtonIterations: cascadeNewtonIters };
+      return withCascadeCounts(res);
     }
     if (options.shouldAbort && options.shouldAbort()) {
-      return { ...res, newtonIterations: cascadeNewtonIters, aborted: true };
+      return { ...withCascadeCounts(res), aborted: true };
     }
     if (best === undefined || res.residual < best.residual) {
       best = res;
@@ -322,13 +364,13 @@ export function solveStateStep(
     const res = solveStateStepAttempt(ctx, state, {
       ...options,
       maxIterations: Math.min(options.maxIterations, 35),
-      maxOuter: Math.min(options.maxOuter ?? 1000, 6),
+      maxOuter: Math.min(configuredMaxOuter, 6),
       ...uniqueTiers[0],
       energyWarmStart: flip,
     });
-    cascadeNewtonIters += res.newtonIterations ?? 0;
+    tally(res, Math.min(configuredMaxOuter, 6));
     if (res.converged) {
-      return { ...res, newtonIterations: cascadeNewtonIters };
+      return withCascadeCounts(res);
     }
     if (res.residual < best!.residual) {
       best = res;
@@ -338,7 +380,7 @@ export function solveStateStep(
   // No tier converged: restore the best attempt's state and return it with
   // converged = false.
   copyStepStateInto(state, bestState!);
-  return { ...best!, newtonIterations: cascadeNewtonIters };
+  return withCascadeCounts(best!);
 }
 
 /** Fraction of the latent heat h_g − h_f by which domeExitWarmStart places a
@@ -1199,7 +1241,7 @@ function solveStateStepAttemptInner(
   options: SolveStepOptions,
 ): SolveStepResult {
   const { nodeMap, internalIds, nInt, nBranch } = ctx;
-  const maxOuterDefault = 1000;
+  const maxOuterDefault = MAX_OUTER_DEFAULT;
   const maxIterDefault = 200;
   const maxIterations = options.maxIterations ?? maxIterDefault;
   const {
@@ -1211,6 +1253,21 @@ function solveStateStepAttemptInner(
     maxOuter = maxOuterDefault,
   } = options;
   const relax = relaxation;
+  // Lagged closure fluid state (settings.closureFluidState = "lagged"):
+  // the h correlations read the fluid state of the start of this (sub)step
+  // — prevState, the accepted state the step's storage terms are taken
+  // from (the initial state on the first step; the start of the half step
+  // under adaptive step-doubling; the same state for every retry tier) —
+  // and the CURRENT wall temperature.  Within the step h then depends only
+  // on the wall iterate.  h stays frozen inside each inner Newton solve
+  // either way (no h derivative enters the Jacobian), so nothing else
+  // changes.  Steady solves (no dt / prevState) are unaffected.
+  const laggedFluidState =
+    options.closureFluidState === "lagged" &&
+    dt !== undefined &&
+    prevState !== undefined
+      ? prevState
+      : undefined;
   // Extended system: for real-fluid transient single-phase, solve [P, mdot, h]
   // simultaneously.  The 3×3 Jacobian is ill-conditioned in the two-phase dome
   // because density collapses and the FD derivatives become noisy, so we fall
@@ -1413,7 +1470,13 @@ function solveStateStepAttemptInner(
     useExtendedSystem,
     useCoupledH,
     dof,
-    conductorHMap: computeConductorHMap(ctx, state, undefined, t),
+    conductorHMap: computeConductorHMap(
+      ctx,
+      state,
+      undefined,
+      t,
+      laggedFluidState,
+    ),
   };
   const kernel = makeKernel(kernelEnv);
   const { computeResidual, hybridJacobian, numericalJacobian } = kernel;
@@ -1935,7 +1998,69 @@ function solveStateStepAttemptInner(
     return false;
   }
 
+  // Exact limit-cycle detection (./outerCycle.ts).  Restricted to the
+  // configurations whose outer-to-outer carried state is fully captured by
+  // snapshotOuterCarry below: the transient real-fluid extended system with
+  // no species transport, no reacting junctions (their product-gas swap
+  // mutates ctx), no per-outer progress callback (it would be called fewer
+  // times) and the default pre-coupling certification bookkeeping.
+  const cycleDetector =
+    outerCycleShortCircuitEnabled() &&
+    useExtendedSystem &&
+    dt !== undefined &&
+    !ctx.hasSpecies &&
+    ctx.junctions.length === 0 &&
+    !checkAfterCoupling &&
+    options.onProgress === undefined
+      ? new OuterCycleDetector()
+      : undefined;
+  /** Per-outer bookkeeping needed to account for a replayed orbit exactly. */
+  const outerRecords: OuterRecord[] = [];
+  /** Set when an inner loop assigns the sticky finalResidual / totalIter
+   *  (reset at the top of every outer). */
+  let innerStopAssigned: boolean;
+  const snapshotOuterCarry = (): OuterSnapshot => {
+    const b = new OuterSnapshotBuilder()
+      .array(X)
+      .num(trustRegionDelta)
+      .num(deltaTau)
+      .num(roundoffFloor)
+      .num(stalledOuters)
+      .array(state.mdots)
+      .map("P", state.nodeP)
+      .map("T", state.nodeT)
+      .map("rho", state.nodeRho)
+      .map("mu", state.nodeMu)
+      .map("h", state.nodeH)
+      .map("x", state.nodeQuality)
+      .map("phase", state.nodePhase)
+      .map("Y", state.nodeY)
+      .map("solidT", state.solidT)
+      .map("hc", kernelEnv.conductorHMap);
+    if (tPicardDamp) {
+      for (const [id, d] of tPicardDamp) {
+        b.map(
+          `damp:${id}`,
+          new Map([
+            ["l", d.lastDelta],
+            ["r", d.relax],
+          ]),
+        );
+      }
+    }
+    return b.build();
+  };
+
+  // Outer iterations run (outers replayed by the limit-cycle short-circuit
+  // included) — reported as outerIterations / hitOuterCap.
+  let outersRun = 0;
   for (let outer = 0; outer < maxOuter; outer++) {
+    outersRun = outer + 1;
+    const newtonItersAtOuterStart = newtonIters;
+    const lastResortAtOuterStart = cycleDetector
+      ? getSolverDiagnostics().statePHFallbackCount.lastResort
+      : 0;
+    innerStopAssigned = false;
     // The compressible stagnation-T memo is valid only while the frozen
     // state maps are unchanged — drop it at each outer (the previous
     // outer's sync updated nodeT/nodeRho/mdots).
@@ -1970,6 +2095,7 @@ function solveStateStepAttemptInner(
       acceptedOnRawNorm = true;
       finalResidual = bestRawNorm;
       totalIter = iter;
+      innerStopAssigned = true;
       for (let k = 0; k < X.length; k++) X[k] = bestX[k];
     };
     let consecutiveNoProgress = 0;
@@ -2025,6 +2151,7 @@ function solveStateStepAttemptInner(
         // inner loop converged
         finalResidual = bestResNorm;
         totalIter = iter;
+        innerStopAssigned = true;
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
@@ -2245,6 +2372,7 @@ function solveStateStepAttemptInner(
         // inner loop converged
         finalResidual = bestResNorm;
         totalIter = iter;
+        innerStopAssigned = true;
         for (let k = 0; k < X.length; k++) X[k] = bestX[k];
         break;
       }
@@ -2487,6 +2615,7 @@ function solveStateStepAttemptInner(
       state,
       kernelEnv.conductorHMap,
       t,
+      laggedFluidState,
     );
     let maxDeltaSolidT = 0;
     if (ctx.nSolid > 0) {
@@ -2579,6 +2708,7 @@ function solveStateStepAttemptInner(
         converged: outerConverged,
         iterations: totalIter,
         newtonIterations: newtonIters,
+        outerIterations: outersRun,
         residual: returnResidual,
         residualScaled: lastInnerBestResScaled,
         aborted: true,
@@ -2686,7 +2816,67 @@ function solveStateStepAttemptInner(
       outerConverged = true;
       break;
     }
+
+    // ── Exact limit-cycle short-circuit (see ./outerCycle.ts) ────────────
+    if (cycleDetector) {
+      outerRecords[outer] = {
+        newtonIters: newtonIters - newtonItersAtOuterStart,
+        innerStopAssigned,
+        finalResidual,
+        totalIter,
+        returnResidual,
+        lastInnerBestResScaled,
+        aboveBar: !(lastInnerBestResScaled <= tol * CERTIFY_SCALED_BAR_FACTOR),
+        lastResortDelta:
+          getSolverDiagnostics().statePHFallbackCount.lastResort -
+          lastResortAtOuterStart,
+      };
+      const j = cycleDetector.record(outer, snapshotOuterCarry());
+      if (j !== undefined) {
+        // The end-state of `outer` equals that of outer j: outers
+        // outer+1, outer+2, … would replay j+1 … outer verbatim until
+        // maxOuter.  Short-circuit only when that replay provably cannot
+        // change the outcome, i.e. when the orbit
+        //   • starts at j+1 ≥ 5, so the outer ≥ 5 soft-convergence test has
+        //     already been evaluated (and failed) on every orbit member;
+        //   • stays at or below the certifying bar throughout, so the
+        //     above-bar residual-trend detector (the only outer-index-
+        //     dependent exit) can never fire;
+        //   • recorded no last-resort property fallback (that global count
+        //     is reported per attempt as propertyFallbacks).
+        // The convergence test failed on every member, and no member can
+        // improve the best-outer bookkeeping again (strict <), so running on
+        // would end at maxOuter with the state restored from bestOuterState
+        // — exactly what the post-loop code below does after this break.
+        // Only the per-outer counters of the skipped replay remain; they are
+        // accumulated here so the reported values are identical too.
+        const period = outer - j;
+        let replayable = j + 1 >= 5 && bestOuterState !== undefined;
+        for (let m = j + 1; replayable && m <= outer; m++) {
+          const rec = outerRecords[m];
+          if (rec.aboveBar || rec.lastResortDelta !== 0) replayable = false;
+        }
+        if (replayable) {
+          for (let m = outer + 1; m < maxOuter; m++) {
+            const rec = outerRecords[j + 1 + ((m - j - 1) % period)];
+            newtonIters += rec.newtonIters;
+            if (rec.innerStopAssigned) {
+              finalResidual = rec.finalResidual;
+              totalIter = rec.totalIter;
+            }
+            returnResidual = rec.returnResidual;
+            lastInnerBestResScaled = rec.lastInnerBestResScaled;
+          }
+          recordOuterCycleShortCircuit(maxOuter - 1 - outer);
+          outersRun = maxOuter;
+          outerConverged = false;
+          break;
+        }
+      }
+    }
   }
+
+  const hitOuterCap = !outerConverged && outersRun >= maxOuter;
 
   // Non-converged exit (stalled / hopeless / maxOuter): restore the
   // most-converged outer iterate found (its residual is measured against
@@ -2714,6 +2904,8 @@ function solveStateStepAttemptInner(
     converged: outerConverged && chemistryFailed.length === 0,
     iterations: totalIter,
     newtonIterations: newtonIters,
+    outerIterations: outersRun,
+    hitOuterCap,
     residual: returnResidual < 1e99 ? returnResidual : finalResidual,
     residualScaled: lastInnerBestResScaled,
     ptcDeltaTau: ptcActive ? deltaTau : undefined,

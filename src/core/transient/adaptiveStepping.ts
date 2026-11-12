@@ -70,6 +70,10 @@ export function runAdaptiveTimeStepping(
     dtAtMinCount,
     accuracyLimited: dtAtMinCount > 0,
   });
+  // Candidate solves (full step and both half steps, rejected candidates
+  // included) whose outer loop ran to settings.maxOuterIterations.
+  let outerCapSteps = 0;
+  const statsFields = () => ({ stats: stats(), outerCapSteps });
 
   if (options?.onProgress) {
     options.onProgress({
@@ -82,7 +86,7 @@ export function runAdaptiveTimeStepping(
   }
 
   if (fireLogicInit(run)) {
-    return { ...partial(0, true), stats: stats(), ...run.runtimeFields() };
+    return { ...partial(0, true), ...statsFields(), ...run.runtimeFields() };
   }
 
   const sortedBreakpoints = collectScheduleBreakpoints(config, endTime);
@@ -111,7 +115,7 @@ export function runAdaptiveTimeStepping(
       return {
         ...partial(acceptedSteps, allConverged, true),
         aborted: true,
-        stats: stats(),
+        ...statsFields(),
         ...run.runtimeFields(),
       };
     }
@@ -152,7 +156,7 @@ export function runAdaptiveTimeStepping(
         return {
           ...partial(acceptedSteps, allConverged, true),
           aborted: true,
-          stats: stats(),
+          ...statsFields(),
           ...run.runtimeFields(),
         };
       }
@@ -167,7 +171,7 @@ export function runAdaptiveTimeStepping(
         logic.fire("solveEnd", buildLogicScope(ctx, state), { t, dt });
         return {
           ...partial(acceptedSteps, allConverged),
-          stats: stats(),
+          ...statsFields(),
           ...run.runtimeFields(),
         };
       }
@@ -197,6 +201,7 @@ export function runAdaptiveTimeStepping(
           t: target,
           prevState: from,
         });
+        if (res.hitOuterCap) outerCapSteps++;
         return res.converged
           ? { s, iterations: res.iterations, residual: res.residual }
           : undefined;
@@ -350,7 +355,7 @@ export function runAdaptiveTimeStepping(
       logic.fire("solveEnd", buildLogicScope(ctx, state), { t, dt });
       return {
         ...partial(acceptedSteps, allConverged),
-        stats: stats(),
+        ...statsFields(),
         ...run.runtimeFields(),
       };
     }
@@ -410,7 +415,7 @@ export function runAdaptiveTimeStepping(
       });
       return {
         ...partial(acceptedSteps, allConverged),
-        stats: stats(),
+        ...statsFields(),
         ...run.runtimeFields(),
       };
     }
@@ -453,7 +458,7 @@ export function runAdaptiveTimeStepping(
     ttWf: history.ttWfResultField(),
     fluidFront: history.fluidFrontResultField(),
     capillary: history.capillaryResultField(),
-    stats: stats(),
+    ...statsFields(),
     ...run.runtimeFields(),
   };
 }
