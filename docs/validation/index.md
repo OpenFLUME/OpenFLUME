@@ -5,10 +5,7 @@ description: How OpenFLUME is checked — analytic verification, code-to-code be
 
 # Verification and validation
 
-OpenFLUME is Alpha software. It was written by one engineer with heavy AI
-assistance (see "How This Was Built" in the
-[README](../../README.md#how-this-was-built)), so it has to be checked, not
-trusted. This page is the index to that evidence: what kind of evidence each
+OpenFLUME is Alpha software, so it has to be checked, not trusted. This page is the index to that evidence: what kind of evidence each
 result is, how the reports are produced, how often the checks run, and where
 the evidence stops.
 

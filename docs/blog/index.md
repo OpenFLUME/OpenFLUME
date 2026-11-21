@@ -1,6 +1,6 @@
 ---
 title: Blog
-description: Notes from the OpenFLUME project on verification, validation cases, architecture, and how the solver was built.
+description: Notes from the OpenFLUME project on verification, validation cases, and architecture.
 ---
 
 # Blog

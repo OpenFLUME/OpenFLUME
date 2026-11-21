@@ -140,9 +140,7 @@ The chilldown, choked-flow, tank self-pressurization and radiator reports are va
 
 Continuous integration reruns the complete scientific validation suite weekly.
 
-## How This Was Built
-
-OpenFLUME was written by one engineer with heavy AI assistance, over a short calendar period. That is unusual for a code of this kind, and it is precisely why the verification record above is structured the way it is: when generating plausible-looking code is cheap, evidence is the only thing that distinguishes a correct solver from a convincing one.
+## Checking the Results
 
 The project is built so that you do not have to take any of it on trust:
 

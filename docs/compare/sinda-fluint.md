@@ -138,8 +138,7 @@ _Radiation–convection equilibrium, from the
 From [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries), plus
 the thermal-specific points above:
 
-- **Alpha, single author, heavy AI assistance, no flight heritage, no
-  commercial support.**
+- **Alpha, no flight heritage, no commercial support.**
 - **Segregated solid–fluid coupling** does not converge at very high NTU per
   node (see Sample F above).
 - **No view-factor computation.** Each radiation conductor takes a

@@ -158,8 +158,7 @@ From [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundaries):
 - **Smaller, younger component library** (19 branch types plus user
   JavaScript components). User code is trusted, not sandboxed.
 - **Steady closed ideal-gas loops** need a pressure anchor.
-- **Alpha, single author, heavy AI assistance, no flight or program
-  qualification.** Check results against the
+- **Alpha, no flight or program qualification.** Check results against the
   [verification record](../validation/index.md).
 
 ## Example links

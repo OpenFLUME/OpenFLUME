@@ -27,7 +27,7 @@ The aerospace industry has long needed an accessible, open-source tool for therm
 
 OpenFLUME aims to break this cycle. It solves this same class of problems using a proven finite-volume network formulation, provided entirely open-source.
 
-Although a browser interface is provided, the solver core is a plain library with no user-interface dependency so it can be integrated into a research pipeline. The tool is designed to be easily understood and clear, so simulations can be created programmatically or, especially in the case of very large networks, AI-assisted.
+Although a browser interface is provided, the solver core is a plain library with no user-interface dependency so it can be integrated into a research pipeline. The tool is designed to be easily understood and clear, so simulations can be created programmatically.
 
 This manual is organized so that a new user can stop after section 2 and still
 run a useful model. Section 1 introduces the method and limitations. Section 2 installs the program and walks through a first simulation.

@@ -12,9 +12,9 @@ AFT Fathom and AFT Arrow (Applied Flow Technology), GT-SUITE (Gamma
 Technologies), EcosimPro, Simscape Fluids (MathWorks), and Modelica-based
 environments.
 
-**OpenFLUME does not replace these tools in general.** It is Alpha software
-from a single author, its component library is much smaller, and it has no
-industrial qualification history. It is useful for preliminary sizing,
+**OpenFLUME does not replace these tools in general.** It is Alpha software,
+its component library is much smaller, and it has no industrial qualification
+history. It is useful for preliminary sizing,
 teaching, and analysis that has to be auditable end to end.
 
 ## What the commercial tools generally offer

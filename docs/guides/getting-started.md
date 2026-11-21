@@ -10,8 +10,7 @@ transient, then save your work. Local and Python installs are
 optional. The [user's manual](../user-manual.md) covers each step in depth, and
 its §2.3 (First Simulation) is this walkthrough in reference form.
 
-OpenFLUME is alpha software (version 0.4.1), written by one engineer with heavy
-AI assistance. The project's position is _check it rather than trust it_, and
+OpenFLUME is alpha software (version 0.4.1). The project's position is _check it rather than trust it_, and
 the first two steps let you do that.
 
 ## 1. Open the app

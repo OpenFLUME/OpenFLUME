@@ -38,7 +38,7 @@ unverified here, not that the capability is missing.
 
 |                                   | OpenFLUME                                                             | NASA GFSSP                                                                   | SINDA/FLUINT                                                   | Commercial 1-D system tools (Flowmaster, AFT Fathom/Arrow, GT-SUITE, EcosimPro, Simscape Fluids, Modelica-based tools) |
 | --------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| **Origin / owner**                | Open-source project, single author                                    | NASA Marshall Space Flight Center                                            | C&R Technologies (commercial)                                  | Commercial vendors. Modelica is an open language with both open-source and commercial tools                            |
+| **Origin / owner**                | Open-source project                                                   | NASA Marshall Space Flight Center                                            | C&R Technologies (commercial)                                  | Commercial vendors. Modelica is an open language with both open-source and commercial tools                            |
 | **How you get it**                | Open a URL, or `pip install openflume`                                | NASA software release process; check NASA's software catalog for eligibility | Commercial license from C&R                                    | Commercial license from each vendor (OpenModelica is open source)                                                      |
 | **Installation**                  | None (browser)                                                        | Installed desktop software                                                   | Installed desktop software                                     | Installed desktop software, or a toolbox inside a host platform (e.g. Simscape needs MATLAB/Simulink)                  |
 | **Source code available**         | Yes (MIT)                                                             | Check distributor                                                            | No (commercial)                                                | Generally no. Modelica libraries are often readable source                                                             |
@@ -80,7 +80,7 @@ The full list is [§1.7 Scope Boundaries](../user-manual.md#_1-7-scope-boundarie
 - **Steady closed ideal-gas loops** need a pressure anchor.
 - **Cryogenic chilldown** is validated only to a factor-of-1.6 regression band
   on chilldown time ([§8.4](../user-manual.md#_8-4-validation-against-experiment)).
-- **One author, heavy AI assistance, no commercial support.**
+- **No commercial support.**
 
 ## Where OpenFLUME is stronger
 
