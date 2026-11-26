@@ -897,3 +897,10 @@
   font-size: var(--fs-body);
   color: var(--text-3);
 }
+
+/* Read-only embed mode (issue #26): hide editing chrome — outline and
+   inspector — keeping canvas, Run and results visible. */
+body.embed-mode [data-testid="studio-outline"],
+body.embed-mode [data-testid="studio-inspector"] {
+  display: none !important;
+}
