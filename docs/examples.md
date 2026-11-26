@@ -70,6 +70,25 @@ adiabatic expansion cooling. See the
 
 [Open in browser](https://openflume.github.io/OpenFLUME/#example=tank-blowdown)
 
+### Pressure-fed propellant feed system
+
+_Steady · incompressible water_
+
+A 1600 kPa pressurant bottle is regulated through an orifice down to a
+1200 kPa propellant tank. Propellant runs down a 3 m feed line, through a
+fully open shut-off valve and the injector orifice, into a 500 kPa chamber.
+
+Hand check: the injector drop is about 700 kPa, so the jet speed is about
+37 m/s and the flow is about 9 kg/s.
+
+**Demonstrates:** pressure-fed feed layout (regulator → tank → line →
+valve → injector → chamber), dominant orifice drops, and verifying a steady
+solve against the orifice equation. See also the
+[feed-line tutorial](./guides/feed-system.md), which builds this arrangement
+by hand.
+
+[Open in browser](https://openflume.github.io/OpenFLUME/#example=pressure-fed-propellant-feed-system)
+
 ### Water distribution network
 
 _Steady · incompressible water_
